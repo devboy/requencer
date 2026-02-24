@@ -18,6 +18,7 @@
 
 import type { ControlEvent, SubtrackId, FeatureId, HeldButtonTarget } from './hw-types'
 import { toggleHelp, isHelpOpen } from './help-modal'
+import { isStickyHoldActive, endStickyHold, setStickyHold, getStickyHoldButton } from './panel/controls'
 
 type ControlEventCallback = (event: ControlEvent) => void
 
@@ -43,6 +44,7 @@ const SUBTRACK_KEYS: Record<string, SubtrackId> = { q: 'gate', w: 'pitch', e: 'v
 const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'div' }
 
 const HOLD_THRESHOLD_MS = 200
+const STICKY_THRESHOLD_MS = 300
 
 // --- Keyboard hold detection ---
 // Holdable keys: track (1-4), subtrack (Q/W/E/R), feature (A/S/D/F)
@@ -57,6 +59,11 @@ interface KeyHoldState {
 }
 
 let keyHold: KeyHoldState | null = null
+
+// --- Keyboard sticky hold (double-tap detection) ---
+// Track last keyup time per holdable key for double-tap detection
+const lastKeyUp: Record<string, number> = {}
+let keyboardSticky = false // true when keyboard initiated the sticky hold
 
 // Shift+Q/W/E/R → track select (alternative to 1-4)
 const SHIFT_TRACK_KEYS: Record<string, number> = { q: 0, w: 1, e: 2, r: 3 }
@@ -113,6 +120,31 @@ function clearKeyHold(): void {
   keyHold = null
 }
 
+/** Check if a button matches the currently sticky-held button */
+function sameHeldButton(button: HeldButtonTarget): boolean {
+  const held = getStickyHoldButton()
+  if (!held || held.kind !== button.kind) return false
+  if (held.kind === 'track') return held.track === (button as typeof held).track
+  if (held.kind === 'subtrack') return held.subtrack === (button as { kind: 'subtrack'; subtrack: SubtrackId }).subtrack
+  return held.feature === (button as { kind: 'feature'; feature: FeatureId }).feature
+}
+
+/** Find the corresponding panel button element for a held button target */
+function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
+  switch (button.kind) {
+    case 'track':
+      return document.querySelector(`.track-btn[data-track="${button.track}"]`)
+    case 'subtrack': {
+      const idx = (['gate', 'pitch', 'velocity', 'mod'] as const).indexOf(button.subtrack)
+      return document.querySelector(`.subtrack-btn[data-index="${idx}"]`)
+    }
+    case 'feature': {
+      const idx = (['mute', 'route', 'rand', 'div'] as const).indexOf(button.feature)
+      return document.querySelector(`.feature-btn[data-index="${idx}"]`)
+    }
+  }
+}
+
 export function setupKeyboardInput(): () => void {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return // ignore key repeat
@@ -124,11 +156,47 @@ export function setupKeyboardInput(): () => void {
 
     const key = e.key.toLowerCase()
 
+    // Escape exits sticky hold (from any input source)
+    if (e.key === 'Escape' && isStickyHoldActive()) {
+      e.preventDefault()
+      keyboardSticky = false
+      endStickyHold()
+      return
+    }
+
     // Check if this is a holdable button
     const holdable = getHoldableButton(key, e.shiftKey)
     if (holdable) {
       e.preventDefault()
-      // Start hold detection
+
+      // If sticky hold active, check if same or different button
+      if (isStickyHoldActive()) {
+        if (sameHeldButton(holdable.button)) {
+          // Same button → end sticky hold (the "release" gesture)
+          keyboardSticky = false
+          endStickyHold()
+          return
+        }
+        // Different button → emit tap while sticky hold stays active (this IS the combo)
+        emit(holdable.tapEvent)
+        return
+      }
+
+      // Check for double-tap → sticky hold
+      const now = performance.now()
+      if (lastKeyUp[key] && now - lastKeyUp[key] < STICKY_THRESHOLD_MS) {
+        delete lastKeyUp[key]
+        keyboardSticky = true
+        // Find the corresponding panel button and apply CSS class
+        const el = findPanelButton(holdable.button)
+        if (el) {
+          setStickyHold(holdable.button, el)
+        }
+        emit({ type: 'hold-start', button: holdable.button })
+        return
+      }
+
+      // Start normal hold detection
       clearKeyHold()
       const state: KeyHoldState = {
         key,
@@ -155,13 +223,18 @@ export function setupKeyboardInput(): () => void {
   }
 
   const handleKeyUp = (e: KeyboardEvent) => {
-    if (!keyHold) return
     const key = e.key.toLowerCase()
+
+    // Sticky hold keyup is a no-op — sticky persists until next holdable keydown or Escape
+    if (keyboardSticky) return
+
+    if (!keyHold) return
     if (key !== keyHold.key) return
 
     if (keyHold.timer !== null) {
-      // Released before threshold — emit tap
+      // Released before threshold — emit tap, record time for double-tap detection
       clearTimeout(keyHold.timer)
+      lastKeyUp[key] = performance.now()
       emit(keyHold.tapEvent)
     } else if (keyHold.holdActive) {
       // Was holding — emit hold-end
@@ -177,5 +250,6 @@ export function setupKeyboardInput(): () => void {
     window.removeEventListener('keydown', handleKeyDown)
     window.removeEventListener('keyup', handleKeyUp)
     clearKeyHold()
+    keyboardSticky = false
   }
 }

@@ -29,7 +29,68 @@ let holdTimer: ReturnType<typeof setTimeout> | null = null
 let activeHold: { button: HeldButtonTarget; tapEvent: ControlEvent } | null = null
 let holdActive = false // true once hold-start has been emitted
 
-function startHold(button: HeldButtonTarget, tapEvent: ControlEvent): void {
+// --- Sticky Hold (double-click detection) ---
+const STICKY_THRESHOLD_MS = 300
+let lastTapUp = 0 // timestamp of most recent mouseup from a holdable button tap
+let stickyHold: { button: HeldButtonTarget; el: HTMLElement } | null = null
+
+/** Returns true if a sticky hold is currently active (from any input source) */
+export function isStickyHoldActive(): boolean {
+  return stickyHold !== null
+}
+
+/** Returns the currently sticky-held button target, or null */
+export function getStickyHoldButton(): HeldButtonTarget | null {
+  return stickyHold?.button ?? null
+}
+
+/** End sticky hold — emits hold-end, removes CSS class. Safe to call when not sticky. */
+export function endStickyHold(): void {
+  if (!stickyHold) return
+  stickyHold.el.classList.remove('sticky-hold')
+  stickyHold = null
+  emit({ type: 'hold-end' })
+}
+
+/**
+ * Set sticky hold from an external source (keyboard input).
+ * Only one sticky hold can be active at a time.
+ */
+export function setStickyHold(button: HeldButtonTarget, el: HTMLElement): void {
+  if (stickyHold) endStickyHold()
+  stickyHold = { button, el }
+  el.classList.add('sticky-hold')
+}
+
+function sameButton(a: HeldButtonTarget, b: HeldButtonTarget): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'track') return a.track === (b as typeof a).track
+  if (a.kind === 'subtrack') return a.subtrack === (b as { kind: 'subtrack'; subtrack: SubtrackId }).subtrack
+  return a.feature === (b as { kind: 'feature'; feature: FeatureId }).feature
+}
+
+function startHold(button: HeldButtonTarget, tapEvent: ControlEvent, el: HTMLElement): void {
+  if (stickyHold) {
+    if (sameButton(stickyHold.button, button)) {
+      // Clicking the same button → end sticky hold (the "release" gesture)
+      endStickyHold()
+      return
+    }
+    // Different button → emit tap while sticky hold stays active (this IS the combo)
+    emit(tapEvent)
+    return
+  }
+
+  // Check for double-click → sticky hold
+  const now = performance.now()
+  if (now - lastTapUp < STICKY_THRESHOLD_MS) {
+    lastTapUp = 0 // reset to prevent triple-click
+    stickyHold = { button, el }
+    el.classList.add('sticky-hold')
+    emit({ type: 'hold-start', button })
+    return
+  }
+
   clearHold()
   activeHold = { button, tapEvent }
   holdActive = false
@@ -50,10 +111,14 @@ function clearHold(): void {
 }
 
 function endHold(): void {
+  // Sticky hold mouseup is a no-op — sticky persists until next click or Escape
+  if (stickyHold) return
+
   if (holdTimer !== null) {
-    // Released before threshold — emit tap event
+    // Released before threshold — emit tap event, record tap time for double-click detection
     clearTimeout(holdTimer)
     holdTimer = null
+    lastTapUp = performance.now()
     if (activeHold) emit(activeHold.tapEvent)
   } else if (holdActive) {
     // Was in hold mode — emit hold-end
@@ -67,41 +132,47 @@ function endHold(): void {
 export function createControls(panel: FaceplateElements): void {
   // --- Track buttons (T1-T4) — hold-aware ---
   for (let i = 0; i < panel.trackBtns.length; i++) {
-    panel.trackBtns[i].addEventListener('mousedown', (e) => {
+    const btn = panel.trackBtns[i]
+    btn.addEventListener('mousedown', (e) => {
       e.preventDefault()
-      startHold({ kind: 'track', track: i }, { type: 'track-select', track: i })
+      startHold({ kind: 'track', track: i }, { type: 'track-select', track: i }, btn)
     })
-    panel.trackBtns[i].addEventListener('mouseup', () => endHold())
-    panel.trackBtns[i].addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('mouseup', () => endHold())
+    btn.addEventListener('mouseleave', () => endHold())
   }
 
   // --- Subtrack buttons (GATE, PTCH, VEL, MOD) — hold-aware ---
   for (let i = 0; i < panel.subtrackBtns.length; i++) {
-    panel.subtrackBtns[i].addEventListener('mousedown', (e) => {
+    const btn = panel.subtrackBtns[i]
+    btn.addEventListener('mousedown', (e) => {
       e.preventDefault()
       startHold(
         { kind: 'subtrack', subtrack: SUBTRACK_IDS[i] },
         { type: 'subtrack-select', subtrack: SUBTRACK_IDS[i] },
+        btn,
       )
     })
-    panel.subtrackBtns[i].addEventListener('mouseup', () => endHold())
-    panel.subtrackBtns[i].addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('mouseup', () => endHold())
+    btn.addEventListener('mouseleave', () => endHold())
   }
 
   // --- Feature buttons (MUTE, ROUTE, RAND, DIV) — hold-aware ---
   for (let i = 0; i < panel.featureBtns.length; i++) {
-    panel.featureBtns[i].addEventListener('mousedown', (e) => {
+    const btn = panel.featureBtns[i]
+    btn.addEventListener('mousedown', (e) => {
       e.preventDefault()
       startHold(
         { kind: 'feature', feature: FEATURE_IDS[i] },
         { type: 'feature-press', feature: FEATURE_IDS[i] },
+        btn,
       )
     })
-    panel.featureBtns[i].addEventListener('mouseup', () => endHold())
-    panel.featureBtns[i].addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('mouseup', () => endHold())
+    btn.addEventListener('mouseleave', () => endHold())
   }
 
   // --- Step buttons (1-16) — no hold, direct emit ---
+  // Step presses pass through during sticky hold (they're part of hold combos)
   for (let i = 0; i < panel.stepBtns.length; i++) {
     panel.stepBtns[i].addEventListener('mousedown', () => {
       emit({ type: 'step-press', step: i })
@@ -111,6 +182,17 @@ export function createControls(panel: FaceplateElements): void {
   // --- Transport — no hold ---
   panel.playBtn.addEventListener('mousedown', () => emit({ type: 'play-stop' }))
   panel.resetBtn.addEventListener('mousedown', () => emit({ type: 'reset' }))
+
+  // --- Global click: end sticky hold on clicks outside interactive controls ---
+  // Step buttons, encoders pass through during sticky (they're used with hold combos).
+  // Holdable buttons already handle sticky exit in startHold().
+  document.addEventListener('mousedown', (e) => {
+    if (!stickyHold) return
+    const target = e.target as HTMLElement
+    // Ignore clicks on interactive controls (these have their own handling)
+    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn')) return
+    endStickyHold()
+  })
 
   // --- Dual encoders ---
   interface EncState {

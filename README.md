@@ -5,3 +5,7 @@ A 4-track eurorack-style step sequencer prototype running in the browser. Each t
 [Try it live](https://devboy.github.io/requencer/)
 
 ![screenshot](screenshot.png)
+
+## Controls
+
+Keyboard-driven with eurorack-style hold combos. Hold a track button (1-4) + encoder arrows to edit length and clock dividers. Hold a track button + D to randomize that track. Double-click or double-tap any holdable button to lock it in "sticky hold" — interact one-handed, then tap again or press Escape to release. Press `?` for the full keymap.

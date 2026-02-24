@@ -57,7 +57,9 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
       ['Hold 1–4 + ↑↓', 'Track length / divider'],
       ['Hold Q/W/E + ↑↓', 'Subtrack length / divider'],
       ['Hold A + ↑↓', 'Mute length / divider'],
-      ['Hold D', 'Quick randomize'],
+      ['Hold 1–4 + D', 'Randomize selected track'],
+      ['Hold D', 'Quick randomize all'],
+      ['Double-tap key', 'Sticky hold (tap again to release)'],
     ],
   },
 ]

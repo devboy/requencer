@@ -693,6 +693,15 @@ const PANEL_CSS = `
     50% { opacity: 0.4; }
   }
 
+  /* ── Sticky hold pulsing glow ── */
+  @keyframes sticky-pulse {
+    0%, 100% { box-shadow: 0 0 4px 1px rgba(232,160,191,0.4); }
+    50% { box-shadow: 0 0 10px 3px rgba(232,160,191,0.8); }
+  }
+  .sticky-hold {
+    animation: sticky-pulse 1s ease-in-out infinite;
+  }
+
   /* ══════════════════════════════════════════
      MOUNTING SLOTS
      ══════════════════════════════════════════ */
