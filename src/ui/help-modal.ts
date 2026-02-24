@@ -15,6 +15,7 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
     title: 'TRACKS',
     keys: [
       ['1 – 4', 'Select track T1–T4'],
+      ['Shift + Q/W/E/R', 'Select track T1–T4 (alt)'],
     ],
   },
   {
@@ -54,11 +55,13 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
   {
     title: 'HOLD COMBOS',
     keys: [
-      ['Hold 1–4 + ↑↓', 'Track length / divider'],
-      ['Hold Q/W/E + ↑↓', 'Subtrack length / divider'],
+      ['Hold 1–4 + ↑↓', 'All subtrack lengths / track divider'],
+      ['Hold Q/W/E/R + ↑↓', 'Individual subtrack length / divider'],
       ['Hold A + ↑↓', 'Mute length / divider'],
-      ['Hold 1–4 + D', 'Randomize selected track'],
-      ['Hold D', 'Quick randomize all'],
+      ['Hold 1–4 + D', 'Randomize entire track'],
+      ['Hold Q/W/E + D', 'Randomize gate / pitch / velocity only'],
+      ['Hold 1–4 + Backspace', 'Reset track playheads'],
+      ['Hold Q/W/E/R + ⌫', 'Reset subtrack playhead'],
       ['Double-tap key', 'Sticky hold (tap again to release)'],
     ],
   },

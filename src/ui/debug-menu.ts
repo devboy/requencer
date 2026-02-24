@@ -4,6 +4,7 @@
 
 import type { DrumMachine } from '../io/drum-machine'
 import { toggleHelp } from './help-modal'
+import { toggleInstructions } from './instructions-modal'
 
 export interface DebugActions {
   getBpm(): number
@@ -79,7 +80,13 @@ export function createDebugMenu(actions: DebugActions): void {
   helpBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
   helpBtn.addEventListener('click', () => toggleHelp())
 
+  // Instructions button
+  const instrBtn = document.createElement('button')
+  instrBtn.textContent = 'Instructions'
+  instrBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
+  instrBtn.addEventListener('click', () => toggleInstructions())
+
   btnRow.append(playBtn, clearBtn)
-  el.append(bpmRow, drumsBtn, btnRow, helpBtn)
+  el.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
   document.body.appendChild(el)
 }
