@@ -875,6 +875,9 @@ const PANEL_CSS = `
 
   #module-panel {
     touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
   @media (max-width: 600px) {

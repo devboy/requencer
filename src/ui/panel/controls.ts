@@ -221,7 +221,17 @@ export function createControls(panel: FaceplateElements): void {
   }
 
   // --- Transport — no hold ---
-  panel.playBtn.addEventListener('pointerdown', () => emit({ type: 'play-stop' }))
+  // Use touchend for iOS audio unlock — pointerdown may not count as user gesture
+  let playTouchHandled = false
+  panel.playBtn.addEventListener('touchend', (e) => {
+    e.preventDefault()
+    playTouchHandled = true
+    emit({ type: 'play-stop' })
+  })
+  panel.playBtn.addEventListener('pointerdown', () => {
+    if (playTouchHandled) { playTouchHandled = false; return }
+    emit({ type: 'play-stop' })
+  })
   panel.resetBtn.addEventListener('pointerdown', () => emit({ type: 'reset' }))
 
   // --- Global click: end sticky hold on clicks outside interactive controls ---

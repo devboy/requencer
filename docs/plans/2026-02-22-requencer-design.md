@@ -52,6 +52,9 @@ Each sequence track has 3 subtracks (gate, pitch, velocity) that can have:
 - Independent track and subtrack lengths
 - Hierarchical clock: master → track divider → subtrack divider
 
+### Overlays
+Transforms applied to engine output before it reaches I/O — modifying playback without changing stored sequences. Mutes and routing are the first overlays; future ones include transposition, probability masks, and bar-offset patterns. See [feature ideas research](../../docs/research/feature-ideas.md) for details.
+
 ## Modes
 
 | Mode | LCD Content | S1 | S2 | S3 | S4 |
@@ -119,8 +122,14 @@ Regen: short press on a grid button regenerates that track×subtype.
 
 - Sample/Hold mode for pitch and velocity
 - Gate length per step
+- Ratchets (per-step subdivisions for rolls/fills)
+- Slides / portamento (TB-303 style pitch glide between steps)
+- Bar-offset overlay (shift patterns by N steps each bar for evolving sequences)
+- Pitch arpeggio generator (ordered chord-tone patterns as alternative to random pitch)
 - Web MIDI output
 - Pattern chaining
 - Probability per step
 - CV output curves
 - Rust port for embedded hardware
+
+See [feature ideas research](../../docs/research/feature-ideas.md) for detailed writeups and trade-offs.

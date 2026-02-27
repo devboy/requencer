@@ -30,6 +30,9 @@ export class ToneClock {
    */
   async start(): Promise<void> {
     await Tone.start()
+    if (Tone.getContext().state !== 'running') {
+      console.warn('[audio] Context not running after Tone.start():', Tone.getContext().state)
+    }
     const transport = Tone.getTransport()
 
     // Schedule a repeating callback at 16th note intervals
