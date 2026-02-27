@@ -13,7 +13,7 @@ import type { UIState, ControlEvent, ScreenMode } from './ui/hw-types'
 import { COLORS } from './ui/colors'
 import { setupLCDCanvas, drawStatusBar, LCD_W, LCD_H } from './ui/renderer'
 import { onControlEvent, setupKeyboardInput, emit } from './ui/input'
-import { createFaceplate, injectPanelStyles } from './ui/panel/faceplate'
+import { createFaceplate, injectPanelStyles, setupMobileViewport } from './ui/panel/faceplate'
 import { createControls, updateLEDs, updateModeIndicators } from './ui/panel/controls'
 
 // LCD screen renderers
@@ -58,6 +58,7 @@ const panel = createFaceplate()
 const lcdCtx = setupLCDCanvas(panel.lcdCanvas)
 
 createControls(panel)
+setupMobileViewport()
 
 // --- Keyboard Input ---
 setupKeyboardInput()

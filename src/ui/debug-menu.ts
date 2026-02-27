@@ -1,5 +1,6 @@
 /**
  * Debug menu — always-visible panel for BPM control and drum backing track.
+ * Collapsible on mobile (collapsed by default), expanded on desktop.
  */
 
 import type { DrumMachine } from '../io/drum-machine'
@@ -21,14 +22,46 @@ const BTN_CSS = `
 `
 
 export function createDebugMenu(actions: DebugActions): void {
+  const isMobile = window.matchMedia('(max-width: 600px)')
+
   const el = document.createElement('div')
   el.id = 'debug-menu'
   el.style.cssText = `
     position: fixed; top: 12px; right: 12px; z-index: 9999;
     background: #1a1a2e; border: 1px solid #444; border-radius: 6px;
-    padding: 12px 16px; color: #ccc; font: 13px monospace;
-    min-width: 180px;
+    color: #ccc; font: 13px monospace;
   `
+
+  // Toggle button — always visible
+  const toggleBtn = document.createElement('button')
+  toggleBtn.textContent = '...'
+  toggleBtn.style.cssText = `
+    display: block; width: 100%; padding: 6px 16px;
+    background: none; border: none; color: #888;
+    font: 16px monospace; cursor: pointer; text-align: right;
+    border-radius: 6px;
+  `
+
+  // Content wrapper
+  const content = document.createElement('div')
+  content.style.cssText = 'padding: 0 16px 12px;'
+
+  let expanded = !isMobile.matches
+
+  function setExpanded(show: boolean): void {
+    expanded = show
+    content.style.display = show ? '' : 'none'
+    toggleBtn.textContent = show ? '\u2715' : '...'
+    // When collapsed, tighten the container
+    el.style.padding = '0'
+  }
+
+  toggleBtn.addEventListener('click', () => setExpanded(!expanded))
+
+  // Track media query changes
+  isMobile.addEventListener('change', (e) => {
+    setExpanded(!e.matches)
+  })
 
   // BPM row
   const bpmRow = document.createElement('div')
@@ -87,6 +120,10 @@ export function createDebugMenu(actions: DebugActions): void {
   instrBtn.addEventListener('click', () => toggleInstructions())
 
   btnRow.append(playBtn, clearBtn)
-  el.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
+  content.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
+  el.append(toggleBtn, content)
   document.body.appendChild(el)
+
+  // Set initial state
+  setExpanded(expanded)
 }

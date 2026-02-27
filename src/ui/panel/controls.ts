@@ -31,7 +31,7 @@ let holdActive = false // true once hold-start has been emitted
 
 // --- Sticky Hold (double-click detection) ---
 const STICKY_THRESHOLD_MS = 300
-let lastTapUp = 0 // timestamp of most recent mouseup from a holdable button tap
+let lastTapUp = 0 // timestamp of most recent pointerup from a holdable button tap
 let stickyHold: { button: HeldButtonTarget; el: HTMLElement } | null = null
 
 /** Returns true if a sticky hold is currently active (from any input source) */
@@ -111,7 +111,7 @@ function clearHold(): void {
 }
 
 function endHold(): void {
-  // Sticky hold mouseup is a no-op — sticky persists until next click or Escape
+  // Sticky hold pointerup is a no-op — sticky persists until next click or Escape
   if (stickyHold) return
 
   if (holdTimer !== null) {
@@ -128,65 +128,106 @@ function endHold(): void {
   holdActive = false
 }
 
+// --- Multitouch: track active pointers on holdable buttons ---
+const activePointers = new Map<number, { button: HeldButtonTarget; el: HTMLElement }>()
+
+function holdablePointerDown(
+  e: PointerEvent,
+  button: HeldButtonTarget,
+  tapEvent: ControlEvent,
+  el: HTMLElement,
+): void {
+  e.preventDefault()
+
+  // Check for true multitouch combo: another pointer is already down on a different holdable button
+  if (activePointers.size > 0) {
+    const existing = activePointers.values().next().value!
+    if (!sameButton(existing.button, button)) {
+      // First pointer's button becomes the hold, second is the tap (combo)
+      if (!holdActive && !stickyHold) {
+        emit({ type: 'hold-start', button: existing.button })
+        holdActive = true
+      }
+      emit(tapEvent)
+      activePointers.set(e.pointerId, { button, el })
+      return
+    }
+  }
+
+  activePointers.set(e.pointerId, { button, el })
+  startHold(button, tapEvent, el)
+}
+
+function holdablePointerUp(e: PointerEvent): void {
+  activePointers.delete(e.pointerId)
+  // If all pointers are released and we had a multitouch hold, end it
+  if (activePointers.size === 0 && holdActive && !stickyHold) {
+    emit({ type: 'hold-end' })
+    holdActive = false
+    activeHold = null
+    return
+  }
+  endHold()
+}
+
 /** Wire all interactive elements to emit ControlEvents */
 export function createControls(panel: FaceplateElements): void {
   // --- Track buttons (T1-T4) — hold-aware ---
   for (let i = 0; i < panel.trackBtns.length; i++) {
     const btn = panel.trackBtns[i]
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault()
-      startHold({ kind: 'track', track: i }, { type: 'track-select', track: i }, btn)
+    btn.addEventListener('pointerdown', (e) => {
+      holdablePointerDown(e, { kind: 'track', track: i }, { type: 'track-select', track: i }, btn)
     })
-    btn.addEventListener('mouseup', () => endHold())
-    btn.addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('pointerup', (e) => holdablePointerUp(e))
+    btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
   // --- Subtrack buttons (GATE, PTCH, VEL, MOD) — hold-aware ---
   for (let i = 0; i < panel.subtrackBtns.length; i++) {
     const btn = panel.subtrackBtns[i]
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault()
-      startHold(
+    btn.addEventListener('pointerdown', (e) => {
+      holdablePointerDown(
+        e,
         { kind: 'subtrack', subtrack: SUBTRACK_IDS[i] },
         { type: 'subtrack-select', subtrack: SUBTRACK_IDS[i] },
         btn,
       )
     })
-    btn.addEventListener('mouseup', () => endHold())
-    btn.addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('pointerup', (e) => holdablePointerUp(e))
+    btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
   // --- Feature buttons (MUTE, ROUTE, RAND, DIV) — hold-aware ---
   for (let i = 0; i < panel.featureBtns.length; i++) {
     const btn = panel.featureBtns[i]
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault()
-      startHold(
+    btn.addEventListener('pointerdown', (e) => {
+      holdablePointerDown(
+        e,
         { kind: 'feature', feature: FEATURE_IDS[i] },
         { type: 'feature-press', feature: FEATURE_IDS[i] },
         btn,
       )
     })
-    btn.addEventListener('mouseup', () => endHold())
-    btn.addEventListener('mouseleave', () => endHold())
+    btn.addEventListener('pointerup', (e) => holdablePointerUp(e))
+    btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
   // --- Step buttons (1-16) — no hold, direct emit ---
   // Step presses pass through during sticky hold (they're part of hold combos)
   for (let i = 0; i < panel.stepBtns.length; i++) {
-    panel.stepBtns[i].addEventListener('mousedown', () => {
+    panel.stepBtns[i].addEventListener('pointerdown', () => {
       emit({ type: 'step-press', step: i })
     })
   }
 
   // --- Transport — no hold ---
-  panel.playBtn.addEventListener('mousedown', () => emit({ type: 'play-stop' }))
-  panel.resetBtn.addEventListener('mousedown', () => emit({ type: 'reset' }))
+  panel.playBtn.addEventListener('pointerdown', () => emit({ type: 'play-stop' }))
+  panel.resetBtn.addEventListener('pointerdown', () => emit({ type: 'reset' }))
 
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
   // Holdable buttons already handle sticky exit in startHold().
-  document.addEventListener('mousedown', (e) => {
+  document.addEventListener('pointerdown', (e) => {
     if (!stickyHold) return
     const target = e.target as HTMLElement
     // Ignore clicks on interactive controls (these have their own handling)
@@ -202,27 +243,29 @@ export function createControls(panel: FaceplateElements): void {
     startY: number
     accum: number
     angle: number
+    pointerId: number  // track which pointer started the drag
     prefix: 'encoder-a' | 'encoder-b'
   }
 
   const encStates: EncState[] = [
-    { el: panel.encoderA, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, prefix: 'encoder-a' },
-    { el: panel.encoderB, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, prefix: 'encoder-b' },
+    { el: panel.encoderA, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-a' },
+    { el: panel.encoderB, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-b' },
   ]
 
   for (const enc of encStates) {
-    enc.el.addEventListener('mousedown', (e) => {
+    enc.el.addEventListener('pointerdown', (e) => {
       enc.dragging = true
       enc.turned = false
       enc.startY = e.clientY
       enc.accum = 0
+      enc.pointerId = e.pointerId
       e.preventDefault()
     })
   }
 
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     for (const enc of encStates) {
-      if (!enc.dragging) continue
+      if (!enc.dragging || enc.pointerId !== e.pointerId) continue
       const dy = enc.startY - e.clientY
       enc.accum += dy
       enc.startY = e.clientY
@@ -247,10 +290,11 @@ export function createControls(panel: FaceplateElements): void {
     }
   })
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('pointerup', (e) => {
     for (const enc of encStates) {
-      if (enc.dragging) {
+      if (enc.dragging && enc.pointerId === e.pointerId) {
         enc.dragging = false
+        enc.pointerId = -1
         if (!enc.turned) {
           emit({ type: `${enc.prefix}-push` })
         }

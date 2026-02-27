@@ -298,6 +298,44 @@ export function createFaceplate(): FaceplateElements {
   }
 }
 
+/** Scale the panel on mobile so the main-area fills the viewport width */
+export function setupMobileViewport(): void {
+  const mq = window.matchMedia('(max-width: 600px)')
+
+  function applyMobileScale(isMobile: boolean): void {
+    const panel = document.getElementById('module-panel')
+    if (!panel) return
+
+    if (isMobile) {
+      const mainArea = panel.querySelector('.main-area') as HTMLElement
+      if (!mainArea) return
+      // Reset transform to measure natural width
+      panel.style.transform = ''
+      const visibleWidth = mainArea.offsetLeft + mainArea.offsetWidth + mainArea.offsetLeft
+      const scale = window.innerWidth / visibleWidth
+      const scaledH = panel.offsetHeight * scale
+      const topMargin = Math.max(0, (window.innerHeight - scaledH) / 2)
+      panel.style.transform = `scale(${scale})`
+      panel.style.marginLeft = '0'
+      panel.style.marginTop = `${topMargin}px`
+      // Compensate for transform not affecting document flow
+      panel.style.marginBottom = `${panel.offsetHeight * (scale - 1)}px`
+    } else {
+      panel.style.transform = ''
+      panel.style.marginLeft = ''
+      panel.style.marginTop = ''
+      panel.style.marginBottom = ''
+    }
+  }
+
+  // Apply on load + orientation/resize changes
+  applyMobileScale(mq.matches)
+  mq.addEventListener('change', (e) => applyMobileScale(e.matches))
+  window.addEventListener('resize', () => {
+    if (mq.matches) applyMobileScale(true)
+  })
+}
+
 function generateRulerTicks(root: HTMLElement): void {
   const panel = root.querySelector('#module-panel') as HTMLElement
   const hpTrack = root.querySelector('.ruler-hp') as HTMLElement
@@ -826,4 +864,46 @@ const PANEL_CSS = `
     font-size: 7px; color: #555; white-space: nowrap; line-height: 10px;
   }
   .dim-tick .tick-label { opacity: 0.5; }
+
+  /* ══════════════════════════════════════════
+     TOUCH / MOBILE
+     ══════════════════════════════════════════ */
+
+  .circle-btn, .encoder {
+    touch-action: none;
+  }
+
+  #module-panel {
+    touch-action: none;
+  }
+
+  @media (max-width: 600px) {
+    body {
+      display: block;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: none;
+      height: auto;
+    }
+
+    .neighbor-module,
+    .ruler {
+      display: none !important;
+    }
+
+    #shortcut-hints {
+      display: none;
+    }
+
+    #module-panel {
+      transform-origin: top left;
+      width: max-content;
+    }
+
+    .rack-wrapper,
+    .rack-row,
+    .module-column {
+      display: block;
+    }
+  }
 `
