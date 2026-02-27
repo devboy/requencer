@@ -432,6 +432,15 @@ describe('hold combos', () => {
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -20 })
       expect(result.engine.tracks[0].gate.length).toBe(1) // clamped to min
     })
+
+    it('hold track targets held track, not selectedTrack', () => {
+      // selectedTrack is 0, but we hold track 3 — encoder should modify track 3
+      const ui = { ...holdUI({ kind: 'track', track: 3 }), selectedTrack: 0 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 2 })
+      expect(result.engine.tracks[3].gate.length).toBe(18) // held track changed
+      expect(result.engine.tracks[0].gate.length).toBe(16) // selected track unchanged
+    })
   })
 
   describe('hold subtrack + encoder', () => {

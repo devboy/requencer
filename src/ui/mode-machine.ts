@@ -634,7 +634,7 @@ function dispatchHoldCombo(
   event: { type: 'encoder-a-turn'; delta: number } | { type: 'encoder-b-turn'; delta: number },
 ): DispatchResult {
   const held = ui.heldButton!
-  const trackIdx = ui.selectedTrack
+  const trackIdx = held.kind === 'track' ? held.track : ui.selectedTrack
   const uiUsed = { ...ui, holdEncoderUsed: true }
 
   if (held.kind === 'track') {
