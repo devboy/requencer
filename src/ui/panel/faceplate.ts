@@ -217,8 +217,8 @@ export function createFaceplate(): FaceplateElements {
   // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
   const featureCol = root.querySelector('#feature-col') as HTMLDivElement
   const featureBtns: HTMLButtonElement[] = []
-  const featureLabels = ['MUTE', 'ROUTE', 'DIV/LEN']
-  for (let i = 0; i < 3; i++) {
+  const featureLabels = ['MUTE', 'ROUTE', 'DIV/LEN', 'TBD']
+  for (let i = 0; i < 4; i++) {
     const btn = document.createElement('button')
     btn.className = 'circle-btn feature-btn'
     btn.dataset.index = String(i)

@@ -198,7 +198,7 @@ export function createControls(panel: FaceplateElements): void {
   }
 
   // --- Feature buttons (MUTE, ROUTE, RAND, DIV) — hold-aware ---
-  for (let i = 0; i < panel.featureBtns.length; i++) {
+  for (let i = 0; i < FEATURE_IDS.length; i++) {
     const btn = panel.featureBtns[i]
     btn.addEventListener('pointerdown', (e) => {
       holdablePointerDown(
@@ -377,7 +377,7 @@ export function updateModeIndicators(
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])
   }
-  for (let i = 0; i < featureBtns.length; i++) {
+  for (let i = 0; i < featureModes.length; i++) {
     featureBtns[i].classList.toggle('active', mode === featureModes[i])
   }
   randBtn.classList.toggle('active', mode === 'rand')
