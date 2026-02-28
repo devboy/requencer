@@ -685,6 +685,25 @@ function dispatchHoldCombo(
     }
   }
 
+  if (held.kind === 'feature' && held.feature === 'div') {
+    if (event.type === 'encoder-a-turn') {
+      // Hold div + enc A = all subtrack lengths (synced)
+      const track = engine.tracks[trackIdx]
+      const baseLength = track.gate.length
+      const newLen = baseLength + event.delta
+      let next = setSubtrackLength(engine, trackIdx, 'gate', newLen)
+      next = setSubtrackLength(next, trackIdx, 'pitch', newLen)
+      next = setSubtrackLength(next, trackIdx, 'velocity', newLen)
+      next = setSubtrackLength(next, trackIdx, 'mod', newLen)
+      return { ui: uiUsed, engine: next }
+    }
+    if (event.type === 'encoder-b-turn') {
+      // Hold div + enc B = track clock divider
+      const cur = engine.tracks[trackIdx].clockDivider
+      return { ui: uiUsed, engine: setTrackClockDivider(engine, trackIdx, cur + event.delta) }
+    }
+  }
+
   // Unhandled hold combo — no-op
   return { ui: uiUsed, engine }
 }

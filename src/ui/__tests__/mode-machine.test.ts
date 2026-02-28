@@ -483,6 +483,35 @@ describe('hold combos', () => {
     })
   })
 
+  describe('hold div + encoder', () => {
+    it('hold div + enc A changes all subtrack lengths', () => {
+      const ui = holdUI({ kind: 'feature', feature: 'div' })
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 2 })
+      expect(result.engine.tracks[0].gate.length).toBe(18)
+      expect(result.engine.tracks[0].pitch.length).toBe(18)
+      expect(result.engine.tracks[0].velocity.length).toBe(18)
+      expect(result.engine.tracks[0].mod.length).toBe(18)
+      expect(result.ui.holdEncoderUsed).toBe(true)
+    })
+
+    it('hold div + enc B changes track clock divider', () => {
+      const ui = holdUI({ kind: 'feature', feature: 'div' })
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine.tracks[0].clockDivider).toBe(2)
+      expect(result.ui.holdEncoderUsed).toBe(true)
+    })
+
+    it('hold div uses selectedTrack', () => {
+      const ui = { ...holdUI({ kind: 'feature', feature: 'div' }), selectedTrack: 2 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 3 })
+      expect(result.engine.tracks[2].gate.length).toBe(19)
+      expect(result.engine.tracks[0].gate.length).toBe(16)
+    })
+  })
+
   describe('hold + RESET (targeted playhead reset)', () => {
     it('hold track + RESET resets that track playheads', () => {
       const ui = holdUI({ kind: 'track', track: 1 })
