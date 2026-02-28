@@ -32,8 +32,9 @@ const BTN_D = 5.0 * SCALE           // 23px — tactile button cap
 const BTN_CC = 10.7 * SCALE         // 48px — button center-to-center
 const STEP_BTN_D = 4.5 * SCALE      // 20px — step button (slightly smaller)
 const STEP_BTN_CC = 7.0 * SCALE     // 32px — step button center-to-center
-const RECT_BTN_W = 8.0 * SCALE      // 36px — rectangular button width
-const RECT_BTN_H = 16.0 * SCALE     // 72px — rectangular button height
+const RECT_BTN_W = 10.0 * SCALE     // 45px — square-ish button width
+const RECT_BTN_H = 10.0 * SCALE     // 45px — square-ish button height
+const HERO_BTN_W = 14.0 * SCALE     // 63px — wide hero button (RAND)
 
 const SILK_TEXT = 10                 // ~2.2mm silkscreen text
 const LCD_CLEARANCE = 3.0 * SCALE   // 13.5px — PCB clearance
@@ -710,6 +711,7 @@ const PANEL_CSS = `
   .large-btn:focus { outline: none; }
 
   .rand-btn {
+    width: ${HERO_BTN_W}px;
     background: linear-gradient(180deg, #b0b0b0 0%, #909090 40%, #808080 100%);
     color: #2a2a2a;
   }
