@@ -255,27 +255,18 @@ export function createFaceplate(): FaceplateElements {
   const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
 
   const resetBtn = document.createElement('button')
-  resetBtn.className = 'circle-btn large-btn transport-btn'
-  const resetLabel = document.createElement('span')
-  resetLabel.className = 'btn-label label-below'
-  resetLabel.textContent = 'RESET'
-  resetBtn.appendChild(resetLabel)
+  resetBtn.className = 'large-btn transport-btn'
+  resetBtn.textContent = 'RESET'
   controlStripBtns.appendChild(resetBtn)
 
   const playBtn = document.createElement('button')
-  playBtn.className = 'circle-btn large-btn transport-btn play-btn'
-  const playLabel = document.createElement('span')
-  playLabel.className = 'btn-label label-below'
-  playLabel.textContent = 'PLAY'
-  playBtn.appendChild(playLabel)
+  playBtn.className = 'large-btn transport-btn play-btn'
+  playBtn.textContent = 'PLAY'
   controlStripBtns.appendChild(playBtn)
 
   const randBtn = document.createElement('button')
-  randBtn.className = 'circle-btn large-btn rand-btn'
-  const randLabel = document.createElement('span')
-  randLabel.className = 'btn-label label-below'
-  randLabel.textContent = 'RAND'
-  randBtn.appendChild(randLabel)
+  randBtn.className = 'large-btn rand-btn'
+  randBtn.textContent = 'RAND'
   controlStripBtns.appendChild(randBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
@@ -683,16 +674,52 @@ const PANEL_CSS = `
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
 
-  /* ── Large buttons (RESET, PLAY, RAND in control strip) — must come after circle-btn ── */
+  /* ── Large buttons (RESET, PLAY, RAND) — Bitbox-style raised tactile caps ── */
   .large-btn {
     width: ${RECT_BTN_W}px;
     height: ${RECT_BTN_H}px;
-    border-radius: ${2.0 * SCALE}px;
+    border-radius: ${1.5 * SCALE}px;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: ${SILK_TEXT - 1}px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #333;
+    background: linear-gradient(180deg, #c8c8c8 0%, #a8a8a8 40%, #999 100%);
+    border-top: 1px solid rgba(255,255,255,0.5);
+    border-bottom: 1px solid rgba(0,0,0,0.4);
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.5),
+      0 1px 1px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.3),
+      inset 0 -1px 0 rgba(0,0,0,0.15);
+    transition: background 0.1s, box-shadow 0.1s, transform 0.05s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
+  .large-btn:active {
+    transform: scale(0.96) translateY(1px);
+    background: linear-gradient(180deg, #aaa 0%, #999 40%, #888 100%);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.4),
+      inset 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .large-btn:focus { outline: none; }
 
-  .rand-btn { background: #555; }
-  .rand-btn:active { background: #777; }
-  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  .rand-btn {
+    background: linear-gradient(180deg, #b0b0b0 0%, #909090 40%, #808080 100%);
+    color: #2a2a2a;
+  }
+  .rand-btn:active {
+    background: linear-gradient(180deg, #999 0%, #808080 40%, #707070 100%);
+  }
+  .rand-btn.active {
+    background: linear-gradient(180deg, #ccc 0%, #bbb 40%, #aaa 100%);
+    box-shadow: 0 0 6px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.5);
+  }
 
   /* Step buttons — LED glow states */
   .step-btn { background: #444; }
@@ -712,9 +739,7 @@ const PANEL_CSS = `
   .subtrack-btn:active, .feature-btn:active { background: #777; }
   .subtrack-btn.active, .feature-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
-  /* Transport buttons */
-  .transport-btn { background: #aaa; }
-  .transport-btn:active { background: #ccc; }
+  /* Transport buttons — styled by .large-btn, these are overrides only */
 
   /* ══════════════════════════════════════════
      LABELS — purely cosmetic, zero layout impact
@@ -746,14 +771,18 @@ const PANEL_CSS = `
      LED INDICATORS
      ══════════════════════════════════════════ */
 
-  /* Play button states — whole button lights up */
+  /* Play button states — green glow with raised style */
   .play-btn.play-on {
-    background: #44ff66;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2);
+    background: linear-gradient(180deg, #66ff88 0%, #44ff66 40%, #33dd55 100%);
+    color: #1a4a1a;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.4);
   }
   .play-btn.play-pulse {
-    background: #44ff66;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2);
+    background: linear-gradient(180deg, #66ff88 0%, #44ff66 40%, #33dd55 100%);
+    color: #1a4a1a;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.4);
     animation: pulse 0.5s ease-in-out infinite;
   }
 
