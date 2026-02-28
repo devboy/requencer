@@ -255,17 +255,17 @@ export function createFaceplate(): FaceplateElements {
 
   const resetBtn = document.createElement('button')
   resetBtn.className = 'large-btn transport-btn'
-  resetBtn.textContent = 'RESET'
+  resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
   controlStripBtns.appendChild(resetBtn)
 
   const playBtn = document.createElement('button')
   playBtn.className = 'large-btn transport-btn play-btn'
-  playBtn.textContent = 'PLAY'
+  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
   controlStripBtns.appendChild(playBtn)
 
   const randBtn = document.createElement('button')
   randBtn.className = 'large-btn rand-btn'
-  randBtn.textContent = 'RAND'
+  randBtn.innerHTML = '<span class="btn-icon">◆</span><span class="btn-text">RAND</span>'
   controlStripBtns.appendChild(randBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
@@ -673,51 +673,68 @@ const PANEL_CSS = `
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
 
-  /* ── Large buttons (RESET, PLAY, RAND) — Bitbox-style raised tactile caps ── */
+  /* ── Large buttons (RESET, PLAY, RAND) — Bitbox-style frosted translucent caps ── */
   .large-btn {
     flex: 1;
     height: ${RECT_BTN_H}px;
     border-radius: ${0.5 * SCALE}px;
-    border: none;
+    border: 1px solid rgba(255,255,255,0.25);
     cursor: pointer;
     font-family: 'JetBrains Mono', monospace;
-    font-size: ${SILK_TEXT - 1}px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    color: #333;
-    background: linear-gradient(180deg, #c8c8c8 0%, #a8a8a8 40%, #999 100%);
-    border-top: 1px solid rgba(255,255,255,0.5);
-    border-bottom: 1px solid rgba(0,0,0,0.4);
+    color: #555;
+    background: linear-gradient(180deg,
+      rgba(220,220,225,0.85) 0%,
+      rgba(200,200,210,0.75) 40%,
+      rgba(185,185,195,0.70) 100%);
     box-shadow:
-      0 2px 4px rgba(0,0,0,0.5),
-      0 1px 1px rgba(0,0,0,0.3),
-      inset 0 1px 0 rgba(255,255,255,0.3),
-      inset 0 -1px 0 rgba(0,0,0,0.15);
+      0 2px 4px rgba(0,0,0,0.4),
+      0 1px 1px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -1px 0 rgba(0,0,0,0.1);
     transition: background 0.1s, box-shadow 0.1s, transform 0.05s;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
   }
   .large-btn:active {
-    transform: scale(0.96) translateY(1px);
-    background: linear-gradient(180deg, #aaa 0%, #999 40%, #888 100%);
+    transform: scale(0.97) translateY(1px);
+    background: linear-gradient(180deg,
+      rgba(190,190,200,0.80) 0%,
+      rgba(175,175,185,0.70) 40%,
+      rgba(160,160,170,0.65) 100%);
     box-shadow:
-      0 1px 2px rgba(0,0,0,0.4),
-      inset 0 1px 2px rgba(0,0,0,0.2);
+      0 1px 2px rgba(0,0,0,0.3),
+      inset 0 1px 2px rgba(0,0,0,0.15);
   }
   .large-btn:focus { outline: none; }
 
+  .btn-icon {
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.6;
+  }
+  .btn-text {
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
   .rand-btn {
     flex: 1.5;
-    background: linear-gradient(180deg, #b0b0b0 0%, #909090 40%, #808080 100%);
-    color: #2a2a2a;
   }
   .rand-btn:active {
-    background: linear-gradient(180deg, #999 0%, #808080 40%, #707070 100%);
+    background: linear-gradient(180deg,
+      rgba(180,180,190,0.80) 0%,
+      rgba(165,165,175,0.70) 100%);
   }
   .rand-btn.active {
-    background: linear-gradient(180deg, #ccc 0%, #bbb 40%, #aaa 100%);
-    box-shadow: 0 0 6px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.5);
+    background: linear-gradient(180deg,
+      rgba(230,230,240,0.90) 0%,
+      rgba(210,210,220,0.80) 100%);
+    box-shadow: 0 0 6px rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.4);
   }
 
   /* Step buttons — LED glow states */
@@ -770,20 +787,30 @@ const PANEL_CSS = `
      LED INDICATORS
      ══════════════════════════════════════════ */
 
-  /* Play button states — green glow with raised style */
+  /* Play button states — green glow through frosted cap */
   .play-btn.play-on {
-    background: linear-gradient(180deg, #66ff88 0%, #44ff66 40%, #33dd55 100%);
+    background: linear-gradient(180deg,
+      rgba(100,255,130,0.85) 0%,
+      rgba(68,255,102,0.75) 40%,
+      rgba(50,220,80,0.70) 100%);
     color: #1a4a1a;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
       inset 0 1px 0 rgba(255,255,255,0.4);
   }
+  .play-btn.play-on .btn-icon,
+  .play-btn.play-on .btn-text { opacity: 1; color: #1a4a1a; }
   .play-btn.play-pulse {
-    background: linear-gradient(180deg, #66ff88 0%, #44ff66 40%, #33dd55 100%);
+    background: linear-gradient(180deg,
+      rgba(100,255,130,0.85) 0%,
+      rgba(68,255,102,0.75) 40%,
+      rgba(50,220,80,0.70) 100%);
     color: #1a4a1a;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
       inset 0 1px 0 rgba(255,255,255,0.4);
     animation: pulse 0.5s ease-in-out infinite;
   }
+  .play-btn.play-pulse .btn-icon,
+  .play-btn.play-pulse .btn-text { opacity: 1; color: #1a4a1a; }
 
   @keyframes pulse {
     0%, 100% { opacity: 1; }
