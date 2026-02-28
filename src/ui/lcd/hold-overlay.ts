@@ -62,4 +62,20 @@ export function renderHoldOverlay(ctx: CanvasRenderingContext2D, engine: Sequenc
 
     drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
   }
+
+  if (held.kind === 'feature' && held.feature === 'div') {
+    drawText(ctx, 'DIV / LEN', PAD, LCD_CONTENT_Y + 30, COLORS.textBright, 18)
+
+    const rowH = 28
+    const startY = LCD_CONTENT_Y + 60
+    for (let t = 0; t < 4; t++) {
+      const track = engine.tracks[t]
+      const y = startY + t * rowH
+      const color = t === trackIdx ? COLORS.track[t] : COLORS.textDim
+      const marker = t === trackIdx ? '>' : ' '
+      drawText(ctx, `${marker}T${t + 1}  LEN:${String(track.gate.length).padStart(2)}  DIV:÷${track.clockDivider}`, PAD, y, color, 16)
+    }
+
+    drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
+  }
 }
