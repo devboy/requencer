@@ -657,17 +657,6 @@ const PANEL_CSS = `
     gap: ${BTN_GAP}px;
   }
 
-  /* ── Large buttons (RESET, PLAY, RAND in control strip) ── */
-  .large-btn {
-    width: ${RECT_BTN_W}px;
-    height: ${RECT_BTN_H}px;
-    border-radius: ${2.0 * SCALE}px;
-  }
-
-  .rand-btn { background: #555; }
-  .rand-btn:active { background: #777; }
-  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
-
   /* ══════════════════════════════════════════
      BUTTON STYLES
      ══════════════════════════════════════════ */
@@ -693,6 +682,17 @@ const PANEL_CSS = `
   .circle-btn:active { transform: scale(0.92); box-shadow: 0 0.5px 1px rgba(0,0,0,0.3); }
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
+
+  /* ── Large buttons (RESET, PLAY, RAND in control strip) — must come after circle-btn ── */
+  .large-btn {
+    width: ${RECT_BTN_W}px;
+    height: ${RECT_BTN_H}px;
+    border-radius: ${2.0 * SCALE}px;
+  }
+
+  .rand-btn { background: #555; }
+  .rand-btn:active { background: #777; }
+  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* Step buttons — LED glow states */
   .step-btn { background: #444; }
