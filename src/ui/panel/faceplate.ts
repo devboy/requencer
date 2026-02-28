@@ -46,6 +46,9 @@ const JACK_GAP = JACK_SPACING - JACK_D
 const OUTPUT_JACK_SPACING = 12.4 * SCALE
 const BTN_GAP = BTN_CC - BTN_D              // 25px — gap between button edges at BTN_CC spacing
 const STEP_GAP = STEP_BTN_CC - STEP_BTN_D   // 12px — gap between step button edges
+const LCD_BEZEL_W = Math.round(73.44 * SCALE) + 2 * Math.round(2.0 * SCALE) + 4
+const STEP_ROW_W = 8 * STEP_BTN_D + 7 * BTN_GAP
+const STEP_GRID_LEFT = BTN_D + COMPONENT_GAP + Math.round((LCD_BEZEL_W - STEP_ROW_W) / 2)
 
 // Neighbor module images
 const NEIGHBORS = {
@@ -645,8 +648,8 @@ const PANEL_CSS = `
     display: flex;
     flex-direction: column;
     gap: ${BTN_GAP}px;
-    align-self: center;
-    margin-top: ${COMPONENT_GAP}px;    /* clearance from encoders */
+    margin-top: ${COMPONENT_GAP}px;
+    margin-left: ${STEP_GRID_LEFT}px;
   }
 
   .step-row {
