@@ -9,7 +9,7 @@
  *
  * Spacing rules:
  *   - Small buttons use BTN_CC (10.7mm) center-to-center spacing
- *   - Transport buttons (RESET/PLAY/RAND) are RECT_BTN_W×RECT_BTN_H (8×16mm)
+ *   - Transport buttons (RESET/PLAY/RAND) are flex-width × RECT_BTN_H, fill control strip
  *   - Buttons need ≥ BTN_CC/2 clearance from LCD, encoders, jacks, panel edges
  *   - Labels are purely cosmetic: absolute-positioned, bold, zero layout impact
  *   - Step buttons use same BTN_CC (10.7mm) center-to-center as all panel buttons
@@ -32,9 +32,7 @@ const BTN_D = 5.0 * SCALE           // 23px — tactile button cap
 const BTN_CC = 10.7 * SCALE         // 48px — button center-to-center
 const STEP_BTN_D = 4.5 * SCALE      // 20px — step button (slightly smaller)
 const STEP_BTN_CC = 7.0 * SCALE     // 32px — step button center-to-center
-const RECT_BTN_W = 10.0 * SCALE     // 45px — square-ish button width
-const RECT_BTN_H = 10.0 * SCALE     // 45px — square-ish button height
-const HERO_BTN_W = 14.0 * SCALE     // 63px — wide hero button (RAND)
+const RECT_BTN_H = 10.0 * SCALE     // 45px — button height
 
 const SILK_TEXT = 10                 // ~2.2mm silkscreen text
 const LCD_CLEARANCE = 3.0 * SCALE   // 13.5px — PCB clearance
@@ -573,15 +571,15 @@ const PANEL_CSS = `
   .control-strip {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: ${COMPONENT_GAP}px;
     margin-top: ${COMPONENT_GAP}px;
   }
 
   .control-strip-left {
     display: flex;
-    gap: ${Math.round(RECT_BTN_W * 0.4)}px;
+    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
     align-items: center;
+    flex: 1;
   }
 
   .control-strip-right {
@@ -677,12 +675,11 @@ const PANEL_CSS = `
 
   /* ── Large buttons (RESET, PLAY, RAND) — Bitbox-style raised tactile caps ── */
   .large-btn {
-    width: ${RECT_BTN_W}px;
+    flex: 1;
     height: ${RECT_BTN_H}px;
     border-radius: ${0.5 * SCALE}px;
     border: none;
     cursor: pointer;
-    flex-shrink: 0;
     font-family: 'JetBrains Mono', monospace;
     font-size: ${SILK_TEXT - 1}px;
     font-weight: 600;
@@ -711,7 +708,7 @@ const PANEL_CSS = `
   .large-btn:focus { outline: none; }
 
   .rand-btn {
-    width: ${HERO_BTN_W}px;
+    flex: 1.5;
     background: linear-gradient(180deg, #b0b0b0 0%, #909090 40%, #808080 100%);
     color: #2a2a2a;
   }
