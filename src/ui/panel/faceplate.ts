@@ -32,7 +32,8 @@ const BTN_D = 5.0 * SCALE           // 23px — tactile button cap
 const BTN_CC = 10.7 * SCALE         // 48px — button center-to-center
 const STEP_BTN_D = 4.5 * SCALE      // 20px — step button (slightly smaller)
 const STEP_BTN_CC = 7.0 * SCALE     // 32px — step button center-to-center
-const LARGE_BTN_D = 14.0 * SCALE    // 63px — large tactile button (matches encoder height)
+const RECT_BTN_W = 8.0 * SCALE      // 36px — rectangular button width
+const RECT_BTN_H = 16.0 * SCALE     // 72px — rectangular button height
 
 const SILK_TEXT = 10                 // ~2.2mm silkscreen text
 const LCD_CLEARANCE = 3.0 * SCALE   // 13.5px — PCB clearance
@@ -584,7 +585,7 @@ const PANEL_CSS = `
 
   .control-strip-left {
     display: flex;
-    gap: ${Math.round(LARGE_BTN_D * 0.3)}px;
+    gap: ${Math.round(RECT_BTN_W * 0.4)}px;
     align-items: center;
   }
 
@@ -655,8 +656,9 @@ const PANEL_CSS = `
 
   /* ── Large buttons (RESET, PLAY, RAND in control strip) ── */
   .large-btn {
-    width: ${LARGE_BTN_D}px;
-    height: ${LARGE_BTN_D}px;
+    width: ${RECT_BTN_W}px;
+    height: ${RECT_BTN_H}px;
+    border-radius: ${2.0 * SCALE}px;
   }
 
   .rand-btn { background: #555; }
