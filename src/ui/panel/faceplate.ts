@@ -679,7 +679,7 @@ const PANEL_CSS = `
   .large-btn {
     width: ${RECT_BTN_W}px;
     height: ${RECT_BTN_H}px;
-    border-radius: ${1.5 * SCALE}px;
+    border-radius: ${0.5 * SCALE}px;
     border: none;
     cursor: pointer;
     flex-shrink: 0;
