@@ -1,15 +1,15 @@
 /**
- * Module faceplate — 3U eurorack panel with Metropolix-style button layout.
+ * Module faceplate — 3U eurorack panel with control strip layout.
  * True 3U height (128.5mm = 578px at 4.5px/mm).
  *
  * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/RAND/DIV) | Jacks
- *   Below LCD: Encoder A, Encoder B
- *   Below encoders: 2×8 step button grid
- *   Below step grid: RESET, PLAY transport buttons
+ *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/DIV-LEN) | Jacks
+ *   Control strip: RESET, PLAY, RAND (~14mm) | Encoder A, Encoder B
+ *   Below control strip: 2×8 step button grid (aligned to LCD width)
  *
  * Spacing rules:
- *   - All round buttons use BTN_CC (10.7mm) center-to-center spacing
+ *   - Small buttons use BTN_CC (10.7mm) center-to-center spacing
+ *   - Large buttons (RESET/PLAY/RAND) are LARGE_BTN_D (14mm) — matches encoder height
  *   - Buttons need ≥ BTN_CC/2 clearance from LCD, encoders, jacks, panel edges
  *   - Labels are purely cosmetic: absolute-positioned, bold, zero layout impact
  *   - Step buttons use same BTN_CC (10.7mm) center-to-center as all panel buttons
@@ -32,6 +32,7 @@ const BTN_D = 5.0 * SCALE           // 23px — tactile button cap
 const BTN_CC = 10.7 * SCALE         // 48px — button center-to-center
 const STEP_BTN_D = 4.5 * SCALE      // 20px — step button (slightly smaller)
 const STEP_BTN_CC = 7.0 * SCALE     // 32px — step button center-to-center
+const LARGE_BTN_D = 14.0 * SCALE    // 63px — large tactile button (matches encoder height)
 
 const SILK_TEXT = 10                 // ~2.2mm silkscreen text
 const LCD_CLEARANCE = 3.0 * SCALE   // 13.5px — PCB clearance
@@ -68,6 +69,7 @@ export interface FaceplateElements {
   stepBtns: HTMLButtonElement[]
   playBtn: HTMLButtonElement
   resetBtn: HTMLButtonElement
+  randBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
 }
@@ -108,21 +110,24 @@ export function createFaceplate(): FaceplateElements {
                 <div class="right-col" id="feature-col"></div>
               </div>
 
-              <!-- ENCODER ROW -->
-              <div class="encoder-row">
-                <div class="encoder-cell">
-                  <span class="btn-label label-above">A</span>
-                  <div class="encoder" id="encoder-a">
-                    <div class="encoder-cap">
-                      <div class="encoder-indicator"></div>
+              <!-- CONTROL STRIP: transport + RAND + encoders -->
+              <div class="control-strip">
+                <div class="control-strip-left" id="control-strip-btns"></div>
+                <div class="control-strip-right">
+                  <div class="encoder-cell">
+                    <span class="btn-label label-above">A</span>
+                    <div class="encoder" id="encoder-a">
+                      <div class="encoder-cap">
+                        <div class="encoder-indicator"></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div class="encoder-cell">
-                  <span class="btn-label label-above">B</span>
-                  <div class="encoder" id="encoder-b">
-                    <div class="encoder-cap">
-                      <div class="encoder-indicator"></div>
+                  <div class="encoder-cell">
+                    <span class="btn-label label-above">B</span>
+                    <div class="encoder" id="encoder-b">
+                      <div class="encoder-cap">
+                        <div class="encoder-indicator"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -130,9 +135,6 @@ export function createFaceplate(): FaceplateElements {
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
-
-              <!-- TRANSPORT -->
-              <div class="transport-row" id="transport-row"></div>
             </div>
 
             <!-- JACK ZONE: right side, spans full height -->
@@ -211,11 +213,11 @@ export function createFaceplate(): FaceplateElements {
     subtrackBtns.push(btn)
   }
 
-  // --- Generate feature buttons (MUTE, ROUTE, RAND, DIV) ---
+  // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
   const featureCol = root.querySelector('#feature-col') as HTMLDivElement
   const featureBtns: HTMLButtonElement[] = []
-  const featureLabels = ['MUTE', 'ROUTE', 'RAND', 'DIV']
-  for (let i = 0; i < 4; i++) {
+  const featureLabels = ['MUTE', 'ROUTE', 'DIV/LEN']
+  for (let i = 0; i < 3; i++) {
     const btn = document.createElement('button')
     btn.className = 'circle-btn feature-btn'
     btn.dataset.index = String(i)
@@ -245,24 +247,32 @@ export function createFaceplate(): FaceplateElements {
     stepGrid.appendChild(rowEl)
   }
 
-  // --- Generate transport buttons (RESET, PLAY) ---
-  const transportRow = root.querySelector('#transport-row') as HTMLDivElement
+  // --- Generate control strip buttons (RESET, PLAY, RAND) ---
+  const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
 
   const resetBtn = document.createElement('button')
-  resetBtn.className = 'circle-btn transport-btn'
+  resetBtn.className = 'circle-btn large-btn transport-btn'
   const resetLabel = document.createElement('span')
   resetLabel.className = 'btn-label label-below'
   resetLabel.textContent = 'RESET'
   resetBtn.appendChild(resetLabel)
-  transportRow.appendChild(resetBtn)
+  controlStripBtns.appendChild(resetBtn)
 
   const playBtn = document.createElement('button')
-  playBtn.className = 'circle-btn transport-btn play-btn'
+  playBtn.className = 'circle-btn large-btn transport-btn play-btn'
   const playLabel = document.createElement('span')
   playLabel.className = 'btn-label label-below'
   playLabel.textContent = 'PLAY'
   playBtn.appendChild(playLabel)
-  transportRow.appendChild(playBtn)
+  controlStripBtns.appendChild(playBtn)
+
+  const randBtn = document.createElement('button')
+  randBtn.className = 'circle-btn large-btn rand-btn'
+  const randLabel = document.createElement('span')
+  randLabel.className = 'btn-label label-below'
+  randLabel.textContent = 'RAND'
+  randBtn.appendChild(randLabel)
+  controlStripBtns.appendChild(randBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
@@ -293,6 +303,7 @@ export function createFaceplate(): FaceplateElements {
     stepBtns,
     playBtn,
     resetBtn,
+    randBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
   }
@@ -562,12 +573,25 @@ const PANEL_CSS = `
     image-rendering: pixelated;
   }
 
-  /* ── Encoder row ── */
-  .encoder-row {
+  /* ── Control strip: transport + RAND + encoders ── */
+  .control-strip {
     display: flex;
-    gap: ${ENCODER_D + COMPONENT_GAP}px;
+    align-items: center;
     justify-content: center;
-    margin-top: ${COMPONENT_GAP}px;    /* clearance from LCD/top section */
+    gap: ${COMPONENT_GAP}px;
+    margin-top: ${COMPONENT_GAP}px;
+  }
+
+  .control-strip-left {
+    display: flex;
+    gap: ${Math.round(LARGE_BTN_D * 0.3)}px;
+    align-items: center;
+  }
+
+  .control-strip-right {
+    display: flex;
+    gap: ${Math.round(COMPONENT_GAP * 0.8)}px;
+    align-items: center;
   }
 
   .encoder-cell {
@@ -629,13 +653,15 @@ const PANEL_CSS = `
     gap: ${BTN_GAP}px;
   }
 
-  /* ── Transport row ── */
-  .transport-row {
-    display: flex;
-    gap: ${BTN_CC}px;
-    justify-content: center;
-    margin-top: ${COMPONENT_GAP}px;    /* clearance from step grid */
+  /* ── Large buttons (RESET, PLAY, RAND in control strip) ── */
+  .large-btn {
+    width: ${LARGE_BTN_D}px;
+    height: ${LARGE_BTN_D}px;
   }
+
+  .rand-btn { background: #555; }
+  .rand-btn:active { background: #777; }
+  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* ══════════════════════════════════════════
      BUTTON STYLES

@@ -10,7 +10,7 @@ import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
 const SUBTRACK_IDS: SubtrackId[] = ['gate', 'pitch', 'velocity', 'mod']
-const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'rand', 'div']
+const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'div']
 const HOLD_THRESHOLD_MS = 200
 
 interface PanelControls {
@@ -234,6 +234,18 @@ export function createControls(panel: FaceplateElements): void {
   })
   panel.resetBtn.addEventListener('pointerdown', () => emit({ type: 'reset' }))
 
+  // --- RAND button (in control strip) — no hold, direct emit ---
+  let randTouchHandled = false
+  panel.randBtn.addEventListener('touchend', (e) => {
+    e.preventDefault()
+    randTouchHandled = true
+    emit({ type: 'feature-press', feature: 'rand' })
+  })
+  panel.randBtn.addEventListener('pointerdown', () => {
+    if (randTouchHandled) { randTouchHandled = false; return }
+    emit({ type: 'feature-press', feature: 'rand' })
+  })
+
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
   // Holdable buttons already handle sticky exit in startHold().
@@ -241,7 +253,7 @@ export function createControls(panel: FaceplateElements): void {
     if (!stickyHold) return
     const target = e.target as HTMLElement
     // Ignore clicks on interactive controls (these have their own handling)
-    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn')) return
+    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn')) return
     endStickyHold()
   })
 
@@ -352,14 +364,15 @@ export function updateLEDs(ledState: LEDState): void {
   }
 }
 
-/** Update active state on subtrack/feature buttons to show current mode */
+/** Update active state on subtrack/feature/rand buttons to show current mode */
 export function updateModeIndicators(
   subtrackBtns: HTMLButtonElement[],
   featureBtns: HTMLButtonElement[],
+  randBtn: HTMLButtonElement,
   mode: string,
 ): void {
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', '']
-  const featureModes = ['mute-edit', 'route', 'rand', 'div']
+  const featureModes = ['mute-edit', 'route', 'div']
 
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])
@@ -367,4 +380,5 @@ export function updateModeIndicators(
   for (let i = 0; i < featureBtns.length; i++) {
     featureBtns[i].classList.toggle('active', mode === featureModes[i])
   }
+  randBtn.classList.toggle('active', mode === 'rand')
 }

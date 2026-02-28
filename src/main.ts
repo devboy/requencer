@@ -142,7 +142,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'route': (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   'rand': (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
   'name-entry': () => 'SAVE PRESET',
-  'div': () => 'DIVIDERS',
+  'div': (ui) => `T${ui.selectedTrack + 1} DIV / LEN`,
 }
 
 // --- Shortcut Hints (below module) ---
@@ -155,7 +155,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source track  Esc: back',
   'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
-  'div':       'Esc: back',
+  'div':       '↑↓: length  ←→: divider  Esc: back',
 }
 
 const hintEl = document.createElement('div')
@@ -201,7 +201,7 @@ function render(): void {
   updateLEDs(ledState)
 
   // Update mode indicators on subtrack/feature buttons
-  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, uiState.mode)
+  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, uiState.mode)
 
   // Update shortcut hints
   hintEl.textContent = SHORTCUT_HINTS[uiState.mode]

@@ -139,7 +139,10 @@ function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
       return document.querySelector(`.subtrack-btn[data-index="${idx}"]`)
     }
     case 'feature': {
-      const idx = (['mute', 'route', 'rand', 'div'] as const).indexOf(button.feature)
+      if (button.feature === 'rand') {
+        return document.querySelector('.rand-btn')
+      }
+      const idx = (['mute', 'route', 'div'] as const).indexOf(button.feature as 'mute' | 'route' | 'div')
       return document.querySelector(`.feature-btn[data-index="${idx}"]`)
     }
   }
