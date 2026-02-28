@@ -3,13 +3,13 @@
  * True 3U height (128.5mm = 578px at 4.5px/mm).
  *
  * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/DIV-LEN) | Jacks
- *   Control strip: RESET, PLAY, RAND (~14mm) | Encoder A, Encoder B
- *   Below control strip: 2×8 step button grid (aligned to LCD width)
+ *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/DIV-LEN/TBD) | Jacks
+ *   Control strip: RESET, PLAY, RAND (8×16mm rect) | Encoder A, Encoder B
+ *   Below control strip: 2×8 step button grid (centered under LCD)
  *
  * Spacing rules:
  *   - Small buttons use BTN_CC (10.7mm) center-to-center spacing
- *   - Large buttons (RESET/PLAY/RAND) are LARGE_BTN_D (14mm) — matches encoder height
+ *   - Transport buttons (RESET/PLAY/RAND) are RECT_BTN_W×RECT_BTN_H (8×16mm)
  *   - Buttons need ≥ BTN_CC/2 clearance from LCD, encoders, jacks, panel edges
  *   - Labels are purely cosmetic: absolute-positioned, bold, zero layout impact
  *   - Step buttons use same BTN_CC (10.7mm) center-to-center as all panel buttons
