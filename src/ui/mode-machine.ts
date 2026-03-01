@@ -1,7 +1,7 @@
 /**
  * Mode state machine — pure function mapping (UIState, EngineState, ControlEvent) → new states.
  *
- * Modes: home, gate-edit, pitch-edit, vel-edit, mute-edit, route, rand, div
+ * Modes: home, gate-edit, pitch-edit, vel-edit, mute-edit, route, rand
  *
  * Cross-modal behaviors:
  *   - Track select (T1-T4) works in ANY mode — switches displayed track
@@ -112,7 +112,6 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       mute: 'mute-edit',
       route: 'route',
       rand: 'rand',
-      div: 'div',
     }
     return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0 }, engine }
   }
@@ -133,8 +132,6 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       return dispatchRand(ui, engine, event)
     case 'route':
       return dispatchRoute(ui, engine, event)
-    case 'div':
-      return dispatchStub(ui, engine, event)
   }
 }
 
@@ -519,14 +516,6 @@ function dispatchRoute(ui: UIState, engine: SequencerState, event: ControlEvent)
   }
 }
 
-// --- Stub dispatcher for modes not yet implemented ---
-function dispatchStub(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
-  if (event.type === 'encoder-b-push') {
-    return { ui: { ...ui, mode: 'home', currentPage: 0 }, engine }
-  }
-  return { ui, engine }
-}
-
 // --- LED State ---
 
 export function getLEDState(ui: UIState, engine: SequencerState): LEDState {
@@ -682,25 +671,6 @@ function dispatchHoldCombo(
       // Hold mute + enc B = mute clock divider
       const cur = engine.mutePatterns[trackIdx].clockDivider
       return { ui: uiUsed, engine: setMuteClockDivider(engine, trackIdx, cur + event.delta) }
-    }
-  }
-
-  if (held.kind === 'feature' && held.feature === 'div') {
-    if (event.type === 'encoder-a-turn') {
-      // Hold div + enc A = all subtrack lengths (synced)
-      const track = engine.tracks[trackIdx]
-      const baseLength = track.gate.length
-      const newLen = baseLength + event.delta
-      let next = setSubtrackLength(engine, trackIdx, 'gate', newLen)
-      next = setSubtrackLength(next, trackIdx, 'pitch', newLen)
-      next = setSubtrackLength(next, trackIdx, 'velocity', newLen)
-      next = setSubtrackLength(next, trackIdx, 'mod', newLen)
-      return { ui: uiUsed, engine: next }
-    }
-    if (event.type === 'encoder-b-turn') {
-      // Hold div + enc B = track clock divider
-      const cur = engine.tracks[trackIdx].clockDivider
-      return { ui: uiUsed, engine: setTrackClockDivider(engine, trackIdx, cur + event.delta) }
     }
   }
 

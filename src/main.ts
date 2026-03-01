@@ -22,7 +22,6 @@ import { renderGateEdit } from './ui/lcd/gate-edit'
 import { renderPitchEdit } from './ui/lcd/pitch-edit'
 import { renderVelEdit } from './ui/lcd/vel-edit'
 import { renderMuteEdit } from './ui/lcd/mute-edit'
-import { renderStub } from './ui/lcd/stub-screen'
 import { renderRoute } from './ui/lcd/route-screen'
 import { renderRand } from './ui/lcd/rand-screen'
 import { renderNameEntry } from './ui/lcd/name-entry'
@@ -129,7 +128,6 @@ const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: Sequ
   'route': renderRoute,
   'rand': renderRand,
   'name-entry': renderNameEntry,
-  'div': renderStub,
 }
 
 // Status bar text per mode
@@ -142,7 +140,6 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'route': (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   'rand': (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
   'name-entry': () => 'SAVE PRESET',
-  'div': (ui) => `T${ui.selectedTrack + 1} DIV / LEN`,
 }
 
 // --- Shortcut Hints (below module) ---
@@ -155,7 +152,6 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source track  Esc: back',
   'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
-  'div':       '↑↓: length  ←→: divider  Esc: back',
 }
 
 const hintEl = document.createElement('div')

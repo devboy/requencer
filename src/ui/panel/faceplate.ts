@@ -3,7 +3,7 @@
  * True 3U height (128.5mm = 578px at 4.5px/mm).
  *
  * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/DIV-LEN/TBD) | Jacks
+ *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/TBD/TBD) | Jacks
  *   Control strip: RESET, PLAY, RAND (8×16mm rect) | Encoder A, Encoder B
  *   Below control strip: 2×8 step button grid (centered under LCD)
  *
@@ -217,7 +217,7 @@ export function createFaceplate(): FaceplateElements {
   // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
   const featureCol = root.querySelector('#feature-col') as HTMLDivElement
   const featureBtns: HTMLButtonElement[] = []
-  const featureLabels = ['MUTE', 'ROUTE', 'DIV/LEN', 'TBD']
+  const featureLabels = ['MUTE', 'ROUTE', 'TBD', 'TBD']
   for (let i = 0; i < 4; i++) {
     const btn = document.createElement('button')
     btn.className = 'circle-btn feature-btn'

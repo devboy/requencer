@@ -22,6 +22,8 @@ Three layers:
 - **Engine purity:** Engine modules must have zero imports from DOM/audio/external libs.
 - **Immutable state:** Engine functions return new state objects, never mutate.
 - **Docs:** Research goes in `docs/research/`, designs in `docs/plans/`.
+- **No commits:** Do NOT make git commits. Work on features and let the user decide when to commit or roll back.
+- **No co-authored-by:** Never add `Co-Authored-By` trailers to commit messages.
 
 ## Panel Design Rules
 

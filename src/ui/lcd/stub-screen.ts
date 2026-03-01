@@ -17,7 +17,6 @@ const MODE_LABELS: Record<ScreenMode, string> = {
   'route': 'ROUTING',
   'rand': 'RANDOMIZER',
   'name-entry': 'NAME ENTRY',
-  'div': 'DIVIDER OVERVIEW',
 }
 
 export function renderStub(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {

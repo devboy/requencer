@@ -41,7 +41,7 @@ const STEP_KEYS = ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',']
 
 const TRACK_KEYS: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3 }
 const SUBTRACK_KEYS: Record<string, SubtrackId> = { q: 'gate', w: 'pitch', e: 'velocity', r: 'mod' }
-const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'div' }
+const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand' }
 
 const HOLD_THRESHOLD_MS = 200
 const STICKY_THRESHOLD_MS = 300
@@ -142,7 +142,7 @@ function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
       if (button.feature === 'rand') {
         return document.querySelector('.rand-btn')
       }
-      const idx = (['mute', 'route', 'div'] as const).indexOf(button.feature as 'mute' | 'route' | 'div')
+      const idx = (['mute', 'route'] as const).indexOf(button.feature as 'mute' | 'route')
       return document.querySelector(`.feature-btn[data-index="${idx}"]`)
     }
   }

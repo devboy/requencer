@@ -10,7 +10,7 @@ import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
 const SUBTRACK_IDS: SubtrackId[] = ['gate', 'pitch', 'velocity', 'mod']
-const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'div']
+const FEATURE_IDS: FeatureId[] = ['mute', 'route']
 const HOLD_THRESHOLD_MS = 200
 
 interface PanelControls {
@@ -372,7 +372,7 @@ export function updateModeIndicators(
   mode: string,
 ): void {
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', '']
-  const featureModes = ['mute-edit', 'route', 'div']
+  const featureModes = ['mute-edit', 'route']
 
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])

@@ -5,7 +5,7 @@
  * Navigation model:
  *   T1-T4 buttons: select track (cross-modal — works in any screen)
  *   GATE/PTCH/VEL/MOD buttons: enter subtrack edit screens
- *   MUTE/ROUTE/RAND/DIV buttons: enter feature screens
+ *   MUTE/ROUTE/RAND buttons: enter feature screens
  *   16 step buttons: context-dependent (toggle/select based on mode)
  *   Encoder A (left): context-dependent (value edit, scroll)
  *   Encoder B (right): page navigation, secondary edit
@@ -22,7 +22,6 @@ export type ScreenMode =
   | 'route'
   | 'rand'
   | 'name-entry'
-  | 'div'
 
 export type ControlEvent =
   | { type: 'encoder-a-turn'; delta: number }
@@ -39,7 +38,7 @@ export type ControlEvent =
   | { type: 'hold-end' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
-export type FeatureId = 'mute' | 'route' | 'rand' | 'div'
+export type FeatureId = 'mute' | 'route' | 'rand'
 
 /** Describes which button is being held for hold combos */
 export type HeldButtonTarget =

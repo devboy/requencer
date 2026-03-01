@@ -1,83 +1,205 @@
 # Feature Ideas
 
-Research notes for future Requencer features. Referenced from the [design doc](../plans/2026-02-22-requencer-design.md).
+Research notes for future Requencer features. Companion to the [feature roadmap](../plans/2026-03-01-feature-roadmap.md).
 
-## Overlays (architectural concept)
+## Overlays (architectural context)
 
-Mutes and routing both modify playback without changing stored sequences. This is a recurring pattern worth naming: **overlays** — a layer that transforms engine output before it reaches I/O.
+Overlays transform engine output before it reaches I/O — modifying playback without changing stored sequences. Mutes and routing are the existing overlays. Future overlays (transposition, probability masks, smart gate patterns) follow the same pure-function pattern: `(step, overlayState) => step | null`.
 
-**How it fits the engine:** Overlays sit between sequence state and output events. The engine produces raw step data; an overlay pipeline transforms it (mute steps, reroute tracks, transpose pitches) before I/O consumes the result.
+Stacking order matters (mute before transpose ≠ transpose before mute). Keep overlays composable and stateless.
 
-**Considerations:**
-- Should overlays be composable/stackable? (e.g., mute → transpose → route)
-- Does mute belong in the engine layer or the I/O layer? Mute is stateless and pure, so engine is natural — but it's not part of the sequence data itself.
-- Stacking order matters: muting before transposition vs. after gives different results.
-- Must preserve engine purity — overlays should be pure functions: `(step, overlayState) => step | null`.
+---
 
-**Future overlay types:** transposition, probability masks, bar-offset patterns, swing/humanize.
-
-## Gate Length
+## 1. Gate Length
 
 Per-step gate duration — how long each note stays "on" within its step window.
 
-**How it fits the engine:** Gate length is a property of each step, output alongside pitch and velocity when a gate fires. The engine emits `(gateOn, gateOff)` event pairs; I/O translates these to Tone.js note durations or CV envelope shapes.
+**Layer:** Engine (new step property) + I/O (note duration scheduling)
 
-**Considerations:**
-- Storage: add to the existing gate subtrack (each step gets a length value) or create a separate gate-length subtrack? Separate subtrack enables independent length and polyrhythmic gate-length patterns.
-- Interaction with ratchets: does each ratchet subdivision get proportional gate length, or its own?
+**How it works:** Each step gets a gate-length value. The engine emits `(gateOn, gateOff)` event pairs; I/O translates to Tone.js note durations or CV envelope shapes.
+
+**Open questions:**
+- Store as part of gate subtrack (each step gets a length) or as a separate subtrack? Separate enables independent polyrhythmic gate-length patterns.
 - Value range: percentage of step duration (0-100%) is simpler; absolute ms gives more control but couples to tempo.
-- Hardware CV output: gate length needs precise timing — slew/envelope shaping in the output stage.
-- UI: editing 16 gate-length values on the small LCD. Could use encoder + step-select, or a bar graph view.
+- Interaction with ratchets: proportional subdivision or independent per-ratchet lengths?
+- UI: bar graph view on LCD? Encoder + step-select?
 
-## Ratchets
+**Status:** Roadmap Tier 1
 
-Subdivide a single step into rapid repeated triggers (2x, 3x, 4x, etc.). Classic techno tool for adding rolls and fills.
+---
 
-**How it fits the engine:** On a ratcheted step, the engine emits N evenly-spaced gate events within the step's time window instead of one. Pitch and velocity apply to all subdivisions (or could vary — see considerations).
+## 2. Ratchets
 
-**Considerations:**
+Subdivide a single step into rapid repeated triggers (2x/3x/4x). Classic techno tool for rolls and fills.
+
+**Layer:** Engine (step subdivision logic) + I/O (multi-trigger scheduling)
+
+**How it works:** On a ratcheted step, the engine emits N evenly-spaced gate events within the step's time window. Pitch and velocity apply to all subdivisions.
+
+**Open questions:**
 - Per-step ratchet count vs. per-track global setting. Per-step is more expressive but needs more storage and UI.
-- Interaction with gate length: each ratchet gets `stepDuration / ratchetCount * gateLength%`? Or fixed minimum gate?
-- Clock speed implications: high ratchet counts at fast tempos could produce very short gates — need minimum gate duration.
-- UI: how to set per-step ratchet on the 2x8 grid? Hold step + encoder? Dedicated ratchet edit mode?
-- Could ratchets have their own velocity curve (accent first hit, fade out, etc.)?
+- Gate length interaction: each ratchet gets `stepDuration / ratchetCount * gateLength%`? Minimum gate duration needed at fast tempos.
+- Could ratchets have velocity curves (accent first hit, fade out)?
+- UI: hold step + encoder? Dedicated edit mode?
 
-## Slides (portamento/glide)
+**Status:** Roadmap Tier 1 (depends on gate length)
 
-Mark steps where pitch glides smoothly into the next step's pitch, TB-303 style. Turns staccato sequences into fluid acid lines.
+---
 
-**How it fits the engine:** A slide flag (or slide-time value) per step. When the engine encounters a slide-flagged step, it signals I/O to glide pitch from the current note to the next note's pitch over the step duration.
+## 3. Slides
 
-**Considerations:**
-- Slide time: fixed module-wide value, or per-step slide duration? Fixed is simpler; per-step enables varied phrasing.
-- Slide only applies when the current step has gate=on AND the next step has gate=on. Silent steps break the glide.
-- Engine representation: boolean flag per step (simple) vs. slide-time value per step (flexible). Boolean + global slide-time is a good middle ground.
-- CV output: needs actual voltage slew — browser preview can approximate with Tone.js `portamento` or `rampTo`.
-- Interaction with ratchets: does slide apply across ratchet subdivisions? Probably not — slide is step-to-step, ratchets are within-step.
+Per-step boolean on pitch track — marks steps where pitch glides smoothly into the next step's pitch. TB-303 style portamento.
 
-## Bar-Offset Overlay
+**Layer:** Engine (slide flag per step) + I/O (Tone.js `portamento` / `rampTo`)
 
-Play the same gate pattern on bar 1, then shift it by N steps on bar 2 (and optionally keep shifting each bar). Creates evolving patterns from a single stored sequence without regenerating.
+**How it works:** When the engine encounters a slide-flagged step, it signals I/O to glide pitch from current note to next note's pitch over the step duration. Slide only applies when current step has gate=on AND next step has gate=on.
 
-**How it fits the engine:** This is an overlay (see above) — it doesn't modify the stored sequence, just shifts the read position. The engine tracks bar count and applies `(currentStep + barNumber * offsetAmount) % trackLength` to compute the actual step index.
+**Open questions:**
+- Fixed module-wide slide time vs. per-step slide duration? Boolean flag + global slide-time is a good middle ground.
+- CV output: needs voltage slew — browser preview approximates with Tone.js portamento.
+- Interaction with ratchets: slide is step-to-step, ratchets are within-step — probably independent.
+- Randomization: should RAND generate slide flags? What density parameter?
 
-**Considerations:**
-- Offset amount: fixed N steps, or progressive (bar 1: +0, bar 2: +1, bar 3: +2, etc.)?
-- Per-track or global? Per-track enables different tracks to drift at different rates — more polyrhythmic complexity.
-- Reset behavior: does the offset reset on pattern restart, or accumulate across loops?
-- Interaction with polyrhythmic lengths: offset is modulo track-length, so short tracks cycle through offsets faster.
-- Could apply to any subtrack independently (offset gate but not pitch = same notes, different rhythm).
+**Status:** Roadmap Tier 1
 
-## Pitch Arpeggio Generator
+---
 
-A generator mode that creates arpeggiated pitch patterns instead of random pitches. Define a chord or interval set, generate ordered pitch sequences.
+## 4. Mutate
 
-**How it fits the engine:** Extends the existing random pitch generator. Instead of picking random scale degrees, the arpeggio generator walks through chord tones in a defined direction/pattern and fills the pitch subtrack with the result.
+Turing machine-style sequence mutation — regenerates parts of the sequence every loop.
 
-**Considerations:**
+**Layer:** Engine (mutation logic per subtrack per loop boundary)
+
+**How it works:** Per-subtrack mutation rate (0-100%) controls probability each step gets regenerated per loop. Uses the currently active random generator, so low mutation creates slow drift toward the current constraint set's characteristics.
+
+**Parameters:**
+- **Mutation rate:** 0-100% — probability each step gets regenerated per loop
+- **Scope:** per-subtrack (gate/pitch/vel/mod independently) or whole track
+- **Clock source:** mutate per internal loop cycle, per global clock/bars, or per external trigger
+
+**Open questions:**
+- Feature button function (one of the transport slots) or per-track config parameter?
+- Visual feedback: flash changed steps on LCD?
+- "Lock" function to snapshot current state and stop mutating?
+- Overlay showing mutation rates per subtrack?
+
+**Status:** Roadmap Tier 2 — signature feature of the module
+
+---
+
+## 5. Pitch Transposition
+
+Per-track transpose offset + range scaling. Shift sequences up/down by semitones or scale degrees.
+
+**Layer:** Overlay (pure transform on pitch output)
+
+**How it works:** An overlay applies a transpose offset to each pitch value before I/O. Can be absolute (semitones) or scale-aware (shift by scale degrees within the active scale).
+
+**Open questions:**
+- Absolute semitone offset vs. scale-degree offset? Scale-degree keeps everything in-key.
+- Range scaling: compress or expand the pitch range of a track (e.g., map 2 octaves → 1 octave)?
+- Per-track or global? Per-track is more useful for creating harmonic movement.
+- UI: encoder-controlled transpose value? Live transposition via external CV?
+
+**Status:** Roadmap Tier 2
+
+---
+
+## 6. Pitch Arpeggio Generator
+
+An alternative pitch generation mode that creates arpeggiated patterns instead of random pitches. Define a chord or interval set, walk through chord tones in order.
+
+**Layer:** Engine (extends random pitch generator)
+
+**How it works:** Instead of picking random scale degrees, walks through chord tones in a defined direction/pattern. Fills the pitch subtrack with the result. Added as a mode option alongside random.
+
+**Open questions:**
 - Arpeggio direction modes: up, down, up-down (triangle), random order.
-- Octave range: span 1-4 octaves before repeating the pattern.
-- Interaction with scale constraint: arpeggiate within the currently selected scale? Or define chord intervals independently?
-- Relationship to random pitch generator: add as a mode option (random vs. arpeggio) rather than replacing.
-- Chord definition: preset chords (triad, 7th, sus4, etc.) vs. manual interval selection.
-- Pattern length vs. track length: arpeggio pattern might not divide evenly into track length — creates its own polyrhythmic effect.
+- Octave range: span 1-4 octaves before repeating.
+- Chord definition: preset chords (triad, 7th, sus4) vs. manual interval selection?
+- Pattern length vs. track length mismatch creates polyrhythmic effect — feature or bug?
+- Interaction with scale constraint: arpeggiate within selected scale, or define chord intervals independently?
+
+**Status:** Roadmap Tier 2
+
+---
+
+## 7. MOD Subtrack UI
+
+The MOD subtrack data structures exist in the engine but the step editing UI is not wired up. This is a V1 gap that needs closing.
+
+**Layer:** UI (LCD screen for MOD step editing)
+
+**How it works:** Add a MOD editing screen accessible from dashboard. Show per-step MOD values as a bar graph, allow encoder-based editing of individual step values.
+
+**Open questions:**
+- Does MOD editing get its own mode, or extend the existing track-config mode?
+- Visual representation: bar graph (like velocity) or numeric display?
+- MOD destination routing: how does the user assign what the MOD output controls?
+
+**Status:** Roadmap Tier 3
+
+---
+
+## 8. Smart Gate Generation
+
+Multi-bar aware gate patterns for techno-style sequences. Instead of the same pattern every bar, generate patterns that evolve across 2/4/8/16-bar phrases.
+
+**Layer:** Engine (extended gate generator) or Overlay (bar-offset transform)
+
+**How it works:** Two possible approaches:
+1. **Bar-offset overlay:** Shift the gate read position by N steps each bar. Creates evolving patterns from a single stored sequence. `(currentStep + barNumber * offset) % trackLength`.
+2. **Multi-bar generation:** Generate a longer gate pattern (e.g., 64 steps for a 4-bar phrase) with intentional structure — sparse bars, fill bars, drop bars.
+
+**Open questions:**
+- Overlay approach (simpler, works with existing patterns) vs. multi-bar generation (more control, more complex)?
+- Per-track bar-offset rates enable different tracks drifting at different speeds.
+- Reset behavior: offset resets on pattern restart, or accumulates?
+- "Techno modes": preset gate distribution profiles (4-on-floor, breakbeat, syncopated)?
+
+**Status:** Roadmap Tier 3 (needs research)
+
+---
+
+## 9. MOD as LFO
+
+MOD output generates continuous modulation signals instead of step-sequenced values.
+
+**Layer:** Engine (LFO generator) + I/O (continuous output scheduling)
+
+**Possible waveforms:**
+- **LFO:** sine, triangle, saw, square — adjustable rate and phase
+- **Slewed random:** random values with adjustable slew rate (smoothed S&H)
+- **Sample & hold:** stepped random at a configurable rate
+- **Envelope follower:** triggered per step or per loop
+
+**Timing options:**
+- **Track loop:** LFO cycle = track loop length (stays in phase)
+- **Own length:** independent cycle length (polymetric modulation)
+- **Global bars:** syncs to master clock bar divisions
+- **Free:** rate in Hz, not synced
+
+**Open questions:**
+- Does LFO mode replace step-sequenced MOD, or is it an alternative mode?
+- How to edit LFO parameters on the LCD (waveform preview)?
+- Multiple MOD lanes per track, or one configurable source?
+- Per-step slew rate or global per track?
+
+**Status:** Roadmap Tier 3 (phase 2 of MOD, after subtrack UI)
+
+---
+
+## 10. Web MIDI Output
+
+Route engine output to external MIDI devices via Web MIDI API.
+
+**Layer:** I/O (MIDI output alongside Tone.js audio)
+
+**How it works:** Add a Web MIDI output module that translates engine events (gate on/off, pitch, velocity, MOD) to MIDI messages. Route per-output to a MIDI channel.
+
+**Open questions:**
+- MIDI channel mapping: one channel per output? User-configurable?
+- Clock output: send MIDI clock for sync?
+- Latency: Web MIDI API timing vs. Tone.js scheduling — may need compensation.
+
+**Status:** Roadmap Tier 4 (low priority, Tone.js sufficient for prototyping)

@@ -1,7 +1,7 @@
 # Requencer Design Document
 
 **Date:** 2026-02-22
-**Status:** Validated — implementing v2 (random techno machine redesign)
+**Status:** V1 Complete
 
 ## Overview
 
@@ -105,31 +105,25 @@ Regen: short press on a grid button regenerates that track×subtype.
                     └─────────────┘
 ```
 
-## V1 Scope (Current)
+## V1 Scope ✓
 
-1. 4 sequence tracks with independent gate/pitch/velocity subtracks
-2. Polyrhythmic lengths per subtrack
-3. Hierarchical clock division (track + subtrack level)
-4. Constrained random pattern generation (random + euclidean modes)
-5. 4×4 regen grid (track × subtype)
-6. Routing: output→track source mapping
-7. Tone.js audio preview
-8. Canvas LCD with dashboard + config views
-9. Transport controls + keyboard shortcuts
-10. Preset save/load
+All V1 features are implemented:
 
-## Future (Post-V1)
+1. ✓ 4 sequence tracks with independent gate/pitch/velocity subtracks
+2. ✓ Polyrhythmic lengths per subtrack
+3. ✓ Hierarchical clock division (track + subtrack level)
+4. ✓ Constrained random pattern generation (random + euclidean modes)
+5. ✓ 4×4 regen grid (track × subtype)
+6. ✓ Routing: output→track source mapping
+7. ✓ Tone.js audio preview
+8. ✓ Canvas LCD with dashboard + config views
+9. ✓ Transport controls + keyboard shortcuts
+10. ✓ Preset save/load
 
-- Sample/Hold mode for pitch and velocity
-- Gate length per step
-- Ratchets (per-step subdivisions for rolls/fills)
-- Slides / portamento (TB-303 style pitch glide between steps)
-- Bar-offset overlay (shift patterns by N steps each bar for evolving sequences)
-- Pitch arpeggio generator (ordered chord-tone patterns as alternative to random pitch)
-- Web MIDI output
-- Pattern chaining
-- Probability per step
-- CV output curves
-- Rust port for embedded hardware
+**Known V1 gaps:**
+- MOD subtrack data structures exist but UI editing is not wired up
+- Presets are in-memory only (no persistence across page reloads)
 
-See [feature ideas research](../../docs/research/feature-ideas.md) for detailed writeups and trade-offs.
+## Future
+
+See the [feature roadmap](2026-03-01-feature-roadmap.md) for prioritized post-V1 features, and [feature ideas research](../research/feature-ideas.md) for detailed writeups and trade-offs.

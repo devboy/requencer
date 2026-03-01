@@ -33,7 +33,6 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
       ['A', 'Mute patterns'],
       ['S', 'Route outputs'],
       ['D', 'Randomizer'],
-      ['F', 'Dividers / Length'],
     ],
   },
   {
@@ -58,7 +57,6 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
       ['Hold 1–4 + ↑↓', 'All subtrack lengths / track divider'],
       ['Hold Q/W/E/R + ↑↓', 'Individual subtrack length / divider'],
       ['Hold A + ↑↓', 'Mute length / divider'],
-      ['Hold F + ↑↓', 'Track length / divider (all tracks visible)'],
       ['Hold 1–4 + D', 'Randomize entire track'],
       ['Hold Q/W/E + D', 'Randomize gate / pitch / velocity only'],
       ['Hold 1–4 + Backspace', 'Reset track playheads'],
