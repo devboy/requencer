@@ -113,24 +113,22 @@ export function createFaceplate(): FaceplateElements {
                 <div class="right-col" id="feature-col"></div>
               </div>
 
-              <!-- CONTROL STRIP: transport + RAND + encoders -->
+              <!-- CONTROL STRIP: enc A | RESET RAND PLAY | enc B -->
               <div class="control-strip">
-                <div class="control-strip-left" id="control-strip-btns"></div>
-                <div class="control-strip-right">
-                  <div class="encoder-cell">
-                    <span class="btn-label label-above">A</span>
-                    <div class="encoder" id="encoder-a">
-                      <div class="encoder-cap">
-                        <div class="encoder-indicator"></div>
-                      </div>
+                <div class="encoder-cell">
+                  <span class="btn-label label-above">A</span>
+                  <div class="encoder" id="encoder-a">
+                    <div class="encoder-cap">
+                      <div class="encoder-indicator"></div>
                     </div>
                   </div>
-                  <div class="encoder-cell">
-                    <span class="btn-label label-above">B</span>
-                    <div class="encoder" id="encoder-b">
-                      <div class="encoder-cap">
-                        <div class="encoder-indicator"></div>
-                      </div>
+                </div>
+                <div class="control-strip-btns" id="control-strip-btns"></div>
+                <div class="encoder-cell">
+                  <span class="btn-label label-above">B</span>
+                  <div class="encoder" id="encoder-b">
+                    <div class="encoder-cap">
+                      <div class="encoder-indicator"></div>
                     </div>
                   </div>
                 </div>
@@ -258,15 +256,15 @@ export function createFaceplate(): FaceplateElements {
   resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
   controlStripBtns.appendChild(resetBtn)
 
-  const playBtn = document.createElement('button')
-  playBtn.className = 'large-btn transport-btn play-btn'
-  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
-  controlStripBtns.appendChild(playBtn)
-
   const randBtn = document.createElement('button')
   randBtn.className = 'large-btn rand-btn'
   randBtn.innerHTML = '<span class="btn-icon">◆</span><span class="btn-text">RAND</span>'
   controlStripBtns.appendChild(randBtn)
+
+  const playBtn = document.createElement('button')
+  playBtn.className = 'large-btn transport-btn play-btn'
+  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
+  controlStripBtns.appendChild(playBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
@@ -575,17 +573,11 @@ const PANEL_CSS = `
     margin-top: ${COMPONENT_GAP}px;
   }
 
-  .control-strip-left {
+  .control-strip-btns {
     display: flex;
     gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
     align-items: center;
     flex: 1;
-  }
-
-  .control-strip-right {
-    display: flex;
-    gap: ${Math.round(COMPONENT_GAP * 0.8)}px;
-    align-items: center;
   }
 
   .encoder-cell {
