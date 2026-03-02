@@ -25,13 +25,23 @@ export function renderGateEdit(ctx: CanvasRenderingContext2D, engine: SequencerS
   const pageOffset = ui.currentPage * 16
   const maxPage = Math.max(0, Math.ceil(track.gate.length / 16) - 1)
 
+  const selectedStepIdx = ui.selectedStep >= 0 ? ui.currentPage * 16 + ui.selectedStep : -1
+
   // Title
   drawText(ctx, `GATE — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
-  // Right side info
-  let infoText = `LEN ${track.gate.length}`
+  // Right side info: show gate length + ratchet when a step is selected
+  let infoText = ''
+  if (selectedStepIdx >= 0 && selectedStepIdx < track.gate.length) {
+    const step = track.gate.steps[selectedStepIdx]
+    const gl = Math.round(step.length * 100)
+    const rc = step.ratchet
+    infoText = `GL:${gl}%`
+    if (rc > 1) infoText += ` R:${rc}x`
+  }
   if (track.gate.clockDivider > 1) infoText += `  ÷${track.gate.clockDivider}`
   if (maxPage > 0) infoText += `  P${ui.currentPage + 1}/${maxPage + 1}`
+  if (!infoText) infoText = `LEN ${track.gate.length}`
   drawText(ctx, infoText, LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 16, 'right')
 
   // Step grid — 2 rows of 8
@@ -44,15 +54,32 @@ export function renderGateEdit(ctx: CanvasRenderingContext2D, engine: SequencerS
 
       if (stepIdx >= track.gate.length) {
         fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, '#111118')
-      } else if (track.gate.steps[stepIdx]) {
-        fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, trackColor)
+      } else if (track.gate.steps[stepIdx].on) {
+        // Gate ON: show gate length as filled portion of step cell
+        const step = track.gate.steps[stepIdx]
+        const barH = Math.round(STEP_H * step.length)
+        fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, COLORS.trackDim[ui.selectedTrack])
+        fillRect(ctx, { x, y: rowY + (STEP_H - barH), w: STEP_W, h: barH }, trackColor)
+
+        // Ratchet tick marks — horizontal lines dividing the bar
+        if (step.ratchet > 1) {
+          const rc = step.ratchet
+          for (let r = 1; r < rc; r++) {
+            const tickY = rowY + (STEP_H - barH) + Math.round((barH / rc) * r)
+            fillRect(ctx, { x: x + 2, y: tickY, w: STEP_W - 4, h: 1 }, '#000000aa')
+          }
+        }
       } else {
         fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, COLORS.trackDim[ui.selectedTrack])
       }
 
-      // Playhead indicator
-      if (stepIdx === track.gate.currentStep) {
+      // Selected step highlight
+      if (i === ui.selectedStep && ui.selectedStep >= 0) {
         strokeRect(ctx, { x: x - 1, y: rowY - 1, w: STEP_W + 2, h: STEP_H + 2 }, '#ffffff', 2)
+      }
+      // Playhead indicator
+      else if (stepIdx === track.gate.currentStep) {
+        strokeRect(ctx, { x: x - 1, y: rowY - 1, w: STEP_W + 2, h: STEP_H + 2 }, '#ffffff88', 1)
       }
     }
   }

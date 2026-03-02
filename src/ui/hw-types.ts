@@ -4,7 +4,7 @@
  *
  * Navigation model:
  *   T1-T4 buttons: select track (cross-modal — works in any screen)
- *   GATE/PTCH/VEL/MOD buttons: enter subtrack edit screens
+ *   GATE/PITCH/VEL/MOD buttons: enter subtrack edit screens
  *   MUTE/ROUTE/RAND buttons: enter feature screens
  *   16 step buttons: context-dependent (toggle/select based on mode)
  *   Encoder A (left): context-dependent (value edit, scroll)
@@ -22,12 +22,17 @@ export type ScreenMode =
   | 'route'
   | 'rand'
   | 'name-entry'
+  | 'mutate-edit'
+  | 'mod-edit'
+  | 'transpose-edit'
 
 export type ControlEvent =
   | { type: 'encoder-a-turn'; delta: number }
   | { type: 'encoder-a-push' }
+  | { type: 'encoder-a-hold' }
   | { type: 'encoder-b-turn'; delta: number }
   | { type: 'encoder-b-push' }
+  | { type: 'back' }
   | { type: 'play-stop' }
   | { type: 'reset' }
   | { type: 'track-select'; track: number }      // T1-T4 (0-3)
@@ -38,13 +43,14 @@ export type ControlEvent =
   | { type: 'hold-end' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
-export type FeatureId = 'mute' | 'route' | 'rand'
+export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose'
 
 /** Describes which button is being held for hold combos */
 export type HeldButtonTarget =
   | { kind: 'track'; track: number }        // T1-T4 (0-3)
   | { kind: 'subtrack'; subtrack: SubtrackId }
   | { kind: 'feature'; feature: FeatureId }
+  | { kind: 'step'; step: number }          // step 0-15
 
 export interface UIState {
   mode: ScreenMode
@@ -57,7 +63,11 @@ export interface UIState {
   randPresetIndex: number     // which preset is highlighted (0 to total presets-1)
   nameChars: number[]         // character indices for name-entry mode (max 12)
   nameCursor: number          // cursor position in name-entry (0 to nameChars.length-1)
+  mutateParam: number         // 0-8: selected row in DRIFT screen (7 subtracks + trigger + bars)
   routeParam: number          // 0-3: selected param row in ROUTE screen (gate/pitch/vel/mod)
+  routePage: number           // 0=routing, 1=midi
+  midiDevices: Array<{ id: string; name: string }>  // available MIDI output devices
+  midiDeviceIndex: number     // selected MIDI device index per output (into midiDevices)
 }
 
 export interface LEDState {

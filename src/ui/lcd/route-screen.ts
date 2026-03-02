@@ -1,7 +1,7 @@
 /**
  * LCD Route screen — per-output param source mapping.
  * T1-T4 selects output. Enc A scrolls params. Enc B cycles source track.
- * 4 rows: GATE, PTCH, VEL, MOD — no scrolling needed.
+ * 4 rows: GATE, PITCH, VEL, MOD — no scrolling needed.
  * All text >=16px for readability.
  */
 
@@ -9,6 +9,7 @@ import type { SequencerState } from '../../engine/types'
 import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
 import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import { renderMIDI } from './midi-screen'
 
 const PAD = 8
 const HEADER_H = 30
@@ -18,16 +19,18 @@ const LABEL_X = PAD + 18
 const ARROW_X = LCD_W / 2 + 20
 const SOURCE_X = ARROW_X + 30
 
-const PARAM_LABELS = ['GATE', 'PTCH', 'VEL', 'MOD']
+const PARAM_LABELS = ['GATE', 'PITCH', 'VEL', 'MOD']
 const PARAM_KEYS: Array<'gate' | 'pitch' | 'velocity' | 'mod'> = ['gate', 'pitch', 'velocity', 'mod']
 
 export function renderRoute(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
+  if (ui.routePage === 1) return renderMIDI(ctx, engine, ui)
+
   const outputIdx = ui.selectedTrack
   const outputRouting = engine.routing[outputIdx]
 
   // Header
   drawText(ctx, `ROUTE — O${outputIdx + 1}`, PAD, LCD_CONTENT_Y + 18, COLORS.track[outputIdx], 18)
-  drawText(ctx, 'ENC A:\u25B2\u25BC  ENC B:source', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
+  drawText(ctx, 'PUSH:midi  ENC B:source', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 
   // 4 param rows
   for (let i = 0; i < 4; i++) {

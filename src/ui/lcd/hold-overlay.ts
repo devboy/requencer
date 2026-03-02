@@ -28,10 +28,10 @@ export function renderHoldOverlay(ctx: CanvasRenderingContext2D, engine: Sequenc
 
     // Show all subtrack lengths
     const y = centerY - 20
-    drawText(ctx, `LEN  G:${track.gate.length}  P:${track.pitch.length}  V:${track.velocity.length}`, PAD, y, COLORS.textBright, 18)
+    drawText(ctx, `LEN  G:${track.gate.length}  P:${track.pitch.length}  V:${track.velocity.length}  M:${track.mod.length}`, PAD, y, COLORS.textBright, 18)
 
     // Track clock divider
-    drawText(ctx, `DIV  ÷${track.clockDivider}`, PAD, y + 30, COLORS.textBright, 18)
+    drawText(ctx, `DIV  ÷${track.clockDivider}`, PAD, y + 26, COLORS.textBright, 18)
 
     // Hint
     drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
@@ -39,7 +39,7 @@ export function renderHoldOverlay(ctx: CanvasRenderingContext2D, engine: Sequenc
 
   if (held.kind === 'subtrack') {
     const sub = held.subtrack
-    if (sub === 'gate' || sub === 'pitch' || sub === 'velocity') {
+    if (sub === 'gate' || sub === 'pitch' || sub === 'velocity' || sub === 'mod') {
       const subtrack = engine.tracks[trackIdx][sub]
       const label = sub.toUpperCase()
       drawText(ctx, `${label} — T${trackIdx + 1}`, PAD, LCD_CONTENT_Y + 30, trackColor, 18)

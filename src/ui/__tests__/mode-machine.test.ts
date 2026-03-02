@@ -3,6 +3,7 @@ import { createInitialUIState, dispatch, getLEDState } from '../mode-machine'
 import { createSequencer } from '../../engine/sequencer'
 import type { SequencerState } from '../../engine/types'
 import type { UIState } from '../hw-types'
+import { getVisibleRows } from '../rand-rows'
 
 function makeState(): SequencerState {
   return createSequencer()
@@ -109,11 +110,11 @@ describe('dispatch', () => {
       expect(result.ui.mode).toBe('vel-edit')
     })
 
-    it('mod button is no-op (placeholder)', () => {
+    it('mod button enters mod-edit', () => {
       const ui = createInitialUIState()
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'subtrack-select', subtrack: 'mod' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('mod-edit')
     })
 
     it('works cross-modally (from another edit screen)', () => {
@@ -194,9 +195,8 @@ describe('dispatch', () => {
     it('step-press toggles gate step', () => {
       const ui = gateUI()
       let eng = makeState()
-      // Set some gate steps
-      const steps = [...eng.tracks[0].gate.steps]
-      steps[3] = false
+      // Set gate step 3 to off
+      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: false } : s)
       eng = {
         ...eng,
         tracks: eng.tracks.map((t, i) =>
@@ -204,14 +204,13 @@ describe('dispatch', () => {
         ),
       }
       const result = dispatch(ui, eng, { type: 'step-press', step: 3 })
-      expect(result.engine.tracks[0].gate.steps[3]).toBe(true)
+      expect(result.engine.tracks[0].gate.steps[3].on).toBe(true)
     })
 
-    it('step-press toggles off', () => {
+    it('step-press on ON step toggles it off immediately', () => {
       const ui = gateUI()
       let eng = makeState()
-      const steps = [...eng.tracks[0].gate.steps]
-      steps[5] = true
+      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 5 ? { ...s, on: true } : s)
       eng = {
         ...eng,
         tracks: eng.tracks.map((t, i) =>
@@ -219,14 +218,56 @@ describe('dispatch', () => {
         ),
       }
       const result = dispatch(ui, eng, { type: 'step-press', step: 5 })
-      expect(result.engine.tracks[0].gate.steps[5]).toBe(false)
+      expect(result.engine.tracks[0].gate.steps[5].on).toBe(false)
     })
 
-    it('encoder-b-turn pages forward', () => {
-      const ui = gateUI(0)
+    it('hold step selects it, encoder A adjusts gate length', () => {
+      const ui = gateUI()
+      let eng = makeState()
+      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: true } : s)
+      eng = {
+        ...eng,
+        tracks: eng.tracks.map((t, i) =>
+          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
+        ),
+      }
+      // Hold step 3
+      const held = dispatch(ui, eng, { type: 'hold-start', button: { kind: 'step', step: 3 } })
+      expect(held.ui.selectedStep).toBe(3)
+      expect(held.ui.heldButton).toEqual({ kind: 'step', step: 3 })
+      // Encoder A adjusts gate length
+      const adjusted = dispatch(held.ui, held.engine, { type: 'encoder-a-turn', delta: 2 })
+      expect(adjusted.engine.tracks[0].gate.steps[3].length).toBeCloseTo(0.6) // 0.5 + 2*0.05
+    })
+
+    it('hold step + encoder B adjusts ratchet count', () => {
+      const ui = gateUI()
+      let eng = makeState()
+      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: true } : s)
+      eng = {
+        ...eng,
+        tracks: eng.tracks.map((t, i) =>
+          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
+        ),
+      }
+      const held = dispatch(ui, eng, { type: 'hold-start', button: { kind: 'step', step: 3 } })
+      const adjusted = dispatch(held.ui, held.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(adjusted.engine.tracks[0].gate.steps[3].ratchet).toBe(2)
+    })
+
+    it('hold-end deselects step', () => {
+      const ui = { ...gateUI(), selectedStep: 3, heldButton: { kind: 'step' as const, step: 3 } }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'hold-end' })
+      expect(result.ui.selectedStep).toBe(-1)
+      expect(result.ui.heldButton).toBeNull()
+    })
+
+    it('encoder-b-turn pages forward when no step selected', () => {
+      const ui = { ...gateUI(0), selectedStep: -1 }
       let eng = makeState()
       // Set gate length to 32 so there are 2 pages
-      const steps = Array(32).fill(false)
+      const steps = Array.from({ length: 32 }, () => ({ on: false, length: 0.5, ratchet: 1 }))
       eng = {
         ...eng,
         tracks: eng.tracks.map((t, i) =>
@@ -237,11 +278,18 @@ describe('dispatch', () => {
       expect(result.ui.currentPage).toBe(1)
     })
 
-    it('encoder-b-push returns to home', () => {
+    it('back returns to home', () => {
+      const ui = gateUI()
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('encoder-b-push is no-op', () => {
       const ui = gateUI()
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('gate-edit')
     })
   })
 
@@ -260,16 +308,15 @@ describe('dispatch', () => {
     it('encoder-a-turn adjusts pitch of selected step', () => {
       const ui = pitchUI(3)
       const eng = makeState()
-      const before = eng.tracks[0].pitch.steps[3]
+      const before = eng.tracks[0].pitch.steps[3].note
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 2 })
-      expect(result.engine.tracks[0].pitch.steps[3]).toBe(before + 2)
+      expect(result.engine.tracks[0].pitch.steps[3].note).toBe(before + 2)
     })
 
     it('pitch clamps to 0-127', () => {
       const ui = pitchUI(0)
       let eng = makeState()
-      const steps = [...eng.tracks[0].pitch.steps]
-      steps[0] = 127
+      const steps = eng.tracks[0].pitch.steps.map((s, i) => i === 0 ? { ...s, note: 127 } : s)
       eng = {
         ...eng,
         tracks: eng.tracks.map((t, i) =>
@@ -277,14 +324,50 @@ describe('dispatch', () => {
         ),
       }
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 5 })
-      expect(result.engine.tracks[0].pitch.steps[0]).toBe(127)
+      expect(result.engine.tracks[0].pitch.steps[0].note).toBe(127)
     })
 
-    it('encoder-b-push returns to home', () => {
+    it('encoder-b-turn adjusts slide for selected step', () => {
+      const ui = pitchUI(2)
+      const eng = makeState()
+      expect(eng.tracks[0].pitch.steps[2].slide).toBe(0)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine.tracks[0].pitch.steps[2].slide).toBe(0.05)
+    })
+
+    it('slide clamps to 0-0.50', () => {
+      const ui = pitchUI(0)
+      const eng = makeState()
+      // Test lower clamp
+      const down = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
+      expect(down.engine.tracks[0].pitch.steps[0].slide).toBe(0)
+      // Set to max and test upper clamp
+      let e = eng
+      for (let i = 0; i < 12; i++) e = dispatch(ui, e, { type: 'encoder-b-turn', delta: 1 }).engine as any
+      // After 12 increments of 0.05 = 0.60, should clamp to 0.50
+      expect((e as any).tracks[0].pitch.steps[0].slide).toBeLessThanOrEqual(0.50)
+    })
+
+    it('encoder-a-push cycles page', () => {
+      const ui = pitchUI()
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-push' })
+      // Default 16-step track has 1 page, so cycles back to 0
+      expect(result.ui.currentPage).toBe(0)
+    })
+
+    it('back returns to home', () => {
+      const ui = pitchUI()
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('encoder-b-push is no-op', () => {
       const ui = pitchUI()
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('pitch-edit')
     })
   })
 
@@ -309,20 +392,33 @@ describe('dispatch', () => {
   })
 
   describe('stub modes (route, rand, div)', () => {
-    it('encoder-b-push returns to home from route', () => {
+    it('back returns to home from route', () => {
+      const ui = { ...createInitialUIState(), mode: 'route' as const }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('back returns to home from rand', () => {
+      const ui = { ...createInitialUIState(), mode: 'rand' as const }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('encoder-b-push is no-op in route', () => {
       const ui = { ...createInitialUIState(), mode: 'route' as const }
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('route')
     })
 
-    it('encoder-b-push returns to home from rand', () => {
+    it('encoder-b-push is no-op in rand', () => {
       const ui = { ...createInitialUIState(), mode: 'rand' as const }
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('rand')
     })
-
   })
 })
 
@@ -348,9 +444,11 @@ describe('getLEDState', () => {
   it('gate-edit shows gate pattern on step LEDs', () => {
     const ui = { ...createInitialUIState(), mode: 'gate-edit' as const }
     let eng = makeState()
-    const steps = Array(16).fill(false)
-    steps[0] = true
-    steps[5] = true
+    const steps = Array.from({ length: 16 }, (_, i) => ({
+      on: i === 0 || i === 5,
+      length: 0.5,
+      ratchet: 1,
+    }))
     eng = {
       ...eng,
       tracks: eng.tracks.map((t, i) =>
@@ -568,48 +666,73 @@ describe('hold combos', () => {
 })
 
 describe('rand screen dispatch', () => {
-  function randUI(param = 0, presetIdx = 0) {
+  // Helper: find the visible row index for a paramId in the current state
+  function findRowIdx(paramId: string, eng: SequencerState, ui: UIState): number {
+
+    const rows = getVisibleRows(eng, ui)
+    const idx = rows.findIndex((r: { paramId: string }) => r.paramId === paramId)
+    if (idx === -1) throw new Error(`paramId '${paramId}' not visible`)
+    return idx
+  }
+
+  function randUI(paramId: string, eng: SequencerState, presetIdx = 0) {
+    const base = { ...createInitialUIState(), mode: 'rand' as const, randPresetIndex: presetIdx }
+    const idx = findRowIdx(paramId, eng, base)
+    return { ...base, randParam: idx }
+  }
+
+  function randUIRaw(param = 0, presetIdx = 0) {
     return { ...createInitialUIState(), mode: 'rand' as const, randParam: param, randPresetIndex: presetIdx }
   }
 
   describe('navigation', () => {
     it('enc A scrolls param list down', () => {
-      const ui = randUI(0)
+      const ui = randUIRaw(0)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 1 })
       expect(result.ui.randParam).toBe(1)
     })
 
     it('enc A scrolls param list up', () => {
-      const ui = randUI(3)
+      const ui = randUIRaw(3)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -1 })
       expect(result.ui.randParam).toBe(2)
     })
 
     it('enc A clamps at top', () => {
-      const ui = randUI(0)
+      const ui = randUIRaw(0)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -1 })
       expect(result.ui.randParam).toBe(0)
     })
 
     it('enc A clamps at bottom', () => {
-      const ui = randUI(12)
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 1 })
-      expect(result.ui.randParam).toBe(12)
+      const ui = randUIRaw(0)
+
+      const maxIdx = getVisibleRows(eng, ui).length - 1
+      const bottomUI = randUIRaw(maxIdx)
+      const result = dispatch(bottomUI, eng, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.randParam).toBe(maxIdx)
     })
 
-    it('enc B push returns to home', () => {
-      const ui = randUI(5)
+    it('back returns to home', () => {
+      const ui = randUIRaw(5)
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-b-push' })
+      const result = dispatch(ui, eng, { type: 'back' })
       expect(result.ui.mode).toBe('home')
     })
 
+    it('encoder-b-push is no-op', () => {
+      const ui = randUIRaw(5)
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-b-push' })
+      expect(result.ui.mode).toBe('rand')
+    })
+
     it('track buttons cross-modal', () => {
-      const ui = randUI(3)
+      const ui = randUIRaw(3)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'track-select', track: 2 })
       expect(result.ui.selectedTrack).toBe(2)
@@ -617,31 +740,31 @@ describe('rand screen dispatch', () => {
     })
   })
 
-  describe('preset row (param 0)', () => {
+  describe('preset row', () => {
     it('enc B cycles preset index forward', () => {
-      const ui = randUI(0, 0)
       const eng = makeState()
+      const ui = randUI('preset', eng, 0)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.ui.randPresetIndex).toBe(1)
     })
 
     it('enc B cycles preset index backward', () => {
-      const ui = randUI(0, 2)
       const eng = makeState()
+      const ui = randUI('preset', eng, 2)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.ui.randPresetIndex).toBe(1)
     })
 
     it('enc B clamps preset index at bounds', () => {
-      const ui = randUI(0, 0)
       const eng = makeState()
+      const ui = randUI('preset', eng, 0)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.ui.randPresetIndex).toBe(0)
     })
 
     it('enc A push applies preset to track randomConfig', () => {
-      const ui = randUI(0, 0) // Bassline preset
       const eng = makeState()
+      const ui = randUI('preset', eng, 0) // Bassline preset
       const result = dispatch(ui, eng, { type: 'encoder-a-push' })
       // Bassline: pitch low=36, high=48
       expect(result.engine.randomConfigs[0].pitch.low).toBe(36)
@@ -651,27 +774,26 @@ describe('rand screen dispatch', () => {
     })
   })
 
-  describe('scale row (param 1)', () => {
+  describe('scale row', () => {
     it('enc B cycles scale forward', () => {
-      const ui = randUI(1)
       const eng = makeState()
+      const ui = randUI('pitch.scale', eng)
       const initialScale = eng.randomConfigs[0].pitch.scale.name
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].pitch.scale.name).not.toBe(initialScale)
     })
   })
 
-  describe('root row (param 2)', () => {
+  describe('root row', () => {
     it('enc B adjusts root note', () => {
-      const ui = randUI(2)
       const eng = makeState()
+      const ui = randUI('pitch.root', eng)
       const before = eng.randomConfigs[0].pitch.root
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].pitch.root).toBe(before + 1)
     })
 
     it('root clamps to 0-127', () => {
-      const ui = randUI(2)
       let eng = makeState()
       eng = {
         ...eng,
@@ -679,42 +801,42 @@ describe('rand screen dispatch', () => {
           i === 0 ? { ...c, pitch: { ...c.pitch, root: 127 } } : c
         ),
       }
+      const ui = randUI('pitch.root', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].pitch.root).toBe(127)
     })
   })
 
-  describe('pitch low row (param 3)', () => {
+  describe('pitch low row', () => {
     it('enc B adjusts pitch low', () => {
-      const ui = randUI(3)
       const eng = makeState()
+      const ui = randUI('pitch.low', eng)
       const before = eng.randomConfigs[0].pitch.low
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].pitch.low).toBe(before + 1)
     })
   })
 
-  describe('pitch high row (param 4)', () => {
+  describe('pitch high row', () => {
     it('enc B adjusts pitch high', () => {
-      const ui = randUI(4)
       const eng = makeState()
+      const ui = randUI('pitch.high', eng)
       const before = eng.randomConfigs[0].pitch.high
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.engine.randomConfigs[0].pitch.high).toBe(before - 1)
     })
   })
 
-  describe('max notes row (param 5)', () => {
+  describe('max notes row', () => {
     it('enc B adjusts max notes', () => {
-      const ui = randUI(5)
       const eng = makeState()
+      const ui = randUI('pitch.maxNotes', eng)
       const before = eng.randomConfigs[0].pitch.maxNotes
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].pitch.maxNotes).toBe(before + 1)
     })
 
     it('max notes clamps to 0-12', () => {
-      const ui = randUI(5)
       let eng = makeState()
       eng = {
         ...eng,
@@ -722,22 +844,22 @@ describe('rand screen dispatch', () => {
           i === 0 ? { ...c, pitch: { ...c.pitch, maxNotes: 0 } } : c
         ),
       }
+      const ui = randUI('pitch.maxNotes', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.engine.randomConfigs[0].pitch.maxNotes).toBe(0)
     })
   })
 
-  describe('fill min row (param 6)', () => {
+  describe('fill min row', () => {
     it('enc B adjusts fill min by 0.05', () => {
-      const ui = randUI(6)
       const eng = makeState()
+      const ui = randUI('gate.fillMin', eng)
       const before = eng.randomConfigs[0].gate.fillMin
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].gate.fillMin).toBeCloseTo(before + 0.05)
     })
 
     it('fill min clamps to 0-1', () => {
-      const ui = randUI(6)
       let eng = makeState()
       eng = {
         ...eng,
@@ -745,55 +867,56 @@ describe('rand screen dispatch', () => {
           i === 0 ? { ...c, gate: { ...c.gate, fillMin: 0 } } : c
         ),
       }
+      const ui = randUI('gate.fillMin', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.engine.randomConfigs[0].gate.fillMin).toBe(0)
     })
   })
 
-  describe('fill max row (param 7)', () => {
+  describe('fill max row', () => {
     it('enc B adjusts fill max by 0.05', () => {
-      const ui = randUI(7)
       const eng = makeState()
+      const ui = randUI('gate.fillMax', eng)
       const before = eng.randomConfigs[0].gate.fillMax
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].gate.fillMax).toBeCloseTo(before + 0.05)
     })
   })
 
-  describe('gate mode row (param 8)', () => {
+  describe('gate mode row', () => {
     it('enc B toggles gate mode', () => {
-      const ui = randUI(8)
       const eng = makeState()
+      const ui = randUI('gate.mode', eng)
       const before = eng.randomConfigs[0].gate.mode
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].gate.mode).toBe(before === 'random' ? 'euclidean' : 'random')
     })
   })
 
-  describe('offset row (param 9)', () => {
+  describe('offset row', () => {
     it('enc B toggles random offset', () => {
-      const ui = randUI(9)
       const eng = makeState()
+      const ui = randUI('gate.randomOffset', eng)
       const before = eng.randomConfigs[0].gate.randomOffset
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.randomConfigs[0].gate.randomOffset).toBe(!before)
     })
   })
 
-  describe('vel low row (param 10)', () => {
+  describe('vel low row', () => {
     it('enc B adjusts vel low', () => {
-      const ui = randUI(10)
       const eng = makeState()
+      const ui = randUI('velocity.low', eng)
       const before = eng.randomConfigs[0].velocity.low
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 5 })
       expect(result.engine.randomConfigs[0].velocity.low).toBe(before + 5)
     })
   })
 
-  describe('vel high row (param 11)', () => {
+  describe('vel high row', () => {
     it('enc B adjusts vel high', () => {
-      const ui = randUI(11)
       const eng = makeState()
+      const ui = randUI('velocity.high', eng)
       const before = eng.randomConfigs[0].velocity.high
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -3 })
       expect(result.engine.randomConfigs[0].velocity.high).toBe(before - 3)
@@ -802,8 +925,10 @@ describe('rand screen dispatch', () => {
 
   describe('track isolation', () => {
     it('adjustments only affect selected track config', () => {
-      const ui = { ...randUI(3), selectedTrack: 1 }
       const eng = makeState()
+      const base = { ...createInitialUIState(), mode: 'rand' as const, selectedTrack: 1, randPresetIndex: 0 }
+      const idx = findRowIdx('pitch.low', eng, base)
+      const ui = { ...base, randParam: idx }
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 5 })
       // Track 1 changed
       expect(result.engine.randomConfigs[1].pitch.low).toBe(eng.randomConfigs[1].pitch.low + 5)
@@ -812,10 +937,10 @@ describe('rand screen dispatch', () => {
     })
   })
 
-  describe('save row (param 12)', () => {
+  describe('save row', () => {
     it('enc A push on save row enters name-entry mode', () => {
-      const ui = randUI(12)
       const eng = makeState()
+      const ui = randUI('save', eng)
       const result = dispatch(ui, eng, { type: 'encoder-a-push' })
       expect(result.ui.mode).toBe('name-entry')
       expect(result.ui.nameChars).toHaveLength(12)
@@ -823,10 +948,90 @@ describe('rand screen dispatch', () => {
     })
   })
 
+  describe('conditional visibility', () => {
+    it('ARP sub-params hidden when ARP is off', () => {
+      const eng = makeState()
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('arp.enabled')
+      expect(paramIds).not.toContain('arp.direction')
+      expect(paramIds).not.toContain('arp.octaveRange')
+    })
+
+    it('ARP sub-params shown when ARP is on', () => {
+      let eng = makeState()
+      eng = { ...eng, arpConfigs: eng.arpConfigs.map((c, i) => i === 0 ? { ...c, enabled: true } : c) }
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('arp.direction')
+      expect(paramIds).toContain('arp.octaveRange')
+    })
+
+    it('OFFSET hidden when gate mode is random', () => {
+      let eng = makeState()
+      eng = {
+        ...eng,
+        randomConfigs: eng.randomConfigs.map((c, i) =>
+          i === 0 ? { ...c, gate: { ...c.gate, mode: 'random' as const } } : c
+        ),
+      }
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).not.toContain('gate.randomOffset')
+    })
+
+    it('LFO sub-params hidden when LFO is off', () => {
+      const eng = makeState()
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('lfo.enabled')
+      expect(paramIds).not.toContain('lfo.waveform')
+      expect(paramIds).not.toContain('lfo.rate')
+      expect(paramIds).not.toContain('lfo.depth')
+    })
+
+    it('LFO sub-params shown when LFO is on', () => {
+      let eng = makeState()
+      eng = { ...eng, lfoConfigs: eng.lfoConfigs.map((c, i) => i === 0 ? { ...c, enabled: true } : c) }
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('lfo.waveform')
+      expect(paramIds).toContain('lfo.rate')
+      expect(paramIds).toContain('lfo.depth')
+    })
+  })
+
+  describe('section headers', () => {
+    it('visible rows include section headers', () => {
+      const eng = makeState()
+      const ui = randUIRaw(0)
+
+      const rows = getVisibleRows(eng, ui)
+      const headers = rows.filter((r: { type: string }) => r.type === 'header')
+      const headerIds = headers.map((r: { paramId: string }) => r.paramId)
+      expect(headerIds).toContain('section.pitch')
+      expect(headerIds).toContain('section.arp')
+      expect(headerIds).toContain('section.gate')
+      expect(headerIds).toContain('section.vel')
+      expect(headerIds).toContain('section.mod')
+      expect(headerIds).toContain('section.lfo')
+    })
+  })
+
   describe('preset browser includes user presets', () => {
     it('enc B cycles through factory + user presets', () => {
-      const ui = randUI(0, 0)
       let eng = makeState()
+      const ui = randUI('preset', eng, 0)
       // Add a user preset
       eng = { ...eng, userPresets: [{ name: 'MY BASS', config: eng.randomConfigs[0] }] }
       // Scroll past all factory presets (6) to hit the user preset
@@ -903,12 +1108,19 @@ describe('name-entry dispatch', () => {
     expect(result.engine.userPresets[0].name).toBe('AB')
   })
 
-  it('enc B push cancels and returns to rand', () => {
+  it('back cancels and returns to rand', () => {
+    const ui = nameUI()
+    const eng = makeState()
+    const result = dispatch(ui, eng, { type: 'back' })
+    expect(result.ui.mode).toBe('rand')
+    expect(result.engine.userPresets).toHaveLength(0) // nothing saved
+  })
+
+  it('encoder-b-push is no-op in name-entry', () => {
     const ui = nameUI()
     const eng = makeState()
     const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-    expect(result.ui.mode).toBe('rand')
-    expect(result.engine.userPresets).toHaveLength(0) // nothing saved
+    expect(result.ui.mode).toBe('name-entry')
   })
 
   it('track buttons are ignored during name entry', () => {
@@ -959,11 +1171,18 @@ describe('route screen dispatch', () => {
       expect(result.ui.routeParam).toBe(3)
     })
 
-    it('enc B push returns to home', () => {
+    it('back returns to home', () => {
+      const ui = routeUI(2)
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('encoder-b-push is no-op', () => {
       const ui = routeUI(2)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('home')
+      expect(result.ui.mode).toBe('route')
     })
 
     it('track buttons switch output (cross-modal)', () => {
@@ -1019,6 +1238,62 @@ describe('route screen dispatch', () => {
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.routing[0].gate).toBe(0)
       expect(result.engine.routing[1].gate).toBe(2)
+    })
+  })
+
+  describe('MIDI page', () => {
+    it('enc A push toggles to MIDI page', () => {
+      const ui = routeUI(0)
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-push' })
+      expect(result.ui.routePage).toBe(1)
+      expect(result.ui.routeParam).toBe(0)
+    })
+
+    it('enc A push on MIDI page returns to route page', () => {
+      const ui = { ...routeUI(0), routePage: 1 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-push' })
+      expect(result.ui.routePage).toBe(0)
+    })
+
+    it('enc B toggles MIDI enabled', () => {
+      const ui = { ...routeUI(0), routePage: 1 }
+      const eng = makeState()
+      expect(eng.midiConfigs[0].enabled).toBe(false)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine.midiConfigs[0].enabled).toBe(true)
+    })
+
+    it('enc B adjusts MIDI channel on param 1', () => {
+      const ui = { ...routeUI(1), routePage: 1 }
+      const eng = makeState()
+      expect(eng.midiConfigs[0].channel).toBe(1)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 3 })
+      expect(result.engine.midiConfigs[0].channel).toBe(4)
+    })
+
+    it('MIDI channel clamps at 1-16', () => {
+      const ui = { ...routeUI(1), routePage: 1 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -5 })
+      expect(result.engine.midiConfigs[0].channel).toBe(1)
+    })
+
+    it('back from MIDI page returns home and resets page', () => {
+      const ui = { ...routeUI(0), routePage: 1 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+      expect(result.ui.routePage).toBe(0)
+    })
+
+    it('encoder-b-push is no-op on MIDI page', () => {
+      const ui = { ...routeUI(0), routePage: 1 }
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-b-push' })
+      expect(result.ui.mode).toBe('route')
+      expect(result.ui.routePage).toBe(1)
     })
   })
 })

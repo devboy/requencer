@@ -1,4 +1,4 @@
-import type { Note, Velocity, Scale, RandomConfig } from './types'
+import type { Note, Velocity, GateLength, RatchetCount, Scale, RandomConfig } from './types'
 import { euclidean } from './euclidean'
 import { getScaleNotes } from './scales'
 
@@ -121,18 +121,97 @@ export function randomizeVelocity(config: VelocityConfig, length: number, seed: 
   return velocities
 }
 
+interface GateLengthConfig {
+  min: GateLength
+  max: GateLength
+}
+
+/**
+ * Generate random gate length values within a range.
+ * Values are clamped to 0.05-1.0 and quantized to 0.05 increments.
+ */
+export function randomizeGateLength(config: GateLengthConfig, length: number, seed: number = Date.now()): GateLength[] {
+  const rng = createRng(seed)
+  const min = Math.max(0.05, config.min)
+  const max = Math.min(1.0, config.max)
+  const range = max - min
+
+  const values: GateLength[] = []
+  for (let i = 0; i < length; i++) {
+    const raw = min + rng() * range
+    values.push(Math.round(raw * 20) / 20) // quantize to 0.05
+  }
+
+  return values
+}
+
+interface RatchetConfig {
+  maxRatchet: RatchetCount
+  probability: number       // 0.0-1.0
+}
+
+/**
+ * Generate random ratchet values. Each step has `probability` chance of being > 1.
+ * When ratcheted, value is random 2..maxRatchet.
+ */
+export function randomizeRatchets(config: RatchetConfig, length: number, seed: number = Date.now()): RatchetCount[] {
+  const rng = createRng(seed)
+  const values: RatchetCount[] = []
+  for (let i = 0; i < length; i++) {
+    if (config.probability > 0 && rng() < config.probability && config.maxRatchet > 1) {
+      values.push(2 + Math.floor(rng() * (config.maxRatchet - 1))) // 2..maxRatchet
+    } else {
+      values.push(1)
+    }
+  }
+  return values
+}
+
+/**
+ * Generate random slide values. Each step has `probability` chance of getting
+ * a portamento time (0.10s default). Returns 0 for no slide.
+ */
+export function randomizeSlides(probability: number, length: number, seed: number = Date.now()): number[] {
+  const rng = createRng(seed)
+  const values: number[] = []
+  for (let i = 0; i < length; i++) {
+    values.push(probability > 0 && rng() < probability ? 0.10 : 0)
+  }
+  return values
+}
+
+/**
+ * Generate random mod CV values within a range.
+ * Values are quantized to 0.01 increments.
+ */
+export function randomizeMod(config: { low: number; high: number }, length: number, seed: number = Date.now()): number[] {
+  const rng = createRng(seed)
+  const range = config.high - config.low
+  const values: number[] = []
+  for (let i = 0; i < length; i++) {
+    const raw = config.low + rng() * range
+    values.push(Math.round(raw * 100) / 100)
+  }
+  return values
+}
+
 /**
  * Generate all subtracks for a track using its random config.
+ * Returns raw arrays — caller composes into compound GateStep[]/PitchStep[].
  */
 export function randomizeTrack(
   config: RandomConfig,
-  lengths: { gate: number; pitch: number; velocity: number },
+  lengths: { gate: number; pitch: number; velocity: number; mod: number },
   seed: number = Date.now(),
-): { gate: boolean[]; pitch: Note[]; velocity: Velocity[] } {
+): { gate: boolean[]; pitch: Note[]; velocity: Velocity[]; gateLength: GateLength[]; ratchet: RatchetCount[]; slide: number[]; mod: number[] } {
   // Use different derived seeds for each subtrack so they're independent
   return {
     gate: randomizeGates(config.gate, lengths.gate, seed),
     pitch: randomizePitch(config.pitch, lengths.pitch, seed + 1),
     velocity: randomizeVelocity(config.velocity, lengths.velocity, seed + 2),
+    gateLength: randomizeGateLength(config.gateLength, lengths.gate, seed + 3),
+    ratchet: randomizeRatchets(config.ratchet, lengths.gate, seed + 4),
+    slide: randomizeSlides(config.slide.probability, lengths.pitch, seed + 5),
+    mod: randomizeMod(config.mod, lengths.mod, seed + 6),
   }
 }

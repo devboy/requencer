@@ -5,8 +5,18 @@ import type { SequenceTrack, MuteTrack } from '../types'
 function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: string }): SequenceTrack {
   return {
     clockDivider: 1,
-    gate: { steps: [true, false, true, false], length: 4, clockDivider: 1, currentStep: 0 },
-    pitch: { steps: [60, 62, 64, 65], length: 4, clockDivider: 1, currentStep: 0 },
+    gate: { steps: [
+      { on: true, length: 0.5, ratchet: 1 },
+      { on: false, length: 0.5, ratchet: 1 },
+      { on: true, length: 0.5, ratchet: 1 },
+      { on: false, length: 0.5, ratchet: 1 },
+    ], length: 4, clockDivider: 1, currentStep: 0 },
+    pitch: { steps: [
+      { note: 60, slide: 0 },
+      { note: 62, slide: 0 },
+      { note: 64, slide: 0 },
+      { note: 65, slide: 0 },
+    ], length: 4, clockDivider: 1, currentStep: 0 },
     velocity: { steps: [100, 80, 90, 70], length: 4, clockDivider: 1, currentStep: 0 },
     mod: { steps: [50, 60, 70, 80], length: 4, clockDivider: 1, currentStep: 0 },
     ...overrides,
@@ -41,8 +51,8 @@ describe('resolveOutputs', () => {
     const routing = createDefaultRouting()
     const events = resolveOutputs(tracks, routing, mutes)
     expect(events).toHaveLength(4)
-    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 50 })
-    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 50 })
+    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0 })
+    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0 })
   })
 
   it('resolves cross-routing — output 2 gate from track 0', () => {
@@ -52,7 +62,12 @@ describe('resolveOutputs', () => {
       ...tracks.slice(0, 2),
       makeTrack({
         id: '2', name: 'Track 3',
-        gate: { steps: [false, false, false, false], length: 4, clockDivider: 1, currentStep: 0 },
+        gate: { steps: [
+          { on: false, length: 0.5, ratchet: 1 },
+          { on: false, length: 0.5, ratchet: 1 },
+          { on: false, length: 0.5, ratchet: 1 },
+          { on: false, length: 0.5, ratchet: 1 },
+        ], length: 4, clockDivider: 1, currentStep: 0 },
       }),
       tracks[3],
     ]

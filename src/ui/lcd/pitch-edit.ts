@@ -31,8 +31,9 @@ export function renderPitchEdit(ctx: CanvasRenderingContext2D, engine: Sequencer
   // Selected step info — prominent display
   const selIdx = pageOffset + ui.selectedStep
   if (selIdx < track.pitch.length) {
-    const note = track.pitch.steps[selIdx]
-    drawText(ctx, `${midiToNoteName(note)} (${note})`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
+    const step = track.pitch.steps[selIdx]
+    const slideLabel = step.slide > 0 ? `  SLD:${Math.round(step.slide * 1000)}ms` : ''
+    drawText(ctx, `${midiToNoteName(step.note)} (${step.note})${slideLabel}`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
   }
 
   // Right side info
@@ -60,16 +61,40 @@ export function renderPitchEdit(ctx: CanvasRenderingContext2D, engine: Sequencer
         continue
       }
 
-      const normalized = Math.max(0, Math.min(1, (track.pitch.steps[stepIdx] - minNote) / range))
+      const pitchStep = track.pitch.steps[stepIdx]
+      const normalized = Math.max(0, Math.min(1, (pitchStep.note - minNote) / range))
       const barH = Math.max(3, normalized * (BAR_MAX_H - 4))
       const barY = barBaseY - barH
       const isSelected = i === ui.selectedStep
       const color = isSelected ? COLORS.textBright : trackColor
 
-      fillRect(ctx, { x, y: barY, w: STEP_W, h: barH }, color)
+      // Slide: tint bar orange when slide active
+      const barColor = pitchStep.slide > 0 ? '#ff8800' : color
+
+      fillRect(ctx, { x, y: barY, w: STEP_W, h: barH }, barColor)
 
       if (isSelected) {
         strokeRect(ctx, { x: x - 1, y: barY - 1, w: STEP_W + 2, h: barH + 2 }, '#ffffff', 1)
+      }
+
+      // Slide connector — diagonal line from this bar top to next bar top
+      if (pitchStep.slide > 0) {
+        const nextCol = col + 1
+        const nextRow = nextCol >= COLS ? row + 1 : row
+        const nextColWrapped = nextCol % COLS
+        const nextStepIdx = pageOffset + (nextRow * COLS + nextColWrapped)
+        if (nextRow < 2 && nextStepIdx < track.pitch.length) {
+          const nextNorm = Math.max(0, Math.min(1, (track.pitch.steps[nextStepIdx].note - minNote) / range))
+          const nextBarH = Math.max(3, nextNorm * (BAR_MAX_H - 4))
+          const nextBarBaseY = STEP_AREA_TOP + (nextRow + 1) * BAR_MAX_H + nextRow * ROW_GAP
+          const nextX = PAD + nextColWrapped * (STEP_W + COL_GAP)
+          ctx.beginPath()
+          ctx.moveTo(x + STEP_W, barY)
+          ctx.lineTo(nextX, nextBarBaseY - nextBarH)
+          ctx.strokeStyle = '#ff8800'
+          ctx.lineWidth = 2
+          ctx.stroke()
+        }
       }
 
       // Playhead

@@ -10,7 +10,7 @@ import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
 const SUBTRACK_IDS: SubtrackId[] = ['gate', 'pitch', 'velocity', 'mod']
-const FEATURE_IDS: FeatureId[] = ['mute', 'route']
+const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'mutate', 'transpose']
 const HOLD_THRESHOLD_MS = 200
 
 interface PanelControls {
@@ -66,6 +66,7 @@ function sameButton(a: HeldButtonTarget, b: HeldButtonTarget): boolean {
   if (a.kind !== b.kind) return false
   if (a.kind === 'track') return a.track === (b as typeof a).track
   if (a.kind === 'subtrack') return a.subtrack === (b as { kind: 'subtrack'; subtrack: SubtrackId }).subtrack
+  if (a.kind === 'step') return a.step === (b as { kind: 'step'; step: number }).step
   return a.feature === (b as { kind: 'feature'; feature: FeatureId }).feature
 }
 
@@ -85,6 +86,8 @@ function startHold(button: HeldButtonTarget, tapEvent: ControlEvent, el: HTMLEle
   const now = performance.now()
   if (now - lastTapUp < STICKY_THRESHOLD_MS) {
     lastTapUp = 0 // reset to prevent triple-click
+    // Step buttons: undo the first tap's toggle before entering hold
+    if (button.kind === 'step') emit(tapEvent)
     stickyHold = { button, el }
     el.classList.add('sticky-hold')
     emit({ type: 'hold-start', button })
@@ -182,7 +185,7 @@ export function createControls(panel: FaceplateElements): void {
     btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
-  // --- Subtrack buttons (GATE, PTCH, VEL, MOD) — hold-aware ---
+  // --- Subtrack buttons (GATE, PITCH, VEL, MOD) — hold-aware ---
   for (let i = 0; i < panel.subtrackBtns.length; i++) {
     const btn = panel.subtrackBtns[i]
     btn.addEventListener('pointerdown', (e) => {
@@ -212,12 +215,19 @@ export function createControls(panel: FaceplateElements): void {
     btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
-  // --- Step buttons (1-16) — no hold, direct emit ---
-  // Step presses pass through during sticky hold (they're part of hold combos)
+  // --- Step buttons (1-16) — hold-aware for gate length/ratchet editing ---
   for (let i = 0; i < panel.stepBtns.length; i++) {
-    panel.stepBtns[i].addEventListener('pointerdown', () => {
-      emit({ type: 'step-press', step: i })
+    const btn = panel.stepBtns[i]
+    btn.addEventListener('pointerdown', (e) => {
+      holdablePointerDown(
+        e,
+        { kind: 'step', step: i },
+        { type: 'step-press', step: i },
+        btn,
+      )
     })
+    btn.addEventListener('pointerup', (e) => holdablePointerUp(e))
+    btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
   }
 
   // --- Transport — no hold ---
@@ -246,6 +256,20 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'feature-press', feature: 'rand' })
   })
 
+  // --- BACK button — emits back event ---
+  let backTouchHandled = false
+  panel.backBtn.addEventListener('touchend', (e) => {
+    e.preventDefault()
+    backTouchHandled = true
+    emit({ type: 'back' })
+  })
+  panel.backBtn.addEventListener('pointerdown', () => {
+    if (backTouchHandled) { backTouchHandled = false; return }
+    emit({ type: 'back' })
+  })
+
+  // --- TBD button — no-op for now ---
+
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
   // Holdable buttons already handle sticky exit in startHold().
@@ -253,7 +277,7 @@ export function createControls(panel: FaceplateElements): void {
     if (!stickyHold) return
     const target = e.target as HTMLElement
     // Ignore clicks on interactive controls (these have their own handling)
-    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn')) return
+    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .tbd-btn')) return
     endStickyHold()
   })
 
@@ -269,6 +293,25 @@ export function createControls(panel: FaceplateElements): void {
     prefix: 'encoder-a' | 'encoder-b'
   }
 
+  // --- Encoder A hold detection (for RAND screen reset) ---
+  const ENC_A_HOLD_MS = 500
+  let encAHoldTimer: ReturnType<typeof setTimeout> | null = null
+  let encAHoldFired = false
+
+  function startEncAHoldPanel(): void {
+    clearEncAHoldPanel()
+    encAHoldFired = false
+    encAHoldTimer = setTimeout(() => {
+      encAHoldTimer = null
+      encAHoldFired = true
+      emit({ type: 'encoder-a-hold' })
+    }, ENC_A_HOLD_MS)
+  }
+
+  function clearEncAHoldPanel(): void {
+    if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+  }
+
   const encStates: EncState[] = [
     { el: panel.encoderA, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-a' },
     { el: panel.encoderB, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-b' },
@@ -282,6 +325,10 @@ export function createControls(panel: FaceplateElements): void {
       enc.accum = 0
       enc.pointerId = e.pointerId
       e.preventDefault()
+      // Start hold timer for encoder A
+      if (enc.prefix === 'encoder-a') {
+        startEncAHoldPanel()
+      }
     })
   }
 
@@ -305,6 +352,11 @@ export function createControls(panel: FaceplateElements): void {
         enc.turned = true
       }
 
+      // Cancel hold if encoder was turned (it's a drag, not a hold-click)
+      if (enc.turned && enc.prefix === 'encoder-a') {
+        clearEncAHoldPanel()
+      }
+
       const indicator = enc.el.querySelector('.encoder-indicator') as HTMLElement
       if (indicator) {
         indicator.style.transform = `rotate(${enc.angle}deg)`
@@ -318,7 +370,20 @@ export function createControls(panel: FaceplateElements): void {
         enc.dragging = false
         enc.pointerId = -1
         if (!enc.turned) {
-          emit({ type: `${enc.prefix}-push` })
+          if (enc.prefix === 'encoder-a') {
+            // Enc A: emit push only if hold didn't fire
+            clearEncAHoldPanel()
+            if (!encAHoldFired) {
+              emit({ type: 'encoder-a-push' })
+            }
+            encAHoldFired = false
+          } else {
+            emit({ type: `${enc.prefix}-push` })
+          }
+        } else if (enc.prefix === 'encoder-a') {
+          // Drag ended — clean up hold state
+          clearEncAHoldPanel()
+          encAHoldFired = false
         }
       }
     }
@@ -371,8 +436,8 @@ export function updateModeIndicators(
   randBtn: HTMLButtonElement,
   mode: string,
 ): void {
-  const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', '']
-  const featureModes = ['mute-edit', 'route']
+  const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']
+  const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit']
 
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])

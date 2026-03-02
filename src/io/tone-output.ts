@@ -26,28 +26,31 @@ export class ToneOutput {
   private activeNotes: (string | null)[] = []
 
   constructor() {
-    // T1: Bass — triangle, slow attack
+    // All synths use high sustain so gate length controls audible note duration.
+    // Short release for crisp cutoff when gate closes.
+
+    // T1: Bass — triangle
     this.synths.push(new Tone.Synth({
       oscillator: { type: 'triangle' },
-      envelope: { attack: 0.01, decay: 0.15, sustain: 0.4, release: 0.15 },
+      envelope: { attack: 0.005, decay: 0.05, sustain: 0.9, release: 0.03 },
     }).toDestination())
 
-    // T2: Bass 2 — square, punchy
+    // T2: Bass 2 — square
     this.synths.push(new Tone.Synth({
       oscillator: { type: 'square' },
-      envelope: { attack: 0.005, decay: 0.2, sustain: 0.2, release: 0.1 },
+      envelope: { attack: 0.005, decay: 0.05, sustain: 0.85, release: 0.03 },
     }).toDestination())
 
-    // T3: Lead — sawtooth, bright
+    // T3: Lead — sawtooth
     this.synths.push(new Tone.Synth({
       oscillator: { type: 'sawtooth' },
-      envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 },
+      envelope: { attack: 0.005, decay: 0.05, sustain: 0.9, release: 0.03 },
     }).toDestination())
 
-    // T4: Lead 2 — square, mid-high
+    // T4: Lead 2 — square
     this.synths.push(new Tone.Synth({
       oscillator: { type: 'square' },
-      envelope: { attack: 0.005, decay: 0.08, sustain: 0.25, release: 0.08 },
+      envelope: { attack: 0.005, decay: 0.05, sustain: 0.85, release: 0.03 },
     }).toDestination())
 
     this.activeNotes = new Array(NUM_OUTPUTS).fill(null)
@@ -55,8 +58,9 @@ export class ToneOutput {
 
   /**
    * Process note events at the given audio-context time.
+   * stepDuration is the duration of one 16th note in seconds.
    */
-  handleEvents(events: NoteEvent[], time: number): void {
+  handleEvents(events: NoteEvent[], time: number, stepDuration: number): void {
     for (const event of events) {
       const synth = this.synths[event.output]
       if (!synth) continue
@@ -64,15 +68,48 @@ export class ToneOutput {
       if (event.gate) {
         const noteName = midiToNoteName(event.pitch)
         const db = velocityToDb(event.velocity)
-        synth.volume.setValueAtTime(db, time)
+        const outputIdx = event.output
+        const gateWindow = stepDuration * event.gateLength
+        const ratchetCount = event.ratchetCount || 1
+
+        // Set portamento for slide (0 = off, value = glide time in seconds)
+        synth.portamento = event.slide
 
         // Release previous note if different
-        if (this.activeNotes[event.output] !== null && this.activeNotes[event.output] !== noteName) {
+        if (this.activeNotes[outputIdx] !== null && this.activeNotes[outputIdx] !== noteName) {
           synth.triggerRelease(time)
         }
 
-        synth.triggerAttack(noteName, time)
-        this.activeNotes[event.output] = noteName
+        if (ratchetCount > 1) {
+          // Ratchet: divide full step into N equal sub-steps,
+          // each sub-note applies gate length within its subdivision
+          const subStep = stepDuration / ratchetCount
+          const subGate = subStep * event.gateLength
+
+          for (let r = 0; r < ratchetCount; r++) {
+            const subTime = time + r * subStep
+            synth.volume.setValueAtTime(db, subTime)
+            synth.triggerAttackRelease(noteName, subGate, subTime)
+          }
+          this.activeNotes[outputIdx] = noteName
+          Tone.getTransport().scheduleOnce((t) => {
+            if (this.activeNotes[outputIdx] === noteName) {
+              this.activeNotes[outputIdx] = null
+            }
+          }, time + (ratchetCount - 1) * subStep + subGate)
+        } else {
+          // Single trigger with gate length
+          synth.volume.setValueAtTime(db, time)
+          synth.triggerAttack(noteName, time)
+          this.activeNotes[outputIdx] = noteName
+
+          Tone.getTransport().scheduleOnce((t) => {
+            if (this.activeNotes[outputIdx] === noteName) {
+              synth.triggerRelease(t)
+              this.activeNotes[outputIdx] = null
+            }
+          }, time + gateWindow)
+        }
       } else {
         if (this.activeNotes[event.output] !== null) {
           synth.triggerRelease(time)

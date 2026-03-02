@@ -48,7 +48,8 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
       ['↑ / ↓', 'Encoder A (value / scroll)'],
       ['← / →', 'Encoder B (page / param)'],
       ['Enter', 'Confirm / push A'],
-      ['Escape', 'Back / push B'],
+      [']', 'Encoder B push'],
+      ['Escape', 'Back to home'],
     ],
   },
   {

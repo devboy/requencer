@@ -4,12 +4,13 @@
  *
  * Keyboard mapping:
  *   1-4         → T1-T4 track select
- *   Q/W/E/R     → GATE/PTCH/VEL/MOD subtrack buttons
+ *   Q/W/E/R     → GATE/PITCH/VEL/MOD subtrack buttons
  *   A/S/D/F     → MUTE/ROUTE/RAND/DIV feature buttons
  *   ArrowUp/Down    → Encoder A turn (delta ±1)
  *   ArrowLeft/Right → Encoder B turn (delta ±1)
  *   Enter       → Encoder A push
- *   Escape      → Encoder B push
+ *   ]           → Encoder B push
+ *   Escape      → Back (exit sticky hold / go home)
  *   Space       → Play/Stop
  *   Backspace   → Reset
  *   Z/X/C/V/B/N/M/,  → Step buttons 1-8
@@ -86,27 +87,50 @@ function getHoldableButton(key: string, shiftKey: boolean): { button: HeldButton
     const feature = FEATURE_KEYS[key]
     return { button: { kind: 'feature', feature }, tapEvent: { type: 'feature-press', feature } }
   }
+  // Step buttons: Z-M row (+ shift for 9-16)
+  const stepIdx = STEP_KEYS.indexOf(key)
+  if (stepIdx >= 0) {
+    const step = stepIdx + (shiftKey ? 8 : 0)
+    return { button: { kind: 'step', step }, tapEvent: { type: 'step-press', step } }
+  }
   return null
 }
 
-function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
-  // Step buttons: Z-M row (+ shift for 9-16)
-  const key = e.key.toLowerCase()
-  const stepIdx = STEP_KEYS.indexOf(key)
-  if (stepIdx >= 0) {
-    const offset = e.shiftKey ? 8 : 0
-    return { type: 'step-press', step: stepIdx + offset }
-  }
+// --- Encoder A hold detection (for RAND screen reset) ---
+const ENC_A_HOLD_MS = 500
+let encAHoldTimer: ReturnType<typeof setTimeout> | null = null
+let encAHoldFired = false
 
+function startEncAHold(): void {
+  clearEncAHold()
+  encAHoldFired = false
+  encAHoldTimer = setTimeout(() => {
+    encAHoldTimer = null
+    encAHoldFired = true
+    emit({ type: 'encoder-a-hold' })
+  }, ENC_A_HOLD_MS)
+}
+
+function clearEncAHold(): void {
+  if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+}
+
+function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
   // Encoder A: ArrowUp/Down
   if (e.key === 'ArrowUp') return { type: 'encoder-a-turn', delta: 1 }
   if (e.key === 'ArrowDown') return { type: 'encoder-a-turn', delta: -1 }
-  if (e.key === 'Enter') return { type: 'encoder-a-push' }
+
+  // Encoder A push: start hold detection on keydown, emit push on keyup if not held
+  if (e.key === 'Enter') {
+    startEncAHold()
+    return null // push emitted on keyup
+  }
 
   // Encoder B: ArrowLeft/Right
   if (e.key === 'ArrowRight') return { type: 'encoder-b-turn', delta: 1 }
   if (e.key === 'ArrowLeft') return { type: 'encoder-b-turn', delta: -1 }
-  if (e.key === 'Escape') return { type: 'encoder-b-push' }
+  if (e.key === 'Escape') return { type: 'back' }
+  if (e.key === ']') return { type: 'encoder-b-push' }
 
   // Transport
   if (e.key === ' ') return { type: 'play-stop' }
@@ -126,6 +150,7 @@ function sameHeldButton(button: HeldButtonTarget): boolean {
   if (!held || held.kind !== button.kind) return false
   if (held.kind === 'track') return held.track === (button as typeof held).track
   if (held.kind === 'subtrack') return held.subtrack === (button as { kind: 'subtrack'; subtrack: SubtrackId }).subtrack
+  if (held.kind === 'step') return held.step === (button as { kind: 'step'; step: number }).step
   return held.feature === (button as { kind: 'feature'; feature: FeatureId }).feature
 }
 
@@ -145,6 +170,8 @@ function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
       const idx = (['mute', 'route'] as const).indexOf(button.feature as 'mute' | 'route')
       return document.querySelector(`.feature-btn[data-index="${idx}"]`)
     }
+    case 'step':
+      return document.querySelector(`.step-btn[data-step="${button.step}"]`)
   }
 }
 
@@ -190,6 +217,8 @@ export function setupKeyboardInput(): () => void {
       if (lastKeyUp[key] && now - lastKeyUp[key] < STICKY_THRESHOLD_MS) {
         delete lastKeyUp[key]
         keyboardSticky = true
+        // Step buttons: undo the first tap's toggle before entering hold
+        if (holdable.button.kind === 'step') emit(holdable.tapEvent)
         // Find the corresponding panel button and apply CSS class
         const el = findPanelButton(holdable.button)
         if (el) {
@@ -226,6 +255,16 @@ export function setupKeyboardInput(): () => void {
   }
 
   const handleKeyUp = (e: KeyboardEvent) => {
+    // Encoder A push: emit push on keyup if hold didn't fire
+    if (e.key === 'Enter') {
+      clearEncAHold()
+      if (!encAHoldFired) {
+        emit({ type: 'encoder-a-push' })
+      }
+      encAHoldFired = false
+      return
+    }
+
     const key = e.key.toLowerCase()
 
     // Sticky hold keyup is a no-op — sticky persists until next holdable keydown or Escape

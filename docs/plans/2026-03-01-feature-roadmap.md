@@ -78,3 +78,12 @@ External integration, low priority while prototyping in-browser.
 Route engine output to external MIDI devices via Web MIDI API.
 - **Depends on:** nothing
 - **Complexity:** M — MIDI message translation, channel mapping, clock sync, latency compensation
+
+---
+
+## Future — Unscheduled
+
+### 11. Ties (Multi-Step Notes)
+Notes/gates that span longer than a single step. A tied step extends the previous note's gate rather than triggering a new attack.
+- **Depends on:** gate length (ties interact with gate duration)
+- **Complexity:** L — requires rethinking gate-per-step model, engine needs "continue" vs "trigger" distinction, affects ratchet/slide behavior on tied steps, I/O scheduling for sustained notes across multiple ticks

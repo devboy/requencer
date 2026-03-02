@@ -3,7 +3,7 @@
  * Uses full content height. All text ≥16px for readability on 3.5" TFT at 50cm.
  */
 
-import type { SequencerState, SequenceTrack, RandomConfig } from '../../engine/types'
+import type { SequencerState, SequenceTrack, RandomConfig, GateStep, PitchStep } from '../../engine/types'
 import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
 import { fillRect, drawText, LCD_W, LCD_H, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
@@ -100,7 +100,7 @@ const INACTIVE_BG = '#1a1a2e'
 
 function renderGateRow(
   ctx: CanvasRenderingContext2D,
-  steps: boolean[],
+  steps: GateStep[],
   length: number,
   currentStep: number,
   y: number,
@@ -111,7 +111,7 @@ function renderGateRow(
   for (let i = 0; i < DISPLAY_STEPS; i++) {
     const x = stepX(i)
     if (i < length) {
-      fillRect(ctx, { x, y, w: STEP_W, h }, steps[i] ? onColor : offColor)
+      fillRect(ctx, { x, y, w: STEP_W, h }, steps[i].on ? onColor : offColor)
     } else {
       fillRect(ctx, { x, y, w: STEP_W, h }, INACTIVE_BG)
     }
@@ -124,7 +124,7 @@ function renderGateRow(
 
 function renderPitchRow(
   ctx: CanvasRenderingContext2D,
-  steps: number[],
+  steps: PitchStep[],
   length: number,
   currentStep: number,
   y: number,
@@ -138,7 +138,7 @@ function renderPitchRow(
 
   for (let i = 0; i < DISPLAY_STEPS; i++) {
     const x = stepX(i)
-    const normalized = Math.max(0, Math.min(1, (steps[i] - minNote) / range))
+    const normalized = Math.max(0, Math.min(1, (steps[i].note - minNote) / range))
     const barH = Math.max(2, normalized * (h - 2))
     const barY = y + h - barH
     const barColor = i < length ? color : INACTIVE_BG

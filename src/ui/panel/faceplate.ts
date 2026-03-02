@@ -3,8 +3,9 @@
  * True 3U height (128.5mm = 578px at 4.5px/mm).
  *
  * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PTCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/TBD/TBD) | Jacks
- *   Control strip: RESET, PLAY, RAND (8×16mm rect) | Encoder A, Encoder B
+ *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PITCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/TBD/TBD) | Jacks
+ *   Jack zone: PLAY/RESET stacked left of CLK/RST jacks
+ *   Control strip: Encoder A | RAND, BACK, TBD | Encoder B
  *   Below control strip: 2×8 step button grid (centered under LCD)
  *
  * Spacing rules:
@@ -73,6 +74,8 @@ export interface FaceplateElements {
   playBtn: HTMLButtonElement
   resetBtn: HTMLButtonElement
   randBtn: HTMLButtonElement
+  backBtn: HTMLButtonElement
+  tdbBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
 }
@@ -113,7 +116,7 @@ export function createFaceplate(): FaceplateElements {
                 <div class="right-col" id="feature-col"></div>
               </div>
 
-              <!-- CONTROL STRIP: enc A | RESET RAND PLAY | enc B -->
+              <!-- CONTROL STRIP: enc A | BACK RAND TBD | enc B -->
               <div class="control-strip">
                 <div class="encoder-cell">
                   <span class="btn-label label-above">A</span>
@@ -142,15 +145,16 @@ export function createFaceplate(): FaceplateElements {
             <div class="zone-divider"></div>
             <div class="jack-zone">
               <div class="utility-jacks">
-                <div class="jack-row-2">
+                <div class="jack-row-3" id="util-row-play">
                   <div class="jack-cell"><span class="btn-label label-above">CLK IN</span><div class="jack"><div class="jack-hole"></div></div></div>
                   <div class="jack-cell"><span class="btn-label label-above">CLK OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
                 </div>
-                <div class="jack-row-2">
+                <div class="jack-row-3" id="util-row-reset">
                   <div class="jack-cell"><span class="btn-label label-above">RST IN</span><div class="jack"><div class="jack-hole"></div></div></div>
                   <div class="jack-cell"><span class="btn-label label-above">RST OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
                 </div>
-                <div class="jack-row-2">
+                <div class="jack-row-3" id="util-row-midi">
+                  <div class="jack-row-3-spacer"></div>
                   <div class="jack-cell"><span class="btn-label label-above">MIDI IN</span><div class="jack"><div class="jack-hole"></div></div></div>
                   <div class="jack-cell"><span class="btn-label label-above">MIDI OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
                 </div>
@@ -201,7 +205,7 @@ export function createFaceplate(): FaceplateElements {
   // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) ---
   const subtrackCol = root.querySelector('#subtrack-col') as HTMLDivElement
   const subtrackBtns: HTMLButtonElement[] = []
-  const subtrackLabels = ['GATE', 'PTCH', 'VEL', 'MOD']
+  const subtrackLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
   for (let i = 0; i < 4; i++) {
     const btn = document.createElement('button')
     btn.className = 'circle-btn subtrack-btn'
@@ -217,7 +221,7 @@ export function createFaceplate(): FaceplateElements {
   // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
   const featureCol = root.querySelector('#feature-col') as HTMLDivElement
   const featureBtns: HTMLButtonElement[] = []
-  const featureLabels = ['MUTE', 'ROUTE', 'TBD', 'TBD']
+  const featureLabels = ['MUTE', 'ROUTE', 'DRIFT', 'TRNS']
   for (let i = 0; i < 4; i++) {
     const btn = document.createElement('button')
     btn.className = 'circle-btn feature-btn'
@@ -248,28 +252,41 @@ export function createFaceplate(): FaceplateElements {
     stepGrid.appendChild(rowEl)
   }
 
-  // --- Generate control strip buttons (RESET, PLAY, RAND) ---
+  // --- Generate transport buttons in jack zone (PLAY, RESET) ---
+  const utilRowPlay = root.querySelector('#util-row-play') as HTMLDivElement
+  const playBtn = document.createElement('button')
+  playBtn.className = 'large-btn transport-btn play-btn jack-zone-btn'
+  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
+  utilRowPlay.insertBefore(playBtn, utilRowPlay.firstChild)
+
+  const utilRowReset = root.querySelector('#util-row-reset') as HTMLDivElement
+  const resetBtn = document.createElement('button')
+  resetBtn.className = 'large-btn transport-btn jack-zone-btn'
+  resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
+  utilRowReset.insertBefore(resetBtn, utilRowReset.firstChild)
+
+  // --- Generate control strip buttons (RAND, BACK, TBD) ---
   const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
 
-  const resetBtn = document.createElement('button')
-  resetBtn.className = 'large-btn transport-btn'
-  resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
-  controlStripBtns.appendChild(resetBtn)
+  const backBtn = document.createElement('button')
+  backBtn.className = 'large-btn back-btn'
+  backBtn.innerHTML = '<span class="btn-icon">◁</span><span class="btn-text">BACK</span>'
+  controlStripBtns.appendChild(backBtn)
 
   const randBtn = document.createElement('button')
   randBtn.className = 'large-btn rand-btn'
-  randBtn.innerHTML = '<span class="btn-icon">◆</span><span class="btn-text">RAND</span>'
+  randBtn.innerHTML = '<span class="btn-icon">⚄</span><span class="btn-text">RAND</span>'
   controlStripBtns.appendChild(randBtn)
 
-  const playBtn = document.createElement('button')
-  playBtn.className = 'large-btn transport-btn play-btn'
-  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
-  controlStripBtns.appendChild(playBtn)
+  const tdbBtn = document.createElement('button')
+  tdbBtn.className = 'large-btn tbd-btn'
+  tdbBtn.innerHTML = '<span class="btn-icon">·</span><span class="btn-text">TBD</span>'
+  controlStripBtns.appendChild(tdbBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
   const cvRow = jackGrid.querySelector('.cv-row') as HTMLDivElement
-  const outColLabels = ['GATE', 'PTCH', 'VEL', 'MOD']
+  const outColLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
 
   for (let t = 0; t < 4; t++) {
     const row = document.createElement('div')
@@ -296,6 +313,8 @@ export function createFaceplate(): FaceplateElements {
     playBtn,
     resetBtn,
     randBtn,
+    backBtn,
+    tdbBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
   }
@@ -703,7 +722,7 @@ const PANEL_CSS = `
   .large-btn:focus { outline: none; }
 
   .btn-icon {
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1;
     opacity: 0.6;
   }
@@ -714,19 +733,39 @@ const PANEL_CSS = `
     line-height: 1;
   }
 
+  /* RAND button — wider + subtly brighter than siblings */
   .rand-btn {
     flex: 1.5;
+    background: linear-gradient(180deg,
+      rgba(235,235,240,0.90) 0%,
+      rgba(218,218,225,0.80) 40%,
+      rgba(205,205,215,0.75) 100%);
+    border: 1px solid rgba(255,255,255,0.32);
   }
   .rand-btn:active {
+    background: linear-gradient(180deg,
+      rgba(205,205,215,0.82) 0%,
+      rgba(190,190,200,0.72) 100%);
+  }
+  .rand-btn.active {
+    background: linear-gradient(180deg,
+      rgba(245,245,250,0.94) 0%,
+      rgba(225,225,235,0.85) 100%);
+    box-shadow: 0 0 8px rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.4);
+  }
+
+  .back-btn:active,
+  .tbd-btn:active {
     background: linear-gradient(180deg,
       rgba(180,180,190,0.80) 0%,
       rgba(165,165,175,0.70) 100%);
   }
-  .rand-btn.active {
-    background: linear-gradient(180deg,
-      rgba(230,230,240,0.90) 0%,
-      rgba(210,210,220,0.80) 100%);
-    box-shadow: 0 0 6px rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.4);
+
+  .jack-zone-btn {
+    flex: none;
+    height: ${RECT_BTN_H}px;
+    width: 100%;
+    justify-self: stretch;
   }
 
   /* Step buttons — LED glow states */
@@ -852,6 +891,17 @@ const PANEL_CSS = `
     grid-template-columns: repeat(2, ${JACK_SPACING}px);
     align-items: center;
     justify-items: center;
+  }
+
+  .jack-row-3 {
+    display: grid;
+    grid-template-columns: 1fr repeat(2, ${JACK_SPACING}px);
+    align-items: center;
+    justify-items: center;
+  }
+
+  .jack-row-3-spacer {
+    width: 100%;
   }
 
   .jack-grid {

@@ -149,12 +149,20 @@ describe('randomizeTrack', () => {
   it('generates all subtracks with independent lengths', () => {
     const config = {
       pitch: { low: 60, high: 72, scale: SCALES.major, root: 60, maxNotes: 0 },
-      gate: { fillMin: 0.25, fillMax: 0.75, mode: 'random' as const, randomOffset: false },
+      gate: { fillMin: 0.25, fillMax: 0.75, mode: 'random' as const, randomOffset: false, smartBars: 1, smartDensity: 'build' as const },
       velocity: { low: 64, high: 127 },
+      gateLength: { min: 0.25, max: 0.75 },
+      ratchet: { maxRatchet: 3, probability: 0.2 },
+      slide: { probability: 0.15 },
+      mod: { low: 0, high: 1 },
     }
-    const result = randomizeTrack(config, { gate: 16, pitch: 7, velocity: 12 }, 42)
+    const result = randomizeTrack(config, { gate: 16, pitch: 7, velocity: 12, mod: 14 }, 42)
     expect(result.gate.length).toBe(16)
     expect(result.pitch.length).toBe(7)
     expect(result.velocity.length).toBe(12)
+    expect(result.gateLength.length).toBe(16) // matches gate length
+    expect(result.ratchet.length).toBe(16) // matches gate length
+    expect(result.slide.length).toBe(7) // matches pitch length
+    expect(result.mod.length).toBe(14)
   })
 })

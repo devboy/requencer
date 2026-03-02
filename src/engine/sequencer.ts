@@ -1,8 +1,12 @@
-import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack } from './types'
+import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack, MutateConfig, GateStep, PitchStep } from './types'
 import { SCALES } from './scales'
 import { getEffectiveStep } from './clock-divider'
 import { resolveOutputs, createDefaultRouting } from './routing'
-import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity } from './randomizer'
+import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod } from './randomizer'
+import { generateArpPattern } from './arpeggiator'
+import { generateSmartGatePattern } from './smart-gate'
+import { generateLFOPattern } from './lfo'
+import { mutateTrack, isMutateActive } from './mutator'
 
 const NUM_TRACKS = 4
 const DEFAULT_LENGTH = 16
@@ -12,12 +16,8 @@ const MAX_LENGTH = 64
 const MIN_DIVIDER = 1
 const MAX_DIVIDER = 32
 
-const SUBTRACK_DEFAULTS: Record<'gate' | 'pitch' | 'velocity' | 'mod', boolean | number> = {
-  gate: false,
-  pitch: 60,
-  velocity: 100,
-  mod: 0,
-}
+const DEFAULT_GATE_STEP: GateStep = { on: false, length: 0.5, ratchet: 1 }
+const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -25,7 +25,11 @@ function clamp(value: number, min: number, max: number): number {
 
 function createSubtrack<T>(defaultValue: T, length: number = DEFAULT_LENGTH): Subtrack<T> {
   return {
-    steps: Array(length).fill(defaultValue),
+    steps: Array.from({ length }, () =>
+      typeof defaultValue === 'object' && defaultValue !== null
+        ? { ...defaultValue }
+        : defaultValue
+    ),
     length,
     clockDivider: 1,
     currentStep: 0,
@@ -33,19 +37,14 @@ function createSubtrack<T>(defaultValue: T, length: number = DEFAULT_LENGTH): Su
 }
 
 function createTrack(index: number): SequenceTrack {
-  const gate = createSubtrack(false)       // all gates off — empty pattern
-  const pitch = createSubtrack(60)          // all pitches at C4
-  const velocity = createSubtrack(0)        // all velocities at 0
-  const mod = createSubtrack(0)             // all mod values at 0
-
   return {
     id: String(index),
     name: `Track ${index + 1}`,
     clockDivider: 1,
-    gate,
-    pitch,
-    velocity,
-    mod,
+    gate: createSubtrack(DEFAULT_GATE_STEP),
+    pitch: createSubtrack(DEFAULT_PITCH_STEP),
+    velocity: createSubtrack(100 as number),
+    mod: createSubtrack(0 as number),
   }
 }
 
@@ -63,11 +62,39 @@ function createDefaultRandomConfig(index: number): RandomConfig {
       fillMax: 0.75,
       mode: 'euclidean',
       randomOffset: true,
+      smartBars: 1,
+      smartDensity: 'build',
     },
     velocity: {
       low: 64,
       high: 120,
     },
+    gateLength: {
+      min: 0.5,
+      max: 0.5,
+    },
+    ratchet: {
+      maxRatchet: 1,
+      probability: 0,
+    },
+    slide: {
+      probability: 0,
+    },
+    mod: {
+      low: 0,
+      high: 1,
+    },
+  }
+}
+
+function createDefaultMutateConfig(): MutateConfig {
+  return {
+    trigger: 'loop',
+    bars: 1,
+    gate: 0,
+    pitch: 0,
+    velocity: 0,
+    mod: 0,
   }
 }
 
@@ -94,6 +121,11 @@ export function createSequencer(): SequencerState {
       masterTick: 0,
     },
     randomConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => createDefaultRandomConfig(i)),
+    lfoConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, waveform: 'sine' as const, rate: 16, depth: 1, offset: 0.5 })),
+    arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, direction: 'up' as const, octaveRange: 1 })),
+    transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, quantize: false })),
+    mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
+    midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ enabled: false, channel: i + 1 })),
     userPresets: [],
   }
 }
@@ -124,10 +156,52 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   }))
 
   // Resolve routing to produce output events at the current tick
-  const events = resolveOutputs(currentTracks, state.routing, currentMutes)
+  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs)
+
+  // --- Mutation (Turing Machine drift) ---
+  // Apply before advancing to next tick so mutations take effect on the next loop.
+  const mutatedTracks = state.tracks.map((track, idx) => {
+    const mc = state.mutateConfigs[idx]
+    if (!isMutateActive(mc)) return track
+    const trackDiv = track.clockDivider
+
+    if (mc.trigger === 'bars') {
+      // Bars mode: mutate all enabled subtracks every N bars (N * 16 steps)
+      const interval = mc.bars * 16
+      if (interval > 0 && masterTick > 0 && masterTick % interval === 0) {
+        return mutateTrack(track, state.randomConfigs[idx], mc, masterTick)
+      }
+      return track
+    }
+
+    // Loop mode: mutate each subtrack independently at its own Nth loop boundary.
+    // A subtrack loops when its effective step wraps from end to 0.
+    // Only mutate on every mc.bars-th loop (e.g., bars=2 → every 2nd loop).
+    function loopedOnNth(sub: { clockDivider: number; length: number }): boolean {
+      const cur = getEffectiveStep(masterTick, trackDiv, sub.clockDivider, sub.length)
+      const nxt = getEffectiveStep(nextTick, trackDiv, sub.clockDivider, sub.length)
+      if (!(cur > 0 && nxt === 0)) return false
+      // Compute which loop number we're entering (0-based)
+      const combined = trackDiv * sub.clockDivider
+      const loopNum = Math.floor(nextTick / combined / sub.length)
+      return mc.bars <= 1 || loopNum % mc.bars === 0
+    }
+
+    // Build a temporary config that zeros out rates for subtracks not at their loop boundary
+    const loopConfig: MutateConfig = {
+      ...mc,
+      gate: loopedOnNth(track.gate) ? mc.gate : 0,
+      pitch: loopedOnNth(track.pitch) ? mc.pitch : 0,
+      velocity: loopedOnNth(track.velocity) ? mc.velocity : 0,
+      mod: loopedOnNth(track.mod) ? mc.mod : 0,
+    }
+
+    if (!isMutateActive(loopConfig)) return track
+    return mutateTrack(track, state.randomConfigs[idx], loopConfig, masterTick)
+  })
 
   // Advance steps to the next tick for the returned state
-  const nextTracks = state.tracks.map(track => {
+  const nextTracks = mutatedTracks.map(track => {
     const trackDiv = track.clockDivider
     return {
       ...track,
@@ -165,14 +239,14 @@ function updateSubtrackStep<T>(subtrack: Subtrack<T>, masterTick: number, trackD
 }
 
 /**
- * Set a step value in a subtrack. Returns new state.
+ * Set a step value in a simple subtrack (velocity, mod). Returns new state.
  */
-export function setStep<T extends boolean | number>(
+export function setStep(
   state: SequencerState,
   trackIndex: number,
-  subtrack: 'gate' | 'pitch' | 'velocity' | 'mod',
+  subtrack: 'velocity' | 'mod',
   stepIndex: number,
-  value: T,
+  value: number,
 ): SequencerState {
   return {
     ...state,
@@ -183,7 +257,68 @@ export function setStep<T extends boolean | number>(
         ...track,
         [subtrack]: {
           ...sub,
-          steps: sub.steps.map((s: boolean | number, j: number) => (j === stepIndex ? value : s)),
+          steps: sub.steps.map((s, j) => (j === stepIndex ? value : s)),
+        },
+      }
+    }),
+  }
+}
+
+/** Toggle gate on/off for a step. */
+export function setGateOn(state: SequencerState, trackIndex: number, stepIndex: number, value: boolean): SequencerState {
+  return updateGateField(state, trackIndex, stepIndex, 'on', value)
+}
+
+/** Set gate length for a step (0.0-1.0). */
+export function setGateLength(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+  return updateGateField(state, trackIndex, stepIndex, 'length', value)
+}
+
+/** Set ratchet count for a step (1-4). */
+export function setGateRatchet(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+  return updateGateField(state, trackIndex, stepIndex, 'ratchet', value)
+}
+
+/** Set pitch note for a step. */
+export function setPitchNote(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+  return updatePitchField(state, trackIndex, stepIndex, 'note', value)
+}
+
+/** Set slide value for a step. */
+export function setSlide(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+  return updatePitchField(state, trackIndex, stepIndex, 'slide', value)
+}
+
+function updateGateField<K extends keyof GateStep>(
+  state: SequencerState, trackIndex: number, stepIndex: number, field: K, value: GateStep[K],
+): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        gate: {
+          ...track.gate,
+          steps: track.gate.steps.map((s, j) => j === stepIndex ? { ...s, [field]: value } : s),
+        },
+      }
+    }),
+  }
+}
+
+function updatePitchField<K extends keyof PitchStep>(
+  state: SequencerState, trackIndex: number, stepIndex: number, field: K, value: PitchStep[K],
+): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        pitch: {
+          ...track.pitch,
+          steps: track.pitch.steps.map((s, j) => j === stepIndex ? { ...s, [field]: value } : s),
         },
       }
     }),
@@ -237,7 +372,21 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
     gate: track.gate.length,
     pitch: track.pitch.length,
     velocity: track.velocity.length,
+    mod: track.mod.length,
   }, seed)
+
+  // Compose compound GateStep[] from generated booleans + gateLength + ratchet
+  const gateSteps: GateStep[] = generated.gate.map((on, i) => ({
+    on,
+    length: generated.gateLength[i],
+    ratchet: generated.ratchet[i],
+  }))
+
+  // Compose compound PitchStep[] from generated notes + slide
+  const pitchSteps: PitchStep[] = generated.pitch.map((note, i) => ({
+    note,
+    slide: generated.slide[i],
+  }))
 
   return {
     ...state,
@@ -245,9 +394,10 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
       if (i !== trackIndex) return t
       return {
         ...t,
-        gate: { ...t.gate, steps: generated.gate },
-        pitch: { ...t.pitch, steps: generated.pitch },
+        gate: { ...t.gate, steps: gateSteps },
+        pitch: { ...t.pitch, steps: pitchSteps },
         velocity: { ...t.velocity, steps: generated.velocity },
+        mod: { ...t.mod, steps: generated.mod },
       }
     }),
   }
@@ -259,13 +409,37 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
 export function randomizeGatePattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
   const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
-  const newGates = randomizeGates(config.gate, track.gate.length, seed)
+  const s = seed ?? Date.now()
+
+  let newGateBools: boolean[]
+  if (config.gate.smartBars > 1) {
+    newGateBools = generateSmartGatePattern({
+      fillMin: config.gate.fillMin,
+      fillMax: config.gate.fillMax,
+      stepsPerBar: 16,
+      bars: config.gate.smartBars,
+      density: config.gate.smartDensity,
+      seed: s,
+    })
+  } else {
+    newGateBools = randomizeGates(config.gate, track.gate.length, s)
+  }
+
+  // Also regenerate gateLength and ratchet for the new gate pattern
+  const newGateLengths = randomizeGateLength(config.gateLength, newGateBools.length, s + 3)
+  const newRatchets = randomizeRatchets(config.ratchet, newGateBools.length, s + 4)
+
+  const gateSteps: GateStep[] = newGateBools.map((on, i) => ({
+    on,
+    length: newGateLengths[i],
+    ratchet: newRatchets[i],
+  }))
 
   return {
     ...state,
     tracks: state.tracks.map((t, i) => {
       if (i !== trackIndex) return t
-      return { ...t, gate: { ...t.gate, steps: newGates } }
+      return { ...t, gate: { ...t.gate, steps: gateSteps, length: gateSteps.length } }
     }),
   }
 }
@@ -276,13 +450,25 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
 export function randomizePitchPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
   const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
-  const newPitch = randomizePitch(config.pitch, track.pitch.length, seed)
+  const arpConfig = state.arpConfigs[trackIndex]
+  const s = seed ?? Date.now()
+
+  const newNotes = arpConfig.enabled
+    ? generateArpPattern(config.pitch.root, config.pitch.scale, arpConfig.direction, arpConfig.octaveRange, track.pitch.length, s)
+    : randomizePitch(config.pitch, track.pitch.length, s)
+
+  const newSlides = randomizeSlides(config.slide.probability, track.pitch.length, s + 5)
+
+  const pitchSteps: PitchStep[] = newNotes.map((note, i) => ({
+    note,
+    slide: newSlides[i],
+  }))
 
   return {
     ...state,
     tracks: state.tracks.map((t, i) => {
       if (i !== trackIndex) return t
-      return { ...t, pitch: { ...t.pitch, steps: newPitch } }
+      return { ...t, pitch: { ...t.pitch, steps: pitchSteps } }
     }),
   }
 }
@@ -304,9 +490,56 @@ export function randomizeVelocityPattern(state: SequencerState, trackIndex: numb
   }
 }
 
+/**
+ * Regenerate mod subtrack from LFO config. Returns new state.
+ */
+export function regenerateLFO(state: SequencerState, trackIndex: number): SequencerState {
+  const track = state.tracks[trackIndex]
+  const lfoConfig = state.lfoConfigs[trackIndex]
+  const newMod = generateLFOPattern(
+    { waveform: lfoConfig.waveform, rate: lfoConfig.rate, depth: lfoConfig.depth, offset: lfoConfig.offset },
+    track.mod.length,
+  )
+
+  return {
+    ...state,
+    tracks: state.tracks.map((t, i) => {
+      if (i !== trackIndex) return t
+      return { ...t, mod: { ...t.mod, steps: newMod } }
+    }),
+  }
+}
+
+/**
+ * Randomize only the mod subtrack of a track. Returns new state.
+ */
+export function randomizeModPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
+  const track = state.tracks[trackIndex]
+  const config = state.randomConfigs[trackIndex]
+  const newMod = randomizeMod(config.mod, track.mod.length, seed)
+
+  return {
+    ...state,
+    tracks: state.tracks.map((t, i) => {
+      if (i !== trackIndex) return t
+      return { ...t, mod: { ...t.mod, steps: newMod } }
+    }),
+  }
+}
+
 function resizeSteps<T>(steps: T[], newLength: number, defaultValue: T): T[] {
   if (newLength <= steps.length) return steps.slice(0, newLength)
-  return [...steps, ...Array(newLength - steps.length).fill(defaultValue)]
+  const padValue = typeof defaultValue === 'object' && defaultValue !== null
+    ? () => ({ ...defaultValue })
+    : () => defaultValue
+  return [...steps, ...Array.from({ length: newLength - steps.length }, padValue)]
+}
+
+const SUBTRACK_DEFAULTS: Record<'gate' | 'pitch' | 'velocity' | 'mod', GateStep | PitchStep | number> = {
+  gate: DEFAULT_GATE_STEP,
+  pitch: DEFAULT_PITCH_STEP,
+  velocity: 100,
+  mod: 0,
 }
 
 /**
@@ -329,7 +562,7 @@ export function setSubtrackLength(
         [subtrack]: {
           ...sub,
           length,
-          steps: resizeSteps(sub.steps, length, SUBTRACK_DEFAULTS[subtrack]),
+          steps: resizeSteps(sub.steps, length, SUBTRACK_DEFAULTS[subtrack] as any),
         },
       }
     }),

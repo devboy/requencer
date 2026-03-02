@@ -5,6 +5,7 @@
 import { createSequencer, tick } from './engine/sequencer'
 import { ToneClock } from './io/tone-clock'
 import { ToneOutput } from './io/tone-output'
+import { MIDIOutput } from './io/midi-output'
 import type { SequencerState } from './engine/types'
 
 // UI imports
@@ -26,6 +27,9 @@ import { renderRoute } from './ui/lcd/route-screen'
 import { renderRand } from './ui/lcd/rand-screen'
 import { renderNameEntry } from './ui/lcd/name-entry'
 import { renderHoldOverlay } from './ui/lcd/hold-overlay'
+import { renderMutateEdit } from './ui/lcd/mutate-screen'
+import { renderTransposeEdit } from './ui/lcd/transpose-screen'
+import { renderModEdit } from './ui/lcd/mod-edit'
 import { createDebugMenu } from './ui/debug-menu'
 import { DrumMachine } from './io/drum-machine'
 
@@ -40,12 +44,16 @@ let uiState: UIState = createInitialUIState()
 // --- Audio I/O ---
 const output = new ToneOutput()
 const drums = new DrumMachine()
+const midi = new MIDIOutput()
+const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
+
 const clock = new ToneClock({
-  onTick(time: number) {
+  onTick(time: number, stepDuration: number) {
     const step = engineState.transport.masterTick  // capture BEFORE tick advances it
     const result = tick(engineState)
     engineState = result.state
-    output.handleEvents(result.events, time)
+    output.handleEvents(result.events, time, stepDuration)
+    midi.handleEvents(result.events, engineState.midiConfigs, midiDeviceIds, stepDuration)
     drums.triggerStep(step, time)
   },
 })
@@ -78,13 +86,24 @@ createDebugMenu({
       ...engineState,
       tracks: engineState.tracks.map((trk, idx) => idx !== i ? trk : {
         ...trk,
-        gate: { ...trk.gate, steps: Array(len).fill(false) },
+        gate: { ...trk.gate, steps: Array.from({ length: len }, () => ({ on: false, length: 0.5, ratchet: 1 })) },
         velocity: { ...trk.velocity, steps: Array(len).fill(0) },
       }),
     }
   },
   drums,
 })
+
+function refreshMIDIDevices() {
+  const devices = midi.getDevices()
+  uiState = { ...uiState, midiDevices: devices }
+  // Auto-assign first device to any output that doesn't have one
+  if (devices.length > 0) {
+    for (let i = 0; i < 4; i++) {
+      if (!midiDeviceIds[i]) midiDeviceIds[i] = devices[0].id
+    }
+  }
+}
 
 // --- Control Event Handler ---
 onControlEvent(async (event: ControlEvent) => {
@@ -93,12 +112,16 @@ onControlEvent(async (event: ControlEvent) => {
     if (clock.playing) {
       clock.stop()
       output.releaseAll()
+      midi.panic()
       engineState = {
         ...engineState,
         transport: { ...engineState.transport, playing: false },
       }
     } else {
       await clock.start()
+      // Init MIDI on first play (user gesture requirement)
+      await midi.init()
+      refreshMIDIDevices()
       engineState = {
         ...engineState,
         transport: { ...engineState.transport, playing: true },
@@ -128,6 +151,9 @@ const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: Sequ
   'route': renderRoute,
   'rand': renderRand,
   'name-entry': renderNameEntry,
+  'mutate-edit': renderMutateEdit,
+  'transpose-edit': renderTransposeEdit,
+  'mod-edit': renderModEdit,
 }
 
 // Status bar text per mode
@@ -140,18 +166,24 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'route': (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   'rand': (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
   'name-entry': () => 'SAVE PRESET',
+  'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
+  'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
+  'mod-edit': (ui) => `T${ui.selectedTrack + 1} MOD`,
 }
 
 // --- Shortcut Hints (below module) ---
 const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'home':      '1-4: track   Q/W/E: edit   Hold+↑↓: length   Hold+←→: div   Space: play',
   'gate-edit': 'Z-M: toggle steps   Shift+Z-M: 9-16   ←→: page   Hold Q+↑↓: len/div   Esc: back',
-  'pitch-edit':'Z-M: select   ↑↓: pitch   ←→: page   Hold W+↑↓: len/div   Esc: back',
+  'pitch-edit':'Z-M: select   ↑↓: pitch   ←→: slide   Enter: page   Esc: back',
   'vel-edit':  'Z-M: select   ↑↓: velocity   ←→: page   Hold E+↑↓: len/div   Esc: back',
   'mute-edit': 'Z-M: toggle mutes   ←→: page   Hold A+↑↓: len/div   Esc: back',
-  'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source track  Esc: back',
+  'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source  Enter: midi page  Esc: back',
   'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
+  'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
+  'transpose-edit': '1-4: track   ↑↓: semitones   ←→: quantize   Z-/: intervals   Esc: back',
+  'mod-edit':    'Z-M: select   ↑↓: mod value   ←→: page   Hold R+↑↓: len/div   Esc: back',
 }
 
 const hintEl = document.createElement('div')
@@ -188,7 +220,8 @@ function render(): void {
   if (renderer) renderer(lcdCtx, engineState, uiState)
 
   // Hold overlay (semi-transparent over content when a button is held)
-  if (uiState.heldButton) {
+  // Step holds stay in the normal screen (gate-edit shows GL/ratchet inline)
+  if (uiState.heldButton && uiState.heldButton.kind !== 'step') {
     renderHoldOverlay(lcdCtx, engineState, uiState)
   }
 

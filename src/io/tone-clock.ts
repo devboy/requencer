@@ -1,7 +1,7 @@
 import * as Tone from 'tone'
 
 export interface ClockCallbacks {
-  onTick: (time: number) => void
+  onTick: (time: number, stepDuration: number) => void
 }
 
 /**
@@ -37,7 +37,8 @@ export class ToneClock {
 
     // Schedule a repeating callback at 16th note intervals
     this.repeatId = transport.scheduleRepeat((time) => {
-      this.callbacks.onTick(time)
+      const stepDuration = 60 / transport.bpm.value / 4 // 16th note duration in seconds
+      this.callbacks.onTick(time, stepDuration)
     }, '16n')
 
     transport.start()

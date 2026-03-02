@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { createSequencer, tick, setStep, setRouting, setMutePattern, randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, deleteUserPreset, setOutputSource } from '../sequencer'
-import type { SequencerState, MuteTrack } from '../types'
+import { createSequencer, tick, setStep, setGateOn, setPitchNote, setRouting, setMutePattern, randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, deleteUserPreset, setOutputSource } from '../sequencer'
+import type { SequencerState, MuteTrack, GateStep, PitchStep } from '../types'
 
 describe('createSequencer', () => {
   it('creates state with 4 tracks', () => {
@@ -93,13 +93,18 @@ describe('tick', () => {
   it('wraps subtrack steps at subtrack length (polyrhythm)', () => {
     let state = createSequencer()
     // Set track 0 pitch subtrack to length 3
+    const pitchSteps: PitchStep[] = [
+      { note: 60, slide: 0 },
+      { note: 64, slide: 0 },
+      { note: 67, slide: 0 },
+    ]
     state = {
       ...state,
       tracks: state.tracks.map((t, i) =>
         i === 0
           ? {
               ...t,
-              pitch: { ...t.pitch, steps: [60, 64, 67], length: 3 },
+              pitch: { ...t.pitch, steps: pitchSteps, length: 3 },
             }
           : t
       ),
@@ -131,18 +136,18 @@ describe('tick', () => {
 })
 
 describe('setStep', () => {
-  it('sets a gate step value', () => {
+  it('sets a gate step on value', () => {
     const state = createSequencer()
-    const next = setStep(state, 0, 'gate', 0, true)
-    expect(next.tracks[0].gate.steps[0]).toBe(true)
+    const next = setGateOn(state, 0, 0, true)
+    expect(next.tracks[0].gate.steps[0].on).toBe(true)
     // Original unchanged
-    expect(state.tracks[0].gate.steps[0]).not.toBe(next.tracks[0].gate.steps[0])
+    expect(state.tracks[0].gate.steps[0].on).not.toBe(next.tracks[0].gate.steps[0].on)
   })
 
-  it('sets a pitch step value', () => {
+  it('sets a pitch step note value', () => {
     const state = createSequencer()
-    const next = setStep(state, 0, 'pitch', 2, 72)
-    expect(next.tracks[0].pitch.steps[2]).toBe(72)
+    const next = setPitchNote(state, 0, 2, 72)
+    expect(next.tracks[0].pitch.steps[2].note).toBe(72)
   })
 
   it('sets a velocity step value', () => {
@@ -183,6 +188,14 @@ describe('randomizeTrackPattern', () => {
     expect(next.tracks[0].gate.steps.length).toBe(state.tracks[0].gate.length)
     expect(next.tracks[0].pitch.steps.length).toBe(state.tracks[0].pitch.length)
     expect(next.tracks[0].velocity.steps.length).toBe(state.tracks[0].velocity.length)
+    // Steps are compound types
+    const gateStep = next.tracks[0].gate.steps[0]
+    expect(gateStep).toHaveProperty('on')
+    expect(gateStep).toHaveProperty('length')
+    expect(gateStep).toHaveProperty('ratchet')
+    const pitchStep = next.tracks[0].pitch.steps[0]
+    expect(pitchStep).toHaveProperty('note')
+    expect(pitchStep).toHaveProperty('slide')
   })
 
   it('does not affect other tracks', () => {
@@ -198,7 +211,10 @@ describe('randomizeGatePattern', () => {
   it('only changes gate subtrack', () => {
     const state = createSequencer()
     const next = randomizeGatePattern(state, 0, 42)
-    expect(next.tracks[0].gate.steps).not.toEqual(state.tracks[0].gate.steps)
+    // Gate steps changed — compare the .on values
+    const origOns = state.tracks[0].gate.steps.map(s => s.on)
+    const nextOns = next.tracks[0].gate.steps.map(s => s.on)
+    expect(nextOns).not.toEqual(origOns)
     expect(next.tracks[0].pitch).toBe(state.tracks[0].pitch)
     expect(next.tracks[0].velocity).toBe(state.tracks[0].velocity)
   })
@@ -222,7 +238,10 @@ describe('randomizePitchPattern', () => {
   it('only changes pitch subtrack', () => {
     const state = createSequencer()
     const next = randomizePitchPattern(state, 0, 42)
-    expect(next.tracks[0].pitch.steps).not.toEqual(state.tracks[0].pitch.steps)
+    // Pitch steps changed — compare the .note values
+    const origNotes = state.tracks[0].pitch.steps.map(s => s.note)
+    const nextNotes = next.tracks[0].pitch.steps.map(s => s.note)
+    expect(nextNotes).not.toEqual(origNotes)
     expect(next.tracks[0].gate).toBe(state.tracks[0].gate)
     expect(next.tracks[0].velocity).toBe(state.tracks[0].velocity)
   })
@@ -255,22 +274,25 @@ describe('randomizeVelocityPattern', () => {
 })
 
 describe('setSubtrackLength', () => {
-  it('increases gate length by padding with false', () => {
+  it('increases gate length by padding with default GateStep', () => {
     const state = createSequencer()
     const next = setSubtrackLength(state, 0, 'gate', 20)
     expect(next.tracks[0].gate.length).toBe(20)
     expect(next.tracks[0].gate.steps).toHaveLength(20)
-    // New steps should be false (default gate)
-    expect(next.tracks[0].gate.steps[16]).toBe(false)
-    expect(next.tracks[0].gate.steps[19]).toBe(false)
+    // New steps should have default GateStep values
+    expect(next.tracks[0].gate.steps[16].on).toBe(false)
+    expect(next.tracks[0].gate.steps[16].length).toBe(0.5)
+    expect(next.tracks[0].gate.steps[16].ratchet).toBe(1)
+    expect(next.tracks[0].gate.steps[19].on).toBe(false)
   })
 
-  it('increases pitch length by padding with 60', () => {
+  it('increases pitch length by padding with default PitchStep', () => {
     const state = createSequencer()
     const next = setSubtrackLength(state, 0, 'pitch', 20)
     expect(next.tracks[0].pitch.length).toBe(20)
     expect(next.tracks[0].pitch.steps).toHaveLength(20)
-    expect(next.tracks[0].pitch.steps[16]).toBe(60)
+    expect(next.tracks[0].pitch.steps[16].note).toBe(60)
+    expect(next.tracks[0].pitch.steps[16].slide).toBe(0)
   })
 
   it('increases velocity length by padding with 100', () => {
@@ -283,7 +305,7 @@ describe('setSubtrackLength', () => {
 
   it('decreases length by truncating', () => {
     let state = createSequencer()
-    state = setStep(state, 0, 'gate', 5, true)
+    state = setGateOn(state, 0, 5, true)
     const next = setSubtrackLength(state, 0, 'gate', 4)
     expect(next.tracks[0].gate.length).toBe(4)
     expect(next.tracks[0].gate.steps).toHaveLength(4)
@@ -292,9 +314,9 @@ describe('setSubtrackLength', () => {
 
   it('preserves existing step values on increase', () => {
     let state = createSequencer()
-    state = setStep(state, 0, 'pitch', 3, 72)
+    state = setPitchNote(state, 0, 3, 72)
     const next = setSubtrackLength(state, 0, 'pitch', 32)
-    expect(next.tracks[0].pitch.steps[3]).toBe(72)
+    expect(next.tracks[0].pitch.steps[3].note).toBe(72)
   })
 
   it('clamps to minimum length of 1', () => {
