@@ -1,59 +1,89 @@
 /**
- * LCD Transpose Edit screen — 4-track view showing per-track transpose offset.
- * Enc A: adjust semitones (-48 to +48)
- * Enc B turn: toggle quantize on/off
- * Enc B push: back to home
- * All text ≥16px for readability on 3.5" TFT at 50cm.
+ * LCD Transpose Edit screen — scrollable parameter list for XPOSE config.
+ * Enc A: scroll params, Enc B: adjust values, Enc A hold: reset.
+ * All text >=16px for readability on 3.5" TFT at 50cm.
  */
 
 import type { SequencerState } from '../../engine/types'
 import type { UIState } from '../hw-types'
-import { COLORS, midiToNoteName } from '../colors'
+import { COLORS } from '../colors'
 import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import { getXposeVisibleRows } from '../xpose-rows'
 
 const PAD = 8
 const HEADER_H = 30
-const ROW_H = 36
-const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 4
+const ROW_H = 24
+const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
+const LABEL_X = PAD + 18  // after cursor indicator
+const VALUE_X = LCD_W - PAD
 
 export function renderTransposeEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const trackColor = COLORS.track[ui.selectedTrack]
+  const visibleRows = getXposeVisibleRows(engine, ui)
 
   // Header
-  drawText(ctx, 'TRANSPOSE', PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(ctx, 'ENC A:semi  ENC B:quantize', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
+  drawText(ctx, `XPOSE — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
+  drawText(ctx, 'ENC A:\u25B2\u25BC  ENC B:val', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 
-  // 4-track rows
-  for (let t = 0; t < 4; t++) {
-    const tc = engine.transposeConfigs[t]
-    const y = LIST_TOP + t * ROW_H
-    const isSelected = t === ui.selectedTrack
-    const tColor = COLORS.track[t]
+  // Visible rows — fit as many as content area allows
+  const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)
+  // Scroll window: keep selected param centered when possible
+  const scrollOffset = Math.max(0, Math.min(ui.xposeParam - Math.floor(maxVisible / 2), visibleRows.length - maxVisible))
 
-    // Highlight selected row
-    if (isSelected) {
-      fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 4 }, `${tColor}22`)
-    }
+  for (let vi = 0; vi < maxVisible && scrollOffset + vi < visibleRows.length; vi++) {
+    const paramIdx = scrollOffset + vi
+    const row = visibleRows[paramIdx]
+    const y = LIST_TOP + vi * ROW_H
+    const isSelected = paramIdx === ui.xposeParam
 
-    // Track label
-    drawText(ctx, `T${t + 1}`, PAD + 4, y + ROW_H / 2 - 6, tColor, 18)
+    if (row.type === 'header') {
+      // Section header: dimmed separator line with section name
+      const lineY = y + ROW_H / 2
+      const headerText = ` ${row.label} `
+      // Draw dim line, then text on top
+      ctx.strokeStyle = COLORS.textDim
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(PAD, lineY)
+      ctx.lineTo(LCD_W - PAD, lineY)
+      ctx.stroke()
+      // Section label over the line with background knockout
+      const labelColor = isSelected ? trackColor : COLORS.textDim
+      const labelW = row.label.length * 10 + 16  // approximate width for 16px font
+      fillRect(ctx, { x: PAD, y: lineY - 10, w: labelW, h: 20 }, COLORS.bg)
+      drawText(ctx, headerText, PAD + 4, lineY + 5, labelColor, 16)
 
-    // Semitone offset with sign
-    const sign = tc.semitones > 0 ? '+' : ''
-    const semiText = `${sign}${tc.semitones}`
-    const semiColor = tc.semitones === 0 ? COLORS.textDim : (isSelected ? '#ffffff' : tColor)
-    drawText(ctx, semiText, PAD + 60, y + ROW_H / 2 - 6, semiColor, 22)
+      // Cursor on header row
+      if (isSelected) {
+        drawText(ctx, '\u25B8', PAD, lineY + 5, trackColor, 16)
+      }
+    } else {
+      // Param row
+      // Highlight row background
+      if (isSelected) {
+        fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
+      }
 
-    // Note name hint (what C4 becomes with this transpose)
-    const transposedMidi = Math.max(0, Math.min(127, 60 + tc.semitones))
-    drawText(ctx, `C4→${midiToNoteName(transposedMidi)}`, PAD + 140, y + ROW_H / 2 - 6, COLORS.textDim, 14)
+      // Cursor indicator
+      const cursorColor = isSelected ? trackColor : 'transparent'
+      drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, cursorColor, 16)
 
-    // Quantize indicator
-    if (tc.quantize) {
-      drawText(ctx, 'Q', LCD_W - PAD - 4, y + ROW_H / 2 - 6, '#ffaa00', 16, 'right')
+      // Label
+      const labelColor = isSelected ? COLORS.text : COLORS.textDim
+      drawText(ctx, row.label, LABEL_X, y + ROW_H / 2 - 2, labelColor, 16)
+
+      // Value
+      const value = row.getValue(engine, ui)
+      const valueColor = isSelected ? '#ffffff' : COLORS.textDim
+      drawText(ctx, value, VALUE_X, y + ROW_H / 2 - 2, valueColor, 16, 'right')
     }
   }
 
-  // Bottom hint
-  drawText(ctx, 'T1-T4: select track', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 14)
+  // Scroll indicator if list is longer than visible area
+  if (visibleRows.length > maxVisible) {
+    const barH = LCD_CONTENT_H - HEADER_H - 8
+    const thumbH = Math.max(12, (maxVisible / visibleRows.length) * barH)
+    const thumbY = LIST_TOP + (scrollOffset / (visibleRows.length - maxVisible)) * (barH - thumbH)
+    fillRect(ctx, { x: LCD_W - 3, y: thumbY, w: 2, h: thumbH }, `${trackColor}44`)
+  }
 }

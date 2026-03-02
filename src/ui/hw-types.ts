@@ -60,6 +60,7 @@ export interface UIState {
   heldButton: HeldButtonTarget | null  // which button is held for hold combos
   holdEncoderUsed: boolean    // whether encoder was turned during current hold
   randParam: number           // 0-12: selected parameter row in RAND screen
+  xposeParam: number          // 0-N: selected parameter row in XPOSE screen
   randPresetIndex: number     // which preset is highlighted (0 to total presets-1)
   nameChars: number[]         // character indices for name-entry mode (max 12)
   nameCursor: number          // cursor position in name-entry (0 to nameChars.length-1)

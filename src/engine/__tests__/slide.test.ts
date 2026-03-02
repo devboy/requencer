@@ -9,10 +9,10 @@ function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: strin
     clockDivider: 1,
     gate: {
       steps: [
-        { on: true, length: 0.5, ratchet: 1 },
-        { on: false, length: 0.5, ratchet: 1 },
-        { on: true, length: 0.5, ratchet: 1 },
-        { on: false, length: 0.5, ratchet: 1 },
+        { on: true, tie: false, length: 0.5, ratchet: 1 },
+        { on: false, tie: false, length: 0.5, ratchet: 1 },
+        { on: true, tie: false, length: 0.5, ratchet: 1 },
+        { on: false, tie: false, length: 0.5, ratchet: 1 },
       ],
       length: 4,
       clockDivider: 1,

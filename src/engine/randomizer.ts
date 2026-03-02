@@ -196,6 +196,41 @@ export function randomizeMod(config: { low: number; high: number }, length: numb
 }
 
 /**
+ * Generate random tie pattern. Ties mark steps that continue the previous note.
+ * A tie can only follow a gate-on step or another tie. Step 0 is never a tie.
+ */
+export function randomizeTies(
+  probability: number,
+  maxLength: number,
+  gatePattern: boolean[],
+  length: number,
+  seed: number,
+): boolean[] {
+  if (probability <= 0) return Array(length).fill(false)
+
+  const rng = createRng(seed)
+  const ties = Array(length).fill(false)
+
+  for (let i = 0; i < length; i++) {
+    if (!gatePattern[i]) continue // only gate-on steps can start a tie chain
+
+    // Decide whether this gate-on step starts a tie chain
+    if (rng() >= probability) continue
+
+    // Create a chain of 1..maxLength tied steps after this gate-on
+    const chainLen = 1 + Math.floor(rng() * maxLength)
+    for (let j = 1; j <= chainLen && i + j < length; j++) {
+      ties[i + j] = true
+    }
+
+    // Skip past the chain so we don't start a new chain mid-chain
+    i += chainLen
+  }
+
+  return ties
+}
+
+/**
  * Generate all subtracks for a track using its random config.
  * Returns raw arrays — caller composes into compound GateStep[]/PitchStep[].
  */
@@ -203,15 +238,17 @@ export function randomizeTrack(
   config: RandomConfig,
   lengths: { gate: number; pitch: number; velocity: number; mod: number },
   seed: number = Date.now(),
-): { gate: boolean[]; pitch: Note[]; velocity: Velocity[]; gateLength: GateLength[]; ratchet: RatchetCount[]; slide: number[]; mod: number[] } {
+): { gate: boolean[]; pitch: Note[]; velocity: Velocity[]; gateLength: GateLength[]; ratchet: RatchetCount[]; slide: number[]; mod: number[]; tie: boolean[] } {
   // Use different derived seeds for each subtrack so they're independent
+  const gate = randomizeGates(config.gate, lengths.gate, seed)
   return {
-    gate: randomizeGates(config.gate, lengths.gate, seed),
+    gate,
     pitch: randomizePitch(config.pitch, lengths.pitch, seed + 1),
     velocity: randomizeVelocity(config.velocity, lengths.velocity, seed + 2),
     gateLength: randomizeGateLength(config.gateLength, lengths.gate, seed + 3),
     ratchet: randomizeRatchets(config.ratchet, lengths.gate, seed + 4),
     slide: randomizeSlides(config.slide.probability, lengths.pitch, seed + 5),
     mod: randomizeMod(config.mod, lengths.mod, seed + 6),
+    tie: randomizeTies(config.tie.probability, config.tie.maxLength, gate, lengths.gate, seed + 7),
   }
 }

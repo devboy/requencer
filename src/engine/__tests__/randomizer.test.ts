@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { randomizeGates, randomizePitch, randomizeVelocity, randomizeTrack } from '../randomizer'
+import { randomizeGates, randomizePitch, randomizeVelocity, randomizeTrack, randomizeTies } from '../randomizer'
 import { SCALES } from '../scales'
 
 describe('randomizeGates', () => {
@@ -145,6 +145,66 @@ describe('randomizeVelocity', () => {
   })
 })
 
+describe('randomizeTies', () => {
+  it('returns all false when probability is 0', () => {
+    const gatePattern = [true, false, true, true, false, true, false, true]
+    const ties = randomizeTies(0, 4, gatePattern, 8, 42)
+    expect(ties.length).toBe(8)
+    expect(ties.every(t => t === false)).toBe(true)
+  })
+
+  it('only creates ties after gate-on steps', () => {
+    // Gate pattern: ON, OFF, ON, ON, OFF, ON, OFF, ON
+    const gatePattern = [true, false, true, true, false, true, false, true]
+    const ties = randomizeTies(1.0, 2, gatePattern, 8, 42)
+    expect(ties.length).toBe(8)
+    // First step (index 0) can never be a tie — it's the trigger
+    // A tie can only appear at index i if the previous step was gate-on or a tie
+    expect(ties[0]).toBe(false) // can't tie step 0 (nothing before it)
+  })
+
+  it('respects maxLength — no chain longer than maxLength', () => {
+    // All gates on, high probability
+    const gatePattern = Array(16).fill(true)
+    const ties = randomizeTies(1.0, 2, gatePattern, 16, 42)
+    // Count consecutive ties — should never exceed 2
+    let consecutive = 0
+    for (const t of ties) {
+      if (t) {
+        consecutive++
+        expect(consecutive).toBeLessThanOrEqual(2)
+      } else {
+        consecutive = 0
+      }
+    }
+  })
+
+  it('is deterministic with same seed', () => {
+    const gatePattern = Array(16).fill(true)
+    const a = randomizeTies(0.5, 3, gatePattern, 16, 42)
+    const b = randomizeTies(0.5, 3, gatePattern, 16, 42)
+    expect(a).toEqual(b)
+  })
+
+  it('produces ties with high probability when probability is 1.0', () => {
+    const gatePattern = Array(16).fill(true)
+    const ties = randomizeTies(1.0, 4, gatePattern, 16, 42)
+    // With prob 1.0 and all gates on, should have many ties
+    const tieCount = ties.filter(Boolean).length
+    expect(tieCount).toBeGreaterThan(0)
+  })
+
+  it('does not tie a step that has no preceding gate-on', () => {
+    // OFF, OFF, ON, OFF — only step 3 could potentially be a tie (after step 2)
+    const gatePattern = [false, false, true, false]
+    const ties = randomizeTies(1.0, 4, gatePattern, 4, 42)
+    expect(ties[0]).toBe(false) // no preceding gate
+    expect(ties[1]).toBe(false) // no preceding gate
+    expect(ties[2]).toBe(false) // this is the trigger itself
+    // Step 3: could be a tie (after gate-on at 2)
+  })
+})
+
 describe('randomizeTrack', () => {
   it('generates all subtracks with independent lengths', () => {
     const config = {
@@ -155,6 +215,7 @@ describe('randomizeTrack', () => {
       ratchet: { maxRatchet: 3, probability: 0.2 },
       slide: { probability: 0.15 },
       mod: { low: 0, high: 1 },
+      tie: { probability: 0, maxLength: 2 },
     }
     const result = randomizeTrack(config, { gate: 16, pitch: 7, velocity: 12, mod: 14 }, 42)
     expect(result.gate.length).toBe(16)
@@ -164,5 +225,6 @@ describe('randomizeTrack', () => {
     expect(result.ratchet.length).toBe(16) // matches gate length
     expect(result.slide.length).toBe(7) // matches pitch length
     expect(result.mod.length).toBe(14)
+    expect(result.tie.length).toBe(16) // matches gate length
   })
 })

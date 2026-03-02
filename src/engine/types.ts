@@ -22,6 +22,7 @@ export interface Subtrack<T> {
 // Compound step types — modifiers folded into their parent subtrack
 export interface GateStep {
   on: boolean
+  tie: boolean             // continues previous note, don't retrigger
   length: GateLength       // 0.0-1.0, fraction of step window
   ratchet: RatchetCount    // 1-4, sub-triggers per step
 }
@@ -78,6 +79,10 @@ export interface RandomConfig {
     low: number               // 0.0-1.0, min CV value
     high: number              // 0.0-1.0, max CV value
   }
+  tie: {
+    probability: number       // 0.0-1.0, chance a gate-on step starts a tie chain
+    maxLength: number         // 1-8, max consecutive tied steps
+  }
 }
 
 // Routing: per-output mapping of which source track provides each param
@@ -106,6 +111,8 @@ export interface NoteEvent {
   gateLength: GateLength     // 0.0-1.0, fraction of step window
   ratchetCount: RatchetCount // 1-4, number of sub-triggers
   slide: number              // portamento time in seconds (0 = off)
+  retrigger: boolean         // false = continuation step (skip attack)
+  sustain: boolean           // true = don't schedule release (next step is tied)
 }
 
 // Transport state
@@ -124,7 +131,10 @@ export interface UserPreset {
 // Pitch transposition config
 export interface TransposeConfig {
   semitones: number           // -48 to +48
-  quantize: boolean           // snap to scale after transpose
+  noteLow: number             // 0-127 (MIDI note floor, octave-wrap)
+  noteHigh: number            // 0-127 (MIDI note ceiling, octave-wrap)
+  glScale: number             // 0.25 to 4.0 (1.0 = 100%, gate length multiplier)
+  velScale: number            // 0.25 to 4.0 (1.0 = 100%, velocity multiplier)
 }
 
 // Smart gate density mode

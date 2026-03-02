@@ -62,42 +62,55 @@ export class MIDIOutput {
       const channel = Math.max(0, Math.min(15, config.channel - 1))
 
       if (event.gate) {
-        // Release previous note on this output if different
-        const prev = this.activeNotes.get(event.output)
-        if (prev && prev.note !== event.pitch) {
-          port.send([0x80 | prev.channel, prev.note, 0], now)
-        }
-
         const velocity = Math.max(0, Math.min(127, event.velocity))
         const ratchetCount = event.ratchetCount || 1
         const stepMs = stepDuration * 1000
 
-        if (ratchetCount > 1) {
-          // Ratchet: divide full step into N sub-steps,
-          // each sub-note applies gate length within its subdivision
-          const subStepMs = stepMs / ratchetCount
-          const subGateMs = subStepMs * event.gateLength
-
-          for (let r = 0; r < ratchetCount; r++) {
-            const onTime = now + r * subStepMs
-            const offTime = onTime + subGateMs
-            port.send([0x90 | channel, event.pitch, velocity], onTime)
-            port.send([0x80 | channel, event.pitch, 0], offTime)
+        if (event.retrigger) {
+          // Normal trigger or tie-chain start
+          const prev = this.activeNotes.get(event.output)
+          if (prev && prev.note !== event.pitch) {
+            port.send([0x80 | prev.channel, prev.note, 0], now)
           }
-        } else {
-          // Single note with gate length
-          const gateMs = stepMs * event.gateLength
-          port.send([0x90 | channel, event.pitch, velocity], now)
-          port.send([0x80 | channel, event.pitch, 0], now + gateMs)
-        }
 
-        this.activeNotes.set(event.output, { note: event.pitch, channel })
+          if (ratchetCount > 1) {
+            // Ratchet: divide full step into N sub-steps
+            const subStepMs = stepMs / ratchetCount
+            const subGateMs = subStepMs * event.gateLength
+
+            for (let r = 0; r < ratchetCount; r++) {
+              const onTime = now + r * subStepMs
+              const offTime = onTime + subGateMs
+              port.send([0x90 | channel, event.pitch, velocity], onTime)
+              port.send([0x80 | channel, event.pitch, 0], offTime)
+            }
+          } else {
+            // Single note-on
+            port.send([0x90 | channel, event.pitch, velocity], now)
+            if (!event.sustain) {
+              // Normal note — schedule note-off
+              const gateMs = stepMs * event.gateLength
+              port.send([0x80 | channel, event.pitch, 0], now + gateMs)
+            }
+            // else: tie start — skip note-off, note sustains to next step
+          }
+
+          this.activeNotes.set(event.output, { note: event.pitch, channel })
+        } else {
+          // Continuation (tied step) — skip note-on, note already sounding
+          if (!event.sustain) {
+            // Tie end — schedule note-off
+            const gateMs = stepMs * event.gateLength
+            port.send([0x80 | channel, event.pitch, 0], now + gateMs)
+          }
+          // else: tie middle — do nothing
+        }
 
         // Send mod as CC1 (mod wheel)
         const modValue = Math.round(event.mod * 127)
         port.send([0xB0 | channel, 1, Math.max(0, Math.min(127, modValue))], now)
       } else {
-        // Gate off — release note
+        // Gate off or mute cut — release note
         const prev = this.activeNotes.get(event.output)
         if (prev) {
           port.send([0x80 | prev.channel, prev.note, 0], now)

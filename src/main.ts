@@ -86,7 +86,7 @@ createDebugMenu({
       ...engineState,
       tracks: engineState.tracks.map((trk, idx) => idx !== i ? trk : {
         ...trk,
-        gate: { ...trk.gate, steps: Array.from({ length: len }, () => ({ on: false, length: 0.5, ratchet: 1 })) },
+        gate: { ...trk.gate, steps: Array.from({ length: len }, () => ({ on: false, tie: false, length: 0.5, ratchet: 1 })) },
         velocity: { ...trk.velocity, steps: Array(len).fill(0) },
       }),
     }
@@ -182,7 +182,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
   'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
-  'transpose-edit': '1-4: track   ↑↓: semitones   ←→: quantize   Z-/: intervals   Esc: back',
+  'transpose-edit': '1-4: track   ↑↓: scroll   ←→: adjust   Hold ↑: reset   Esc: back',
   'mod-edit':    'Z-M: select   ↑↓: mod value   ←→: page   Hold R+↑↓: len/div   Esc: back',
 }
 
@@ -222,7 +222,9 @@ function render(): void {
   // Hold overlay (semi-transparent over content when a button is held)
   // Step holds stay in the normal screen (gate-edit shows GL/ratchet inline)
   if (uiState.heldButton && uiState.heldButton.kind !== 'step') {
-    renderHoldOverlay(lcdCtx, engineState, uiState)
+    const editScreens: Set<string> = new Set(['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit'])
+    const thin = editScreens.has(uiState.mode)
+    renderHoldOverlay(lcdCtx, engineState, uiState, thin)
   }
 
   // Update panel LEDs

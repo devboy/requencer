@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createSequencer, tick, setStep, setGateOn, setPitchNote, setRouting, setMutePattern, randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, deleteUserPreset, setOutputSource } from '../sequencer'
+import { createSequencer, tick, setStep, setGateOn, setPitchNote, setRouting, setMutePattern, randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, deleteUserPreset, setOutputSource, setGateTie, setTieRange } from '../sequencer'
 import type { SequencerState, MuteTrack, GateStep, PitchStep } from '../types'
 
 describe('createSequencer', () => {
@@ -581,5 +581,72 @@ describe('setOutputSource', () => {
     const state = createSequencer()
     const result = setOutputSource(state, 0, 'gate', 5)
     expect(result.routing[0].gate).toBe(3)
+  })
+})
+
+describe('setGateTie', () => {
+  it('sets tie flag on a step', () => {
+    const state = createSequencer()
+    const result = setGateTie(state, 0, 3, true)
+    expect(result.tracks[0].gate.steps[3].tie).toBe(true)
+    // Other steps unaffected
+    expect(result.tracks[0].gate.steps[0].tie).toBe(false)
+  })
+
+  it('clears tie flag on a step', () => {
+    let state = createSequencer()
+    state = setGateTie(state, 0, 3, true)
+    const result = setGateTie(state, 0, 3, false)
+    expect(result.tracks[0].gate.steps[3].tie).toBe(false)
+  })
+
+  it('does not mutate original state', () => {
+    const state = createSequencer()
+    setGateTie(state, 0, 3, true)
+    expect(state.tracks[0].gate.steps[3].tie).toBe(false)
+  })
+})
+
+describe('setTieRange', () => {
+  it('sets tie on steps fromStep+1 through toStep', () => {
+    let state = createSequencer()
+    state = setGateOn(state, 0, 0, true) // ensure trigger point is on
+    const result = setTieRange(state, 0, 0, 3)
+    // Step 0 is the trigger (not tied)
+    expect(result.tracks[0].gate.steps[0].tie).toBe(false)
+    expect(result.tracks[0].gate.steps[0].on).toBe(true) // trigger ensured
+    // Steps 1-3 are tied
+    expect(result.tracks[0].gate.steps[1].tie).toBe(true)
+    expect(result.tracks[0].gate.steps[2].tie).toBe(true)
+    expect(result.tracks[0].gate.steps[3].tie).toBe(true)
+    // Step 4 unaffected
+    expect(result.tracks[0].gate.steps[4].tie).toBe(false)
+  })
+
+  it('ensures fromStep gate is ON', () => {
+    const state = createSequencer()
+    // fromStep gate starts as OFF
+    expect(state.tracks[0].gate.steps[0].on).toBe(false)
+    const result = setTieRange(state, 0, 0, 2)
+    expect(result.tracks[0].gate.steps[0].on).toBe(true) // forced on
+  })
+
+  it('tied steps get on: false (they continue, not trigger)', () => {
+    let state = createSequencer()
+    state = setGateOn(state, 0, 1, true) // step 1 was on
+    state = setGateOn(state, 0, 2, true) // step 2 was on
+    const result = setTieRange(state, 0, 0, 3)
+    expect(result.tracks[0].gate.steps[1].on).toBe(false)
+    expect(result.tracks[0].gate.steps[2].on).toBe(false)
+    expect(result.tracks[0].gate.steps[3].on).toBe(false)
+  })
+
+  it('does nothing when fromStep equals toStep', () => {
+    const state = createSequencer()
+    const result = setTieRange(state, 0, 3, 3)
+    // No ties created
+    for (const step of result.tracks[0].gate.steps) {
+      expect(step.tie).toBe(false)
+    }
   })
 })

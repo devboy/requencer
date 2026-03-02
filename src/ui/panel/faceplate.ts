@@ -196,7 +196,7 @@ export function createFaceplate(): FaceplateElements {
     btn.dataset.track = String(i)
     const label = document.createElement('span')
     label.className = 'btn-label label-above'
-    label.textContent = `T${i + 1}`
+    label.textContent = `T/O ${i + 1}`
     btn.appendChild(label)
     trackBtnGroup.appendChild(btn)
     trackBtns.push(btn)

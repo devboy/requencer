@@ -2,7 +2,7 @@ import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent,
 import { SCALES } from './scales'
 import { getEffectiveStep } from './clock-divider'
 import { resolveOutputs, createDefaultRouting } from './routing'
-import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod } from './randomizer'
+import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod, randomizeTies } from './randomizer'
 import { generateArpPattern } from './arpeggiator'
 import { generateSmartGatePattern } from './smart-gate'
 import { generateLFOPattern } from './lfo'
@@ -16,7 +16,7 @@ const MAX_LENGTH = 64
 const MIN_DIVIDER = 1
 const MAX_DIVIDER = 32
 
-const DEFAULT_GATE_STEP: GateStep = { on: false, length: 0.5, ratchet: 1 }
+const DEFAULT_GATE_STEP: GateStep = { on: false, tie: false, length: 0.5, ratchet: 1 }
 const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -84,6 +84,10 @@ function createDefaultRandomConfig(index: number): RandomConfig {
       low: 0,
       high: 1,
     },
+    tie: {
+      probability: 0,
+      maxLength: 2,
+    },
   }
 }
 
@@ -123,7 +127,7 @@ export function createSequencer(): SequencerState {
     randomConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => createDefaultRandomConfig(i)),
     lfoConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, waveform: 'sine' as const, rate: 16, depth: 1, offset: 0.5 })),
     arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, direction: 'up' as const, octaveRange: 1 })),
-    transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, quantize: false })),
+    transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 })),
     mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
     midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ enabled: false, channel: i + 1 })),
     userPresets: [],
@@ -279,6 +283,28 @@ export function setGateRatchet(state: SequencerState, trackIndex: number, stepIn
   return updateGateField(state, trackIndex, stepIndex, 'ratchet', value)
 }
 
+/** Set tie flag for a step. */
+export function setGateTie(state: SequencerState, trackIndex: number, stepIndex: number, value: boolean): SequencerState {
+  return updateGateField(state, trackIndex, stepIndex, 'tie', value)
+}
+
+/**
+ * Set a tie range: fromStep is the trigger, steps fromStep+1..toStep become ties.
+ * Ensures fromStep gate is ON and tied steps get on: false, tie: true.
+ */
+export function setTieRange(state: SequencerState, trackIndex: number, fromStep: number, toStep: number): SequencerState {
+  if (fromStep >= toStep) return state
+  let result = state
+  // Ensure the trigger step is ON
+  result = setGateOn(result, trackIndex, fromStep, true)
+  // Set tied steps
+  for (let i = fromStep + 1; i <= toStep; i++) {
+    result = updateGateField(result, trackIndex, i, 'on', false)
+    result = updateGateField(result, trackIndex, i, 'tie', true)
+  }
+  return result
+}
+
 /** Set pitch note for a step. */
 export function setPitchNote(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
   return updatePitchField(state, trackIndex, stepIndex, 'note', value)
@@ -375,11 +401,13 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
     mod: track.mod.length,
   }, seed)
 
-  // Compose compound GateStep[] from generated booleans + gateLength + ratchet
+  // Compose compound GateStep[] from generated booleans + gateLength + ratchet + tie
+  const tiePattern = generated.tie
   const gateSteps: GateStep[] = generated.gate.map((on, i) => ({
-    on,
+    on: on && !tiePattern[i],
+    tie: tiePattern[i],
     length: generated.gateLength[i],
-    ratchet: generated.ratchet[i],
+    ratchet: tiePattern[i] ? 1 : generated.ratchet[i],
   }))
 
   // Compose compound PitchStep[] from generated notes + slide
@@ -429,10 +457,12 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
   const newGateLengths = randomizeGateLength(config.gateLength, newGateBools.length, s + 3)
   const newRatchets = randomizeRatchets(config.ratchet, newGateBools.length, s + 4)
 
+  const newTies = randomizeTies(config.tie.probability, config.tie.maxLength, newGateBools, newGateBools.length, s + 7)
   const gateSteps: GateStep[] = newGateBools.map((on, i) => ({
-    on,
+    on: on && !newTies[i],
+    tie: newTies[i],
     length: newGateLengths[i],
-    ratchet: newRatchets[i],
+    ratchet: newTies[i] ? 1 : newRatchets[i],
   }))
 
   return {

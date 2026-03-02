@@ -18,7 +18,7 @@ export function resolveOutputs(
   for (let i = 0; i < NUM_OUTPUTS; i++) {
     const r = routing[i]
     if (!r) {
-      events.push({ output: i, gate: false, pitch: 0, velocity: 0, mod: 0, gateLength: 0.5, ratchetCount: 1, slide: 0 })
+      events.push({ output: i, gate: false, pitch: 0, velocity: 0, mod: 0, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
       continue
     }
     const gateTrack = tracks[r.gate]
@@ -27,7 +27,8 @@ export function resolveOutputs(
     const modTrack = tracks[r.mod]
 
     const gateStep = gateTrack?.gate.steps[gateTrack.gate.currentStep]
-    let gate = gateStep?.on ?? false
+    // Tied steps are gate-active (they continue the previous note)
+    let gate = (gateStep?.on || gateStep?.tie) ?? false
     const pitchStep = pitchTrack?.pitch.steps[pitchTrack.pitch.currentStep]
     let pitch = pitchStep?.note ?? 0
     // Apply transpose from pitch source track
@@ -35,17 +36,47 @@ export function resolveOutputs(
     if (transpose && transpose.semitones !== 0) {
       pitch = Math.max(0, Math.min(127, pitch + transpose.semitones))
     }
-    const velocity = velTrack?.velocity.steps[velTrack.velocity.currentStep] ?? 0
+    // Note window octave-wrapping
+    if (transpose) {
+      const lo = transpose.noteLow
+      const hi = transpose.noteHigh
+      // Skip wrapping for full range or invalid range (avoid infinite loop)
+      if (!(lo === 0 && hi === 127) && hi > lo) {
+        while (pitch > hi) pitch -= 12
+        while (pitch < lo) pitch += 12
+      }
+    }
+    let velocity = velTrack?.velocity.steps[velTrack.velocity.currentStep] ?? 0
     const mod = modTrack?.mod.steps[modTrack.mod.currentStep] ?? 0
-    const gateLength = gateStep?.length ?? 0.5
-    const ratchetCount = gateStep?.ratchet ?? 1
     const slide = pitchStep?.slide ?? 0
+
+    // Look-back: is this a continuation? (this step has tie flag)
+    const retrigger = gate && !(gateStep?.tie)
+
+    // Look-ahead: should we sustain? (next step is a tie)
+    const nextIdx = ((gateTrack?.gate.currentStep ?? 0) + 1) % (gateTrack?.gate.length ?? 1)
+    const nextGateStep = gateTrack?.gate.steps[nextIdx]
+    const sustain = gate && (nextGateStep?.tie ?? false)
+
+    // Tied steps force ratchet to 1 and full gate length when sustaining
+    const ratchetCount = gateStep?.tie ? 1 : (gateStep?.ratchet ?? 1)
+    let gateLength = (gateStep?.tie && sustain) ? 1.0 : (gateStep?.length ?? 0.5)
+
+    // GL/VEL scaling: look up per source track
+    const gateXpose = transposeConfigs?.[r.gate]
+    if (gateXpose && gateXpose.glScale !== 1.0) {
+      gateLength = Math.max(0.05, Math.min(1.0, gateLength * gateXpose.glScale))
+    }
+    const velXpose = transposeConfigs?.[r.velocity]
+    if (velXpose && velXpose.velScale !== 1.0) {
+      velocity = Math.max(1, Math.min(127, Math.round(velocity * velXpose.velScale)))
+    }
 
     // Mute is per-output: mutes[i] controls output i regardless of which track sources the gate
     const mute = mutes[i]
     if (mute && mute.steps[mute.currentStep]) gate = false
 
-    events.push({ output: i, gate, pitch, velocity, mod, gateLength, ratchetCount, slide })
+    events.push({ output: i, gate, pitch, velocity, mod, gateLength, ratchetCount, slide, retrigger, sustain })
   }
   return events
 }

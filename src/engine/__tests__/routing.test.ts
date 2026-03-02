@@ -6,10 +6,10 @@ function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: strin
   return {
     clockDivider: 1,
     gate: { steps: [
-      { on: true, length: 0.5, ratchet: 1 },
-      { on: false, length: 0.5, ratchet: 1 },
-      { on: true, length: 0.5, ratchet: 1 },
-      { on: false, length: 0.5, ratchet: 1 },
+      { on: true, tie: false, length: 0.5, ratchet: 1 },
+      { on: false, tie: false, length: 0.5, ratchet: 1 },
+      { on: true, tie: false, length: 0.5, ratchet: 1 },
+      { on: false, tie: false, length: 0.5, ratchet: 1 },
     ], length: 4, clockDivider: 1, currentStep: 0 },
     pitch: { steps: [
       { note: 60, slide: 0 },
@@ -51,8 +51,8 @@ describe('resolveOutputs', () => {
     const routing = createDefaultRouting()
     const events = resolveOutputs(tracks, routing, mutes)
     expect(events).toHaveLength(4)
-    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0 })
-    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0 })
+    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
+    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
   })
 
   it('resolves cross-routing — output 2 gate from track 0', () => {
@@ -63,10 +63,10 @@ describe('resolveOutputs', () => {
       makeTrack({
         id: '2', name: 'Track 3',
         gate: { steps: [
-          { on: false, length: 0.5, ratchet: 1 },
-          { on: false, length: 0.5, ratchet: 1 },
-          { on: false, length: 0.5, ratchet: 1 },
-          { on: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
         ], length: 4, clockDivider: 1, currentStep: 0 },
       }),
       tracks[3],
@@ -117,5 +117,115 @@ describe('resolveOutputs', () => {
     const events = resolveOutputs(tracks, routing, mutes)
     expect(events[0].pitch).toBe(60)
     expect(events[0].gate).toBe(true)
+  })
+
+  // --- Tie behavior ---
+
+  it('tied step produces gate: true, retrigger: false', () => {
+    const routing = createDefaultRouting()
+    const tieTracks = [
+      makeTrack({
+        id: '0', name: 'Track 1',
+        gate: { steps: [
+          { on: true, tie: false, length: 0.5, ratchet: 1 },   // step 0: trigger
+          { on: false, tie: true, length: 0.5, ratchet: 1 },   // step 1: tied continuation
+          { on: false, tie: false, length: 0.5, ratchet: 1 },  // step 2: normal off
+          { on: true, tie: false, length: 0.5, ratchet: 1 },   // step 3: normal trigger
+        ], length: 4, clockDivider: 1, currentStep: 1 }, // at tied step
+      }),
+      tracks[1], tracks[2], tracks[3],
+    ]
+    const events = resolveOutputs(tieTracks, routing, mutes)
+    expect(events[0].gate).toBe(true)       // tied step is gate-active
+    expect(events[0].retrigger).toBe(false)  // don't retrigger (continuation)
+  })
+
+  it('normal gate-on step has retrigger: true', () => {
+    const routing = createDefaultRouting()
+    const events = resolveOutputs(tracks, routing, mutes)
+    expect(events[0].retrigger).toBe(true)
+  })
+
+  it('look-ahead: sustain: true when next step is tied', () => {
+    const routing = createDefaultRouting()
+    const tieTracks = [
+      makeTrack({
+        id: '0', name: 'Track 1',
+        gate: { steps: [
+          { on: true, tie: false, length: 0.5, ratchet: 1 },   // step 0: trigger
+          { on: false, tie: true, length: 0.5, ratchet: 1 },   // step 1: tied
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+        ], length: 4, clockDivider: 1, currentStep: 0 }, // at trigger step
+      }),
+      tracks[1], tracks[2], tracks[3],
+    ]
+    const events = resolveOutputs(tieTracks, routing, mutes)
+    expect(events[0].sustain).toBe(true)    // next step is tie → sustain
+  })
+
+  it('sustain: false when next step is not tied', () => {
+    const routing = createDefaultRouting()
+    const events = resolveOutputs(tracks, routing, mutes)
+    expect(events[0].sustain).toBe(false)
+  })
+
+  it('tied step forces ratchetCount to 1', () => {
+    const routing = createDefaultRouting()
+    const tieTracks = [
+      makeTrack({
+        id: '0', name: 'Track 1',
+        gate: { steps: [
+          { on: true, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: true, length: 0.5, ratchet: 3 },  // ratchet 3 but tied
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+        ], length: 4, clockDivider: 1, currentStep: 1 },
+      }),
+      tracks[1], tracks[2], tracks[3],
+    ]
+    const events = resolveOutputs(tieTracks, routing, mutes)
+    expect(events[0].ratchetCount).toBe(1)  // forced to 1 on tied step
+  })
+
+  it('mute on tied step produces gate: false (cuts tie)', () => {
+    const routing = createDefaultRouting()
+    const tieTracks = [
+      makeTrack({
+        id: '0', name: 'Track 1',
+        gate: { steps: [
+          { on: true, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: true, length: 0.5, ratchet: 1 },  // tied but muted
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+        ], length: 4, clockDivider: 1, currentStep: 1 },
+      }),
+      tracks[1], tracks[2], tracks[3],
+    ]
+    const mutedMutes = [
+      { steps: [false, true, false, false], length: 4, clockDivider: 1, currentStep: 1 }, // mute on step 1
+      makeMute(), makeMute(), makeMute(),
+    ]
+    const events = resolveOutputs(tieTracks, routing, mutedMutes)
+    expect(events[0].gate).toBe(false)  // mute overrides tie
+  })
+
+  it('middle-of-chain tied step has gateLength 1.0 when next is also tied', () => {
+    const routing = createDefaultRouting()
+    const tieTracks = [
+      makeTrack({
+        id: '0', name: 'Track 1',
+        gate: { steps: [
+          { on: true, tie: false, length: 0.5, ratchet: 1 },
+          { on: false, tie: true, length: 0.3, ratchet: 1 },  // middle, own GL=0.3
+          { on: false, tie: true, length: 0.5, ratchet: 1 },  // still tied
+          { on: false, tie: false, length: 0.5, ratchet: 1 },
+        ], length: 4, clockDivider: 1, currentStep: 1 },
+      }),
+      tracks[1], tracks[2], tracks[3],
+    ]
+    const events = resolveOutputs(tieTracks, routing, mutes)
+    expect(events[0].gateLength).toBe(1.0) // middle of chain → full gate
+    expect(events[0].sustain).toBe(true)   // next step is also tied
   })
 })

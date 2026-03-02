@@ -267,7 +267,7 @@ describe('dispatch', () => {
       const ui = { ...gateUI(0), selectedStep: -1 }
       let eng = makeState()
       // Set gate length to 32 so there are 2 pages
-      const steps = Array.from({ length: 32 }, () => ({ on: false, length: 0.5, ratchet: 1 }))
+      const steps = Array.from({ length: 32 }, () => ({ on: false, tie: false, length: 0.5, ratchet: 1 }))
       eng = {
         ...eng,
         tracks: eng.tracks.map((t, i) =>
@@ -290,6 +290,49 @@ describe('dispatch', () => {
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
       expect(result.ui.mode).toBe('gate-edit')
+    })
+
+    it('hold step A + press step B creates tie range', () => {
+      // Hold step 2, press step 5 → steps 3, 4, 5 become ties
+      let eng = makeState()
+      // Ensure step 2 is gate on (trigger point)
+      const steps = eng.tracks[0].gate.steps.map((s, i) =>
+        i === 2 ? { ...s, on: true } : s
+      )
+      eng = {
+        ...eng,
+        tracks: eng.tracks.map((t, i) =>
+          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
+        ),
+      }
+      const ui: UIState = {
+        ...gateUI(),
+        heldButton: { kind: 'step', step: 2 },
+        holdEncoderUsed: false,
+      }
+      const result = dispatch(ui, eng, { type: 'step-press', step: 5 })
+      // Steps 3, 4, 5 should be tied
+      expect(result.engine.tracks[0].gate.steps[3].tie).toBe(true)
+      expect(result.engine.tracks[0].gate.steps[4].tie).toBe(true)
+      expect(result.engine.tracks[0].gate.steps[5].tie).toBe(true)
+      // Step 2 should be on (trigger)
+      expect(result.engine.tracks[0].gate.steps[2].on).toBe(true)
+      // holdEncoderUsed should be true to prevent gate toggle on hold-end
+      expect(result.ui.holdEncoderUsed).toBe(true)
+    })
+
+    it('hold step + press same step does not create tie', () => {
+      const eng = makeState()
+      const ui: UIState = {
+        ...gateUI(),
+        heldButton: { kind: 'step', step: 3 },
+        holdEncoderUsed: false,
+      }
+      const result = dispatch(ui, eng, { type: 'step-press', step: 3 })
+      // No ties should be created
+      for (const step of result.engine.tracks[0].gate.steps) {
+        expect(step.tie).toBe(false)
+      }
     })
   })
 
@@ -446,6 +489,7 @@ describe('getLEDState', () => {
     let eng = makeState()
     const steps = Array.from({ length: 16 }, (_, i) => ({
       on: i === 0 || i === 5,
+      tie: false,
       length: 0.5,
       ratchet: 1,
     }))
@@ -1294,6 +1338,76 @@ describe('route screen dispatch', () => {
       const result = dispatch(ui, eng, { type: 'encoder-b-push' })
       expect(result.ui.mode).toBe('route')
       expect(result.ui.routePage).toBe(1)
+    })
+  })
+
+  describe('transpose-edit (XPOSE)', () => {
+    it('encoder A scrolls xposeParam', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 0 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.xposeParam).toBe(1)
+    })
+
+    it('encoder A clamps to max row', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 6 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.xposeParam).toBe(6) // 7 rows, max index = 6
+    })
+
+    it('encoder B adjusts semitones on SEMI param', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 1 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 3 })
+      expect(result.engine.transposeConfigs[0].semitones).toBe(3)
+    })
+
+    it('encoder B adjusts noteLow on NOTE LO param', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 2 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 5 })
+      expect(result.engine.transposeConfigs[0].noteLow).toBe(5)
+    })
+
+    it('encoder B adjusts noteHigh on NOTE HI param', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 3 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: -10 })
+      expect(result.engine.transposeConfigs[0].noteHigh).toBe(117) // 127 - 10
+    })
+
+    it('encoder B adjusts glScale in 5% steps', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 5 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine.transposeConfigs[0].glScale).toBe(1.05)
+    })
+
+    it('encoder B adjusts velScale in 5% steps', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 6 }
+      const engine = createSequencer()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: -2 })
+      expect(result.engine.transposeConfigs[0].velScale).toBe(0.9) // 1.0 - 0.10
+    })
+
+    it('encoder A hold resets single param', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 1 }
+      const engine = createSequencer()
+      engine.transposeConfigs[0] = { semitones: 7, noteLow: 48, noteHigh: 72, glScale: 2.0, velScale: 0.5 }
+      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      expect(result.engine.transposeConfigs[0].semitones).toBe(0)
+      expect(result.engine.transposeConfigs[0].noteLow).toBe(48) // unchanged
+    })
+
+    it('encoder A hold on section header resets entire section', () => {
+      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 4 } // DYNAMICS header
+      const engine = createSequencer()
+      engine.transposeConfigs[0] = { semitones: 7, noteLow: 48, noteHigh: 72, glScale: 2.0, velScale: 0.5 }
+      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      expect(result.engine.transposeConfigs[0].glScale).toBe(1.0)
+      expect(result.engine.transposeConfigs[0].velScale).toBe(1.0)
+      expect(result.engine.transposeConfigs[0].semitones).toBe(7) // pitch section unchanged
     })
   })
 })

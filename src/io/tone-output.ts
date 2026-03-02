@@ -75,42 +75,61 @@ export class ToneOutput {
         // Set portamento for slide (0 = off, value = glide time in seconds)
         synth.portamento = event.slide
 
-        // Release previous note if different
-        if (this.activeNotes[outputIdx] !== null && this.activeNotes[outputIdx] !== noteName) {
-          synth.triggerRelease(time)
-        }
-
-        if (ratchetCount > 1) {
-          // Ratchet: divide full step into N equal sub-steps,
-          // each sub-note applies gate length within its subdivision
-          const subStep = stepDuration / ratchetCount
-          const subGate = subStep * event.gateLength
-
-          for (let r = 0; r < ratchetCount; r++) {
-            const subTime = time + r * subStep
-            synth.volume.setValueAtTime(db, subTime)
-            synth.triggerAttackRelease(noteName, subGate, subTime)
+        if (event.retrigger) {
+          // Normal trigger or tie-chain start
+          // Release previous note if different
+          if (this.activeNotes[outputIdx] !== null && this.activeNotes[outputIdx] !== noteName) {
+            synth.triggerRelease(time)
           }
-          this.activeNotes[outputIdx] = noteName
-          Tone.getTransport().scheduleOnce((t) => {
-            if (this.activeNotes[outputIdx] === noteName) {
-              this.activeNotes[outputIdx] = null
-            }
-          }, time + (ratchetCount - 1) * subStep + subGate)
-        } else {
-          // Single trigger with gate length
-          synth.volume.setValueAtTime(db, time)
-          synth.triggerAttack(noteName, time)
-          this.activeNotes[outputIdx] = noteName
 
-          Tone.getTransport().scheduleOnce((t) => {
-            if (this.activeNotes[outputIdx] === noteName) {
-              synth.triggerRelease(t)
-              this.activeNotes[outputIdx] = null
+          if (ratchetCount > 1) {
+            // Ratchet: divide full step into N equal sub-steps
+            const subStep = stepDuration / ratchetCount
+            const subGate = subStep * event.gateLength
+
+            for (let r = 0; r < ratchetCount; r++) {
+              const subTime = time + r * subStep
+              synth.volume.setValueAtTime(db, subTime)
+              synth.triggerAttackRelease(noteName, subGate, subTime)
             }
-          }, time + gateWindow)
+            this.activeNotes[outputIdx] = noteName
+            Tone.getTransport().scheduleOnce(() => {
+              if (this.activeNotes[outputIdx] === noteName) {
+                this.activeNotes[outputIdx] = null
+              }
+            }, time + (ratchetCount - 1) * subStep + subGate)
+          } else {
+            // Single trigger
+            synth.volume.setValueAtTime(db, time)
+            synth.triggerAttack(noteName, time)
+            this.activeNotes[outputIdx] = noteName
+
+            if (!event.sustain) {
+              // Normal note — schedule release
+              Tone.getTransport().scheduleOnce((t) => {
+                if (this.activeNotes[outputIdx] === noteName) {
+                  synth.triggerRelease(t)
+                  this.activeNotes[outputIdx] = null
+                }
+              }, time + gateWindow)
+            }
+            // else: tie start — don't schedule release, note sustains to next step
+          }
+        } else {
+          // Continuation (tied step, retrigger=false) — note already sounding
+          if (!event.sustain) {
+            // Tie end — schedule release at this step's gate window
+            Tone.getTransport().scheduleOnce((t) => {
+              if (this.activeNotes[outputIdx] === noteName) {
+                synth.triggerRelease(t)
+                this.activeNotes[outputIdx] = null
+              }
+            }, time + gateWindow)
+          }
+          // else: tie middle — do nothing, note continues sustaining
         }
       } else {
+        // Gate off or mute cut — release
         if (this.activeNotes[event.output] !== null) {
           synth.triggerRelease(time)
           this.activeNotes[event.output] = null

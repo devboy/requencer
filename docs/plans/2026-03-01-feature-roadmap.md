@@ -81,9 +81,26 @@ Route engine output to external MIDI devices via Web MIDI API.
 
 ---
 
+### 11. Ties (Multi-Step Notes) ✅
+Notes/gates that span longer than a single step. A tied step extends the previous note's gate rather than triggering a new attack.
+- **Implemented:** tie flag on GateStep, retrigger/sustain in NoteEvent, look-ahead/look-back in routing, hold-step + press-step gesture in gate-edit, connecting bridge visual, tie probability/maxLength in RAND config
+- **Note:** In a eurorack CV/gate context, pitch could change mid-tie without retrigger (pitch is a separate CV). Current MIDI model ignores pitch on tied steps. This is a future consideration for CV output mode.
+
+---
+
 ## Future — Unscheduled
 
-### 11. Ties (Multi-Step Notes)
-Notes/gates that span longer than a single step. A tied step extends the previous note's gate rather than triggering a new attack.
-- **Depends on:** gate length (ties interact with gate duration)
-- **Complexity:** L — requires rethinking gate-per-step model, engine needs "continue" vs "trigger" distinction, affects ratchet/slide behavior on tied steps, I/O scheduling for sustained notes across multiple ticks
+### Clock Divider Gate Scaling
+When a gate track has a clock divider > 1, each step spans multiple ticks but the audible gate duration stays at the base 16th-note length. The gate window should scale proportionally with the effective step duration.
+- **Current behavior:** `stepDuration` passed to I/O is always the base 16th-note duration. A track with `clockDivider: 2` fires steps half as often, but each note is the same length as an undivided track.
+- **Desired behavior:** The I/O layer receives the effective step duration (base × combined track/subtrack divider) so gate length, ratchet subdivision, and release timing all scale naturally.
+- **Impact:** I/O layer (`tone-output.ts`, `midi-output.ts`) needs per-event step duration. Either pass it through NoteEvent or compute it in `main.ts` from the gate source track's dividers.
+- **Complexity:** S — plumbing change, no engine logic affected
+
+### High-Resolution Internal Clock (24 PPQN)
+The engine currently ticks at 1 tick per 16th note (effectively 4 PPQN). A higher resolution clock (24 PPQN, the MIDI standard) would give more precise timing for ratchets, gate lengths, swing, and future features like shuffle/groove templates.
+- **Current model:** 1 tick = 1 step. Ratchets and gate length are handled in the I/O layer by subdividing `stepDuration` with floating-point math. This works but means the engine has no concept of sub-step timing.
+- **Proposed model:** 6 ticks per 16th note (24 PPQN). The engine distinguishes "step boundaries" from "micro-ticks within a step." Gate length and ratchets become tick counts instead of float fractions. The I/O layer schedules events at tick-level precision.
+- **Benefits:** Precise ratchet timing without float rounding, natural swing/groove (shift steps by ±ticks), accurate MIDI clock output, sub-step gate resolution.
+- **Trade-offs:** Engine runs 6× more ticks per beat, step-based UI/routing needs to map between tick position and step index, all existing clock divider logic needs updating, significant refactor across engine/I/O/UI.
+- **Complexity:** XL — architectural change touching every layer. Worth doing before hardware port.

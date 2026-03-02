@@ -151,6 +151,22 @@ function buildRowDefs(): RandRow[] {
       visible: always,
     },
 
+    // --- TIE section ---
+    {
+      type: 'header', paramId: 'section.tie', label: 'TIE',
+      getValue: () => '', visible: always,
+    },
+    {
+      type: 'param', paramId: 'tie.probability', label: 'TIE %',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).tie.probability * 100)}%`,
+      visible: always,
+    },
+    {
+      type: 'param', paramId: 'tie.maxLength', label: 'TIE MAX',
+      getValue: (e, ui) => String(cfg(e, ui).tie.maxLength),
+      visible: always,
+    },
+
     // --- VEL section ---
     {
       type: 'header', paramId: 'section.vel', label: 'VEL',
@@ -236,6 +252,7 @@ export const SECTION_PARAMS: Record<string, string[]> = {
   'section.pitch': ['pitch.scale', 'pitch.root', 'pitch.low', 'pitch.high', 'pitch.maxNotes', 'slide.probability'],
   'section.arp': ['arp.enabled', 'arp.direction', 'arp.octaveRange'],
   'section.gate': ['gate.fillMin', 'gate.fillMax', 'gate.mode', 'gate.randomOffset', 'gate.smartBars', 'gate.smartDensity', 'gateLength.min', 'gateLength.max', 'ratchet.maxRatchet', 'ratchet.probability'],
+  'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.low', 'velocity.high'],
   'section.mod': ['mod.low', 'mod.high'],
   'section.lfo': ['lfo.enabled', 'lfo.waveform', 'lfo.rate', 'lfo.depth'],

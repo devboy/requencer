@@ -14,11 +14,12 @@
  */
 
 import type { SequencerState, RandomConfig, ArpDirection } from '../engine/types'
-import { randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, randomizeModPattern, regenerateLFO, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, setOutputSource, setStep, setGateOn, setGateLength, setGateRatchet, setPitchNote, setSlide } from '../engine/sequencer'
+import { randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, randomizeModPattern, regenerateLFO, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, setOutputSource, setStep, setGateOn, setGateLength, setGateRatchet, setPitchNote, setSlide, setTieRange, setGateTie } from '../engine/sequencer'
 import type { ScreenMode, ControlEvent, UIState, LEDState, HeldButtonTarget } from './hw-types'
 import { PRESETS } from '../engine/presets'
 import { SCALES } from '../engine/scales'
 import { getVisibleRows, getAllPresets, SECTION_PARAMS } from './rand-rows'
+import { getXposeVisibleRows } from './xpose-rows'
 
 export interface DispatchResult {
   ui: UIState
@@ -34,6 +35,7 @@ export function createInitialUIState(): UIState {
     heldButton: null,
     holdEncoderUsed: false,
     randParam: 0,
+    xposeParam: 0,
     randPresetIndex: 0,
     nameChars: [],
     nameCursor: 0,
@@ -60,6 +62,11 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     // Clear step selection when hold ends
     const clearStep = ui.heldButton?.kind === 'step'
     return { ui: { ...ui, heldButton: null, holdEncoderUsed: false, ...(clearStep ? { selectedStep: -1 } : {}) }, engine }
+  }
+
+  // --- Hold combo: step held in gate-edit + step press → tie range ---
+  if (ui.heldButton?.kind === 'step' && ui.mode === 'gate-edit' && event.type === 'step-press') {
+    return dispatchStepTie(ui, engine, event)
   }
 
   // --- Hold combo: step held in gate-edit → encoder A = gate length, encoder B = ratchet ---
@@ -486,46 +493,85 @@ function updateMutateConfig(engine: SequencerState, trackIdx: number, config: im
   }
 }
 
-// --- Transpose Edit ---
+// --- Transpose Edit (XPOSE) ---
 // T1-T4: select track (cross-modal, handled globally)
-// Enc A: adjust semitones (-48 to +48)
-// Enc B turn: toggle quantize on/off
-// Enc B push: return home
-// Step buttons: quick-set common intervals (0=0, 1=+1, ... 7=+7, 8=-1, ... 15=-8)
+// Enc A: scroll params, Enc A hold: reset param/section
+// Enc B: adjust selected parameter value
 
 function dispatchTransposeEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  const rows = getXposeVisibleRows(engine, ui)
+  const maxIdx = rows.length - 1
+
   switch (event.type) {
-    case 'step-press': {
-      // Quick-set common intervals: steps 0-7 = 0..+7, steps 8-15 = -1..-8
-      const semitones = event.step < 8 ? event.step : -(event.step - 7)
-      return {
-        ui,
-        engine: updateTransposeConfig(engine, ui.selectedTrack, {
-          ...engine.transposeConfigs[ui.selectedTrack],
-          semitones,
-        }),
-      }
-    }
     case 'encoder-a-turn': {
-      const tc = engine.transposeConfigs[ui.selectedTrack]
-      const newSemi = clamp(tc.semitones + event.delta, -48, 48)
-      return {
-        ui,
-        engine: updateTransposeConfig(engine, ui.selectedTrack, { ...tc, semitones: newSemi }),
-      }
+      const next = clamp(ui.xposeParam + event.delta, 0, maxIdx)
+      return { ui: { ...ui, xposeParam: next }, engine }
     }
-    case 'encoder-b-turn': {
-      const tc = engine.transposeConfigs[ui.selectedTrack]
-      return {
-        ui,
-        engine: updateTransposeConfig(engine, ui.selectedTrack, { ...tc, quantize: !tc.quantize }),
-      }
-    }
+    case 'encoder-a-hold':
+      return dispatchXposeReset(ui, engine)
+    case 'encoder-b-turn':
+      return dispatchXposeParamAdjust(ui, engine, event.delta)
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine }
     default:
       return { ui, engine }
   }
+}
+
+function dispatchXposeParamAdjust(ui: UIState, engine: SequencerState, delta: number): DispatchResult {
+  const trackIdx = ui.selectedTrack
+  const tc = engine.transposeConfigs[trackIdx]
+  const rows = getXposeVisibleRows(engine, ui)
+  const row = rows[ui.xposeParam]
+  if (!row) return { ui, engine }
+
+  switch (row.paramId) {
+    case 'xpose.semi':
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, semitones: clamp(tc.semitones + delta, -48, 48) }) }
+    case 'xpose.noteLow':
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, noteLow: clamp(tc.noteLow + delta, 0, 127) }) }
+    case 'xpose.noteHigh':
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, noteHigh: clamp(tc.noteHigh + delta, 0, 127) }) }
+    case 'xpose.glScale': {
+      const newVal = Math.round(clamp(tc.glScale + delta * 0.05, 0.25, 4.0) * 100) / 100
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, glScale: newVal }) }
+    }
+    case 'xpose.velScale': {
+      const newVal = Math.round(clamp(tc.velScale + delta * 0.05, 0.25, 4.0) * 100) / 100
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, velScale: newVal }) }
+    }
+    default:
+      return { ui, engine }
+  }
+}
+
+function dispatchXposeReset(ui: UIState, engine: SequencerState): DispatchResult {
+  const trackIdx = ui.selectedTrack
+  const tc = engine.transposeConfigs[trackIdx]
+  const rows = getXposeVisibleRows(engine, ui)
+  const row = rows[ui.xposeParam]
+  if (!row) return { ui, engine }
+
+  if (row.type === 'header') {
+    if (row.paramId === 'section.pitch') {
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, semitones: 0, noteLow: 0, noteHigh: 127 }) }
+    }
+    if (row.paramId === 'section.dynamics') {
+      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, glScale: 1.0, velScale: 1.0 }) }
+    }
+    return { ui, engine }
+  }
+
+  const defaults: Record<string, Partial<import('../engine/types').TransposeConfig>> = {
+    'xpose.semi': { semitones: 0 },
+    'xpose.noteLow': { noteLow: 0 },
+    'xpose.noteHigh': { noteHigh: 127 },
+    'xpose.glScale': { glScale: 1.0 },
+    'xpose.velScale': { velScale: 1.0 },
+  }
+  const d = defaults[row.paramId]
+  if (d) return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, ...d }) }
+  return { ui, engine }
 }
 
 function updateTransposeConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').TransposeConfig): SequencerState {
@@ -679,6 +725,12 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const newVal = Math.round(clamp(config.ratchet.probability + delta * 0.05, 0, 1) * 100) / 100
       return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, probability: newVal } }) }
     }
+    case 'tie.probability': {
+      const newVal = Math.round(clamp(config.tie.probability + delta * 0.05, 0, 1) * 100) / 100
+      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, probability: newVal } }) }
+    }
+    case 'tie.maxLength':
+      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, maxLength: clamp(config.tie.maxLength + delta, 1, 8) } }) }
     case 'velocity.low':
       return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, low: clamp(config.velocity.low + delta, 0, 127) } }) }
     case 'velocity.high':
@@ -752,6 +804,7 @@ function getDefaultRandomConfig(): RandomConfig {
     ratchet: { maxRatchet: 1, probability: 0 },
     slide: { probability: 0 },
     mod: { low: 0, high: 1 },
+    tie: { probability: 0, maxLength: 2 },
   }
 }
 
@@ -785,6 +838,8 @@ function resetSingleParam(
     case 'gateLength.max': return updateRandomConfig(engine, trackIdx, { ...config, gateLength: { ...config.gateLength, max: dc.gateLength.max } })
     case 'ratchet.maxRatchet': return updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, maxRatchet: dc.ratchet.maxRatchet } })
     case 'ratchet.probability': return updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, probability: dc.ratchet.probability } })
+    case 'tie.probability': return updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, probability: dc.tie.probability } })
+    case 'tie.maxLength': return updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, maxLength: dc.tie.maxLength } })
     case 'velocity.low': return updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, low: dc.velocity.low } })
     case 'velocity.high': return updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, high: dc.velocity.high } })
     case 'mod.low': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: dc.mod.low } })
@@ -915,7 +970,7 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         } else if (stepIdx === track.gate.currentStep) {
           leds[i] = 'flash'
         } else {
-          leds[i] = track.gate.steps[stepIdx].on ? 'on' : 'dim'
+          leds[i] = (track.gate.steps[stepIdx].on || track.gate.steps[stepIdx].tie) ? 'on' : 'dim'
         }
       }
       break
@@ -967,7 +1022,7 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         } else if (i === track.gate.currentStep) {
           leds[i] = 'flash'
         } else {
-          leds[i] = track.gate.steps[i].on ? 'on' : 'off'
+          leds[i] = (track.gate.steps[i].on || track.gate.steps[i].tie) ? 'on' : 'off'
         }
       }
       break
@@ -1006,6 +1061,30 @@ function dispatchStepHoldCombo(
     const next = clamp(cur + event.delta, 1, 4)
     return { ui: { ...ui, holdEncoderUsed: true }, engine: setGateRatchet(engine, ui.selectedTrack, stepIdx, next) }
   }
+}
+
+// Hold step A in gate-edit + press step B → create/clear tie range
+function dispatchStepTie(
+  ui: UIState,
+  engine: SequencerState,
+  event: { type: 'step-press'; step: number },
+): DispatchResult {
+  const fromStep = ui.currentPage * 16 + (ui.heldButton as { kind: 'step'; step: number }).step
+  const toStep = ui.currentPage * 16 + event.step
+  if (fromStep === toStep) {
+    // Same step — fall through to normal gate toggle behavior
+    return dispatchGateEdit(ui, engine, event)
+  }
+  if (fromStep < toStep) {
+    // Create tie range from fromStep+1 to toStep
+    return { ui: { ...ui, holdEncoderUsed: true }, engine: setTieRange(engine, ui.selectedTrack, fromStep, toStep) }
+  }
+  // fromStep > toStep: clear ties from toStep to fromStep
+  let eng = engine
+  for (let i = toStep; i <= fromStep; i++) {
+    eng = setGateTie(eng, ui.selectedTrack, i, false)
+  }
+  return { ui: { ...ui, holdEncoderUsed: true }, engine: eng }
 }
 
 // Hold mute + enc A = mute length

@@ -111,7 +111,7 @@ function renderGateRow(
   for (let i = 0; i < DISPLAY_STEPS; i++) {
     const x = stepX(i)
     if (i < length) {
-      fillRect(ctx, { x, y, w: STEP_W, h }, steps[i].on ? onColor : offColor)
+      fillRect(ctx, { x, y, w: STEP_W, h }, (steps[i].on || steps[i].tie) ? onColor : offColor)
     } else {
       fillRect(ctx, { x, y, w: STEP_W, h }, INACTIVE_BG)
     }

@@ -54,6 +54,25 @@ export function renderGateEdit(ctx: CanvasRenderingContext2D, engine: SequencerS
 
       if (stepIdx >= track.gate.length) {
         fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, '#111118')
+      } else if (track.gate.steps[stepIdx].tie) {
+        // Tied step: filled with track color at reduced opacity
+        fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, COLORS.trackDim[ui.selectedTrack])
+        fillRect(ctx, { x, y: rowY, w: STEP_W, h: STEP_H }, `${trackColor}88`)
+
+        // Draw connecting bridge from previous step
+        if (col > 0) {
+          // Horizontal bridge across the gap between this step and the previous
+          const bridgeY = rowY + Math.round(STEP_H / 2) - 2
+          fillRect(ctx, { x: x - COL_GAP, y: bridgeY, w: COL_GAP, h: 4 }, trackColor)
+        } else if (row > 0) {
+          // Row wrap: draw indicator at left edge of this row and right edge of previous row
+          const bridgeY = rowY + Math.round(STEP_H / 2) - 2
+          fillRect(ctx, { x: PAD, y: bridgeY, w: 3, h: 4 }, trackColor)
+          // Previous row right edge indicator
+          const prevRowY = STEP_AREA_TOP + (row - 1) * (STEP_H + ROW_GAP)
+          const prevRowRight = PAD + (COLS - 1) * (STEP_W + COL_GAP) + STEP_W
+          fillRect(ctx, { x: prevRowRight - 3, y: prevRowY + Math.round(STEP_H / 2) - 2, w: 3, h: 4 }, trackColor)
+        }
       } else if (track.gate.steps[stepIdx].on) {
         // Gate ON: show gate length as filled portion of step cell
         const step = track.gate.steps[stepIdx]
@@ -67,6 +86,14 @@ export function renderGateEdit(ctx: CanvasRenderingContext2D, engine: SequencerS
           for (let r = 1; r < rc; r++) {
             const tickY = rowY + (STEP_H - barH) + Math.round((barH / rc) * r)
             fillRect(ctx, { x: x + 2, y: tickY, w: STEP_W - 4, h: 1 }, '#000000aa')
+          }
+        }
+
+        // Draw bridge to next step if next is tied
+        if (stepIdx + 1 < track.gate.length && track.gate.steps[stepIdx + 1].tie) {
+          if (col < COLS - 1) {
+            const bridgeY = rowY + Math.round(STEP_H / 2) - 2
+            fillRect(ctx, { x: x + STEP_W, y: bridgeY, w: COL_GAP, h: 4 }, trackColor)
           }
         }
       } else {

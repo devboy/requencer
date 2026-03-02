@@ -22,6 +22,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0 },
       mod: { low: 0, high: 0.5 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
   {
@@ -34,6 +35,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0 },
       mod: { low: 0.2, high: 0.8 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
   {
@@ -46,6 +48,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0.2 },
       mod: { low: 0, high: 1 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
   {
@@ -58,6 +61,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0 },
       mod: { low: 0.3, high: 0.7 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
   {
@@ -70,6 +74,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0 },
       mod: { low: 0, high: 0.3 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
   {
@@ -82,6 +87,7 @@ export const PRESETS: Preset[] = [
       ratchet: { maxRatchet: 1, probability: 0 },
       slide: { probability: 0 },
       mod: { low: 0.1, high: 0.6 },
+      tie: { probability: 0, maxLength: 2 },
     },
   },
 ]
