@@ -173,7 +173,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
-  'mod-edit': (ui) => `T${ui.selectedTrack + 1} MOD ${ui.modLfoView ? 'LFO' : 'SEQ'}`,
+  'mod-edit': (ui) => `T${ui.selectedTrack + 1} ${ui.modLfoView ? 'LFO' : 'MOD'}`,
   'settings': () => 'SETTINGS',
 }
 
@@ -189,7 +189,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
   'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
   'transpose-edit': '1-4: track   ↑↓: scroll   ←→: adjust   Hold ↑: reset   Esc: back',
-  'mod-edit':    'Z-M: select   ↑↓: value   ←→: page/scroll   Enter: SEQ/LFO   Esc: back',
+  'mod-edit':    'Z-M: select   ↑↓: value   ←→: page/scroll   Enter: MOD/LFO   Esc: back',
   'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
   'settings':    '↑↓: scroll   ←→: adjust   Esc: back',
 }

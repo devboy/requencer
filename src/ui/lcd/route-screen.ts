@@ -54,7 +54,7 @@ export function renderRoute(ctx: CanvasRenderingContext2D, engine: SequencerStat
     drawText(ctx, '\u2190', ARROW_X, y + ROW_H / 2 - 4, COLORS.textDim, 16)
 
     // Source track label (colored) — MOD row also shows modSource
-    const modSuffix = i === 3 ? ` ${(outputRouting.modSource ?? 'seq').toUpperCase()}` : ''
+    const modSuffix = i === 3 ? ` ${(outputRouting.modSource ?? 'seq') === 'lfo' ? 'LFO' : 'MOD'}` : ''
     drawText(ctx, `T${sourceTrack + 1}${modSuffix}`, SOURCE_X, y + ROW_H / 2 - 4, sourceColor, 18)
   }
 }

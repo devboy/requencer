@@ -1,7 +1,7 @@
 /**
  * LCD MOD Edit screen — two views toggled by encoder-a-push:
- *   1. MOD SEQ: step sequencer bar grid (2x8) with per-step value/slew
- *   2. MOD LFO: animated waveform preview with parameter list
+ *   1. MOD: step sequencer bar grid (2x8) with per-step value/slew
+ *   2. LFO: animated waveform preview with parameter list
  * All text >=16px for readability on 3.5" TFT at 50cm.
  */
 
@@ -40,7 +40,7 @@ export function renderModEdit(ctx: CanvasRenderingContext2D, engine: SequencerSt
   }
 }
 
-// --- MOD SEQ view (step bars) ---
+// --- MOD view (step bars) ---
 
 function renderModSeq(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const track = engine.tracks[ui.selectedTrack]
@@ -49,7 +49,7 @@ function renderModSeq(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
   const maxPage = Math.max(0, Math.ceil(track.mod.length / 16) - 1)
 
   // Title
-  drawText(ctx, `MOD SEQ — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
+  drawText(ctx, `MOD — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
   // Selected step info — value% and slew%
   const selIdx = pageOffset + ui.selectedStep

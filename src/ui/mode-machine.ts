@@ -374,14 +374,14 @@ function dispatchMuteEdit(ui: UIState, engine: SequencerState, event: ControlEve
 }
 
 // --- MOD Edit ---
-// MOD SEQ step editor:
+// MOD step editor:
 // Step buttons: select step
 // Enc A: adjust selected step mod value
 // Enc B turn: adjust selected step slew / page navigation (when no step held)
 // Enc B push: return home
 
 function dispatchModEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
-  // Encoder A push: toggle between MOD SEQ and MOD LFO views
+  // Encoder A push: toggle between MOD and LFO views
   if (event.type === 'encoder-a-push') {
     return { ui: { ...ui, modLfoView: !ui.modLfoView }, engine }
   }
