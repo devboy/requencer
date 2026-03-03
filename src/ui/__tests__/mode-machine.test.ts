@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSequencer } from '../../engine/sequencer'
+import { createSequencer, randomizeTrackPattern, setGateOn } from '../../engine/sequencer'
 import type { SequencerState } from '../../engine/types'
 import type { UIState } from '../hw-types'
 import { createInitialUIState, dispatch, getLEDState } from '../mode-machine'
@@ -1505,20 +1505,32 @@ describe('route screen dispatch', () => {
       expect(result.engine.transposeConfigs[0].velScale).toBe(0.9) // 1.0 - 0.10
     })
 
-    it('encoder A hold resets single param', () => {
-      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 1 }
+    it('CLR resets single param on transpose screen', () => {
+      const ui: UIState = {
+        ...createInitialUIState(),
+        mode: 'transpose-edit' as const,
+        xposeParam: 1,
+        clrPending: true,
+        clrPendingAt: Date.now(),
+      }
       const engine = createSequencer()
       engine.transposeConfigs[0] = { semitones: 7, noteLow: 48, noteHigh: 72, glScale: 2.0, velScale: 0.5 }
-      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      const result = dispatch(ui, engine, { type: 'clr-press' })
       expect(result.engine.transposeConfigs[0].semitones).toBe(0)
       expect(result.engine.transposeConfigs[0].noteLow).toBe(48) // unchanged
     })
 
-    it('encoder A hold on section header resets entire section', () => {
-      const ui = { ...createInitialUIState(), mode: 'transpose-edit' as const, xposeParam: 4 } // DYNAMICS header
+    it('CLR on section header resets entire section', () => {
+      const ui: UIState = {
+        ...createInitialUIState(),
+        mode: 'transpose-edit' as const,
+        xposeParam: 4,
+        clrPending: true,
+        clrPendingAt: Date.now(),
+      } // DYNAMICS header
       const engine = createSequencer()
       engine.transposeConfigs[0] = { semitones: 7, noteLow: 48, noteHigh: 72, glScale: 2.0, velScale: 0.5 }
-      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      const result = dispatch(ui, engine, { type: 'clr-press' })
       expect(result.engine.transposeConfigs[0].glScale).toBe(1.0)
       expect(result.engine.transposeConfigs[0].velScale).toBe(1.0)
       expect(result.engine.transposeConfigs[0].semitones).toBe(7) // pitch section unchanged
@@ -1650,7 +1662,7 @@ describe('route screen dispatch', () => {
         expect(result.engine).toBe(engine) // unchanged
       })
 
-      it('encoder B hold deletes transform at cursor', () => {
+      it('CLR single-press deletes transform at cursor', () => {
         const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
         const engine = makeState()
         engine.variationPatterns[0].slots[0] = {
@@ -1659,20 +1671,20 @@ describe('route screen dispatch', () => {
             { type: 'transpose', param: 7 },
           ],
         }
-        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        const result = dispatch(ui, engine, { type: 'clr-press' })
         const slot = result.engine.variationPatterns[0].slots[0]
         expect(slot.transforms.length).toBe(1)
         expect(slot.transforms[0].type).toBe('transpose') // first was deleted, second remains
       })
 
-      it('encoder B hold on "add" slot is no-op', () => {
+      it('CLR on "add" slot enters pending (no transform to delete)', () => {
         const ui = varUI({ varSelectedBar: 0, varCursor: 0 }) // cursor 0 on empty bar = "add" slot
         const engine = makeState()
-        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
-        expect(result.engine).toBe(engine)
+        const result = dispatch(ui, engine, { type: 'clr-press' })
+        expect(result.ui.clrPending).toBe(true) // enters pending, not single-press
       })
 
-      it('encoder B hold adjusts cursor when deleting last item', () => {
+      it('CLR single-press adjusts cursor when deleting last item', () => {
         const ui = varUI({ varSelectedBar: 0, varCursor: 1 })
         const engine = makeState()
         engine.variationPatterns[0].slots[0] = {
@@ -1681,7 +1693,7 @@ describe('route screen dispatch', () => {
             { type: 'transpose', param: 7 },
           ],
         }
-        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        const result = dispatch(ui, engine, { type: 'clr-press' })
         expect(result.ui.varCursor).toBe(1) // now points to "add" slot
         expect(result.engine.variationPatterns[0].slots[0].transforms.length).toBe(1)
       })
@@ -1991,7 +2003,7 @@ describe('route screen dispatch', () => {
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
         const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0, varCursor: 0 })
-        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        const result = dispatch(ui, engine, { type: 'clr-press' })
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
         expect(override.slots[0].transforms.length).toBe(1)
         expect(override.slots[0].transforms[0].type).toBe('transpose') // first deleted
@@ -2018,5 +2030,118 @@ describe('route screen dispatch', () => {
         expect(override.slots[0].transforms[0].param).toBe(8)
       })
     })
+  })
+})
+
+describe('CLR dispatch', () => {
+  it('first CLR press sets clrPending true', () => {
+    const ui = createInitialUIState()
+    const eng = makeState()
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    expect(result.ui.clrPending).toBe(true)
+    expect(result.ui.clrPendingAt).toBeGreaterThan(0)
+  })
+
+  it('second CLR press within 2s executes clear and resets pending', () => {
+    const ui: UIState = { ...createInitialUIState(), mode: 'gate-edit', clrPending: true, clrPendingAt: Date.now() }
+    let eng = makeState()
+    eng = setGateOn(eng, 0, 0, true)
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    expect(result.ui.clrPending).toBe(false)
+    // Gate step 0 should be reset to default
+    expect(result.engine.tracks[0].gate.steps[0].on).toBe(false)
+  })
+
+  it('non-CLR event cancels pending state', () => {
+    const ui: UIState = { ...createInitialUIState(), clrPending: true, clrPendingAt: Date.now() }
+    const eng = makeState()
+    const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 1 })
+    expect(result.ui.clrPending).toBe(false)
+  })
+
+  it('gate-edit: clears current page gates to defaults', () => {
+    const ui: UIState = { ...createInitialUIState(), mode: 'gate-edit', clrPending: true, clrPendingAt: Date.now() }
+    let eng = makeState()
+    eng = setGateOn(eng, 0, 0, true)
+    eng = setGateOn(eng, 0, 5, true)
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    for (let i = 0; i < 16; i++) {
+      expect(result.engine.tracks[0].gate.steps[i]).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+  })
+
+  it('pitch-edit: clears current page pitches to defaults', () => {
+    const ui: UIState = {
+      ...createInitialUIState(),
+      mode: 'pitch-edit',
+      clrPending: true,
+      clrPendingAt: Date.now(),
+    }
+    let eng = makeState()
+    // Randomize so pitches differ from default
+    eng = randomizeTrackPattern(eng, 0, 42)
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    for (let i = 0; i < 16; i++) {
+      expect(result.engine.tracks[0].pitch.steps[i]).toEqual({ note: 60, slide: 0 })
+    }
+  })
+
+  it('home: resets selected track to defaults', () => {
+    const ui: UIState = { ...createInitialUIState(), mode: 'home', clrPending: true, clrPendingAt: Date.now() }
+    let eng = makeState()
+    eng = randomizeTrackPattern(eng, 0, 42)
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    // All gates should be default
+    for (const step of result.engine.tracks[0].gate.steps) {
+      expect(step).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+    // Track 1 should be untouched
+    expect(result.engine.tracks[1]).toBe(eng.tracks[1])
+  })
+
+  it('variation-edit with transform selected: single press deletes transform', () => {
+    let eng = makeState()
+    // Add a transform to bar 0
+    eng = {
+      ...eng,
+      variationPatterns: eng.variationPatterns.map((vp, i) =>
+        i === 0
+          ? { ...vp, slots: vp.slots.map((s, j) => (j === 0 ? { transforms: [{ type: 'rotate' as const, param: 4 }] } : s)) }
+          : vp,
+      ),
+    }
+    // Cursor on the transform (cursor 0), bar 0 selected
+    const ui: UIState = {
+      ...createInitialUIState(),
+      mode: 'variation-edit',
+      varSelectedBar: 0,
+      varCursor: 0,
+    }
+    // Single press should delete without double-press
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    expect(result.engine.variationPatterns[0].slots[0].transforms).toHaveLength(0)
+    expect(result.ui.clrPending).toBe(false) // no pending state for single-press
+  })
+
+  it('settings: resets settings to defaults', () => {
+    const ui: UIState = {
+      ...createInitialUIState(),
+      mode: 'settings',
+      settingsParam: 0,
+      clrPending: true,
+      clrPendingAt: Date.now(),
+    }
+    let eng = makeState()
+    eng = { ...eng, transport: { ...eng.transport, bpm: 200 } }
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    expect(result.ui.clrPending).toBe(false)
+  })
+
+  it('name-entry: no-op', () => {
+    const ui: UIState = { ...createInitialUIState(), mode: 'name-entry' }
+    const eng = makeState()
+    const result = dispatch(ui, eng, { type: 'clr-press' })
+    // name-entry dispatch isolates all input, CLR should not crash
+    expect(result.ui.mode).toBe('name-entry')
   })
 })

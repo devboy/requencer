@@ -3,9 +3,9 @@
  * True 3U height (128.5mm = 578px at 4.5px/mm).
  *
  * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PITCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/TBD/TBD) | Jacks
+ *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PITCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/CLR/CLR) | Jacks
  *   Jack zone: PLAY/RESET stacked left of CLK/RST jacks
- *   Control strip: Encoder A | RAND, BACK, TBD | Encoder B
+ *   Control strip: Encoder A | RAND, BACK, CLR | Encoder B
  *   Below control strip: 2×8 step button grid (centered under LCD)
  *
  * Spacing rules:
@@ -75,7 +75,7 @@ export interface FaceplateElements {
   resetBtn: HTMLButtonElement
   randBtn: HTMLButtonElement
   backBtn: HTMLButtonElement
-  tdbBtn: HTMLButtonElement
+  clrBtn: HTMLButtonElement
   settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
@@ -117,7 +117,7 @@ export function createFaceplate(): FaceplateElements {
                 <div class="right-col" id="feature-col"></div>
               </div>
 
-              <!-- CONTROL STRIP: enc A | BACK RAND TBD | enc B -->
+              <!-- CONTROL STRIP: enc A | BACK RAND CLR | enc B -->
               <div class="control-strip">
                 <div class="encoder-cell">
                   <span class="btn-label label-above">A</span>
@@ -274,7 +274,7 @@ export function createFaceplate(): FaceplateElements {
   const spacer = utilRowMidi.querySelector('.jack-row-3-spacer')
   if (spacer) utilRowMidi.replaceChild(settingsBtn, spacer)
 
-  // --- Generate control strip buttons (RAND, BACK, TBD) ---
+  // --- Generate control strip buttons (RAND, BACK, CLR) ---
   const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
 
   const backBtn = document.createElement('button')
@@ -287,10 +287,10 @@ export function createFaceplate(): FaceplateElements {
   randBtn.innerHTML = '<span class="btn-icon">⚄</span><span class="btn-text">RAND</span>'
   controlStripBtns.appendChild(randBtn)
 
-  const tdbBtn = document.createElement('button')
-  tdbBtn.className = 'large-btn tbd-btn'
-  tdbBtn.innerHTML = '<span class="btn-icon">·</span><span class="btn-text">TBD</span>'
-  controlStripBtns.appendChild(tdbBtn)
+  const clrBtn = document.createElement('button')
+  clrBtn.className = 'large-btn clr-btn'
+  clrBtn.innerHTML = '<span class="btn-icon">✕</span><span class="btn-text">CLR</span>'
+  controlStripBtns.appendChild(clrBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
@@ -327,7 +327,7 @@ export function createFaceplate(): FaceplateElements {
     resetBtn,
     randBtn,
     backBtn,
-    tdbBtn,
+    clrBtn,
     settingsBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
@@ -769,10 +769,19 @@ const PANEL_CSS = `
   }
 
   .back-btn:active,
-  .tbd-btn:active {
+  .clr-btn:active {
     background: linear-gradient(180deg,
       rgba(180,180,190,0.80) 0%,
       rgba(165,165,175,0.70) 100%);
+  }
+
+  @keyframes clr-pulse {
+    0%, 100% { box-shadow: 0 0 6px 1px rgba(233,69,96,0.4); }
+    50% { box-shadow: 0 0 14px 4px rgba(233,69,96,0.8); }
+  }
+  .clr-btn.clr-pending {
+    animation: clr-pulse 0.8s ease-in-out infinite;
+    border-color: rgba(233,69,96,0.5);
   }
 
   .jack-zone-btn {

@@ -270,7 +270,20 @@ export function createControls(panel: FaceplateElements): void {
   // --- SETTINGS button — enters settings screen ---
   panel.settingsBtn.addEventListener('pointerdown', () => emit({ type: 'settings-press' }))
 
-  // --- TBD button — no-op for now ---
+  // --- CLR button ---
+  let clrTouchHandled = false
+  panel.clrBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault()
+    clrTouchHandled = true
+    emit({ type: 'clr-press' })
+  })
+  panel.clrBtn.addEventListener('pointerdown', () => {
+    if (clrTouchHandled) {
+      clrTouchHandled = false
+      return
+    }
+    emit({ type: 'clr-press' })
+  })
 
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
@@ -281,7 +294,7 @@ export function createControls(panel: FaceplateElements): void {
     // Ignore clicks on interactive controls (these have their own handling)
     if (
       target.closest(
-        '.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .tbd-btn',
+        '.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .clr-btn',
       )
     )
       return

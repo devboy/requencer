@@ -17,6 +17,13 @@ import { clamp } from '../engine/math'
 import { PRESETS } from '../engine/presets'
 import { SCALES } from '../engine/scales'
 import {
+  clearGateStepsOnPage,
+  clearModStepsOnPage,
+  clearMuteStepsOnPage,
+  clearPitchStepsOnPage,
+  clearTrackToDefaults,
+  clearVelStepsOnPage,
+  createDefaultMutateConfig,
   randomizeGatePattern,
   randomizeModPattern,
   randomizePitchPattern,
@@ -51,6 +58,7 @@ import type {
   TransformType,
   VariationPattern,
 } from '../engine/types'
+import { createDefaultRouting } from '../engine/routing'
 import { createDefaultVariationPattern } from '../engine/variation'
 import type { ControlEvent, LEDState, ScreenMode, SubtrackId, UIState } from './hw-types'
 import { getAllPresets, getVisibleRows, SECTION_PARAMS } from './rand-rows'
@@ -86,6 +94,8 @@ export function createInitialUIState(): UIState {
     modLfoParam: 0,
     midiDevices: [],
     midiDeviceIndex: 0,
+    clrPending: false,
+    clrPendingAt: 0,
   }
 }
 
@@ -235,6 +245,16 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui: { ...ui, mode: 'settings', settingsParam: 0 }, engine }
   }
 
+  // --- CLR button dispatch ---
+  if (event.type === 'clr-press') {
+    return dispatchClr(ui, engine)
+  }
+
+  // Cancel CLR pending on any other event
+  if (ui.clrPending) {
+    ui = { ...ui, clrPending: false, clrPendingAt: 0 }
+  }
+
   // --- Mode-specific dispatch ---
   switch (ui.mode) {
     case 'home':
@@ -261,6 +281,8 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       return dispatchVariationEdit(ui, engine, event)
     case 'settings':
       return dispatchSettings(ui, engine, event)
+    case 'name-entry':
+      return { ui, engine } // handled above; unreachable
   }
 }
 
@@ -747,22 +769,6 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       }
     }
 
-    case 'encoder-b-hold': {
-      if (ui.varSelectedBar < 0) return { ui, engine }
-      const bar = ui.varSelectedBar
-      const slot = vp.slots[bar]
-      if (ui.varCursor >= slot.transforms.length) return { ui, engine } // can't delete "add" slot
-      // Delete transform at cursor
-      const newTransforms = slot.transforms.filter((_, i) => i !== ui.varCursor)
-      const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: newTransforms } : s))
-      // Adjust cursor if it would be past the end
-      const newCursor = Math.min(ui.varCursor, newTransforms.length)
-      return {
-        ui: { ...ui, varCursor: newCursor },
-        engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
-      }
-    }
-
     default:
       return { ui, engine }
   }
@@ -856,12 +862,8 @@ function dispatchTransposeEdit(ui: UIState, engine: SequencerState, event: Contr
       const next = clamp(ui.xposeParam + event.delta, 0, maxIdx)
       return { ui: { ...ui, xposeParam: next }, engine }
     }
-    case 'encoder-a-hold':
-      return dispatchXposeReset(ui, engine)
     case 'encoder-b-turn':
       return dispatchXposeParamAdjust(ui, engine, event.delta)
-    case 'encoder-b-push':
-      return { ui, engine }
     default:
       return { ui, engine }
   }
@@ -989,14 +991,9 @@ function dispatchRand(ui: UIState, engine: SequencerState, event: ControlEvent):
       }
       return { ui, engine }
     }
-    case 'encoder-a-hold': {
-      return dispatchRandReset(ui, engine)
-    }
     case 'encoder-b-turn': {
       return dispatchRandParamAdjust(ui, engine, event.delta)
     }
-    case 'encoder-b-push':
-      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -1488,8 +1485,6 @@ function dispatchSettings(ui: UIState, engine: SequencerState, event: ControlEve
       const next = clamp(ui.settingsParam + event.delta, 0, rows.length - 1)
       return { ui: { ...ui, settingsParam: next }, engine }
     }
-    case 'encoder-a-hold':
-      return dispatchSettingsReset(ui, engine)
     case 'encoder-b-turn':
       return dispatchSettingsEncoderB(ui, engine, event.delta)
     default:
@@ -1579,6 +1574,105 @@ function resetSettingsParam(ui: UIState, engine: SequencerState, paramId: string
       return { ui, engine }
     }
   }
+}
+
+// --- CLR Button ---
+
+function dispatchClr(ui: UIState, engine: SequencerState): DispatchResult {
+  // Variation-edit with transform selected: single press deletes (no confirm needed)
+  if (ui.mode === 'variation-edit' && ui.varSelectedBar >= 0) {
+    const vp = getEditingVariationPattern(engine, ui)
+    const slot = vp.slots[ui.varSelectedBar]
+    if (ui.varCursor < slot.transforms.length) {
+      return dispatchClrVariationTransform(ui, engine)
+    }
+  }
+
+  // Double-press logic
+  if (ui.clrPending) {
+    // Second press: execute clear
+    return executeClr({ ...ui, clrPending: false, clrPendingAt: 0 }, engine)
+  }
+
+  // First press: enter pending state
+  return { ui: { ...ui, clrPending: true, clrPendingAt: Date.now() }, engine }
+}
+
+function executeClr(ui: UIState, engine: SequencerState): DispatchResult {
+  const trackIdx = ui.selectedTrack
+  switch (ui.mode) {
+    case 'home':
+      return { ui, engine: clearTrackToDefaults(engine, trackIdx) }
+    case 'gate-edit':
+      return { ui, engine: clearGateStepsOnPage(engine, trackIdx, ui.currentPage) }
+    case 'pitch-edit':
+      return { ui, engine: clearPitchStepsOnPage(engine, trackIdx, ui.currentPage) }
+    case 'vel-edit':
+      return { ui, engine: clearVelStepsOnPage(engine, trackIdx, ui.currentPage) }
+    case 'mod-edit':
+      return { ui, engine: clearModStepsOnPage(engine, trackIdx, ui.currentPage) }
+    case 'mute-edit':
+      return { ui, engine: clearMuteStepsOnPage(engine, trackIdx, ui.currentPage) }
+    case 'rand':
+      return dispatchRandReset(ui, engine)
+    case 'transpose-edit':
+      return dispatchXposeReset(ui, engine)
+    case 'mutate-edit':
+      return dispatchClrMutate(ui, engine)
+    case 'variation-edit':
+      return dispatchClrVariation(ui, engine)
+    case 'settings':
+      return dispatchSettingsReset(ui, engine)
+    case 'route':
+      return dispatchClrRoute(ui, engine)
+    case 'name-entry':
+      return { ui, engine }
+  }
+}
+
+function dispatchClrMutate(ui: UIState, engine: SequencerState): DispatchResult {
+  const trackIdx = ui.selectedTrack
+  return {
+    ui,
+    engine: {
+      ...engine,
+      mutateConfigs: engine.mutateConfigs.map((c, i) => (i === trackIdx ? createDefaultMutateConfig() : c)),
+    },
+  }
+}
+
+function dispatchClrVariation(ui: UIState, engine: SequencerState): DispatchResult {
+  if (ui.varSelectedBar >= 0) {
+    // Clear all transforms from selected bar
+    const vp = getEditingVariationPattern(engine, ui)
+    const newSlots = vp.slots.map((s, i) => (i === ui.varSelectedBar ? { transforms: [] } : s))
+    return {
+      ui: { ...ui, varCursor: 0 },
+      engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
+    }
+  }
+  // No bar selected: reset entire variation pattern to defaults
+  return {
+    ui: { ...ui, varSelectedBar: -1, varCursor: 0 },
+    engine: updateEditingVariationPattern(engine, ui, createDefaultVariationPattern()),
+  }
+}
+
+function dispatchClrVariationTransform(ui: UIState, engine: SequencerState): DispatchResult {
+  const vp = getEditingVariationPattern(engine, ui)
+  const bar = ui.varSelectedBar
+  const slot = vp.slots[bar]
+  const newTransforms = slot.transforms.filter((_, i) => i !== ui.varCursor)
+  const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: newTransforms } : s))
+  const newCursor = Math.min(ui.varCursor, newTransforms.length)
+  return {
+    ui: { ...ui, varCursor: newCursor, clrPending: false, clrPendingAt: 0 },
+    engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
+  }
+}
+
+function dispatchClrRoute(ui: UIState, engine: SequencerState): DispatchResult {
+  return { ui, engine: { ...engine, routing: createDefaultRouting() } }
 }
 
 // --- LED State ---

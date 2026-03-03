@@ -13,6 +13,7 @@ import { createDebugMenu } from './ui/debug-menu'
 import type { ControlEvent, ScreenMode, UIState } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
 import { renderGateEdit } from './ui/lcd/gate-edit'
+import { renderClrConfirmOverlay } from './ui/lcd/clr-confirm-overlay'
 import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 
 // LCD screen renderers
@@ -242,6 +243,17 @@ function render(): void {
     const thin = editScreens.has(uiState.mode)
     renderHoldOverlay(lcdCtx, engineState, uiState, thin)
   }
+
+  // CLR confirm overlay + auto-expire
+  if (uiState.clrPending) {
+    const now = Date.now()
+    if (now - uiState.clrPendingAt >= 2000) {
+      uiState = { ...uiState, clrPending: false, clrPendingAt: 0 }
+    } else {
+      renderClrConfirmOverlay(lcdCtx, uiState)
+    }
+  }
+  panel.clrBtn.classList.toggle('clr-pending', uiState.clrPending)
 
   // Update panel LEDs
   const ledState = getLEDState(uiState, engineState)

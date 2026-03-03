@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clearGateStepsOnPage,
+  clearModStepsOnPage,
+  clearMuteStepsOnPage,
+  clearPitchStepsOnPage,
+  clearTrackToDefaults,
+  clearVelStepsOnPage,
   createSequencer,
   deleteUserPreset,
   randomizeGatePattern,
@@ -24,6 +30,7 @@ import {
   setTrackClockDivider,
   tick,
 } from '../sequencer'
+import { setModStep } from '../sequencer'
 import type { MuteTrack, PitchStep } from '../types'
 
 describe('createSequencer', () => {
@@ -670,5 +677,151 @@ describe('setTieRange', () => {
     for (const step of result.tracks[0].gate.steps) {
       expect(step.tie).toBe(false)
     }
+  })
+})
+
+describe('clearGateStepsOnPage', () => {
+  it('resets page 0 (steps 0-15) to DEFAULT_GATE_STEP', () => {
+    let state = createSequencer()
+    // Set some steps to non-default values
+    state = setGateOn(state, 0, 0, true)
+    state = setGateOn(state, 0, 5, true)
+    state = setGateOn(state, 0, 15, true)
+    const result = clearGateStepsOnPage(state, 0, 0)
+    for (let i = 0; i < 16; i++) {
+      expect(result.tracks[0].gate.steps[i]).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+  })
+
+  it('resets page 1 (steps 16-31) on a 32-step track', () => {
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'gate', 32)
+    state = setGateOn(state, 0, 16, true)
+    state = setGateOn(state, 0, 0, true) // page 0 step — should be untouched
+    const result = clearGateStepsOnPage(state, 0, 1)
+    expect(result.tracks[0].gate.steps[0].on).toBe(true) // page 0 preserved
+    for (let i = 16; i < 32; i++) {
+      expect(result.tracks[0].gate.steps[i]).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+  })
+
+  it('handles partial final page correctly', () => {
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'gate', 20)
+    state = setGateOn(state, 0, 16, true)
+    state = setGateOn(state, 0, 19, true)
+    const result = clearGateStepsOnPage(state, 0, 1)
+    // Only steps 16-19 should be cleared
+    for (let i = 16; i < 20; i++) {
+      expect(result.tracks[0].gate.steps[i]).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+    // Length should be preserved
+    expect(result.tracks[0].gate.steps.length).toBe(20)
+  })
+
+  it('does not affect other tracks', () => {
+    let state = createSequencer()
+    state = setGateOn(state, 1, 0, true)
+    const result = clearGateStepsOnPage(state, 0, 0)
+    expect(result.tracks[1].gate.steps[0].on).toBe(true)
+  })
+})
+
+describe('clearPitchStepsOnPage', () => {
+  it('resets page 0 pitches to defaults', () => {
+    let state = createSequencer()
+    state = setPitchNote(state, 0, 0, 72)
+    state = setPitchNote(state, 0, 5, 48)
+    const result = clearPitchStepsOnPage(state, 0, 0)
+    for (let i = 0; i < 16; i++) {
+      expect(result.tracks[0].pitch.steps[i]).toEqual({ note: 60, slide: 0 })
+    }
+  })
+})
+
+describe('clearVelStepsOnPage', () => {
+  it('resets page 0 velocities to 100', () => {
+    let state = createSequencer()
+    state = setStep(state, 0, 'velocity', 0, 127)
+    state = setStep(state, 0, 'velocity', 5, 50)
+    const result = clearVelStepsOnPage(state, 0, 0)
+    for (let i = 0; i < 16; i++) {
+      expect(result.tracks[0].velocity.steps[i]).toBe(100)
+    }
+  })
+})
+
+describe('clearModStepsOnPage', () => {
+  it('resets page 0 mod to defaults', () => {
+    let state = createSequencer()
+    state = setModStep(state, 0, 0, { value: 0.5, slew: 0.3 })
+    const result = clearModStepsOnPage(state, 0, 0)
+    for (let i = 0; i < 16; i++) {
+      expect(result.tracks[0].mod.steps[i]).toEqual({ value: 0, slew: 0 })
+    }
+  })
+})
+
+describe('clearMuteStepsOnPage', () => {
+  it('resets page 0 mutes to false', () => {
+    let state = createSequencer()
+    state = setMutePattern(state, 0, {
+      ...state.mutePatterns[0],
+      steps: state.mutePatterns[0].steps.map(() => true),
+    })
+    const result = clearMuteStepsOnPage(state, 0, 0)
+    for (let i = 0; i < 16; i++) {
+      expect(result.mutePatterns[0].steps[i]).toBe(false)
+    }
+  })
+})
+
+describe('clearTrackToDefaults', () => {
+  it('resets all subtracks to defaults while preserving structure', () => {
+    let state = createSequencer()
+    state = randomizeTrackPattern(state, 0, 42)
+    const result = clearTrackToDefaults(state, 0)
+    const track = result.tracks[0]
+    // All gate steps should be default
+    for (const step of track.gate.steps) {
+      expect(step).toEqual({ on: false, tie: false, length: 0.5, ratchet: 1 })
+    }
+    // All pitch steps should be default
+    for (const step of track.pitch.steps) {
+      expect(step).toEqual({ note: 60, slide: 0 })
+    }
+    // All velocity steps should be 100
+    for (const step of track.velocity.steps) {
+      expect(step).toBe(100)
+    }
+    // All mod steps should be default
+    for (const step of track.mod.steps) {
+      expect(step).toEqual({ value: 0, slew: 0 })
+    }
+    // Mute pattern should be reset
+    for (const step of result.mutePatterns[0].steps) {
+      expect(step).toBe(false)
+    }
+  })
+
+  it('preserves lengths and dividers', () => {
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'gate', 32)
+    state = setSubtrackClockDivider(state, 0, 'pitch', 4)
+    state = setTrackClockDivider(state, 0, 2)
+    const result = clearTrackToDefaults(state, 0)
+    expect(result.tracks[0].gate.length).toBe(32)
+    expect(result.tracks[0].gate.steps.length).toBe(32)
+    expect(result.tracks[0].pitch.clockDivider).toBe(4)
+    expect(result.tracks[0].clockDivider).toBe(2)
+  })
+
+  it('does not affect other tracks', () => {
+    let state = createSequencer()
+    state = randomizeTrackPattern(state, 0, 42)
+    state = randomizeTrackPattern(state, 1, 99)
+    const beforeTrack1 = state.tracks[1]
+    const result = clearTrackToDefaults(state, 0)
+    expect(result.tracks[1]).toBe(beforeTrack1)
   })
 })
