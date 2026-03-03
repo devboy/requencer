@@ -34,6 +34,7 @@ export type ControlEvent =
   | { type: 'encoder-a-hold' }
   | { type: 'encoder-b-turn'; delta: number }
   | { type: 'encoder-b-push' }
+  | { type: 'encoder-b-hold' }
   | { type: 'back' }
   | { type: 'play-stop' }
   | { type: 'reset' }
@@ -72,6 +73,7 @@ export interface UIState {
   settingsParam: number       // 0-N: selected row in SETTINGS screen
   varParam: number            // 0-N: index into transform catalog for browsing
   varSelectedBar: number      // -1 = no bar selected, 0-15 = selected bar position
+  varCursor: number           // cursor in transform stack (0-N where N = "add" slot)
   varEditSubtrack: SubtrackId | null  // null = editing track-level, non-null = editing that subtrack's override
   midiDevices: Array<{ id: string; name: string }>  // available MIDI output devices
   midiDeviceIndex: number     // selected MIDI device index per output (into midiDevices)

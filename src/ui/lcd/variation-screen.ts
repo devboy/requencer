@@ -3,13 +3,23 @@
  * Shows phrase length, current bar, transform stack for selected bar,
  * and transform catalog browser.
  *
- * Step buttons: select bar position (0 to phraseLength - 1)
- * Enc A turn: browse transform catalog
- * Enc A push (no bar): toggle enabled, (bar selected): add transform
- * Enc A hold (bar selected): remove last transform
- * Enc B turn: adjust param of last transform in selected bar
- * Hold VAR + Enc A: set phrase length
- * Hold subtrack + Enc A push: cycle override state (inherit/bypass/override)
+ * Overview (no bar selected):
+ *   Enc A turn: change phrase length (2/4/8/16)
+ *   Enc A push: toggle enabled (track-level) or cycle override (subtrack)
+ *   Step buttons: select bar
+ *
+ * Bar detail (bar selected):
+ *   Enc A turn: move cursor through transform stack + "add" slot
+ *   Enc B turn: on existing → adjust param, on "add" → browse catalog
+ *   Enc B push: on "add" → add transform
+ *   Enc B hold: delete transform at cursor
+ *   Step buttons: select different bar / deselect
+ *
+ * Subtrack sub-screen:
+ *   Tap subtrack button → enter sub-screen
+ *   Enc A push: cycle override state (INHERIT/BYPASS/OVERRIDE)
+ *   If OVERRIDE: same bar editing as track-level
+ *   Back: return to track-level
  */
 
 import type { SequencerState, VariationPattern } from '../../engine/types'
@@ -55,67 +65,76 @@ export function renderVariationEdit(ctx: CanvasRenderingContext2D, engine: Seque
   const trackColor = COLORS.track[ui.selectedTrack]
   const trackVP = engine.variationPatterns[ui.selectedTrack]
 
-  // Check if holding a subtrack button — show override state overlay
-  if (ui.heldButton?.kind === 'subtrack') {
-    renderSubtrackOverlay(ctx, trackVP, ui.heldButton.subtrack, trackColor)
-    return
+  // Subtrack sub-screen with non-OVERRIDE state → show override selector
+  if (ui.varEditSubtrack) {
+    const override = trackVP.subtrackOverrides[ui.varEditSubtrack]
+    const isOverridePattern = override !== null && override !== 'bypass'
+    if (!isOverridePattern) {
+      renderSubtrackStateScreen(ctx, trackVP, ui, trackColor)
+      return
+    }
   }
 
   const vp = getEditingVariationPattern(engine, ui)
 
-  // Header line: VAR — T1 [GATE]  Phrase: 4 bars  [ON/OFF]
+  // Header line: VAR — T1 [GATE]  4 bars  [ON/OFF]
   const subLabel = ui.varEditSubtrack ? ` ${SUBTRACK_LABELS[ui.varEditSubtrack]}` : ''
-  drawText(ctx, `VAR — T${ui.selectedTrack + 1}${subLabel}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
+  drawText(ctx, `VAR \u2014 T${ui.selectedTrack + 1}${subLabel}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   const enabledText = vp.enabled ? 'ON' : 'OFF'
   const enabledColor = vp.enabled ? '#44ff66' : COLORS.textDim
   drawText(ctx, `${vp.length} bars  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 14, 'right')
 
   if (ui.varSelectedBar < 0) {
-    // --- Overview mode: show bar grid overview ---
     renderBarOverview(ctx, vp, ui, trackColor)
   } else {
-    // --- Bar detail mode: show transform stack + catalog browser ---
     renderBarDetail(ctx, vp, ui, trackColor)
   }
 }
 
-function renderSubtrackOverlay(
+/** Subtrack sub-screen when override is INHERIT or BYPASS */
+function renderSubtrackStateScreen(
   ctx: CanvasRenderingContext2D,
-  vp: VariationPattern,
-  sub: SubtrackId,
+  trackVP: VariationPattern,
+  ui: UIState,
   trackColor: string,
 ): void {
+  const sub = ui.varEditSubtrack!
   const label = SUBTRACK_LABELS[sub]
-  const state = overrideLabel(vp, sub)
+  const state = overrideLabel(trackVP, sub)
 
   // Header
-  drawText(ctx, `VAR  ${label} override: ${state}`, PAD, LCD_CONTENT_Y + 22, trackColor, 16)
+  drawText(ctx, `VAR \u2014 T${ui.selectedTrack + 1} ${label}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
-  // Instruction
-  drawText(ctx, '[push Enc A to cycle]', PAD + 12, LIST_TOP + 16, COLORS.textDim, 14)
+  // Override state (large)
+  const stateColor = state === 'INHERIT' ? COLORS.textDim : state === 'BYPASS' ? '#ff8844' : trackColor
+  drawText(ctx, state, LCD_W / 2, LIST_TOP + 30, stateColor, 22, 'center')
 
   // State progression
   const states = ['INHERIT', 'BYPASS', 'OVERRIDE']
-  const y = LIST_TOP + 50
+  const y = LIST_TOP + 64
   for (let i = 0; i < states.length; i++) {
     const s = states[i]
-    const x = PAD + 12 + i * 120
+    const x = PAD + 12 + i * 130
     const isCurrent = s === state
     const color = isCurrent ? trackColor : COLORS.textDim
-    drawText(ctx, s, x, y, color, 14)
+    drawText(ctx, s, x, y, color, 12)
     if (i < states.length - 1) {
-      drawText(ctx, '\u2192', x + 80, y, COLORS.textDim, 14)
+      drawText(ctx, '\u2192', x + 90, y, COLORS.textDim, 12)
     }
   }
+
+  // Hint
+  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
+  drawText(ctx, 'PUSH A:cycle  BACK:track level', PAD, hintY, COLORS.textDim, 12)
 }
 
+/** Overview mode — bar grid and transform summaries */
 function renderBarOverview(
   ctx: CanvasRenderingContext2D,
   vp: VariationPattern,
   ui: UIState,
   trackColor: string,
 ): void {
-  // Show a compact view of all bars and their transforms
   const barY = LIST_TOP
 
   drawText(ctx, 'BARS', PAD, barY + 8, COLORS.textDim, 14)
@@ -133,7 +152,6 @@ function renderBarOverview(
     // Transform count indicator
     const count = slot.transforms.length
     if (count > 0) {
-      // Draw a small filled indicator
       fillRect(ctx, { x: x + 4, y: y + 20, w: 32, h: 12 }, `${trackColor}44`)
       drawText(ctx, `${count}`, x + 20, y + 26, trackColor, 12, 'center')
     } else {
@@ -164,9 +182,10 @@ function renderBarOverview(
 
   // Bottom hint
   const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'STEP:bar  PUSH:on/off  HOLD VAR+A:phrase', PAD, hintY, COLORS.textDim, 12)
+  drawText(ctx, 'STEP:bar  A:phrase  PUSH:on/off', PAD, hintY, COLORS.textDim, 12)
 }
 
+/** Bar detail mode — transform stack with cursor + catalog browser */
 function renderBarDetail(
   ctx: CanvasRenderingContext2D,
   vp: VariationPattern,
@@ -175,40 +194,71 @@ function renderBarDetail(
 ): void {
   const bar = ui.varSelectedBar
   const slot = vp.slots[bar]
+  const cursor = ui.varCursor
 
   // Bar header
   drawText(ctx, `Bar ${bar + 1} of ${vp.length}`, PAD, LIST_TOP + 8, COLORS.text, 16)
 
-  // Transform stack
-  if (slot.transforms.length === 0) {
-    drawText(ctx, '(no transforms)', PAD + 12, LIST_TOP + ROW_H + 14, COLORS.textDim, 14)
+  // Transform stack with cursor
+  const stackTop = LIST_TOP + ROW_H + 4
+  const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
+
+  if (slot.transforms.length === 0 && cursor === 0) {
+    // Empty bar — cursor is on "add" slot
+    renderAddSlot(ctx, ui, trackColor, stackTop, true)
   } else {
-    for (let i = 0; i < slot.transforms.length; i++) {
-      const t = slot.transforms[i]
-      const y = LIST_TOP + ROW_H + i * ROW_H
-      if (y > LCD_CONTENT_Y + LCD_CONTENT_H - 60) break
+    for (let i = 0; i <= slot.transforms.length; i++) {
+      const rowIdx = i
+      if (rowIdx >= maxVisible) break
+      const y = stackTop + rowIdx * ROW_H
+      const isCursor = i === cursor
 
-      const isLast = i === slot.transforms.length - 1
-      const entry = TRANSFORM_CATALOG.find(c => c.type === t.type)
-      const label = entry?.label ?? t.type.toUpperCase()
-      const p = formatParam(t.type, t.param)
+      if (i < slot.transforms.length) {
+        // Existing transform
+        const t = slot.transforms[i]
+        const entry = TRANSFORM_CATALOG.find(c => c.type === t.type)
+        const label = entry?.label ?? t.type.toUpperCase()
+        const p = formatParam(t.type, t.param)
 
-      const numColor = isLast ? trackColor : COLORS.textDim
-      drawText(ctx, `${i + 1}.`, PAD, y + 12, numColor, 14)
-      drawText(ctx, label, PAD + 24, y + 12, isLast ? COLORS.text : COLORS.textDim, 14)
-      if (p) {
-        drawText(ctx, p, LCD_W - PAD, y + 12, isLast ? trackColor : COLORS.textDim, 14, 'right')
+        const prefix = isCursor ? '\u25B8' : ' '
+        const textColor = isCursor ? COLORS.text : COLORS.textDim
+        const numColor = isCursor ? trackColor : COLORS.textDim
+
+        drawText(ctx, prefix, PAD, y + 12, trackColor, 14)
+        drawText(ctx, `${i + 1}.`, PAD + 14, y + 12, numColor, 14)
+        drawText(ctx, label, PAD + 36, y + 12, textColor, 14)
+        if (p) {
+          drawText(ctx, p, LCD_W - PAD, y + 12, isCursor ? trackColor : COLORS.textDim, 14, 'right')
+        }
+      } else {
+        // "Add" slot
+        renderAddSlot(ctx, ui, trackColor, y, isCursor)
       }
     }
   }
 
-  // Catalog browser (bottom section)
-  const catalogY = LCD_CONTENT_Y + LCD_CONTENT_H - 36
-  fillRect(ctx, { x: 0, y: catalogY - 4, w: LCD_W, h: 32 }, '#12122a')
+  // Bottom hint
+  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
+  drawText(ctx, 'A:sel  B:value  ]push:add  ]hold:del', PAD, hintY, COLORS.textDim, 11)
+}
+
+/** Render the "add" slot at the bottom of the transform stack */
+function renderAddSlot(
+  ctx: CanvasRenderingContext2D,
+  ui: UIState,
+  trackColor: string,
+  y: number,
+  isCursor: boolean,
+): void {
+  const prefix = isCursor ? '\u25B8' : ' '
   const catalogEntry = TRANSFORM_CATALOG[ui.varParam]
   const pPreview = formatParam(catalogEntry.type, catalogEntry.defaultParam)
   const catalogText = pPreview ? `${catalogEntry.label}(${pPreview})` : catalogEntry.label
-  drawText(ctx, '\u25B8', PAD, catalogY + 12, trackColor, 14)
-  drawText(ctx, catalogText, PAD + 18, catalogY + 12, COLORS.text, 14)
-  drawText(ctx, '[push to add]', LCD_W - PAD, catalogY + 12, COLORS.textDim, 12, 'right')
+
+  if (isCursor) {
+    fillRect(ctx, { x: 0, y: y - 2, w: LCD_W, h: ROW_H }, '#12122a')
+  }
+  drawText(ctx, prefix, PAD, y + 12, trackColor, 14)
+  drawText(ctx, '+', PAD + 14, y + 12, isCursor ? trackColor : COLORS.textDim, 14)
+  drawText(ctx, catalogText, PAD + 36, y + 12, isCursor ? COLORS.text : COLORS.textDim, 14)
 }

@@ -46,6 +46,7 @@ export function createInitialUIState(): UIState {
     settingsParam: 0,
     varParam: 0,
     varSelectedBar: -1,
+    varCursor: 0,
     varEditSubtrack: null,
     midiDevices: [],
     midiDeviceIndex: 0,
@@ -70,17 +71,6 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   if (event.type === 'hold-end') {
     // Clear step selection when hold ends
     const clearStep = ui.heldButton?.kind === 'step'
-    // In variation-edit: releasing subtrack hold enters subtrack override editing if set to OVERRIDE
-    if (ui.mode === 'variation-edit' && ui.heldButton?.kind === 'subtrack') {
-      const sub = ui.heldButton.subtrack
-      const vp = engine.variationPatterns[ui.selectedTrack]
-      const override = vp.subtrackOverrides[sub]
-      if (override !== null && override !== 'bypass') {
-        // Override is a VariationPattern — enter subtrack editing
-        return { ui: { ...ui, heldButton: null, holdEncoderUsed: false, varEditSubtrack: sub, varSelectedBar: -1 }, engine }
-      }
-      return { ui: { ...ui, heldButton: null, holdEncoderUsed: false }, engine }
-    }
     return { ui: { ...ui, heldButton: null, holdEncoderUsed: false, ...(clearStep ? { selectedStep: -1 } : {}) }, engine }
   }
 
@@ -92,11 +82,6 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   // --- Hold combo: step held in gate-edit → encoder A = gate length, encoder B = ratchet ---
   if (ui.heldButton?.kind === 'step' && ui.mode === 'gate-edit' && (event.type === 'encoder-a-turn' || event.type === 'encoder-b-turn')) {
     return dispatchStepHoldCombo(ui, engine, event)
-  }
-
-  // --- Hold combo: subtrack held in variation-edit + enc A push → cycle override state ---
-  if (ui.heldButton?.kind === 'subtrack' && ui.mode === 'variation-edit' && event.type === 'encoder-a-push') {
-    return dispatchVariationOverrideCycle(ui, engine)
   }
 
   // --- Hold combo: encoder turns while button held → length/division ---
@@ -140,20 +125,14 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui: { ...ui, selectedTrack: event.track, currentPage: 0, selectedStep: 0 }, engine }
   }
 
-  // Subtrack buttons — in variation-edit: enter/exit subtrack override editing
+  // Subtrack buttons — in variation-edit: enter/exit subtrack sub-screen
   if (event.type === 'subtrack-select' && ui.mode === 'variation-edit') {
     if (ui.varEditSubtrack === event.subtrack) {
-      // Already editing this subtrack → return to track-level
-      return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1 }, engine }
+      // Already in this subtrack → return to track-level
+      return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
     }
-    const trackVP = engine.variationPatterns[ui.selectedTrack]
-    const override = trackVP.subtrackOverrides[event.subtrack]
-    if (override !== null && override !== 'bypass') {
-      // Override pattern exists → enter its editing
-      return { ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1 }, engine }
-    }
-    // Not in override mode for this subtrack — no-op, stay in variation-edit
-    return { ui, engine }
+    // Enter subtrack sub-screen (works regardless of override state)
+    return { ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1, varCursor: 0 }, engine }
   }
 
   // Subtrack buttons — enter edit screen (or re-enter same screen to reset cursor)
@@ -174,7 +153,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
 
   // Back — in variation-edit with subtrack editing: return to track-level first
   if (event.type === 'back' && ui.mode === 'variation-edit' && ui.varEditSubtrack) {
-    return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1 }, engine }
+    return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
   }
 
   // Back — cross-modal navigation to home (name-entry handled above)
@@ -192,7 +171,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       transpose: 'transpose-edit',
       variation: 'variation-edit',
     }
-    return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0, varSelectedBar: -1, varEditSubtrack: null }, engine }
+    return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0, varSelectedBar: -1, varCursor: 0, varEditSubtrack: null }, engine }
   }
 
   if (event.type === 'settings-press') {
@@ -575,69 +554,114 @@ export const TRANSFORM_CATALOG: Array<{ type: TransformType; label: string; defa
 function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const vp = getEditingVariationPattern(engine, ui)
 
+  // --- Subtrack sub-screen: override state is not OVERRIDE → limited controls ---
+  if (ui.varEditSubtrack) {
+    const trackVP = engine.variationPatterns[ui.selectedTrack]
+    const override = trackVP.subtrackOverrides[ui.varEditSubtrack]
+    const isOverridePattern = override !== null && override !== 'bypass'
+
+    if (!isOverridePattern) {
+      // Only enc A push to cycle override state, nothing else
+      if (event.type === 'encoder-a-push') {
+        return dispatchVariationOverrideCycle(ui, engine, ui.varEditSubtrack)
+      }
+      return { ui, engine }
+    }
+    // Fall through to normal editing when OVERRIDE pattern is active
+  }
+
   switch (event.type) {
     case 'step-press': {
       // Steps 0 to phraseLength-1: select/deselect bar
       if (event.step >= vp.length) return { ui, engine }
       if (ui.varSelectedBar === event.step) {
-        // Deselect
-        return { ui: { ...ui, varSelectedBar: -1 }, engine }
+        return { ui: { ...ui, varSelectedBar: -1, varCursor: 0 }, engine }
       }
-      return { ui: { ...ui, varSelectedBar: event.step }, engine }
+      return { ui: { ...ui, varSelectedBar: event.step, varCursor: 0 }, engine }
     }
 
     case 'encoder-a-turn': {
-      // Browse transform catalog
-      const maxIdx = TRANSFORM_CATALOG.length - 1
-      const next = clamp(ui.varParam + event.delta, 0, maxIdx)
-      return { ui: { ...ui, varParam: next }, engine }
+      if (ui.varSelectedBar < 0) {
+        // Overview: change phrase length (2, 4, 8, 16)
+        const lengthOptions = [2, 4, 8, 16]
+        const curIdx = lengthOptions.indexOf(vp.length)
+        const newIdx = clamp((curIdx >= 0 ? curIdx : 1) + event.delta, 0, lengthOptions.length - 1)
+        const newLength = lengthOptions[newIdx]
+        if (newLength === vp.length) return { ui, engine }
+        const newSlots = Array.from({ length: newLength }, (_, i) =>
+          vp.slots[i] ?? { transforms: [] },
+        )
+        return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, length: newLength, slots: newSlots, currentBar: vp.currentBar % newLength }) }
+      }
+      // Bar detail: move cursor through transform stack + "add" slot
+      const maxCursor = vp.slots[ui.varSelectedBar].transforms.length // N items + "add" at index N
+      const next = clamp(ui.varCursor + event.delta, 0, maxCursor)
+      return { ui: { ...ui, varCursor: next }, engine }
     }
 
     case 'encoder-a-push': {
       if (ui.varSelectedBar < 0) {
-        // No bar selected → toggle variation enabled/disabled
+        if (ui.varEditSubtrack) {
+          // Subtrack sub-screen: cycle override state
+          return dispatchVariationOverrideCycle(ui, engine, ui.varEditSubtrack)
+        }
+        // Overview: toggle variation enabled/disabled
         return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, enabled: !vp.enabled }) }
       }
-      // Bar selected → add browsed transform to bar's stack
-      const catalogEntry = TRANSFORM_CATALOG[ui.varParam]
-      const newTransform: Transform = { type: catalogEntry.type, param: catalogEntry.defaultParam }
-      const bar = ui.varSelectedBar
-      const slot = vp.slots[bar]
-      const newSlots = vp.slots.map((s, i) =>
-        i === bar ? { transforms: [...slot.transforms, newTransform] } : s,
-      )
-      return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
-    }
-
-    case 'encoder-a-hold': {
-      if (ui.varSelectedBar < 0) return { ui, engine }
-      // Remove last transform from selected bar's stack
-      const bar = ui.varSelectedBar
-      const slot = vp.slots[bar]
-      if (slot.transforms.length === 0) return { ui, engine }
-      const newSlots = vp.slots.map((s, i) =>
-        i === bar ? { transforms: s.transforms.slice(0, -1) } : s,
-      )
-      return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
+      return { ui, engine }
     }
 
     case 'encoder-b-turn': {
       if (ui.varSelectedBar < 0) return { ui, engine }
-      // Adjust param of last transform in selected bar
       const bar = ui.varSelectedBar
       const slot = vp.slots[bar]
-      if (slot.transforms.length === 0) return { ui, engine }
-      const lastIdx = slot.transforms.length - 1
-      const t = slot.transforms[lastIdx]
+      if (ui.varCursor >= slot.transforms.length) {
+        // Cursor on "add" slot → browse catalog
+        const maxIdx = TRANSFORM_CATALOG.length - 1
+        const next = clamp(ui.varParam + event.delta, 0, maxIdx)
+        return { ui: { ...ui, varParam: next }, engine }
+      }
+      // Cursor on existing transform → adjust param
+      const t = slot.transforms[ui.varCursor]
       const newParam = adjustTransformParam(t, event.delta)
       if (newParam === t.param) return { ui, engine }
       const newTransforms = slot.transforms.map((tr, i) =>
-        i === lastIdx ? { ...tr, param: newParam } : tr,
+        i === ui.varCursor ? { ...tr, param: newParam } : tr,
       )
       const newSlots = vp.slots.map((s, i) =>
         i === bar ? { transforms: newTransforms } : s,
       )
       return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
+    }
+
+    case 'encoder-b-push': {
+      if (ui.varSelectedBar < 0) return { ui, engine }
+      const bar = ui.varSelectedBar
+      const slot = vp.slots[bar]
+      if (ui.varCursor < slot.transforms.length) return { ui, engine } // push on existing = no-op
+      // Cursor on "add" slot → add the catalog selection
+      const catalogEntry = TRANSFORM_CATALOG[ui.varParam]
+      const newTransform: Transform = { type: catalogEntry.type, param: catalogEntry.defaultParam }
+      const newSlots = vp.slots.map((s, i) =>
+        i === bar ? { transforms: [...slot.transforms, newTransform] } : s,
+      )
+      // Move cursor to the new transform (so user can tweak param)
+      return { ui: { ...ui, varCursor: slot.transforms.length }, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
+    }
+
+    case 'encoder-b-hold': {
+      if (ui.varSelectedBar < 0) return { ui, engine }
+      const bar = ui.varSelectedBar
+      const slot = vp.slots[bar]
+      if (ui.varCursor >= slot.transforms.length) return { ui, engine } // can't delete "add" slot
+      // Delete transform at cursor
+      const newTransforms = slot.transforms.filter((_, i) => i !== ui.varCursor)
+      const newSlots = vp.slots.map((s, i) =>
+        i === bar ? { transforms: newTransforms } : s,
+      )
+      // Adjust cursor if it would be past the end
+      const newCursor = Math.min(ui.varCursor, newTransforms.length)
+      return { ui: { ...ui, varCursor: newCursor }, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
     }
 
     default:
@@ -674,8 +698,7 @@ function updateVariationPattern(engine: SequencerState, trackIdx: number, patter
 }
 
 /** Cycle subtrack override: null (inherit) → 'bypass' → VariationPattern (override) → null */
-function dispatchVariationOverrideCycle(ui: UIState, engine: SequencerState): DispatchResult {
-  const sub = (ui.heldButton as { kind: 'subtrack'; subtrack: SubtrackId }).subtrack
+function dispatchVariationOverrideCycle(ui: UIState, engine: SequencerState, sub: SubtrackId): DispatchResult {
   const trackIdx = ui.selectedTrack
   const vp = engine.variationPatterns[trackIdx]
   const current = vp.subtrackOverrides[sub]
@@ -693,7 +716,7 @@ function dispatchVariationOverrideCycle(ui: UIState, engine: SequencerState): Di
     ...vp,
     subtrackOverrides: { ...vp.subtrackOverrides, [sub]: next },
   }
-  return { ui: { ...ui, holdEncoderUsed: true }, engine: updateVariationPattern(engine, trackIdx, newVP) }
+  return { ui, engine: updateVariationPattern(engine, trackIdx, newVP) }
 }
 
 /** Get the effective VariationPattern for the current editing context (track-level or subtrack override) */

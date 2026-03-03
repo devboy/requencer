@@ -1492,7 +1492,7 @@ describe('route screen dispatch', () => {
 
   describe('variation-edit', () => {
     function varUI(overrides: Partial<UIState> = {}): UIState {
-      return { ...createInitialUIState(), mode: 'variation-edit' as const, varSelectedBar: -1, varParam: 0, ...overrides }
+      return { ...createInitialUIState(), mode: 'variation-edit' as const, varSelectedBar: -1, varParam: 0, varCursor: 0, ...overrides }
     }
 
     it('feature-press variation enters variation-edit mode', () => {
@@ -1506,6 +1506,7 @@ describe('route screen dispatch', () => {
       const ui = varUI()
       const result = dispatch(ui, makeState(), { type: 'step-press', step: 2 })
       expect(result.ui.varSelectedBar).toBe(2)
+      expect(result.ui.varCursor).toBe(0)
     })
 
     it('step-press on already selected bar deselects it', () => {
@@ -1517,70 +1518,133 @@ describe('route screen dispatch', () => {
     it('step-press beyond phrase length is no-op', () => {
       const ui = varUI()
       const engine = makeState()
-      // Default phrase length is 4
       const result = dispatch(ui, engine, { type: 'step-press', step: 5 })
-      expect(result.ui.varSelectedBar).toBe(-1) // unchanged
+      expect(result.ui.varSelectedBar).toBe(-1)
     })
 
-    it('encoder A turn browses transform catalog', () => {
-      const ui = varUI({ varParam: 0 })
-      const result = dispatch(ui, makeState(), { type: 'encoder-a-turn', delta: 1 })
-      expect(result.ui.varParam).toBe(1)
+    describe('overview (no bar selected)', () => {
+      it('encoder A turn changes phrase length', () => {
+        const ui = varUI()
+        const engine = makeState()
+        // Default phrase length is 4, delta +1 should go to 8
+        const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        expect(result.engine.variationPatterns[0].length).toBe(8)
+        expect(result.engine.variationPatterns[0].slots.length).toBe(8)
+      })
+
+      it('encoder A turn clamps phrase length at min/max', () => {
+        const ui = varUI()
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: -5 })
+        expect(result.engine.variationPatterns[0].length).toBe(2)
+      })
+
+      it('encoder A push toggles enabled', () => {
+        const ui = varUI()
+        const engine = makeState()
+        expect(engine.variationPatterns[0].enabled).toBe(false)
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        expect(result.engine.variationPatterns[0].enabled).toBe(true)
+      })
     })
 
-    it('encoder A turn clamps to catalog bounds', () => {
-      const ui = varUI({ varParam: 0 })
-      const result = dispatch(ui, makeState(), { type: 'encoder-a-turn', delta: -1 })
-      expect(result.ui.varParam).toBe(0)
-    })
+    describe('bar detail (bar selected)', () => {
+      it('encoder A turn moves cursor through transform stack', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
+        const engine = makeState()
+        engine.variationPatterns[0].slots[0] = {
+          transforms: [{ type: 'reverse', param: 0 }, { type: 'transpose', param: 7 }],
+        }
+        // Move cursor from 0 to 1
+        const r1 = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        expect(r1.ui.varCursor).toBe(1)
+        // Move cursor to 2 (the "add" slot)
+        const r2 = dispatch(r1.ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        expect(r2.ui.varCursor).toBe(2)
+        // Clamp at max
+        const r3 = dispatch(r2.ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        expect(r3.ui.varCursor).toBe(2)
+      })
 
-    it('encoder A push with no bar selected toggles enabled', () => {
-      const ui = varUI()
-      const engine = makeState()
-      expect(engine.variationPatterns[0].enabled).toBe(false)
-      const result = dispatch(ui, engine, { type: 'encoder-a-push' })
-      expect(result.engine.variationPatterns[0].enabled).toBe(true)
-    })
+      it('encoder A turn clamps cursor at 0', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
+        const result = dispatch(ui, makeState(), { type: 'encoder-a-turn', delta: -1 })
+        expect(result.ui.varCursor).toBe(0)
+      })
 
-    it('encoder A push with bar selected adds transform', () => {
-      const ui = varUI({ varSelectedBar: 1, varParam: 0 }) // varParam 0 = REVERSE
-      const engine = makeState()
-      const result = dispatch(ui, engine, { type: 'encoder-a-push' })
-      const slot = result.engine.variationPatterns[0].slots[1]
-      expect(slot.transforms.length).toBe(1)
-      expect(slot.transforms[0].type).toBe('reverse')
-    })
+      it('encoder B turn on existing transform adjusts param', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
+        const engine = makeState()
+        engine.variationPatterns[0].slots[0] = {
+          transforms: [{ type: 'transpose', param: 7 }],
+        }
+        const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+        expect(result.engine.variationPatterns[0].slots[0].transforms[0].param).toBe(8)
+      })
 
-    it('encoder A hold removes last transform from selected bar', () => {
-      const ui = varUI({ varSelectedBar: 0 })
-      const engine = makeState()
-      engine.variationPatterns[0].slots[0] = {
-        transforms: [
-          { type: 'reverse', param: 0 },
-          { type: 'transpose', param: 7 },
-        ],
-      }
-      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
-      const slot = result.engine.variationPatterns[0].slots[0]
-      expect(slot.transforms.length).toBe(1)
-      expect(slot.transforms[0].type).toBe('reverse')
-    })
+      it('encoder B turn on "add" slot browses catalog', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0, varParam: 0 }) // cursor on "add" (empty bar)
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+        expect(result.ui.varParam).toBe(1)
+      })
 
-    it('encoder A hold with no bar selected is no-op', () => {
-      const ui = varUI()
-      const engine = makeState()
-      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
-      expect(result.engine).toBe(engine)
-    })
+      it('encoder B push on "add" slot adds transform', () => {
+        const ui = varUI({ varSelectedBar: 1, varCursor: 0, varParam: 0 }) // REVERSE
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'encoder-b-push' })
+        const slot = result.engine.variationPatterns[0].slots[1]
+        expect(slot.transforms.length).toBe(1)
+        expect(slot.transforms[0].type).toBe('reverse')
+        // Cursor moves to the newly added transform
+        expect(result.ui.varCursor).toBe(0)
+      })
 
-    it('encoder B turn adjusts param of last transform', () => {
-      const ui = varUI({ varSelectedBar: 0 })
-      const engine = makeState()
-      engine.variationPatterns[0].slots[0] = {
-        transforms: [{ type: 'transpose', param: 7 }],
-      }
-      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
-      expect(result.engine.variationPatterns[0].slots[0].transforms[0].param).toBe(8)
+      it('encoder B push on existing transform is no-op', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
+        const engine = makeState()
+        engine.variationPatterns[0].slots[0] = {
+          transforms: [{ type: 'reverse', param: 0 }],
+        }
+        const result = dispatch(ui, engine, { type: 'encoder-b-push' })
+        expect(result.engine).toBe(engine) // unchanged
+      })
+
+      it('encoder B hold deletes transform at cursor', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
+        const engine = makeState()
+        engine.variationPatterns[0].slots[0] = {
+          transforms: [
+            { type: 'reverse', param: 0 },
+            { type: 'transpose', param: 7 },
+          ],
+        }
+        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        const slot = result.engine.variationPatterns[0].slots[0]
+        expect(slot.transforms.length).toBe(1)
+        expect(slot.transforms[0].type).toBe('transpose') // first was deleted, second remains
+      })
+
+      it('encoder B hold on "add" slot is no-op', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 0 }) // cursor 0 on empty bar = "add" slot
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        expect(result.engine).toBe(engine)
+      })
+
+      it('encoder B hold adjusts cursor when deleting last item', () => {
+        const ui = varUI({ varSelectedBar: 0, varCursor: 1 })
+        const engine = makeState()
+        engine.variationPatterns[0].slots[0] = {
+          transforms: [
+            { type: 'reverse', param: 0 },
+            { type: 'transpose', param: 7 },
+          ],
+        }
+        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
+        expect(result.ui.varCursor).toBe(1) // now points to "add" slot
+        expect(result.engine.variationPatterns[0].slots[0].transforms.length).toBe(1)
+      })
     })
 
     it('encoder B turn with no bar selected is no-op', () => {
@@ -1590,27 +1654,15 @@ describe('route screen dispatch', () => {
       expect(result.engine).toBe(engine)
     })
 
-    it('hold VAR + encoder A changes phrase length', () => {
+    it('hold VAR + encoder A changes phrase length (bar selected shortcut)', () => {
       const ui = {
-        ...varUI(),
+        ...varUI({ varSelectedBar: 0 }),
         heldButton: { kind: 'feature' as const, feature: 'variation' as const },
       }
       const engine = makeState()
-      // Default phrase length is 4, delta +1 should go to 8
       const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
       expect(result.engine.variationPatterns[0].length).toBe(8)
       expect(result.engine.variationPatterns[0].slots.length).toBe(8)
-    })
-
-    it('hold VAR + encoder A clamps phrase length at min/max', () => {
-      const ui = {
-        ...varUI(),
-        heldButton: { kind: 'feature' as const, feature: 'variation' as const },
-      }
-      const engine = makeState()
-      // Go past min: default is 4 (idx=1), delta -5 should clamp to 2
-      const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: -5 })
-      expect(result.engine.variationPatterns[0].length).toBe(2)
     })
 
     it('LEDs show bar state in variation-edit', () => {
@@ -1639,16 +1691,50 @@ describe('route screen dispatch', () => {
     })
 
     describe('per-subtrack overrides', () => {
-      it('hold subtrack + enc A push cycles override: null → bypass', () => {
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+      it('subtrack-select always enters sub-screen (even when inherit)', () => {
+        const ui = varUI()
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+        expect(result.ui.varEditSubtrack).toBe('gate')
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('subtrack-select enters sub-screen when bypass', () => {
+        const ui = varUI()
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+        expect(result.ui.varEditSubtrack).toBe('gate')
+      })
+
+      it('subtrack-select enters sub-screen when override pattern exists', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.pitch = {
+          enabled: false, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI()
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
+        expect(result.ui.varEditSubtrack).toBe('pitch')
+      })
+
+      it('subtrack-select toggles off when already editing that subtrack', () => {
+        const ui = varUI({ varEditSubtrack: 'pitch' })
+        const result = dispatch(ui, makeState(), { type: 'subtrack-select', subtrack: 'pitch' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+      })
+
+      it('enc A push cycles override: null → bypass (in sub-screen)', () => {
+        const ui = varUI({ varEditSubtrack: 'gate' })
         const engine = makeState()
         expect(engine.variationPatterns[0].subtrackOverrides.gate).toBe(null)
         const result = dispatch(ui, engine, { type: 'encoder-a-push' })
         expect(result.engine.variationPatterns[0].subtrackOverrides.gate).toBe('bypass')
       })
 
-      it('hold subtrack + enc A push cycles override: bypass → override pattern', () => {
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+      it('enc A push cycles override: bypass → override pattern (in sub-screen)', () => {
+        const ui = varUI({ varEditSubtrack: 'gate' })
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
         const result = dispatch(ui, engine, { type: 'encoder-a-push' })
@@ -1660,87 +1746,31 @@ describe('route screen dispatch', () => {
         expect((override as any).slots).toHaveLength(4)
       })
 
-      it('hold subtrack + enc A push cycles override: override pattern → null', () => {
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'pitch' } })
+      it('enc A push cycles override: override pattern → null (in sub-screen with no bar)', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.pitch = {
           enabled: true, length: 4, currentBar: 0,
           slots: [{ transforms: [] }, { transforms: [] }, { transforms: [] }, { transforms: [] }],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
+        // varSelectedBar: -1 → enc A push cycles override state
+        const ui = varUI({ varEditSubtrack: 'pitch', varSelectedBar: -1 })
         const result = dispatch(ui, engine, { type: 'encoder-a-push' })
         expect(result.engine.variationPatterns[0].subtrackOverrides.pitch).toBe(null)
       })
 
-      it('releasing subtrack hold enters subtrack editing when override is a pattern', () => {
+      it('non-override sub-screen: only enc A push works (other events are no-op)', () => {
+        const ui = varUI({ varEditSubtrack: 'gate' }) // gate is INHERIT
         const engine = makeState()
-        engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: true, length: 2, currentBar: 0,
-          slots: [{ transforms: [] }, { transforms: [{ type: 'reverse', param: 0 }] }],
-          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
-        }
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
-        const result = dispatch(ui, engine, { type: 'hold-end' })
-        expect(result.ui.varEditSubtrack).toBe('gate')
-        expect(result.ui.varSelectedBar).toBe(-1)
-        expect(result.ui.mode).toBe('variation-edit')
-      })
-
-      it('releasing subtrack hold does NOT enter editing when override is null', () => {
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
-        const engine = makeState()
-        const result = dispatch(ui, engine, { type: 'hold-end' })
-        expect(result.ui.varEditSubtrack).toBe(null)
-      })
-
-      it('releasing subtrack hold does NOT enter editing when override is bypass', () => {
-        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
-        const engine = makeState()
-        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
-        const result = dispatch(ui, engine, { type: 'hold-end' })
-        expect(result.ui.varEditSubtrack).toBe(null)
-      })
-
-      it('subtrack-select enters override editing when override pattern exists', () => {
-        const engine = makeState()
-        engine.variationPatterns[0].subtrackOverrides.pitch = {
-          enabled: false, length: 4, currentBar: 0,
-          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
-          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
-        }
-        const ui = varUI()
-        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
-        expect(result.ui.varEditSubtrack).toBe('pitch')
-        expect(result.ui.mode).toBe('variation-edit')
-      })
-
-      it('subtrack-select toggles off override editing when already editing that subtrack', () => {
-        const engine = makeState()
-        engine.variationPatterns[0].subtrackOverrides.pitch = {
-          enabled: false, length: 4, currentBar: 0,
-          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
-          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
-        }
-        const ui = varUI({ varEditSubtrack: 'pitch' })
-        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
-        expect(result.ui.varEditSubtrack).toBe(null)
-      })
-
-      it('subtrack-select is no-op when override is null (inherit)', () => {
-        const ui = varUI()
-        const engine = makeState()
-        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
-        expect(result.ui.varEditSubtrack).toBe(null)
-        expect(result.ui.mode).toBe('variation-edit')
-      })
-
-      it('subtrack-select is no-op when override is bypass', () => {
-        const ui = varUI()
-        const engine = makeState()
-        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
-        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
-        expect(result.ui.varEditSubtrack).toBe(null)
-        expect(result.ui.mode).toBe('variation-edit')
+        // encoder-a-turn should be no-op
+        const r1 = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        expect(r1.engine).toBe(engine)
+        // encoder-b-turn should be no-op
+        const r2 = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+        expect(r2.engine).toBe(engine)
+        // step-press should be no-op
+        const r3 = dispatch(ui, engine, { type: 'step-press', step: 0 })
+        expect(r3.ui.varSelectedBar).toBe(-1)
       })
 
       it('back exits subtrack editing before exiting variation-edit', () => {
@@ -1758,16 +1788,16 @@ describe('route screen dispatch', () => {
         expect(result.ui.mode).toBe('home')
       })
 
-      it('editing operations apply to subtrack override pattern when varEditSubtrack is set', () => {
+      it('editing (enc B push) applies to subtrack override pattern', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
           enabled: false, length: 4, currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
-        // Select bar 1 in subtrack editing, add a transform
-        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 1, varParam: 0 }) // REVERSE
-        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        // Select bar 1, cursor on "add" slot, add REVERSE
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 1, varCursor: 0, varParam: 0 })
+        const result = dispatch(ui, engine, { type: 'encoder-b-push' })
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
         expect(override.slots[1].transforms.length).toBe(1)
         expect(override.slots[1].transforms[0].type).toBe('reverse')
@@ -1775,19 +1805,17 @@ describe('route screen dispatch', () => {
         expect(result.engine.variationPatterns[0].slots[1].transforms.length).toBe(0)
       })
 
-      it('toggle enabled applies to subtrack override when editing subtrack', () => {
+      it('enc A push in override sub-screen with no bar cycles state (not toggle enabled)', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
           enabled: false, length: 4, currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
+        // No bar selected + override pattern → enc A push cycles override to null
         const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: -1 })
         const result = dispatch(ui, engine, { type: 'encoder-a-push' })
-        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
-        expect(override.enabled).toBe(true)
-        // Track-level should be unchanged
-        expect(result.engine.variationPatterns[0].enabled).toBe(false)
+        expect(result.engine.variationPatterns[0].subtrackOverrides.gate).toBe(null)
       })
 
       it('hold VAR + enc A changes phrase length for subtrack override', () => {
@@ -1805,7 +1833,6 @@ describe('route screen dispatch', () => {
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
         expect(override.length).toBe(8)
         expect(override.slots.length).toBe(8)
-        // Track-level should be unchanged
         expect(result.engine.variationPatterns[0].length).toBe(4)
       })
 
@@ -1826,7 +1853,7 @@ describe('route screen dispatch', () => {
         expect(leds.steps[2]).toBe('off')  // beyond override phrase length (2 bars)
       })
 
-      it('encoder A hold removes last transform from subtrack override bar', () => {
+      it('encoder B hold deletes transform from subtrack override bar', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
           enabled: true, length: 4, currentBar: 0,
@@ -1836,11 +1863,11 @@ describe('route screen dispatch', () => {
           ],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
-        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0 })
-        const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0, varCursor: 0 })
+        const result = dispatch(ui, engine, { type: 'encoder-b-hold' })
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
         expect(override.slots[0].transforms.length).toBe(1)
-        expect(override.slots[0].transforms[0].type).toBe('reverse')
+        expect(override.slots[0].transforms[0].type).toBe('transpose') // first deleted
       })
 
       it('encoder B turn adjusts param in subtrack override bar', () => {
@@ -1853,7 +1880,7 @@ describe('route screen dispatch', () => {
           ],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
-        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0 })
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0, varCursor: 0 })
         const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
         expect(override.slots[0].transforms[0].param).toBe(8)
