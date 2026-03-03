@@ -32,6 +32,15 @@ export interface PitchStep {
   slide: number            // 0 = off, 0.01-0.50 = portamento time in seconds
 }
 
+// Compound step type for mod subtrack (parallels PitchStep for pitch)
+export interface ModStep {
+  value: number              // 0.0-1.0, CV value
+  slew: number               // 0.0 = instant, 0.01-1.0 = interpolation time as fraction of step
+}
+
+// MOD generation algorithm
+export type ModMode = 'random' | 'rise' | 'fall' | 'vee' | 'hill' | 'sync' | 'walk'
+
 // A sequence track containing gate, pitch, velocity, mod subtracks
 export interface SequenceTrack {
   id: string
@@ -40,7 +49,7 @@ export interface SequenceTrack {
   gate: Subtrack<GateStep>
   pitch: Subtrack<PitchStep>
   velocity: Subtrack<Velocity>
-  mod: Subtrack<number>
+  mod: Subtrack<ModStep>
 }
 
 // Random generation config per track
@@ -77,6 +86,11 @@ export interface RandomConfig {
   mod: {
     low: number               // 0.0-1.0, min CV value
     high: number              // 0.0-1.0, max CV value
+    mode: ModMode             // generation algorithm
+    slew: number              // 0.0-1.0, default slew for generated steps
+    slewProbability: number   // 0.0-1.0, chance each step gets slew (rest get 0)
+    walkStepSize: number      // 0.0-0.5, max delta per step in WALK mode
+    syncBias: number          // 0.0-1.0, how strongly to weight offbeat positions in SYNC mode
   }
   tie: {
     probability: number       // 0.0-1.0, chance a gate-on step starts a tie chain
@@ -90,6 +104,7 @@ export interface OutputRouting {
   pitch: number
   velocity: number
   mod: number
+  modSource: 'seq' | 'lfo'   // which mod source from the selected track
 }
 
 // Mute pattern per track
@@ -107,6 +122,7 @@ export interface NoteEvent {
   pitch: Note
   velocity: Velocity
   mod: number                // 0-127
+  modSlew: number            // 0.0-1.0, interpolation time as fraction of step (0 = instant)
   gateLength: GateLength     // 0.0-1.0, fraction of step window
   ratchetCount: RatchetCount // 1-4, number of sub-triggers
   slide: number              // portamento time in seconds (0 = off)
@@ -150,15 +166,29 @@ export interface ArpConfig {
 }
 
 // LFO waveform type
-export type LFOWaveform = 'sine' | 'triangle' | 'saw' | 'slew-random'
+export type LFOWaveform = 'sine' | 'triangle' | 'saw' | 'square' | 'slew-random' | 's+h'
+
+// LFO sync mode
+export type LFOSyncMode = 'track' | 'free'
 
 // LFO config per track
 export interface LFOConfig {
-  enabled: boolean
   waveform: LFOWaveform
-  rate: number               // steps per cycle (1-64)
-  depth: number              // 0.0-1.0
-  offset: number             // 0.0-1.0 center value
+  syncMode: LFOSyncMode
+  rate: number               // steps per cycle (1-64) in synced mode
+  freeRate: number           // Hz (0.05-20.0) in free mode
+  depth: number              // 0.0-1.0, amplitude scaling
+  offset: number             // 0.0-1.0, center value
+  width: number              // 0.0-1.0, waveform skew/symmetry (0.5 = symmetric)
+  phase: number              // 0.0-1.0, phase offset
+}
+
+// Runtime LFO state — tracks the current phase position
+export interface LFORuntime {
+  currentPhase: number       // 0.0-1.0, current position in cycle
+  lastSHValue: number        // for S+H waveform: holds value until next trigger
+  slewTarget: number         // for slew-random: current interpolation target
+  slewCurrent: number        // for slew-random: current interpolated value
 }
 
 // Turing Machine mutation config — per-track, per-subtrack rate
@@ -218,6 +248,7 @@ export interface SequencerState {
   randomConfigs: RandomConfig[]     // 4 configs (one per track)
   transposeConfigs: TransposeConfig[] // 4 transpose configs (one per track)
   lfoConfigs: LFOConfig[]          // 4 LFO configs (one per track)
+  lfoRuntimes: LFORuntime[]        // 4 LFO runtime states (one per track)
   arpConfigs: ArpConfig[]          // 4 arp configs (one per track)
   mutateConfigs: MutateConfig[]    // 4 mutate configs (one per track)
   midiConfigs: MIDIOutputConfig[]  // 4 MIDI configs (one per output)

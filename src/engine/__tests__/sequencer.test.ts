@@ -160,7 +160,7 @@ describe('setStep', () => {
 describe('setRouting', () => {
   it('replaces routing', () => {
     const state = createSequencer()
-    const newRouting = [{ gate: 0, pitch: 0, velocity: 0, mod: 0 }]
+    const newRouting = [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' as const }]
     const next = setRouting(state, newRouting)
     expect(next.routing).toEqual(newRouting)
     expect(state.routing).toHaveLength(4)
@@ -553,7 +553,7 @@ describe('mod subtrack', () => {
     for (const track of state.tracks) {
       expect(track.mod).toBeDefined()
       expect(track.mod.steps).toHaveLength(16)
-      expect(track.mod.steps[0]).toBe(0)
+      expect(track.mod.steps[0]).toEqual({ value: 0, slew: 0 })
       expect(track.mod.clockDivider).toBe(1)
     }
   })

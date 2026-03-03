@@ -1,11 +1,11 @@
-import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack, MutateConfig, GateStep, PitchStep } from './types'
+import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack, MutateConfig, GateStep, PitchStep, ModStep, LFORuntime } from './types'
 import { SCALES } from './scales'
 import { PRESETS } from './presets'
 import { getEffectiveStep } from './clock-divider'
 import { resolveOutputs, createDefaultRouting } from './routing'
 import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod, randomizeTies } from './randomizer'
 import { generateArpPattern } from './arpeggiator'
-import { generateLFOPattern } from './lfo'
+import { computeLFOValue } from './lfo'
 import { mutateTrack, isMutateActive } from './mutator'
 import { createDefaultVariationPattern, advanceVariationBar } from './variation'
 
@@ -19,6 +19,7 @@ const MAX_DIVIDER = 32
 
 const DEFAULT_GATE_STEP: GateStep = { on: false, tie: false, length: 0.5, ratchet: 1 }
 const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
+const DEFAULT_MOD_STEP: ModStep = { value: 0, slew: 0 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -45,7 +46,7 @@ function createTrack(index: number): SequenceTrack {
     gate: createSubtrack(DEFAULT_GATE_STEP),
     pitch: createSubtrack(DEFAULT_PITCH_STEP),
     velocity: createSubtrack(100 as number),
-    mod: createSubtrack(0 as number),
+    mod: createSubtrack(DEFAULT_MOD_STEP),
   }
 }
 
@@ -65,7 +66,7 @@ function createDefaultRandomConfig(index: number): RandomConfig {
     gateLength: { min: 0.5, max: 0.5 },
     ratchet: { maxRatchet: 1, probability: 0 },
     slide: { probability: 0 },
-    mod: { low: 0, high: 1 },
+    mod: { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 },
     tie: { probability: 0, maxLength: 2 },
   }
 }
@@ -105,7 +106,22 @@ export function createSequencer(): SequencerState {
       clockSource: 'internal',
     },
     randomConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => createDefaultRandomConfig(i)),
-    lfoConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, waveform: 'sine' as const, rate: 16, depth: 1, offset: 0.5 })),
+    lfoConfigs: Array.from({ length: NUM_TRACKS }, () => ({
+      waveform: 'sine' as const,
+      syncMode: 'track' as const,
+      rate: 16,
+      freeRate: 1.0,
+      depth: 1.0,
+      offset: 0.5,
+      width: 0.5,
+      phase: 0.0,
+    })),
+    lfoRuntimes: Array.from({ length: NUM_TRACKS }, () => ({
+      currentPhase: 0,
+      lastSHValue: 0,
+      slewTarget: 0,
+      slewCurrent: 0,
+    })),
     arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, direction: 'up' as const, octaveRange: 1 })),
     transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 })),
     mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
@@ -141,8 +157,34 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
     currentStep: getEffectiveStep(masterTick, 1, mute.clockDivider, mute.length),
   }))
 
+  // Compute LFO values for all 4 tracks at current tick
+  const lfoResults = state.lfoConfigs.map((config, idx) => {
+    const track = state.tracks[idx]
+    return computeLFOValue(
+      config,
+      state.lfoRuntimes[idx],
+      masterTick,
+      track.clockDivider,
+      state.transport.bpm,
+    )
+  })
+  const lfoValues = lfoResults.map(r => r.value)
+
+  // Advance LFO runtimes for next tick
+  const nextLFORuntimes = state.lfoConfigs.map((config, idx) => {
+    const track = state.tracks[idx]
+    const { runtime } = computeLFOValue(
+      config,
+      state.lfoRuntimes[idx],
+      nextTick,
+      track.clockDivider,
+      state.transport.bpm,
+    )
+    return runtime
+  })
+
   // Resolve routing to produce output events at the current tick
-  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs, state.variationPatterns)
+  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs, state.variationPatterns, lfoValues)
 
   // --- Mutation (Turing Machine drift) ---
   // Apply before advancing to next tick so mutations take effect on the next loop.
@@ -223,6 +265,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
       tracks: nextTracks,
       mutePatterns: nextMutes,
       variationPatterns: advancedVariations,
+      lfoRuntimes: nextLFORuntimes,
       transport: {
         ...state.transport,
         masterTick: nextTick,
@@ -240,12 +283,12 @@ function updateSubtrackStep<T>(subtrack: Subtrack<T>, masterTick: number, trackD
 }
 
 /**
- * Set a step value in a simple subtrack (velocity, mod). Returns new state.
+ * Set a step value in the velocity subtrack. Returns new state.
  */
 export function setStep(
   state: SequencerState,
   trackIndex: number,
-  subtrack: 'velocity' | 'mod',
+  subtrack: 'velocity',
   stepIndex: number,
   value: number,
 ): SequencerState {
@@ -259,6 +302,30 @@ export function setStep(
         [subtrack]: {
           ...sub,
           steps: sub.steps.map((s, j) => (j === stepIndex ? value : s)),
+        },
+      }
+    }),
+  }
+}
+
+/**
+ * Set a mod step's value and/or slew. Returns new state.
+ */
+export function setModStep(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  updates: Partial<ModStep>,
+): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        mod: {
+          ...track.mod,
+          steps: track.mod.steps.map((s, j) => j === stepIndex ? { ...s, ...updates } : s),
         },
       }
     }),
@@ -370,6 +437,23 @@ export function setOutputSource(
     routing: state.routing.map((r, i) => {
       if (i !== outputIndex) return r
       return { ...r, [param]: clamped }
+    }),
+  }
+}
+
+/**
+ * Set the mod source (seq/lfo) for a single output. Returns new state.
+ */
+export function setModSource(
+  state: SequencerState,
+  outputIndex: number,
+  modSource: 'seq' | 'lfo',
+): SequencerState {
+  return {
+    ...state,
+    routing: state.routing.map((r, i) => {
+      if (i !== outputIndex) return r
+      return { ...r, modSource }
     }),
   }
 }
@@ -506,26 +590,6 @@ export function randomizeVelocityPattern(state: SequencerState, trackIndex: numb
 }
 
 /**
- * Regenerate mod subtrack from LFO config. Returns new state.
- */
-export function regenerateLFO(state: SequencerState, trackIndex: number): SequencerState {
-  const track = state.tracks[trackIndex]
-  const lfoConfig = state.lfoConfigs[trackIndex]
-  const newMod = generateLFOPattern(
-    { waveform: lfoConfig.waveform, rate: lfoConfig.rate, depth: lfoConfig.depth, offset: lfoConfig.offset },
-    track.mod.length,
-  )
-
-  return {
-    ...state,
-    tracks: state.tracks.map((t, i) => {
-      if (i !== trackIndex) return t
-      return { ...t, mod: { ...t.mod, steps: newMod } }
-    }),
-  }
-}
-
-/**
  * Randomize only the mod subtrack of a track. Returns new state.
  */
 export function randomizeModPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
@@ -550,11 +614,11 @@ function resizeSteps<T>(steps: T[], newLength: number, defaultValue: T): T[] {
   return [...steps, ...Array.from({ length: newLength - steps.length }, padValue)]
 }
 
-const SUBTRACK_DEFAULTS: Record<'gate' | 'pitch' | 'velocity' | 'mod', GateStep | PitchStep | number> = {
+const SUBTRACK_DEFAULTS: Record<'gate' | 'pitch' | 'velocity' | 'mod', GateStep | PitchStep | ModStep | number> = {
   gate: DEFAULT_GATE_STEP,
   pitch: DEFAULT_PITCH_STEP,
   velocity: 100,
-  mod: 0,
+  mod: DEFAULT_MOD_STEP,
 }
 
 /**

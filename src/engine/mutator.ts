@@ -9,7 +9,7 @@
  * Each subtrack rate: 0 = off, >0 = fraction of steps to regenerate per cycle.
  */
 
-import type { SequenceTrack, RandomConfig, MutateConfig, GateStep, PitchStep } from './types'
+import type { SequenceTrack, RandomConfig, MutateConfig, GateStep, PitchStep, ModStep } from './types'
 import { randomizeGates, randomizePitch, randomizeVelocity, randomizeMod } from './randomizer'
 
 /**
@@ -110,15 +110,23 @@ export function mutateTrack(
     track.velocity.steps, mutateConfig.velocity,
     (len, s) => randomizeVelocity(randomConfig.velocity, len, s), rng, seed + 12,
   )
-  const newMod = mutateSubtrack(
-    track.mod.steps, mutateConfig.mod,
-    (len, s) => randomizeMod(randomConfig.mod, len, s), rng, seed + 13,
-  )
+  // Mod mutation: only mutate .value, preserve .slew
+  let newModSteps = track.mod.steps
+  if (mutateConfig.mod > 0) {
+    const indices = pickMutationIndices(track.mod.steps.length, mutateConfig.mod, rng)
+    if (indices.length > 0) {
+      const replacementModSteps = randomizeMod(randomConfig.mod, track.mod.steps.length, seed + 13)
+      newModSteps = [...track.mod.steps]
+      for (const idx of indices) {
+        newModSteps[idx] = { ...newModSteps[idx], value: replacementModSteps[idx].value }
+      }
+    }
+  }
 
   // Only create new track if something changed
   if (
     newGateSteps === track.gate.steps && newPitchSteps === track.pitch.steps &&
-    newVel === track.velocity.steps && newMod === track.mod.steps
+    newVel === track.velocity.steps && newModSteps === track.mod.steps
   ) {
     return track
   }
@@ -128,7 +136,7 @@ export function mutateTrack(
     gate: newGateSteps !== track.gate.steps ? { ...track.gate, steps: newGateSteps } : track.gate,
     pitch: newPitchSteps !== track.pitch.steps ? { ...track.pitch, steps: newPitchSteps } : track.pitch,
     velocity: newVel !== track.velocity.steps ? { ...track.velocity, steps: newVel } : track.velocity,
-    mod: newMod !== track.mod.steps ? { ...track.mod, steps: newMod } : track.mod,
+    mod: newModSteps !== track.mod.steps ? { ...track.mod, steps: newModSteps } : track.mod,
   }
 }
 

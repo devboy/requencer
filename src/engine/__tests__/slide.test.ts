@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createSequencer, setSlide, setGateOn } from '../sequencer'
 import { resolveOutputs, createDefaultRouting } from '../routing'
 import { randomizeSlides } from '../randomizer'
-import type { SequenceTrack, MuteTrack, GateStep, PitchStep } from '../types'
+import type { SequenceTrack, MuteTrack, GateStep, PitchStep, ModStep } from '../types'
 
 function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: string }): SequenceTrack {
   return {
@@ -30,7 +30,7 @@ function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: strin
       currentStep: 0,
     },
     velocity: { steps: [100, 80, 90, 70], length: 4, clockDivider: 1, currentStep: 0 },
-    mod: { steps: [50, 60, 70, 80], length: 4, clockDivider: 1, currentStep: 0 },
+    mod: { steps: [{ value: 50, slew: 0 }, { value: 60, slew: 0 }, { value: 70, slew: 0 }, { value: 80, slew: 0 }], length: 4, clockDivider: 1, currentStep: 0 },
     ...overrides,
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { randomizeGates, randomizePitch, randomizeVelocity, randomizeTrack, randomizeTies } from '../randomizer'
+import { randomizeGates, randomizePitch, randomizeVelocity, randomizeTrack, randomizeTies, randomizeMod } from '../randomizer'
 import { SCALES } from '../scales'
 
 describe('randomizeGates', () => {
@@ -319,7 +319,7 @@ describe('randomizeTrack', () => {
       gateLength: { min: 0.25, max: 0.75 },
       ratchet: { maxRatchet: 3, probability: 0.2 },
       slide: { probability: 0.15 },
-      mod: { low: 0, high: 1 },
+      mod: { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 },
       tie: { probability: 0, maxLength: 2 },
     }
     const result = randomizeTrack(config, { gate: 16, pitch: 7, velocity: 12, mod: 14 }, 42)
@@ -330,6 +330,156 @@ describe('randomizeTrack', () => {
     expect(result.ratchet.length).toBe(16) // matches gate length
     expect(result.slide.length).toBe(7) // matches pitch length
     expect(result.mod.length).toBe(14)
+    // mod steps should be ModStep objects with value and slew
+    for (const step of result.mod) {
+      expect(step).toHaveProperty('value')
+      expect(step).toHaveProperty('slew')
+      expect(step.value).toBeGreaterThanOrEqual(0)
+      expect(step.value).toBeLessThanOrEqual(1)
+    }
     expect(result.tie.length).toBe(16) // matches gate length
+  })
+})
+
+describe('randomizeMod', () => {
+  it('produces ModStep objects with value and slew', () => {
+    const config = { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const steps = randomizeMod(config, 16, 42)
+    expect(steps.length).toBe(16)
+    for (const step of steps) {
+      expect(step).toHaveProperty('value')
+      expect(step).toHaveProperty('slew')
+      expect(step.value).toBeGreaterThanOrEqual(0)
+      expect(step.value).toBeLessThanOrEqual(1)
+      expect(typeof step.slew).toBe('number')
+    }
+  })
+
+  it('values fall within configured range', () => {
+    const config = { low: 0.2, high: 0.8, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const steps = randomizeMod(config, 32, 99)
+    for (const step of steps) {
+      expect(step.value).toBeGreaterThanOrEqual(0.2)
+      expect(step.value).toBeLessThanOrEqual(0.8)
+    }
+  })
+
+  it('is deterministic with same seed', () => {
+    const config = { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const a = randomizeMod(config, 16, 42)
+    const b = randomizeMod(config, 16, 42)
+    expect(a).toEqual(b)
+  })
+})
+
+describe('randomizeMod modes', () => {
+  // Test all 7 modes: random, rise, fall, vee, hill, sync, walk
+
+  const baseConfig = {
+    low: 0.2,
+    high: 0.8,
+    mode: 'random' as const,
+    slew: 0.5,
+    slewProbability: 0.5,
+    walkStepSize: 0.15,
+    syncBias: 0.7,
+  }
+
+  it('RISE mode: values monotonically increase from low to high', () => {
+    const steps = randomizeMod({ ...baseConfig, mode: 'rise' }, 16, 42)
+    expect(steps).toHaveLength(16)
+    expect(steps[0].value).toBeCloseTo(0.2, 1)
+    expect(steps[15].value).toBeCloseTo(0.8, 1)
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i].value).toBeGreaterThanOrEqual(steps[i-1].value - 0.001)
+    }
+  })
+
+  it('FALL mode: values monotonically decrease from high to low', () => {
+    const steps = randomizeMod({ ...baseConfig, mode: 'fall' }, 16, 42)
+    expect(steps[0].value).toBeCloseTo(0.8, 1)
+    expect(steps[15].value).toBeCloseTo(0.2, 1)
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i].value).toBeLessThanOrEqual(steps[i-1].value + 0.001)
+    }
+  })
+
+  it('HILL mode: values increase to midpoint then decrease', () => {
+    const steps = randomizeMod({ ...baseConfig, mode: 'hill' }, 16, 42)
+    expect(steps[0].value).toBeCloseTo(0.2, 1)
+    // Middle should be near high
+    const mid = Math.floor(steps.length / 2)
+    expect(steps[mid].value).toBeGreaterThan(0.6)
+    expect(steps[15].value).toBeCloseTo(0.2, 1)
+  })
+
+  it('VEE mode: values decrease to midpoint then increase', () => {
+    const steps = randomizeMod({ ...baseConfig, mode: 'vee' }, 16, 42)
+    expect(steps[0].value).toBeCloseTo(0.8, 1)
+    const mid = Math.floor(steps.length / 2)
+    expect(steps[mid].value).toBeLessThan(0.4)
+    expect(steps[15].value).toBeCloseTo(0.8, 1)
+  })
+
+  it('WALK mode: adjacent values differ by at most walkStepSize', () => {
+    const cfg = { ...baseConfig, mode: 'walk' as const, walkStepSize: 0.1 }
+    const steps = randomizeMod(cfg, 32, 42)
+    for (let i = 1; i < steps.length; i++) {
+      expect(Math.abs(steps[i].value - steps[i-1].value)).toBeLessThanOrEqual(0.1 + 0.01)
+    }
+  })
+
+  it('WALK mode: values stay within low/high bounds', () => {
+    const cfg = { ...baseConfig, mode: 'walk' as const }
+    const steps = randomizeMod(cfg, 64, 42)
+    for (const step of steps) {
+      expect(step.value).toBeGreaterThanOrEqual(baseConfig.low - 0.01)
+      expect(step.value).toBeLessThanOrEqual(baseConfig.high + 0.01)
+    }
+  })
+
+  it('SYNC mode: offbeat positions get higher average values than downbeats', () => {
+    const cfg = { ...baseConfig, mode: 'sync' as const, syncBias: 1.0, slewProbability: 0 }
+    // Run many iterations to get statistical average
+    let downbeatSum = 0, offbeatSum = 0, downbeatN = 0, offbeatN = 0
+    for (let seed = 0; seed < 50; seed++) {
+      const steps = randomizeMod(cfg, 16, seed)
+      for (let i = 0; i < steps.length; i++) {
+        if (i % 4 === 0) { downbeatSum += steps[i].value; downbeatN++ }
+        else { offbeatSum += steps[i].value; offbeatN++ }
+      }
+    }
+    expect(offbeatSum / offbeatN).toBeGreaterThan(downbeatSum / downbeatN)
+  })
+
+  it('all modes produce correct length', () => {
+    const modes = ['random', 'rise', 'fall', 'vee', 'hill', 'sync', 'walk'] as const
+    for (const mode of modes) {
+      const steps = randomizeMod({ ...baseConfig, mode }, 8, 42)
+      expect(steps).toHaveLength(8)
+    }
+  })
+
+  it('ramp modes apply uniform slew', () => {
+    const cfg = { ...baseConfig, mode: 'rise' as const, slew: 0.7 }
+    const steps = randomizeMod(cfg, 8, 42)
+    for (const step of steps) {
+      expect(step.slew).toBe(0.7)
+    }
+  })
+
+  it('random mode respects slewProbability', () => {
+    const cfg = { ...baseConfig, mode: 'random' as const, slew: 0.5, slewProbability: 1.0 }
+    const steps = randomizeMod(cfg, 16, 42)
+    // All steps should have slew when probability is 1.0
+    for (const step of steps) {
+      expect(step.slew).toBe(0.5)
+    }
+  })
+
+  it('deterministic: same seed produces same output', () => {
+    const a = randomizeMod(baseConfig, 16, 99)
+    const b = randomizeMod(baseConfig, 16, 99)
+    expect(a).toEqual(b)
   })
 })

@@ -196,31 +196,33 @@ function buildRowDefs(): RandRow[] {
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.high * 100)}%`,
       visible: always,
     },
-
-    // --- LFO section ---
     {
-      type: 'header', paramId: 'section.lfo', label: 'LFO',
-      getValue: () => '', visible: always,
-    },
-    {
-      type: 'param', paramId: 'lfo.enabled', label: 'LFO',
-      getValue: (e, ui) => e.lfoConfigs[ui.selectedTrack].enabled ? 'ON' : 'OFF',
+      type: 'param', paramId: 'mod.mode', label: 'MODE',
+      getValue: (e, ui) => {
+        const map: Record<string, string> = { random: 'RAND', rise: 'RISE', fall: 'FALL', vee: 'VEE', hill: 'HILL', sync: 'SYNC', walk: 'WALK' }
+        return map[cfg(e, ui).mod.mode] ?? cfg(e, ui).mod.mode.toUpperCase()
+      },
       visible: always,
     },
     {
-      type: 'subparam', paramId: 'lfo.waveform', label: 'WAVE',
-      getValue: (e, ui) => e.lfoConfigs[ui.selectedTrack].waveform.toUpperCase(),
-      visible: (e, ui) => e.lfoConfigs[ui.selectedTrack].enabled,
+      type: 'subparam', paramId: 'mod.walkStepSize', label: 'WALK Δ',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.walkStepSize * 100)}%`,
+      visible: (e, ui) => cfg(e, ui).mod.mode === 'walk',
     },
     {
-      type: 'subparam', paramId: 'lfo.rate', label: 'RATE',
-      getValue: (e, ui) => String(e.lfoConfigs[ui.selectedTrack].rate),
-      visible: (e, ui) => e.lfoConfigs[ui.selectedTrack].enabled,
+      type: 'subparam', paramId: 'mod.syncBias', label: 'BIAS',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.syncBias * 100)}%`,
+      visible: (e, ui) => cfg(e, ui).mod.mode === 'sync',
     },
     {
-      type: 'subparam', paramId: 'lfo.depth', label: 'DEPTH',
-      getValue: (e, ui) => `${Math.round(e.lfoConfigs[ui.selectedTrack].depth * 100)}%`,
-      visible: (e, ui) => e.lfoConfigs[ui.selectedTrack].enabled,
+      type: 'param', paramId: 'mod.slew', label: 'SLEW',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.slew * 100)}%`,
+      visible: always,
+    },
+    {
+      type: 'param', paramId: 'mod.slewProb', label: 'SLEW %',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.slewProbability * 100)}%`,
+      visible: always,
     },
 
     // --- SAVE (always last) ---
@@ -252,6 +254,5 @@ export const SECTION_PARAMS: Record<string, string[]> = {
   'section.gate': ['gate.fillMin', 'gate.fillMax', 'gate.mode', 'gate.randomOffset', 'gate.clusterContinuation', 'gateLength.min', 'gateLength.max', 'ratchet.maxRatchet', 'ratchet.probability'],
   'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.low', 'velocity.high'],
-  'section.mod': ['mod.low', 'mod.high'],
-  'section.lfo': ['lfo.enabled', 'lfo.waveform', 'lfo.rate', 'lfo.depth'],
+  'section.mod': ['mod.low', 'mod.high', 'mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.slew', 'mod.slewProb'],
 }

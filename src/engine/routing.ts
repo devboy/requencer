@@ -1,11 +1,11 @@
-import type { SequenceTrack, OutputRouting, MuteTrack, NoteEvent, TransposeConfig, VariationPattern } from './types'
-import { getTransformsForSubtrack, getEffectiveGateStep, getEffectivePitchStep, getEffectiveSimpleStep } from './variation'
+import type { SequenceTrack, OutputRouting, MuteTrack, NoteEvent, TransposeConfig, VariationPattern, ModStep } from './types'
+import { getTransformsForSubtrack, getEffectiveGateStep, getEffectivePitchStep, getEffectiveSimpleStep, getEffectiveCompoundStep } from './variation'
 
 const NUM_OUTPUTS = 4
 
 export function createDefaultRouting(): OutputRouting[] {
   return Array.from({ length: NUM_OUTPUTS }, (_, i) => ({
-    gate: i, pitch: i, velocity: i, mod: i,
+    gate: i, pitch: i, velocity: i, mod: i, modSource: 'seq' as const,
   }))
 }
 
@@ -15,12 +15,13 @@ export function resolveOutputs(
   mutes: MuteTrack[],
   transposeConfigs?: TransposeConfig[],
   variationPatterns?: VariationPattern[],
+  lfoValues?: number[],
 ): NoteEvent[] {
   const events: NoteEvent[] = []
   for (let i = 0; i < NUM_OUTPUTS; i++) {
     const r = routing[i]
     if (!r) {
-      events.push({ output: i, gate: false, pitch: 0, velocity: 0, mod: 0, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
+      events.push({ output: i, gate: false, pitch: 0, velocity: 0, mod: 0, modSlew: 0, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
       continue
     }
     const gateTrack = tracks[r.gate]
@@ -71,14 +72,27 @@ export function resolveOutputs(
         : velTrack.velocity.steps[velTrack.velocity.currentStep])
       : 0
 
-    const modVP = variationPatterns?.[r.mod]
-    const modTransforms = modVP?.enabled ? getTransformsForSubtrack(modVP, 'mod') : []
-    const mod = modTrack
-      ? (modTransforms.length > 0
-        ? getEffectiveSimpleStep(modTrack.mod, modTransforms)
-        : modTrack.mod.steps[modTrack.mod.currentStep])
-      : 0
     const slide = pitchStep?.slide ?? 0
+
+    // MOD resolution: choose source based on modSource
+    let mod: number
+    let modSlew: number = 0
+    const modSource = r.modSource ?? 'seq'
+    if (modSource === 'lfo' && lfoValues) {
+      mod = lfoValues[r.mod] ?? 0
+      modSlew = 0  // LFO output is already continuous
+    } else {
+      // Seq mod — apply variation overlay if active
+      const modVP = variationPatterns?.[r.mod]
+      const modTransforms = modVP?.enabled ? getTransformsForSubtrack(modVP, 'mod') : []
+      const modStep: ModStep | undefined = modTrack
+        ? (modTransforms.length > 0
+          ? getEffectiveCompoundStep<ModStep>(modTrack.mod, modTransforms)
+          : modTrack.mod.steps[modTrack.mod.currentStep])
+        : undefined
+      mod = modStep?.value ?? 0
+      modSlew = modStep?.slew ?? 0
+    }
 
     // Look-back: is this a continuation? (this step has tie flag)
     const retrigger = gate && !(gateStep?.tie)
@@ -106,7 +120,7 @@ export function resolveOutputs(
     const mute = mutes[i]
     if (mute && mute.steps[mute.currentStep]) gate = false
 
-    events.push({ output: i, gate, pitch, velocity, mod, gateLength, ratchetCount, slide, retrigger, sustain })
+    events.push({ output: i, gate, pitch, velocity, mod, modSlew, gateLength, ratchetCount, slide, retrigger, sustain })
   }
   return events
 }
