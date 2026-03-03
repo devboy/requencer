@@ -247,6 +247,32 @@ export interface VariationPattern {
   }
 }
 
+// Pattern storage: snapshot of one track + all its overlays
+export interface TrackSlotData {
+  track: SequenceTrack
+  transposeConfig: TransposeConfig
+  mutateConfig: MutateConfig
+  variationPattern: VariationPattern
+  lfoConfig: LFOConfig
+  randomConfig: RandomConfig
+  arpConfig: ArpConfig
+}
+
+export interface LayerFlags {
+  subtracks: boolean
+  transpose: boolean
+  drift: boolean
+  variation: boolean
+  lfo: boolean
+  random: boolean
+  arp: boolean
+}
+
+export interface SavedPattern {
+  name: string
+  slots: [TrackSlotData | null, TrackSlotData | null, TrackSlotData | null, TrackSlotData | null]
+}
+
 // Top-level sequencer state
 export interface SequencerState {
   tracks: SequenceTrack[] // 4 sequence tracks
@@ -263,4 +289,5 @@ export interface SequencerState {
   midiEnabled: boolean // global MIDI output on/off
   userPresets: UserPreset[] // user-saved presets (unlimited)
   variationPatterns: VariationPattern[] // 4 variation patterns (one per track)
+  savedPatterns: SavedPattern[] // user-saved patterns (unlimited)
 }

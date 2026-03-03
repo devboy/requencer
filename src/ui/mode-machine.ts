@@ -14,6 +14,14 @@
  */
 
 import { clamp } from '../engine/math'
+import {
+  createDefaultLayerFlags,
+  deletePattern,
+  loadPattern,
+  savePattern,
+  snapshotAllTracks,
+  snapshotSingleTrack,
+} from '../engine/patterns'
 import { PRESETS } from '../engine/presets'
 import { SCALES } from '../engine/scales'
 import {
@@ -44,6 +52,7 @@ import {
 import type {
   ArpDirection,
   ClockSource,
+  LayerFlags,
   ModMode,
   RandomConfig,
   SequencerState,
@@ -53,6 +62,7 @@ import type {
 } from '../engine/types'
 import { createDefaultVariationPattern } from '../engine/variation'
 import type { ControlEvent, LEDState, ScreenMode, SubtrackId, UIState } from './hw-types'
+import { getPatternRows } from './pattern-rows'
 import { getAllPresets, getVisibleRows, SECTION_PARAMS } from './rand-rows'
 import { getSettingsRows, SETTINGS_SECTION_PARAMS } from './settings-rows'
 import { getXposeVisibleRows } from './xpose-rows'
@@ -86,6 +96,13 @@ export function createInitialUIState(): UIState {
     modLfoParam: 0,
     midiDevices: [],
     midiDeviceIndex: 0,
+    patternParam: 0,
+    patternIndex: 0,
+    patternLoadSlot: 0,
+    patternSlotMapping: [0, 1, 2, 3],
+    patternLayerFlags: createDefaultLayerFlags(),
+    patternLoadStep: 'mapping',
+    nameEntryContext: 'preset',
   }
 }
 
@@ -202,6 +219,18 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
   }
 
+  // Back — pattern-load: step back through phases
+  if (event.type === 'back' && ui.mode === 'pattern-load') {
+    if (ui.patternLoadStep === 'confirm') {
+      return { ui: { ...ui, patternLoadStep: 'layers' }, engine }
+    }
+    if (ui.patternLoadStep === 'layers') {
+      return { ui: { ...ui, patternLoadStep: 'mapping' }, engine }
+    }
+    // mapping → back to pattern screen
+    return { ui: { ...ui, mode: 'pattern', patternLoadStep: 'mapping' }, engine }
+  }
+
   // Back — cross-modal navigation to home (name-entry handled above)
   if (event.type === 'back') {
     return { ui: { ...ui, mode: 'home', currentPage: 0 }, engine }
@@ -235,6 +264,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui: { ...ui, mode: 'settings', settingsParam: 0 }, engine }
   }
 
+  if (event.type === 'pattern-press') {
+    return { ui: { ...ui, mode: 'pattern', patternParam: 0, patternIndex: 0 }, engine }
+  }
+
   // --- Mode-specific dispatch ---
   switch (ui.mode) {
     case 'home':
@@ -261,6 +294,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       return dispatchVariationEdit(ui, engine, event)
     case 'settings':
       return dispatchSettings(ui, engine, event)
+    case 'pattern':
+      return dispatchPattern(ui, engine, event)
+    case 'pattern-load':
+      return dispatchPatternLoad(ui, engine, event)
   }
 }
 
@@ -1914,6 +1951,173 @@ function dispatchHoldRand(ui: UIState, engine: SequencerState): DispatchResult {
 
 export const NAME_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789-'
 
+// --- PATTERN Screen ---
+// Enc A: scroll rows
+// Enc B: on pattern rows, browse patterns
+// Enc A push: action (save, load, delete)
+
+function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  const rows = getPatternRows(engine)
+  const maxIdx = rows.length - 1
+
+  switch (event.type) {
+    case 'encoder-a-turn': {
+      const next = clamp(ui.patternParam + event.delta, 0, maxIdx)
+      return { ui: { ...ui, patternParam: next }, engine }
+    }
+    case 'encoder-b-turn': {
+      const row = rows[ui.patternParam]
+      if (!row) return { ui, engine }
+      if (row.paramId === 'pattern-slot') {
+        const patCount = engine.savedPatterns.length
+        if (patCount === 0) return { ui, engine }
+        const next = clamp(ui.patternIndex + event.delta, 0, patCount - 1)
+        return { ui: { ...ui, patternIndex: next }, engine }
+      }
+      return { ui, engine }
+    }
+    case 'encoder-a-push': {
+      const row = rows[ui.patternParam]
+      if (!row) return { ui, engine }
+      if (row.paramId === 'save-all') {
+        return {
+          ui: {
+            ...ui,
+            mode: 'name-entry',
+            nameChars: Array(NAME_MAX_LEN).fill(26),
+            nameCursor: 0,
+            nameEntryContext: 'pattern-all',
+          },
+          engine,
+        }
+      }
+      if (row.paramId === 'save-track') {
+        return {
+          ui: {
+            ...ui,
+            mode: 'name-entry',
+            nameChars: Array(NAME_MAX_LEN).fill(26),
+            nameCursor: 0,
+            nameEntryContext: 'pattern-single',
+          },
+          engine,
+        }
+      }
+      if (row.paramId === 'pattern-slot') {
+        const pattern = engine.savedPatterns[ui.patternIndex]
+        if (!pattern) return { ui, engine }
+        return {
+          ui: {
+            ...ui,
+            mode: 'pattern-load',
+            patternLoadSlot: 0,
+            patternSlotMapping: [0, 1, 2, 3],
+            patternLayerFlags: createDefaultLayerFlags(),
+            patternLoadStep: 'mapping',
+          },
+          engine,
+        }
+      }
+      if (row.paramId === 'delete') {
+        if (engine.savedPatterns.length === 0) return { ui, engine }
+        const newEngine = deletePattern(engine, ui.patternIndex)
+        const newIdx = clamp(ui.patternIndex, 0, Math.max(0, newEngine.savedPatterns.length - 1))
+        return { ui: { ...ui, patternIndex: newIdx }, engine: newEngine }
+      }
+      return { ui, engine }
+    }
+    default:
+      return { ui, engine }
+  }
+}
+
+// --- PATTERN LOAD Screen ---
+// Three-phase flow: mapping → layers → confirm
+
+const LAYER_KEYS: (keyof LayerFlags)[] = ['subtracks', 'transpose', 'drift', 'variation', 'lfo', 'random', 'arp']
+export const LAYER_LABELS: Record<keyof LayerFlags, string> = {
+  subtracks: 'SEQS',
+  transpose: 'TRNS',
+  drift: 'DRIFT',
+  variation: 'VAR',
+  lfo: 'LFO',
+  random: 'RAND',
+  arp: 'ARP',
+}
+
+function dispatchPatternLoad(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  const pattern = engine.savedPatterns[ui.patternIndex]
+  if (!pattern) return { ui: { ...ui, mode: 'pattern' }, engine }
+
+  if (ui.patternLoadStep === 'mapping') {
+    return dispatchPatternMapping(ui, engine, event, pattern)
+  }
+  if (ui.patternLoadStep === 'layers') {
+    return dispatchPatternLayers(ui, engine, event)
+  }
+  // confirm
+  return dispatchPatternConfirm(ui, engine, event, pattern)
+}
+
+function dispatchPatternMapping(
+  ui: UIState,
+  engine: SequencerState,
+  event: ControlEvent,
+  pattern: import('../engine/types').SavedPattern,
+): DispatchResult {
+  switch (event.type) {
+    case 'encoder-a-turn': {
+      const next = clamp(ui.patternLoadSlot + event.delta, 0, 3)
+      return { ui: { ...ui, patternLoadSlot: next }, engine }
+    }
+    case 'encoder-b-turn': {
+      const slot = pattern.slots[ui.patternLoadSlot]
+      if (!slot) return { ui, engine } // empty slot, no remapping
+      const mapping = [...ui.patternSlotMapping] as [number, number, number, number]
+      mapping[ui.patternLoadSlot] = clamp(mapping[ui.patternLoadSlot] + event.delta, 0, 3)
+      return { ui: { ...ui, patternSlotMapping: mapping }, engine }
+    }
+    case 'encoder-a-push':
+      return { ui: { ...ui, patternLoadStep: 'layers', patternLoadSlot: 0 }, engine }
+    default:
+      return { ui, engine }
+  }
+}
+
+function dispatchPatternLayers(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  switch (event.type) {
+    case 'encoder-a-turn': {
+      const next = clamp(ui.patternLoadSlot + event.delta, 0, LAYER_KEYS.length - 1)
+      return { ui: { ...ui, patternLoadSlot: next }, engine }
+    }
+    case 'encoder-b-turn': {
+      const key = LAYER_KEYS[ui.patternLoadSlot]
+      const flags = { ...ui.patternLayerFlags, [key]: !ui.patternLayerFlags[key] }
+      return { ui: { ...ui, patternLayerFlags: flags }, engine }
+    }
+    case 'encoder-a-push':
+      return { ui: { ...ui, patternLoadStep: 'confirm' }, engine }
+    default:
+      return { ui, engine }
+  }
+}
+
+function dispatchPatternConfirm(
+  ui: UIState,
+  engine: SequencerState,
+  event: ControlEvent,
+  pattern: import('../engine/types').SavedPattern,
+): DispatchResult {
+  switch (event.type) {
+    case 'encoder-a-push': {
+      const newEngine = loadPattern(engine, pattern, ui.patternSlotMapping, ui.patternLayerFlags)
+      return { ui: { ...ui, mode: 'pattern' }, engine: newEngine }
+    }
+    default:
+      return { ui, engine }
+  }
+}
+
 function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   switch (event.type) {
     case 'encoder-a-turn': {
@@ -1927,20 +2131,36 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
       return { ui: { ...ui, nameCursor: next }, engine }
     }
     case 'encoder-a-push': {
-      // Save: convert chars to string, trim trailing spaces, save preset
+      // Save: convert chars to string, trim trailing spaces
       const name = ui.nameChars
         .map((i) => NAME_CHARSET[i])
         .join('')
         .trimEnd()
-      const config = engine.randomConfigs[ui.selectedTrack]
-      return {
-        ui: { ...ui, mode: 'rand' },
-        engine: saveUserPreset(engine, name, config),
+      if (ui.nameEntryContext === 'preset') {
+        const config = engine.randomConfigs[ui.selectedTrack]
+        return {
+          ui: { ...ui, mode: 'rand' },
+          engine: saveUserPreset(engine, name, config),
+        }
       }
+      if (ui.nameEntryContext === 'pattern-all') {
+        return {
+          ui: { ...ui, mode: 'pattern' },
+          engine: savePattern(engine, snapshotAllTracks(engine, name)),
+        }
+      }
+      if (ui.nameEntryContext === 'pattern-single') {
+        return {
+          ui: { ...ui, mode: 'pattern' },
+          engine: savePattern(engine, snapshotSingleTrack(engine, ui.selectedTrack, name)),
+        }
+      }
+      return { ui, engine }
     }
     case 'back': {
-      // Cancel — return to rand without saving
-      return { ui: { ...ui, mode: 'rand' }, engine }
+      // Cancel — return to origin screen without saving
+      const backMode = ui.nameEntryContext === 'preset' ? 'rand' : 'pattern'
+      return { ui: { ...ui, mode: backMode as ScreenMode }, engine }
     }
     case 'encoder-b-push':
       return { ui, engine } // no-op (context-sensitive TBD)

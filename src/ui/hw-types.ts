@@ -27,6 +27,8 @@ export type ScreenMode =
   | 'transpose-edit'
   | 'variation-edit'
   | 'settings'
+  | 'pattern'
+  | 'pattern-load'
 
 export type ControlEvent =
   | { type: 'encoder-a-turn'; delta: number }
@@ -45,6 +47,7 @@ export type ControlEvent =
   | { type: 'hold-start'; button: HeldButtonTarget }
   | { type: 'hold-end' }
   | { type: 'settings-press' }
+  | { type: 'pattern-press' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
 export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose' | 'variation'
@@ -79,6 +82,13 @@ export interface UIState {
   modLfoParam: number // 0-6: selected LFO param row (WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE)
   midiDevices: Array<{ id: string; name: string }> // available MIDI output devices
   midiDeviceIndex: number // selected MIDI device index per output (into midiDevices)
+  patternParam: number // selected row in PATTERN screen
+  patternIndex: number // highlighted saved pattern
+  patternLoadSlot: number // 0-3: which slot row is focused in load screen
+  patternSlotMapping: [number, number, number, number] // slot→target track
+  patternLayerFlags: import('../engine/types').LayerFlags
+  patternLoadStep: 'mapping' | 'layers' | 'confirm'
+  nameEntryContext: 'preset' | 'pattern-all' | 'pattern-single'
 }
 
 export interface LEDState {

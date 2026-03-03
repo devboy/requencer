@@ -289,7 +289,7 @@ export function createFaceplate(): FaceplateElements {
 
   const tdbBtn = document.createElement('button')
   tdbBtn.className = 'large-btn tbd-btn'
-  tdbBtn.innerHTML = '<span class="btn-icon">·</span><span class="btn-text">TBD</span>'
+  tdbBtn.innerHTML = '<span class="btn-icon">▦</span><span class="btn-text">PAT</span>'
   controlStripBtns.appendChild(tdbBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---

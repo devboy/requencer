@@ -6,6 +6,7 @@ import { createSequencer, tick } from './engine/sequencer'
 import type { SequencerState } from './engine/types'
 import { DrumMachine } from './io/drum-machine'
 import { MIDIOutput } from './io/midi-output'
+import { loadPatterns, loadPresets, savePatterns, savePresets } from './io/persistence'
 import { ToneClock } from './io/tone-clock'
 import { ToneOutput } from './io/tone-output'
 import { COLORS } from './ui/colors'
@@ -21,6 +22,8 @@ import { renderModEdit } from './ui/lcd/mod-edit'
 import { renderMutateEdit } from './ui/lcd/mutate-screen'
 import { renderMuteEdit } from './ui/lcd/mute-edit'
 import { renderNameEntry } from './ui/lcd/name-entry'
+import { renderPatternLoad } from './ui/lcd/pattern-load-screen'
+import { renderPattern } from './ui/lcd/pattern-screen'
 import { renderPitchEdit } from './ui/lcd/pitch-edit'
 import { renderRand } from './ui/lcd/rand-screen'
 import { renderRoute } from './ui/lcd/route-screen'
@@ -38,6 +41,9 @@ console.log('requencer starting')
 
 // --- Engine State (empty tracks — no initial randomization) ---
 let engineState: SequencerState = createSequencer()
+
+// --- Load persisted data ---
+engineState = { ...engineState, savedPatterns: loadPatterns(), userPresets: loadPresets() }
 
 // --- UI State ---
 let uiState: UIState = createInitialUIState()
@@ -141,9 +147,15 @@ onControlEvent(async (event: ControlEvent) => {
   }
 
   // All other events go through the mode machine
+  const prevPatterns = engineState.savedPatterns
+  const prevPresets = engineState.userPresets
   const result = dispatch(uiState, engineState, event)
   uiState = result.ui
   engineState = result.engine
+
+  // Persist if changed
+  if (engineState.savedPatterns !== prevPatterns) savePatterns(engineState.savedPatterns)
+  if (engineState.userPresets !== prevPresets) savePresets(engineState.userPresets)
 
   // Sync BPM if it changed
   if (clock.bpm !== engineState.transport.bpm) {
@@ -166,6 +178,8 @@ const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: Sequ
   'variation-edit': renderVariationEdit,
   'mod-edit': renderModEdit,
   settings: renderSettings,
+  pattern: renderPattern,
+  'pattern-load': renderPatternLoad,
 }
 
 // Status bar text per mode
@@ -177,12 +191,15 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'mute-edit': (ui) => `T${ui.selectedTrack + 1} MUTE`,
   route: (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   rand: (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
-  'name-entry': () => 'SAVE PRESET',
+  'name-entry': (ui) =>
+    ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : ui.nameEntryContext === 'pattern-all' ? 'SAVE PATTERN' : `SAVE T${ui.selectedTrack + 1} PATTERN`,
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
   'mod-edit': (ui) => `T${ui.selectedTrack + 1} ${ui.modLfoView ? 'LFO' : 'MOD'}`,
   settings: () => 'SETTINGS',
+  pattern: () => 'PATTERN',
+  'pattern-load': () => 'LOAD PATTERN',
 }
 
 // --- Shortcut Hints (below module) ---
@@ -200,6 +217,8 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'mod-edit': 'Z-M: select   ↑↓: value   ←→: page/scroll   Enter: MOD/LFO   Esc: back',
   'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
   settings: '↑↓: scroll   ←→: adjust   Esc: back',
+  pattern: '↑↓: scroll   ←→: browse   Enter: act   J: pattern   Esc: back',
+  'pattern-load': '↑↓: scroll   ←→: adjust   Enter: next   Esc: back',
 }
 
 const hintEl = document.createElement('div')

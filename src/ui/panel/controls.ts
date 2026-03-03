@@ -270,7 +270,8 @@ export function createControls(panel: FaceplateElements): void {
   // --- SETTINGS button — enters settings screen ---
   panel.settingsBtn.addEventListener('pointerdown', () => emit({ type: 'settings-press' }))
 
-  // --- TBD button — no-op for now ---
+  // --- PAT button — enters pattern screen ---
+  panel.tdbBtn.addEventListener('pointerdown', () => emit({ type: 'pattern-press' }))
 
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
