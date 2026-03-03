@@ -13,7 +13,7 @@
  * No DOM, no canvas, no side effects.
  */
 
-import type { SequencerState, RandomConfig, ArpDirection, ClockSource } from '../engine/types'
+import type { SequencerState, RandomConfig, ArpDirection, ClockSource, TransformType, Transform, VariationPattern } from '../engine/types'
 import { randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, randomizeModPattern, regenerateLFO, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, setOutputSource, setStep, setGateOn, setGateLength, setGateRatchet, setPitchNote, setSlide, setTieRange, setGateTie } from '../engine/sequencer'
 import type { ScreenMode, ControlEvent, UIState, LEDState, HeldButtonTarget } from './hw-types'
 import { PRESETS } from '../engine/presets'
@@ -43,6 +43,8 @@ export function createInitialUIState(): UIState {
     mutateParam: 0,
     routeParam: 0,
     settingsParam: 0,
+    varParam: 0,
+    varSelectedBar: -1,
     midiDevices: [],
     midiDeviceIndex: 0,
   }
@@ -56,8 +58,8 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     if (event.button.kind === 'step' && ui.mode === 'gate-edit') {
       return { ui: { ...ui, heldButton: event.button, holdEncoderUsed: false, selectedStep: event.button.step }, engine }
     }
-    // Only feature buttons with hold combos (mute) get hold state
-    if (event.button.kind === 'feature' && event.button.feature !== 'mute') {
+    // Only feature buttons with hold combos (mute, variation) get hold state
+    if (event.button.kind === 'feature' && event.button.feature !== 'mute' && event.button.feature !== 'variation') {
       return { ui, engine }
     }
     return { ui: { ...ui, heldButton: event.button, holdEncoderUsed: false }, engine }
@@ -149,8 +151,9 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       rand: 'rand',
       mutate: 'mutate-edit',
       transpose: 'transpose-edit',
+      variation: 'variation-edit',
     }
-    return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0 }, engine }
+    return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0, varSelectedBar: -1 }, engine }
   }
 
   if (event.type === 'settings-press') {
@@ -179,6 +182,8 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       return dispatchModEdit(ui, engine, event)
     case 'transpose-edit':
       return dispatchTransposeEdit(ui, engine, event)
+    case 'variation-edit':
+      return dispatchVariationEdit(ui, engine, event)
     case 'settings':
       return dispatchSettings(ui, engine, event)
   }
@@ -501,6 +506,132 @@ function updateMutateConfig(engine: SequencerState, trackIdx: number, config: im
   return {
     ...engine,
     mutateConfigs: engine.mutateConfigs.map((c, i) => (i === trackIdx ? config : c)),
+  }
+}
+
+// --- Variation Edit ---
+// Step buttons: select bar (0 to phrase length - 1), deselect if already selected
+// Enc A turn: browse transform catalog (when bar selected)
+// Enc A push: toggle enabled (no bar selected), add transform (bar selected)
+// Enc A hold: remove last transform from selected bar
+// Enc B turn: adjust param of last transform in selected bar
+// Hold VAR + Enc A: set phrase length (handled in dispatchHoldCombo)
+
+/** Transform catalog — browse order matching the design doc */
+export const TRANSFORM_CATALOG: Array<{ type: TransformType; label: string; defaultParam: number }> = [
+  { type: 'reverse',      label: 'REVERSE',      defaultParam: 0 },
+  { type: 'ping-pong',    label: 'PING-PONG',    defaultParam: 0 },
+  { type: 'rotate',       label: 'ROTATE',       defaultParam: 1 },
+  { type: 'thin',         label: 'THIN',          defaultParam: 0.5 },
+  { type: 'fill',         label: 'FILL',          defaultParam: 0 },
+  { type: 'skip-even',    label: 'SKIP-EVEN',     defaultParam: 0 },
+  { type: 'skip-odd',     label: 'SKIP-ODD',      defaultParam: 0 },
+  { type: 'transpose',    label: 'TRANSPOSE',     defaultParam: 7 },
+  { type: 'invert',       label: 'INVERT',        defaultParam: 60 },
+  { type: 'octave-shift', label: 'OCTAVE-SHIFT',  defaultParam: 1 },
+  { type: 'double-time',  label: 'DOUBLE-TIME',   defaultParam: 0 },
+  { type: 'stutter',      label: 'STUTTER',       defaultParam: 4 },
+]
+
+function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  const trackIdx = ui.selectedTrack
+  const vp = engine.variationPatterns[trackIdx]
+
+  switch (event.type) {
+    case 'step-press': {
+      // Steps 0 to phraseLength-1: select/deselect bar
+      if (event.step >= vp.length) return { ui, engine }
+      if (ui.varSelectedBar === event.step) {
+        // Deselect
+        return { ui: { ...ui, varSelectedBar: -1 }, engine }
+      }
+      return { ui: { ...ui, varSelectedBar: event.step }, engine }
+    }
+
+    case 'encoder-a-turn': {
+      // Browse transform catalog
+      const maxIdx = TRANSFORM_CATALOG.length - 1
+      const next = clamp(ui.varParam + event.delta, 0, maxIdx)
+      return { ui: { ...ui, varParam: next }, engine }
+    }
+
+    case 'encoder-a-push': {
+      if (ui.varSelectedBar < 0) {
+        // No bar selected → toggle variation enabled/disabled
+        return { ui, engine: updateVariationPattern(engine, trackIdx, { ...vp, enabled: !vp.enabled }) }
+      }
+      // Bar selected → add browsed transform to bar's stack
+      const catalogEntry = TRANSFORM_CATALOG[ui.varParam]
+      const newTransform: Transform = { type: catalogEntry.type, param: catalogEntry.defaultParam }
+      const bar = ui.varSelectedBar
+      const slot = vp.slots[bar]
+      const newSlots = vp.slots.map((s, i) =>
+        i === bar ? { transforms: [...slot.transforms, newTransform] } : s,
+      )
+      return { ui, engine: updateVariationPattern(engine, trackIdx, { ...vp, slots: newSlots }) }
+    }
+
+    case 'encoder-a-hold': {
+      if (ui.varSelectedBar < 0) return { ui, engine }
+      // Remove last transform from selected bar's stack
+      const bar = ui.varSelectedBar
+      const slot = vp.slots[bar]
+      if (slot.transforms.length === 0) return { ui, engine }
+      const newSlots = vp.slots.map((s, i) =>
+        i === bar ? { transforms: s.transforms.slice(0, -1) } : s,
+      )
+      return { ui, engine: updateVariationPattern(engine, trackIdx, { ...vp, slots: newSlots }) }
+    }
+
+    case 'encoder-b-turn': {
+      if (ui.varSelectedBar < 0) return { ui, engine }
+      // Adjust param of last transform in selected bar
+      const bar = ui.varSelectedBar
+      const slot = vp.slots[bar]
+      if (slot.transforms.length === 0) return { ui, engine }
+      const lastIdx = slot.transforms.length - 1
+      const t = slot.transforms[lastIdx]
+      const newParam = adjustTransformParam(t, event.delta)
+      if (newParam === t.param) return { ui, engine }
+      const newTransforms = slot.transforms.map((tr, i) =>
+        i === lastIdx ? { ...tr, param: newParam } : tr,
+      )
+      const newSlots = vp.slots.map((s, i) =>
+        i === bar ? { transforms: newTransforms } : s,
+      )
+      return { ui, engine: updateVariationPattern(engine, trackIdx, { ...vp, slots: newSlots }) }
+    }
+
+    default:
+      return { ui, engine }
+  }
+}
+
+/** Adjust a transform's param by encoder delta, respecting valid ranges */
+function adjustTransformParam(t: Transform, delta: number): number {
+  switch (t.type) {
+    case 'rotate':
+      return clamp(t.param + delta, 1, 64)
+    case 'thin':
+      return Math.round(clamp(t.param + delta * 0.1, 0.1, 0.9) * 10) / 10
+    case 'transpose':
+      return clamp(t.param + delta, -24, 24)
+    case 'invert':
+      return clamp(t.param + delta, 0, 127)
+    case 'octave-shift':
+      return clamp(t.param + delta, -3, 3)
+    case 'stutter':
+      return clamp(t.param + delta, 1, 16)
+    default:
+      // No param for this transform type
+      return t.param
+  }
+}
+
+function updateVariationPattern(engine: SequencerState, trackIdx: number, pattern: VariationPattern): SequencerState {
+  return {
+    ...engine,
+    variationPatterns: engine.variationPatterns.map((p, i) => (i === trackIdx ? pattern : p)),
   }
 }
 
@@ -1114,6 +1245,21 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
       }
       break
     }
+    case 'variation-edit': {
+      const vp = engine.variationPatterns[ui.selectedTrack]
+      for (let i = 0; i < 16; i++) {
+        if (i >= vp.length) {
+          leds[i] = 'off'
+        } else if (i === ui.varSelectedBar) {
+          leds[i] = 'flash'  // selected bar
+        } else if (vp.slots[i] && vp.slots[i].transforms.length > 0) {
+          leds[i] = 'on'     // bar has transforms
+        } else {
+          leds[i] = 'dim'    // empty bar
+        }
+      }
+      break
+    }
     default: {
       // Home and stub modes: show gate pattern overview
       for (let i = 0; i < 16; i++) {
@@ -1244,6 +1390,30 @@ function dispatchHoldCombo(
       // Hold mute + enc B = mute clock divider
       const cur = engine.mutePatterns[trackIdx].clockDivider
       return { ui: uiUsed, engine: setMuteClockDivider(engine, trackIdx, cur + event.delta) }
+    }
+  }
+
+  if (held.kind === 'feature' && held.feature === 'variation') {
+    if (event.type === 'encoder-a-turn') {
+      // Hold VAR + enc A = variation phrase length (cycle 2, 4, 8, 16)
+      const vp = engine.variationPatterns[trackIdx]
+      const lengthOptions = [2, 4, 8, 16]
+      const curIdx = lengthOptions.indexOf(vp.length)
+      const newIdx = clamp((curIdx >= 0 ? curIdx : 1) + event.delta, 0, lengthOptions.length - 1)
+      const newLength = lengthOptions[newIdx]
+      // Resize slots array to match new length
+      const newSlots = Array.from({ length: newLength }, (_, i) =>
+        vp.slots[i] ?? { transforms: [] },
+      )
+      return {
+        ui: uiUsed,
+        engine: updateVariationPattern(engine, trackIdx, {
+          ...vp,
+          length: newLength,
+          slots: newSlots,
+          currentBar: vp.currentBar % newLength,
+        }),
+      }
     }
   }
 

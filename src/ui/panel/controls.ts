@@ -440,7 +440,7 @@ export function updateModeIndicators(
   mode: string,
 ): void {
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']
-  const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit']
+  const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit', 'variation-edit']
 
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])

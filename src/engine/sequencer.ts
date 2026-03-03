@@ -7,6 +7,7 @@ import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, rand
 import { generateArpPattern } from './arpeggiator'
 import { generateLFOPattern } from './lfo'
 import { mutateTrack, isMutateActive } from './mutator'
+import { createDefaultVariationPattern, advanceVariationBar } from './variation'
 
 const NUM_TRACKS = 4
 const DEFAULT_LENGTH = 16
@@ -111,6 +112,7 @@ export function createSequencer(): SequencerState {
     midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ channel: i + 1 })),
     midiEnabled: false,
     userPresets: [],
+    variationPatterns: Array.from({ length: NUM_TRACKS }, () => createDefaultVariationPattern()),
   }
 }
 
@@ -140,7 +142,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   }))
 
   // Resolve routing to produce output events at the current tick
-  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs)
+  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs, state.variationPatterns)
 
   // --- Mutation (Turing Machine drift) ---
   // Apply before advancing to next tick so mutations take effect on the next loop.
@@ -184,6 +186,20 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
     return mutateTrack(track, state.randomConfigs[idx], loopConfig, masterTick)
   })
 
+  // --- Variation bar counter advancement ---
+  // Advance when gate subtrack completes a loop (wraps from last step to 0).
+  const advancedVariations = state.variationPatterns.map((vp, idx) => {
+    if (!vp.enabled) return vp
+    const track = state.tracks[idx]
+    const trackDiv = track.clockDivider
+    const curGate = getEffectiveStep(masterTick, trackDiv, track.gate.clockDivider, track.gate.length)
+    const nxtGate = getEffectiveStep(nextTick, trackDiv, track.gate.clockDivider, track.gate.length)
+    if (curGate > 0 && nxtGate === 0) {
+      return advanceVariationBar(vp)
+    }
+    return vp
+  })
+
   // Advance steps to the next tick for the returned state
   const nextTracks = mutatedTracks.map(track => {
     const trackDiv = track.clockDivider
@@ -206,6 +222,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
       ...state,
       tracks: nextTracks,
       mutePatterns: nextMutes,
+      variationPatterns: advancedVariations,
       transport: {
         ...state.transport,
         masterTick: nextTick,

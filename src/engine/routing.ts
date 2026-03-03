@@ -1,4 +1,5 @@
-import type { SequenceTrack, OutputRouting, MuteTrack, NoteEvent, TransposeConfig } from './types'
+import type { SequenceTrack, OutputRouting, MuteTrack, NoteEvent, TransposeConfig, VariationPattern } from './types'
+import { getTransformsForSubtrack, getEffectiveGateStep, getEffectivePitchStep, getEffectiveSimpleStep } from './variation'
 
 const NUM_OUTPUTS = 4
 
@@ -13,6 +14,7 @@ export function resolveOutputs(
   routing: OutputRouting[],
   mutes: MuteTrack[],
   transposeConfigs?: TransposeConfig[],
+  variationPatterns?: VariationPattern[],
 ): NoteEvent[] {
   const events: NoteEvent[] = []
   for (let i = 0; i < NUM_OUTPUTS; i++) {
@@ -26,10 +28,25 @@ export function resolveOutputs(
     const velTrack = tracks[r.velocity]
     const modTrack = tracks[r.mod]
 
-    const gateStep = gateTrack?.gate.steps[gateTrack.gate.currentStep]
+    // Read steps — through variation overlay if active
+    const gateVP = variationPatterns?.[r.gate]
+    const gateTransforms = gateVP?.enabled ? getTransformsForSubtrack(gateVP, 'gate') : []
+    const gateStep = gateTrack
+      ? (gateTransforms.length > 0
+        ? getEffectiveGateStep(gateTrack.gate, gateTransforms, gateVP!.currentBar)
+        : gateTrack.gate.steps[gateTrack.gate.currentStep])
+      : undefined
+
     // Tied steps are gate-active (they continue the previous note)
     let gate = (gateStep?.on || gateStep?.tie) ?? false
-    const pitchStep = pitchTrack?.pitch.steps[pitchTrack.pitch.currentStep]
+
+    const pitchVP = variationPatterns?.[r.pitch]
+    const pitchTransforms = pitchVP?.enabled ? getTransformsForSubtrack(pitchVP, 'pitch') : []
+    const pitchStep = pitchTrack
+      ? (pitchTransforms.length > 0
+        ? getEffectivePitchStep(pitchTrack.pitch, pitchTransforms)
+        : pitchTrack.pitch.steps[pitchTrack.pitch.currentStep])
+      : undefined
     let pitch = pitchStep?.note ?? 0
     // Apply transpose from pitch source track
     const transpose = transposeConfigs?.[r.pitch]
@@ -46,8 +63,21 @@ export function resolveOutputs(
         while (pitch < lo) pitch += 12
       }
     }
-    let velocity = velTrack?.velocity.steps[velTrack.velocity.currentStep] ?? 0
-    const mod = modTrack?.mod.steps[modTrack.mod.currentStep] ?? 0
+    const velVP = variationPatterns?.[r.velocity]
+    const velTransforms = velVP?.enabled ? getTransformsForSubtrack(velVP, 'velocity') : []
+    let velocity = velTrack
+      ? (velTransforms.length > 0
+        ? getEffectiveSimpleStep(velTrack.velocity, velTransforms)
+        : velTrack.velocity.steps[velTrack.velocity.currentStep])
+      : 0
+
+    const modVP = variationPatterns?.[r.mod]
+    const modTransforms = modVP?.enabled ? getTransformsForSubtrack(modVP, 'mod') : []
+    const mod = modTrack
+      ? (modTransforms.length > 0
+        ? getEffectiveSimpleStep(modTrack.mod, modTransforms)
+        : modTrack.mod.steps[modTrack.mod.currentStep])
+      : 0
     const slide = pitchStep?.slide ?? 0
 
     // Look-back: is this a continuation? (this step has tie flag)

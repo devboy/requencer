@@ -1487,4 +1487,155 @@ describe('route screen dispatch', () => {
       expect(result.engine.transposeConfigs[0].semitones).toBe(7) // pitch section unchanged
     })
   })
+
+  // === Variation Edit ===
+
+  describe('variation-edit', () => {
+    function varUI(overrides: Partial<UIState> = {}): UIState {
+      return { ...createInitialUIState(), mode: 'variation-edit' as const, varSelectedBar: -1, varParam: 0, ...overrides }
+    }
+
+    it('feature-press variation enters variation-edit mode', () => {
+      const ui = createInitialUIState()
+      const result = dispatch(ui, makeState(), { type: 'feature-press', feature: 'variation' })
+      expect(result.ui.mode).toBe('variation-edit')
+      expect(result.ui.varSelectedBar).toBe(-1)
+    })
+
+    it('step-press selects bar within phrase length', () => {
+      const ui = varUI()
+      const result = dispatch(ui, makeState(), { type: 'step-press', step: 2 })
+      expect(result.ui.varSelectedBar).toBe(2)
+    })
+
+    it('step-press on already selected bar deselects it', () => {
+      const ui = varUI({ varSelectedBar: 2 })
+      const result = dispatch(ui, makeState(), { type: 'step-press', step: 2 })
+      expect(result.ui.varSelectedBar).toBe(-1)
+    })
+
+    it('step-press beyond phrase length is no-op', () => {
+      const ui = varUI()
+      const engine = makeState()
+      // Default phrase length is 4
+      const result = dispatch(ui, engine, { type: 'step-press', step: 5 })
+      expect(result.ui.varSelectedBar).toBe(-1) // unchanged
+    })
+
+    it('encoder A turn browses transform catalog', () => {
+      const ui = varUI({ varParam: 0 })
+      const result = dispatch(ui, makeState(), { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.varParam).toBe(1)
+    })
+
+    it('encoder A turn clamps to catalog bounds', () => {
+      const ui = varUI({ varParam: 0 })
+      const result = dispatch(ui, makeState(), { type: 'encoder-a-turn', delta: -1 })
+      expect(result.ui.varParam).toBe(0)
+    })
+
+    it('encoder A push with no bar selected toggles enabled', () => {
+      const ui = varUI()
+      const engine = makeState()
+      expect(engine.variationPatterns[0].enabled).toBe(false)
+      const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+      expect(result.engine.variationPatterns[0].enabled).toBe(true)
+    })
+
+    it('encoder A push with bar selected adds transform', () => {
+      const ui = varUI({ varSelectedBar: 1, varParam: 0 }) // varParam 0 = REVERSE
+      const engine = makeState()
+      const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+      const slot = result.engine.variationPatterns[0].slots[1]
+      expect(slot.transforms.length).toBe(1)
+      expect(slot.transforms[0].type).toBe('reverse')
+    })
+
+    it('encoder A hold removes last transform from selected bar', () => {
+      const ui = varUI({ varSelectedBar: 0 })
+      const engine = makeState()
+      engine.variationPatterns[0].slots[0] = {
+        transforms: [
+          { type: 'reverse', param: 0 },
+          { type: 'transpose', param: 7 },
+        ],
+      }
+      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      const slot = result.engine.variationPatterns[0].slots[0]
+      expect(slot.transforms.length).toBe(1)
+      expect(slot.transforms[0].type).toBe('reverse')
+    })
+
+    it('encoder A hold with no bar selected is no-op', () => {
+      const ui = varUI()
+      const engine = makeState()
+      const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+      expect(result.engine).toBe(engine)
+    })
+
+    it('encoder B turn adjusts param of last transform', () => {
+      const ui = varUI({ varSelectedBar: 0 })
+      const engine = makeState()
+      engine.variationPatterns[0].slots[0] = {
+        transforms: [{ type: 'transpose', param: 7 }],
+      }
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine.variationPatterns[0].slots[0].transforms[0].param).toBe(8)
+    })
+
+    it('encoder B turn with no bar selected is no-op', () => {
+      const ui = varUI()
+      const engine = makeState()
+      const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine).toBe(engine)
+    })
+
+    it('hold VAR + encoder A changes phrase length', () => {
+      const ui = {
+        ...varUI(),
+        heldButton: { kind: 'feature' as const, feature: 'variation' as const },
+      }
+      const engine = makeState()
+      // Default phrase length is 4, delta +1 should go to 8
+      const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.engine.variationPatterns[0].length).toBe(8)
+      expect(result.engine.variationPatterns[0].slots.length).toBe(8)
+    })
+
+    it('hold VAR + encoder A clamps phrase length at min/max', () => {
+      const ui = {
+        ...varUI(),
+        heldButton: { kind: 'feature' as const, feature: 'variation' as const },
+      }
+      const engine = makeState()
+      // Go past min: default is 4 (idx=1), delta -5 should clamp to 2
+      const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: -5 })
+      expect(result.engine.variationPatterns[0].length).toBe(2)
+    })
+
+    it('LEDs show bar state in variation-edit', () => {
+      const ui = varUI({ varSelectedBar: 1 })
+      const engine = makeState()
+      engine.variationPatterns[0].slots[2] = { transforms: [{ type: 'reverse', param: 0 }] }
+      const leds = getLEDState(ui, engine)
+      expect(leds.steps[0]).toBe('dim')   // empty bar
+      expect(leds.steps[1]).toBe('flash') // selected bar
+      expect(leds.steps[2]).toBe('on')    // bar with transforms
+      expect(leds.steps[3]).toBe('dim')   // empty bar
+      expect(leds.steps[4]).toBe('off')   // beyond phrase length
+    })
+
+    it('back returns to home', () => {
+      const ui = varUI()
+      const result = dispatch(ui, makeState(), { type: 'back' })
+      expect(result.ui.mode).toBe('home')
+    })
+
+    it('track select works cross-modally', () => {
+      const ui = varUI()
+      const result = dispatch(ui, makeState(), { type: 'track-select', track: 2 })
+      expect(result.ui.selectedTrack).toBe(2)
+      expect(result.ui.mode).toBe('variation-edit')
+    })
+  })
 })
