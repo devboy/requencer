@@ -53,7 +53,8 @@ export function renderRoute(ctx: CanvasRenderingContext2D, engine: SequencerStat
     // Arrow
     drawText(ctx, '\u2190', ARROW_X, y + ROW_H / 2 - 4, COLORS.textDim, 16)
 
-    // Source track label (colored)
-    drawText(ctx, `T${sourceTrack + 1}`, SOURCE_X, y + ROW_H / 2 - 4, sourceColor, 18)
+    // Source track label (colored) — MOD row also shows modSource
+    const modSuffix = i === 3 ? ` ${(outputRouting.modSource ?? 'seq').toUpperCase()}` : ''
+    drawText(ctx, `T${sourceTrack + 1}${modSuffix}`, SOURCE_X, y + ROW_H / 2 - 4, sourceColor, 18)
   }
 }

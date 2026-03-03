@@ -213,6 +213,18 @@ export function getEffectiveSimpleStep(
   return subtrack.steps[idx]
 }
 
+/**
+ * Get effective compound step (e.g. ModStep) after applying playhead transforms only.
+ * Generic version of getEffectiveSimpleStep for non-numeric step types.
+ */
+export function getEffectiveCompoundStep<T>(
+  subtrack: Subtrack<T>,
+  transforms: Transform[],
+): T {
+  const idx = applyPlayheadTransforms(subtrack.currentStep, subtrack.length, transforms)
+  return subtrack.steps[idx]
+}
+
 // --- TASK 6: Per-subtrack resolution + defaults ---
 
 /**

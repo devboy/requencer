@@ -18,7 +18,7 @@ function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: strin
       { note: 65, slide: 0 },
     ], length: 4, clockDivider: 1, currentStep: 0 },
     velocity: { steps: [100, 80, 90, 70], length: 4, clockDivider: 1, currentStep: 0 },
-    mod: { steps: [50, 60, 70, 80], length: 4, clockDivider: 1, currentStep: 0 },
+    mod: { steps: [{ value: 0.5, slew: 0 }, { value: 0.6, slew: 0 }, { value: 0.7, slew: 0 }, { value: 0.8, slew: 0 }], length: 4, clockDivider: 1, currentStep: 0 },
     ...overrides,
   }
 }
@@ -31,10 +31,10 @@ describe('createDefaultRouting', () => {
   it('creates 1:1 routing for 4 outputs', () => {
     const routing = createDefaultRouting()
     expect(routing).toHaveLength(4)
-    expect(routing[0]).toEqual({ gate: 0, pitch: 0, velocity: 0, mod: 0 })
-    expect(routing[1]).toEqual({ gate: 1, pitch: 1, velocity: 1, mod: 1 })
-    expect(routing[2]).toEqual({ gate: 2, pitch: 2, velocity: 2, mod: 2 })
-    expect(routing[3]).toEqual({ gate: 3, pitch: 3, velocity: 3, mod: 3 })
+    expect(routing[0]).toEqual({ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' })
+    expect(routing[1]).toEqual({ gate: 1, pitch: 1, velocity: 1, mod: 1, modSource: 'seq' })
+    expect(routing[2]).toEqual({ gate: 2, pitch: 2, velocity: 2, mod: 2, modSource: 'seq' })
+    expect(routing[3]).toEqual({ gate: 3, pitch: 3, velocity: 3, mod: 3, modSource: 'seq' })
   })
 })
 
@@ -51,8 +51,8 @@ describe('resolveOutputs', () => {
     const routing = createDefaultRouting()
     const events = resolveOutputs(tracks, routing, mutes)
     expect(events).toHaveLength(4)
-    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
-    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 50, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
+    expect(events[0]).toEqual({ output: 0, gate: true, pitch: 60, velocity: 100, mod: 0.5, modSlew: 0, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
+    expect(events[1]).toEqual({ output: 1, gate: true, pitch: 60, velocity: 100, mod: 0.5, modSlew: 0, gateLength: 0.5, ratchetCount: 1, slide: 0, retrigger: true, sustain: false })
   })
 
   it('resolves cross-routing — output 2 gate from track 0', () => {
@@ -105,10 +105,10 @@ describe('resolveOutputs', () => {
     const routing = createDefaultRouting()
     routing[0] = { ...routing[0], mod: 2 }
     const customTracks = tracks.map((t, i) =>
-      i === 2 ? { ...t, mod: { ...t.mod, steps: [127, 60, 70, 80] } } : t
+      i === 2 ? { ...t, mod: { ...t.mod, steps: [{ value: 1.0, slew: 0 }, { value: 0.6, slew: 0 }, { value: 0.7, slew: 0 }, { value: 0.8, slew: 0 }] } } : t
     )
     const events = resolveOutputs(customTracks, routing, mutes)
-    expect(events[0].mod).toBe(127) // from track 2, not track 0
+    expect(events[0].mod).toBe(1.0) // from track 2, not track 0
   })
 
   it('cross-routes pitch from different track', () => {
@@ -227,5 +227,42 @@ describe('resolveOutputs', () => {
     const events = resolveOutputs(tieTracks, routing, mutes)
     expect(events[0].gateLength).toBe(1.0) // middle of chain → full gate
     expect(events[0].sustain).toBe(true)   // next step is also tied
+  })
+
+  // --- modSource routing ---
+
+  it('modSource seq reads ModStep.value from track mod subtrack', () => {
+    const routing = createDefaultRouting()
+    // Default modSource is 'seq'
+    const events = resolveOutputs(tracks, routing, mutes)
+    expect(events[0].mod).toBe(0.5) // first ModStep value
+    expect(events[0].modSlew).toBe(0) // first ModStep slew
+  })
+
+  it('modSource lfo reads from lfoValues parameter', () => {
+    const routing = createDefaultRouting()
+    routing[0] = { ...routing[0], modSource: 'lfo' }
+    const lfoValues = [0.75, 0.5, 0.25, 0.1]
+    const events = resolveOutputs(tracks, routing, mutes, undefined, undefined, lfoValues)
+    expect(events[0].mod).toBeCloseTo(0.75, 2)
+    expect(events[0].modSlew).toBe(0) // LFO has no step slew
+  })
+
+  it('different outputs can use different modSources from same track', () => {
+    const routing = createDefaultRouting()
+    routing[0] = { ...routing[0], mod: 0, modSource: 'seq' }
+    routing[1] = { ...routing[1], mod: 0, modSource: 'lfo' }
+    const lfoValues = [0.9, 0.5, 0.25, 0.1]
+    const events = resolveOutputs(tracks, routing, mutes, undefined, undefined, lfoValues)
+    expect(events[0].mod).toBe(0.5) // seq: reads from track 0 mod step
+    expect(events[1].mod).toBeCloseTo(0.9, 2) // lfo: reads from lfoValues[0]
+  })
+
+  it('modSource defaults to seq when not specified', () => {
+    // Create routing without modSource field explicitly
+    const routing = createDefaultRouting()
+    const events = resolveOutputs(tracks, routing, mutes)
+    // Should use seq by default
+    expect(events[0].mod).toBe(0.5)
   })
 })

@@ -25,22 +25,16 @@ export function renderModEdit(ctx: CanvasRenderingContext2D, engine: SequencerSt
   const pageOffset = ui.currentPage * 16
   const maxPage = Math.max(0, Math.ceil(track.mod.length / 16) - 1)
 
-  const lfo = engine.lfoConfigs[ui.selectedTrack]
+  // Title
+  drawText(ctx, `MOD SEQ — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
-  // Title — show LFO mode when enabled
-  if (lfo.enabled) {
-    drawText(ctx, `MOD LFO — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-    const waveLabel = lfo.waveform.toUpperCase().slice(0, 4)
-    drawText(ctx, `${waveLabel}  R:${lfo.rate}  D:${Math.round(lfo.depth * 100)}%`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
-  } else {
-    drawText(ctx, `MOD — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-
-    // Selected step info
-    const selIdx = pageOffset + ui.selectedStep
-    if (selIdx < track.mod.length) {
-      const modVal = track.mod.steps[selIdx]
-      drawText(ctx, `${Math.round(modVal * 100)}%`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
-    }
+  // Selected step info — value% and slew%
+  const selIdx = pageOffset + ui.selectedStep
+  if (selIdx < track.mod.length) {
+    const modStep = track.mod.steps[selIdx]
+    const valPct = Math.round(modStep.value * 100)
+    const slewPct = Math.round(modStep.slew * 100)
+    drawText(ctx, `${valPct}%  slew ${slewPct}%`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
   }
 
   // Right side info
@@ -62,7 +56,7 @@ export function renderModEdit(ctx: CanvasRenderingContext2D, engine: SequencerSt
         continue
       }
 
-      const normalized = track.mod.steps[stepIdx] // already 0.0-1.0
+      const normalized = track.mod.steps[stepIdx].value // already 0.0-1.0
       const barH = Math.max(2, normalized * BAR_MAX_H)
       const barY = barBaseY - barH
       const isSelected = i === ui.selectedStep

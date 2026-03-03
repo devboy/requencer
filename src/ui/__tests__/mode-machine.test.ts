@@ -1054,28 +1054,36 @@ describe('rand screen dispatch', () => {
       expect(paramIds).not.toContain('gate.randomOffset')
     })
 
-    it('LFO sub-params hidden when LFO is off', () => {
-      const eng = makeState()
+    it('MOD sub-params hidden when mod.mode is not walk or sync', () => {
+      let eng = makeState()
+      // Force mod.mode to 'random' to test visibility
+      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'random' as const } } : c) }
       const ui = randUIRaw(0)
 
       const rows = getVisibleRows(eng, ui)
       const paramIds = rows.map((r: { paramId: string }) => r.paramId)
-      expect(paramIds).toContain('lfo.enabled')
-      expect(paramIds).not.toContain('lfo.waveform')
-      expect(paramIds).not.toContain('lfo.rate')
-      expect(paramIds).not.toContain('lfo.depth')
+      expect(paramIds).not.toContain('mod.walkStepSize')
+      expect(paramIds).not.toContain('mod.syncBias')
     })
 
-    it('LFO sub-params shown when LFO is on', () => {
+    it('MOD sub-params shown when mod.mode is walk or sync', () => {
       let eng = makeState()
-      eng = { ...eng, lfoConfigs: eng.lfoConfigs.map((c, i) => i === 0 ? { ...c, enabled: true } : c) }
+      // Set track 0 mod.mode to 'walk'
+      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'walk' as const } } : c) }
       const ui = randUIRaw(0)
 
-      const rows = getVisibleRows(eng, ui)
-      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
-      expect(paramIds).toContain('lfo.waveform')
-      expect(paramIds).toContain('lfo.rate')
-      expect(paramIds).toContain('lfo.depth')
+      let rows = getVisibleRows(eng, ui)
+      let paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('mod.walkStepSize')
+      expect(paramIds).not.toContain('mod.syncBias')
+
+      // Now set track 0 mod.mode to 'sync'
+      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'sync' as const } } : c) }
+
+      rows = getVisibleRows(eng, ui)
+      paramIds = rows.map((r: { paramId: string }) => r.paramId)
+      expect(paramIds).toContain('mod.syncBias')
+      expect(paramIds).not.toContain('mod.walkStepSize')
     })
   })
 
@@ -1092,7 +1100,6 @@ describe('rand screen dispatch', () => {
       expect(headerIds).toContain('section.gate')
       expect(headerIds).toContain('section.vel')
       expect(headerIds).toContain('section.mod')
-      expect(headerIds).toContain('section.lfo')
     })
   })
 
