@@ -21,6 +21,17 @@ const STEP_W = (LCD_W - PAD * 2 - (COLS - 1) * COL_GAP) / COLS
 const AVAIL_H = LCD_CONTENT_H - HEADER_H - 4
 const BAR_MAX_H = (AVAIL_H - ROW_GAP) / 2
 
+function clamp01(v: number): number { return Math.max(0, Math.min(1, v)) }
+
+/** Stable seeded random for waveform preview — deterministic per segment index. */
+function previewRng(seed: number): number {
+  let t = (seed * 7919 + 31) | 0
+  t = (t + 0x6d2b79f5) | 0
+  let r = Math.imul(t ^ (t >>> 15), 1 | t)
+  r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
+  return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+}
+
 export function renderModEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   if (ui.modLfoView) {
     renderModLfo(ctx, engine, ui)
@@ -140,15 +151,50 @@ function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
   ctx.setLineDash([])
 
   // Draw waveform curve — render with depth/offset applied
-  if (config.waveform !== 'slew-random' && config.waveform !== 's+h') {
-    // Deterministic waveforms: draw smooth curve
-    ctx.strokeStyle = trackColor
-    ctx.lineWidth = 2
-    ctx.beginPath()
+  ctx.strokeStyle = trackColor
+  ctx.lineWidth = 2
+  ctx.beginPath()
+
+  if (config.waveform === 's+h') {
+    // S+H preview: stepped random values, one per segment
+    const segments = Math.max(2, Math.round(config.rate))
+    const segW = WAVE_W / segments
+    for (let seg = 0; seg < segments; seg++) {
+      const raw = previewRng(seg)
+      const scaled = clamp01(config.offset + (raw - 0.5) * config.depth)
+      const y = WAVE_TOP + WAVE_H * (1 - scaled)
+      const x0 = WAVE_X + seg * segW
+      const x1 = WAVE_X + (seg + 1) * segW
+      if (seg === 0) ctx.moveTo(x0, y)
+      else ctx.lineTo(x0, y)
+      ctx.lineTo(x1, y)
+    }
+    ctx.stroke()
+  } else if (config.waveform === 'slew-random') {
+    // Slew-random preview: smooth interpolation between random targets
+    const segments = Math.max(2, Math.round(config.rate))
+    // Generate random target values for each segment boundary
+    const targets: number[] = []
+    for (let i = 0; i <= segments; i++) targets.push(previewRng(i))
+    // Wrap last target to first for continuity
+    targets[segments] = targets[0]
+
+    const slewRate = 1 - config.width * 0.95
+    let current = targets[0]
+
     for (let s = 0; s <= WAVE_SAMPLES; s++) {
       const phase = s / WAVE_SAMPLES
-      const raw = waveformValue(config.waveform, phase, config.width)
-      const scaled = Math.max(0, Math.min(1, config.offset + (raw - 0.5) * config.depth))
+      const segFloat = phase * segments
+      const segIdx = Math.min(Math.floor(segFloat), segments - 1)
+      const segPhase = segFloat - segIdx
+      // Simulate slew: interpolate from previous segment's settled value toward current target
+      const target = targets[segIdx]
+      const prevTarget = segIdx > 0 ? targets[segIdx - 1] : targets[segments - 1]
+      // Approximate settled value at segment start
+      const startVal = prevTarget + (target - prevTarget) * slewRate
+      // Interpolate within segment
+      const raw = startVal + (target - startVal) * (1 - Math.pow(1 - slewRate, segPhase * 4))
+      const scaled = clamp01(config.offset + (raw - 0.5) * config.depth)
       const x = WAVE_X + phase * WAVE_W
       const y = WAVE_TOP + WAVE_H * (1 - scaled)
       if (s === 0) ctx.moveTo(x, y)
@@ -156,10 +202,17 @@ function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
     }
     ctx.stroke()
   } else {
-    // Random waveforms: show text label in waveform area
-    const label = config.waveform === 's+h' ? 'S+H' : 'SLEW RND'
-    drawText(ctx, label, WAVE_X + WAVE_W / 2, WAVE_TOP + WAVE_H / 2 - 10, `${trackColor}66`, 24, 'center')
-    drawText(ctx, '(live)', WAVE_X + WAVE_W / 2, WAVE_TOP + WAVE_H / 2 + 14, COLORS.textDim, 16, 'center')
+    // Deterministic waveforms: draw smooth curve
+    for (let s = 0; s <= WAVE_SAMPLES; s++) {
+      const phase = s / WAVE_SAMPLES
+      const raw = waveformValue(config.waveform, phase, config.width)
+      const scaled = clamp01(config.offset + (raw - 0.5) * config.depth)
+      const x = WAVE_X + phase * WAVE_W
+      const y = WAVE_TOP + WAVE_H * (1 - scaled)
+      if (s === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    ctx.stroke()
   }
 
   // Animated phase cursor — vertical line at current LFO phase
