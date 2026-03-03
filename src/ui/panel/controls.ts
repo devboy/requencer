@@ -10,7 +10,7 @@ import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
 const SUBTRACK_IDS: SubtrackId[] = ['gate', 'pitch', 'velocity', 'mod']
-const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'mutate', 'transpose']
+const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'mutate', 'transpose', 'variation']
 const HOLD_THRESHOLD_MS = 200
 
 interface PanelControls {
@@ -296,10 +296,12 @@ export function createControls(panel: FaceplateElements): void {
     prefix: 'encoder-a' | 'encoder-b'
   }
 
-  // --- Encoder A hold detection (for RAND screen reset) ---
-  const ENC_A_HOLD_MS = 500
+  // --- Encoder hold detection ---
+  const ENC_HOLD_MS = 500
   let encAHoldTimer: ReturnType<typeof setTimeout> | null = null
   let encAHoldFired = false
+  let encBHoldTimer: ReturnType<typeof setTimeout> | null = null
+  let encBHoldFired = false
 
   function startEncAHoldPanel(): void {
     clearEncAHoldPanel()
@@ -308,11 +310,25 @@ export function createControls(panel: FaceplateElements): void {
       encAHoldTimer = null
       encAHoldFired = true
       emit({ type: 'encoder-a-hold' })
-    }, ENC_A_HOLD_MS)
+    }, ENC_HOLD_MS)
   }
 
   function clearEncAHoldPanel(): void {
     if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+  }
+
+  function startEncBHoldPanel(): void {
+    clearEncBHoldPanel()
+    encBHoldFired = false
+    encBHoldTimer = setTimeout(() => {
+      encBHoldTimer = null
+      encBHoldFired = true
+      emit({ type: 'encoder-b-hold' })
+    }, ENC_HOLD_MS)
+  }
+
+  function clearEncBHoldPanel(): void {
+    if (encBHoldTimer) { clearTimeout(encBHoldTimer); encBHoldTimer = null }
   }
 
   const encStates: EncState[] = [
@@ -328,9 +344,11 @@ export function createControls(panel: FaceplateElements): void {
       enc.accum = 0
       enc.pointerId = e.pointerId
       e.preventDefault()
-      // Start hold timer for encoder A
+      // Start hold timer
       if (enc.prefix === 'encoder-a') {
         startEncAHoldPanel()
+      } else {
+        startEncBHoldPanel()
       }
     })
   }
@@ -356,8 +374,9 @@ export function createControls(panel: FaceplateElements): void {
       }
 
       // Cancel hold if encoder was turned (it's a drag, not a hold-click)
-      if (enc.turned && enc.prefix === 'encoder-a') {
-        clearEncAHoldPanel()
+      if (enc.turned) {
+        if (enc.prefix === 'encoder-a') clearEncAHoldPanel()
+        else clearEncBHoldPanel()
       }
 
       const indicator = enc.el.querySelector('.encoder-indicator') as HTMLElement
@@ -374,19 +393,18 @@ export function createControls(panel: FaceplateElements): void {
         enc.pointerId = -1
         if (!enc.turned) {
           if (enc.prefix === 'encoder-a') {
-            // Enc A: emit push only if hold didn't fire
             clearEncAHoldPanel()
-            if (!encAHoldFired) {
-              emit({ type: 'encoder-a-push' })
-            }
+            if (!encAHoldFired) emit({ type: 'encoder-a-push' })
             encAHoldFired = false
           } else {
-            emit({ type: `${enc.prefix}-push` })
+            clearEncBHoldPanel()
+            if (!encBHoldFired) emit({ type: 'encoder-b-push' })
+            encBHoldFired = false
           }
-        } else if (enc.prefix === 'encoder-a') {
+        } else {
           // Drag ended — clean up hold state
-          clearEncAHoldPanel()
-          encAHoldFired = false
+          if (enc.prefix === 'encoder-a') { clearEncAHoldPanel(); encAHoldFired = false }
+          else { clearEncBHoldPanel(); encBHoldFired = false }
         }
       }
     }
@@ -440,7 +458,7 @@ export function updateModeIndicators(
   mode: string,
 ): void {
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']
-  const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit']
+  const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit', 'variation-edit']
 
   for (let i = 0; i < subtrackBtns.length; i++) {
     subtrackBtns[i].classList.toggle('active', mode === subtrackModes[i])

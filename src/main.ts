@@ -31,6 +31,7 @@ import { renderMutateEdit } from './ui/lcd/mutate-screen'
 import { renderTransposeEdit } from './ui/lcd/transpose-screen'
 import { renderModEdit } from './ui/lcd/mod-edit'
 import { renderSettings } from './ui/lcd/settings-screen'
+import { renderVariationEdit } from './ui/lcd/variation-screen'
 import { createDebugMenu } from './ui/debug-menu'
 import { DrumMachine } from './io/drum-machine'
 
@@ -154,6 +155,7 @@ const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: Sequ
   'name-entry': renderNameEntry,
   'mutate-edit': renderMutateEdit,
   'transpose-edit': renderTransposeEdit,
+  'variation-edit': renderVariationEdit,
   'mod-edit': renderModEdit,
   'settings': renderSettings,
 }
@@ -170,6 +172,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'name-entry': () => 'SAVE PRESET',
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
+  'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
   'mod-edit': (ui) => `T${ui.selectedTrack + 1} MOD`,
   'settings': () => 'SETTINGS',
 }
@@ -187,6 +190,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
   'transpose-edit': '1-4: track   ↑↓: scroll   ←→: adjust   Hold ↑: reset   Esc: back',
   'mod-edit':    'Z-M: select   ↑↓: mod value   ←→: page   Hold R+↑↓: len/div   Esc: back',
+  'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
   'settings':    '↑↓: scroll   ←→: adjust   Esc: back',
 }
 

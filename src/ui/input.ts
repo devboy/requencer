@@ -5,7 +5,7 @@
  * Keyboard mapping:
  *   1-4         → T1-T4 track select
  *   Q/W/E/R     → GATE/PITCH/VEL/MOD subtrack buttons
- *   A/S/D/F/G   → MUTE/ROUTE/RAND/DRIFT/TRNS feature buttons
+ *   A/S/D/F/G/H → MUTE/ROUTE/RAND/DRIFT/TRNS/VAR feature buttons
  *   ArrowUp/Down    → Encoder A turn (delta ±1)
  *   ArrowLeft/Right → Encoder B turn (delta ±1)
  *   Enter       → Encoder A push
@@ -42,7 +42,7 @@ const STEP_KEYS = ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',']
 
 const TRACK_KEYS: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3 }
 const SUBTRACK_KEYS: Record<string, SubtrackId> = { q: 'gate', w: 'pitch', e: 'velocity', r: 'mod' }
-const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'mutate', g: 'transpose' }
+const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'mutate', g: 'transpose', h: 'variation' }
 
 const HOLD_THRESHOLD_MS = 200
 const STICKY_THRESHOLD_MS = 300
@@ -96,10 +96,12 @@ function getHoldableButton(key: string, shiftKey: boolean): { button: HeldButton
   return null
 }
 
-// --- Encoder A hold detection (for RAND screen reset) ---
-const ENC_A_HOLD_MS = 500
+// --- Encoder hold detection ---
+const ENC_HOLD_MS = 500
 let encAHoldTimer: ReturnType<typeof setTimeout> | null = null
 let encAHoldFired = false
+let encBHoldTimer: ReturnType<typeof setTimeout> | null = null
+let encBHoldFired = false
 
 function startEncAHold(): void {
   clearEncAHold()
@@ -108,11 +110,25 @@ function startEncAHold(): void {
     encAHoldTimer = null
     encAHoldFired = true
     emit({ type: 'encoder-a-hold' })
-  }, ENC_A_HOLD_MS)
+  }, ENC_HOLD_MS)
 }
 
 function clearEncAHold(): void {
   if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+}
+
+function startEncBHold(): void {
+  clearEncBHold()
+  encBHoldFired = false
+  encBHoldTimer = setTimeout(() => {
+    encBHoldTimer = null
+    encBHoldFired = true
+    emit({ type: 'encoder-b-hold' })
+  }, ENC_HOLD_MS)
+}
+
+function clearEncBHold(): void {
+  if (encBHoldTimer) { clearTimeout(encBHoldTimer); encBHoldTimer = null }
 }
 
 function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
@@ -130,7 +146,11 @@ function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
   if (e.key === 'ArrowRight') return { type: 'encoder-b-turn', delta: 1 }
   if (e.key === 'ArrowLeft') return { type: 'encoder-b-turn', delta: -1 }
   if (e.key === 'Escape') return { type: 'back' }
-  if (e.key === ']') return { type: 'encoder-b-push' }
+  // Encoder B push: start hold detection on keydown, emit push on keyup if not held
+  if (e.key === ']') {
+    startEncBHold()
+    return null // push emitted on keyup
+  }
 
   // Transport
   if (e.key === ' ') return { type: 'play-stop' }
@@ -262,6 +282,16 @@ export function setupKeyboardInput(): () => void {
         emit({ type: 'encoder-a-push' })
       }
       encAHoldFired = false
+      return
+    }
+
+    // Encoder B push: emit push on keyup if hold didn't fire
+    if (e.key === ']') {
+      clearEncBHold()
+      if (!encBHoldFired) {
+        emit({ type: 'encoder-b-push' })
+      }
+      encBHoldFired = false
       return
     }
 

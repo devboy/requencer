@@ -25,6 +25,7 @@ export type ScreenMode =
   | 'mutate-edit'
   | 'mod-edit'
   | 'transpose-edit'
+  | 'variation-edit'
   | 'settings'
 
 export type ControlEvent =
@@ -33,6 +34,7 @@ export type ControlEvent =
   | { type: 'encoder-a-hold' }
   | { type: 'encoder-b-turn'; delta: number }
   | { type: 'encoder-b-push' }
+  | { type: 'encoder-b-hold' }
   | { type: 'back' }
   | { type: 'play-stop' }
   | { type: 'reset' }
@@ -45,7 +47,7 @@ export type ControlEvent =
   | { type: 'settings-press' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
-export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose'
+export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose' | 'variation'
 
 /** Describes which button is being held for hold combos */
 export type HeldButtonTarget =
@@ -69,6 +71,10 @@ export interface UIState {
   mutateParam: number         // 0-8: selected row in DRIFT screen (7 subtracks + trigger + bars)
   routeParam: number          // 0-3: selected param row in ROUTE screen (gate/pitch/vel/mod)
   settingsParam: number       // 0-N: selected row in SETTINGS screen
+  varParam: number            // 0-N: index into transform catalog for browsing
+  varSelectedBar: number      // -1 = no bar selected, 0-15 = selected bar position
+  varCursor: number           // cursor in transform stack (0-N where N = "add" slot)
+  varEditSubtrack: SubtrackId | null  // null = editing track-level, non-null = editing that subtrack's override
   midiDevices: Array<{ id: string; name: string }>  // available MIDI output devices
   midiDeviceIndex: number     // selected MIDI device index per output (into midiDevices)
 }

@@ -19,6 +19,7 @@ const MODE_LABELS: Record<ScreenMode, string> = {
   'name-entry': 'NAME ENTRY',
   'mutate-edit': 'MUTATE',
   'transpose-edit': 'TRANSPOSE',
+  'variation-edit': 'VARIATION',
   'mod-edit': 'MOD EDIT',
   'settings': 'SETTINGS',
 }
