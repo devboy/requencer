@@ -441,14 +441,14 @@ function dispatchModLfo(ui: UIState, engine: SequencerState, event: ControlEvent
 
   switch (event.type) {
     case 'encoder-a-turn': {
-      // Adjust the currently selected LFO parameter
-      const newEngine = adjustLfoParam(engine, ui.selectedTrack, config, ui.modLfoParam, event.delta)
-      return { ui, engine: newEngine }
-    }
-    case 'encoder-b-turn': {
       // Scroll through LFO params
       const next = clamp(ui.modLfoParam + event.delta, 0, LFO_PARAM_COUNT - 1)
       return { ui: { ...ui, modLfoParam: next }, engine }
+    }
+    case 'encoder-b-turn': {
+      // Adjust the currently selected LFO parameter
+      const newEngine = adjustLfoParam(engine, ui.selectedTrack, config, ui.modLfoParam, event.delta)
+      return { ui, engine: newEngine }
     }
     default:
       return { ui, engine }
