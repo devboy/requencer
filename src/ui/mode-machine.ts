@@ -1622,8 +1622,10 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         const stepIdx = pageOffset + i
         if (stepIdx >= track.pitch.length) {
           leds[i] = 'off'
-        } else if (i === ui.selectedStep) {
+        } else if (stepIdx === track.pitch.currentStep) {
           leds[i] = 'flash'
+        } else if (i === ui.selectedStep) {
+          leds[i] = 'on'
         } else {
           leds[i] = 'dim'
         }
@@ -1635,8 +1637,10 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         const stepIdx = pageOffset + i
         if (stepIdx >= track.velocity.length) {
           leds[i] = 'off'
-        } else if (i === ui.selectedStep) {
+        } else if (stepIdx === track.velocity.currentStep) {
           leds[i] = 'flash'
+        } else if (i === ui.selectedStep) {
+          leds[i] = 'on'
         } else {
           leds[i] = 'dim'
         }

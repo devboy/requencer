@@ -32,7 +32,7 @@ export function renderHome(ctx: CanvasRenderingContext2D, engine: SequencerState
     const isSelected = i === ui.selectedTrack
     const y = LCD_CONTENT_Y + PAD / 2 + i * (BAND_H + TRACK_GAP)
 
-    renderTrackBand(ctx, track, i, y, isSelected, engine.randomConfigs[i])
+    renderTrackBand(ctx, track, i, y, isSelected, engine.randomConfigs[i], engine.variationPatterns[i].enabled)
   }
 
   // Info footer — selected track length/div summary
@@ -63,6 +63,7 @@ function renderTrackBand(
   y: number,
   isSelected: boolean,
   config: RandomConfig,
+  variationEnabled: boolean,
 ): void {
   const trackColor = COLORS.track[trackIdx]
   const dimColor = COLORS.trackDim[trackIdx]
@@ -78,6 +79,11 @@ function renderTrackBand(
 
   // Track label — centered vertically in band
   drawText(ctx, `T${trackIdx + 1}`, PAD, y + BAND_H / 2, isSelected ? trackColor : COLORS.textDim, 18)
+
+  // Variation active indicator
+  if (variationEnabled) {
+    drawText(ctx, '~', PAD + 24, y + BAND_H / 2, '#44ff66', 18)
+  }
 
   // Gate row
   const gateY = y

@@ -493,8 +493,44 @@ describe('getLEDState', () => {
     const ui = { ...createInitialUIState(), mode: 'pitch-edit' as const, selectedStep: 4 }
     const eng = makeState()
     const leds = getLEDState(ui, eng)
-    expect(leds.steps[4]).toBe('flash')
-    expect(leds.steps[0]).toBe('dim')
+    expect(leds.steps[4]).toBe('on')
+    expect(leds.steps[1]).toBe('dim')
+  })
+
+  it('pitch-edit shows playback position as flash', () => {
+    const ui = { ...createInitialUIState(), mode: 'pitch-edit' as const, selectedStep: 4 }
+    const eng = makeState()
+    eng.tracks[0].pitch.currentStep = 7
+    const leds = getLEDState(ui, eng)
+    expect(leds.steps[7]).toBe('flash') // playback position
+    expect(leds.steps[4]).toBe('on') // cursor (not flash)
+    expect(leds.steps[0]).toBe('dim') // other step
+  })
+
+  it('pitch-edit playback flash wins when cursor and playhead overlap', () => {
+    const ui = { ...createInitialUIState(), mode: 'pitch-edit' as const, selectedStep: 3 }
+    const eng = makeState()
+    eng.tracks[0].pitch.currentStep = 3
+    const leds = getLEDState(ui, eng)
+    expect(leds.steps[3]).toBe('flash') // playback wins over cursor
+  })
+
+  it('vel-edit shows playback position as flash', () => {
+    const ui = { ...createInitialUIState(), mode: 'vel-edit' as const, selectedStep: 2 }
+    const eng = makeState()
+    eng.tracks[0].velocity.currentStep = 10
+    const leds = getLEDState(ui, eng)
+    expect(leds.steps[10]).toBe('flash') // playback position
+    expect(leds.steps[2]).toBe('on') // cursor
+    expect(leds.steps[1]).toBe('dim') // other step (not 0, since currentStep defaults to 0)
+  })
+
+  it('vel-edit playback flash wins when cursor and playhead overlap', () => {
+    const ui = { ...createInitialUIState(), mode: 'vel-edit' as const, selectedStep: 5 }
+    const eng = makeState()
+    eng.tracks[0].velocity.currentStep = 5
+    const leds = getLEDState(ui, eng)
+    expect(leds.steps[5]).toBe('flash')
   })
 })
 
