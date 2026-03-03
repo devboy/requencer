@@ -5,7 +5,7 @@
  * Keyboard mapping:
  *   1-4         → T1-T4 track select
  *   Q/W/E/R     → GATE/PITCH/VEL/MOD subtrack buttons
- *   A/S/D/F/G   → MUTE/ROUTE/RAND/DRIFT/TRNS feature buttons
+ *   A/S/D/F/G/H → MUTE/ROUTE/RAND/DRIFT/TRNS/VAR feature buttons
  *   ArrowUp/Down    → Encoder A turn (delta ±1)
  *   ArrowLeft/Right → Encoder B turn (delta ±1)
  *   Enter       → Encoder A push
@@ -42,7 +42,7 @@ const STEP_KEYS = ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',']
 
 const TRACK_KEYS: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3 }
 const SUBTRACK_KEYS: Record<string, SubtrackId> = { q: 'gate', w: 'pitch', e: 'velocity', r: 'mod' }
-const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'mutate', g: 'transpose' }
+const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'mutate', g: 'transpose', h: 'variation' }
 
 const HOLD_THRESHOLD_MS = 200
 const STICKY_THRESHOLD_MS = 300

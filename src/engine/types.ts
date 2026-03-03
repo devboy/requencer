@@ -179,6 +179,35 @@ export interface MIDIOutputConfig {
   channel: number            // 1-16
 }
 
+// Variation transform types
+export type TransformType =
+  | 'reverse' | 'ping-pong' | 'rotate'
+  | 'thin' | 'fill' | 'skip-even' | 'skip-odd'
+  | 'transpose' | 'invert' | 'octave-shift'
+  | 'double-time' | 'stutter'
+
+export interface Transform {
+  type: TransformType
+  param: number
+}
+
+export interface VariationSlot {
+  transforms: Transform[]
+}
+
+export interface VariationPattern {
+  enabled: boolean
+  length: number
+  slots: VariationSlot[]
+  currentBar: number
+  subtrackOverrides: {
+    gate: VariationPattern | 'bypass' | null
+    pitch: VariationPattern | 'bypass' | null
+    velocity: VariationPattern | 'bypass' | null
+    mod: VariationPattern | 'bypass' | null
+  }
+}
+
 // Top-level sequencer state
 export interface SequencerState {
   tracks: SequenceTrack[]           // 4 sequence tracks
@@ -193,4 +222,5 @@ export interface SequencerState {
   midiConfigs: MIDIOutputConfig[]  // 4 MIDI configs (one per output)
   midiEnabled: boolean                  // global MIDI output on/off
   userPresets: UserPreset[]         // user-saved presets (unlimited)
+  variationPatterns: VariationPattern[] // 4 variation patterns (one per track)
 }
