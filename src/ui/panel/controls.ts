@@ -285,6 +285,9 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'clr-press' })
   })
 
+  // --- PAT button — enters pattern screen ---
+  panel.patBtn.addEventListener('pointerdown', () => emit({ type: 'pattern-press' }))
+
   // --- Global click: end sticky hold on clicks outside interactive controls ---
   // Step buttons, encoders pass through during sticky (they're used with hold combos).
   // Holdable buttons already handle sticky exit in startHold().
@@ -294,7 +297,7 @@ export function createControls(panel: FaceplateElements): void {
     // Ignore clicks on interactive controls (these have their own handling)
     if (
       target.closest(
-        '.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .clr-btn',
+        '.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .clr-btn, .pat-btn',
       )
     )
       return

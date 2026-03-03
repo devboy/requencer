@@ -76,6 +76,7 @@ export interface FaceplateElements {
   randBtn: HTMLButtonElement
   backBtn: HTMLButtonElement
   clrBtn: HTMLButtonElement
+  patBtn: HTMLButtonElement
   settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
@@ -292,6 +293,11 @@ export function createFaceplate(): FaceplateElements {
   clrBtn.innerHTML = '<span class="btn-icon">✕</span><span class="btn-text">CLR</span>'
   controlStripBtns.appendChild(clrBtn)
 
+  const patBtn = document.createElement('button')
+  patBtn.className = 'large-btn pat-btn'
+  patBtn.innerHTML = '<span class="btn-icon">▦</span><span class="btn-text">PAT</span>'
+  controlStripBtns.appendChild(patBtn)
+
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
   const cvRow = jackGrid.querySelector('.cv-row') as HTMLDivElement
@@ -328,6 +334,7 @@ export function createFaceplate(): FaceplateElements {
     randBtn,
     backBtn,
     clrBtn,
+    patBtn,
     settingsBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,

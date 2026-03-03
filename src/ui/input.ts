@@ -168,6 +168,9 @@ function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
     return null // push emitted on keyup
   }
 
+  // Pattern
+  if (e.key === 'j') return { type: 'pattern-press' }
+
   // Transport
   if (e.key === ' ') return { type: 'play-stop' }
   if (e.key === 'Backspace') return { type: 'reset' }

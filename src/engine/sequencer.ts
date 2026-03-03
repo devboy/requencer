@@ -155,6 +155,7 @@ export function createSequencer(): SequencerState {
     midiEnabled: false,
     userPresets: [],
     variationPatterns: Array.from({ length: NUM_TRACKS }, () => createDefaultVariationPattern()),
+    savedPatterns: [],
   }
 }
 
