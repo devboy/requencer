@@ -45,6 +45,7 @@ export type ControlEvent =
   | { type: 'hold-start'; button: HeldButtonTarget }
   | { type: 'hold-end' }
   | { type: 'settings-press' }
+  | { type: 'clr-press' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
 export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose' | 'variation'
@@ -79,6 +80,8 @@ export interface UIState {
   modLfoParam: number // 0-6: selected LFO param row (WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE)
   midiDevices: Array<{ id: string; name: string }> // available MIDI output devices
   midiDeviceIndex: number // selected MIDI device index per output (into midiDevices)
+  clrPending: boolean // true after first CLR press, waiting for confirm
+  clrPendingAt: number // timestamp of first CLR press (for 2s timeout)
 }
 
 export interface LEDState {

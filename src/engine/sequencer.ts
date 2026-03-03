@@ -39,9 +39,9 @@ const MAX_LENGTH = 64
 const MIN_DIVIDER = 1
 const MAX_DIVIDER = 32
 
-const DEFAULT_GATE_STEP: GateStep = { on: false, tie: false, length: 0.5, ratchet: 1 }
-const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
-const DEFAULT_MOD_STEP: ModStep = { value: 0, slew: 0 }
+export const DEFAULT_GATE_STEP: GateStep = { on: false, tie: false, length: 0.5, ratchet: 1 }
+export const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
+export const DEFAULT_MOD_STEP: ModStep = { value: 0, slew: 0 }
 
 function createSubtrack<T>(defaultValue: T, length: number = DEFAULT_LENGTH): Subtrack<T> {
   return {
@@ -87,7 +87,7 @@ function createDefaultRandomConfig(index: number): RandomConfig {
   }
 }
 
-function createDefaultMutateConfig(): MutateConfig {
+export function createDefaultMutateConfig(): MutateConfig {
   return {
     trigger: 'loop',
     bars: 1,
@@ -838,6 +838,122 @@ export function saveUserPreset(state: SequencerState, name: string, config: Rand
   return {
     ...state,
     userPresets: [...state.userPresets, { name, config }],
+  }
+}
+
+// --- Page-scoped clear functions ---
+
+function clearPageRange(length: number, page: number): { start: number; end: number } {
+  const start = page * 16
+  const end = Math.min(start + 15, length - 1)
+  return { start, end }
+}
+
+function clearSubtrackPage<T>(steps: T[], length: number, page: number, defaultValue: T): T[] {
+  const { start, end } = clearPageRange(length, page)
+  return steps.map((s, i) => {
+    if (i < start || i > end) return s
+    return typeof defaultValue === 'object' && defaultValue !== null ? { ...defaultValue } : defaultValue
+  })
+}
+
+export function clearGateStepsOnPage(state: SequencerState, trackIndex: number, page: number): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        gate: { ...track.gate, steps: clearSubtrackPage(track.gate.steps, track.gate.length, page, DEFAULT_GATE_STEP) },
+      }
+    }),
+  }
+}
+
+export function clearPitchStepsOnPage(state: SequencerState, trackIndex: number, page: number): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        pitch: {
+          ...track.pitch,
+          steps: clearSubtrackPage(track.pitch.steps, track.pitch.length, page, DEFAULT_PITCH_STEP),
+        },
+      }
+    }),
+  }
+}
+
+export function clearVelStepsOnPage(state: SequencerState, trackIndex: number, page: number): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        velocity: {
+          ...track.velocity,
+          steps: clearSubtrackPage(track.velocity.steps, track.velocity.length, page, 100),
+        },
+      }
+    }),
+  }
+}
+
+export function clearModStepsOnPage(state: SequencerState, trackIndex: number, page: number): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        mod: { ...track.mod, steps: clearSubtrackPage(track.mod.steps, track.mod.length, page, DEFAULT_MOD_STEP) },
+      }
+    }),
+  }
+}
+
+export function clearMuteStepsOnPage(state: SequencerState, trackIndex: number, page: number): SequencerState {
+  return {
+    ...state,
+    mutePatterns: state.mutePatterns.map((mute, i) => {
+      if (i !== trackIndex) return mute
+      return { ...mute, steps: clearSubtrackPage(mute.steps, mute.length, page, false) }
+    }),
+  }
+}
+
+export function clearTrackToDefaults(state: SequencerState, trackIndex: number): SequencerState {
+  return {
+    ...state,
+    tracks: state.tracks.map((track, i) => {
+      if (i !== trackIndex) return track
+      return {
+        ...track,
+        gate: {
+          ...track.gate,
+          steps: Array.from({ length: track.gate.length }, () => ({ ...DEFAULT_GATE_STEP })),
+        },
+        pitch: {
+          ...track.pitch,
+          steps: Array.from({ length: track.pitch.length }, () => ({ ...DEFAULT_PITCH_STEP })),
+        },
+        velocity: {
+          ...track.velocity,
+          steps: Array(track.velocity.length).fill(100),
+        },
+        mod: {
+          ...track.mod,
+          steps: Array.from({ length: track.mod.length }, () => ({ ...DEFAULT_MOD_STEP })),
+        },
+      }
+    }),
+    mutePatterns: state.mutePatterns.map((mute, i) => {
+      if (i !== trackIndex) return mute
+      return { ...mute, steps: Array(mute.length).fill(false) }
+    }),
   }
 }
 

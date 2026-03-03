@@ -172,6 +172,9 @@ function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
   if (e.key === ' ') return { type: 'play-stop' }
   if (e.key === 'Backspace') return { type: 'reset' }
 
+  // CLR
+  if (e.key === 'Delete') return { type: 'clr-press' }
+
   return null
 }
 
