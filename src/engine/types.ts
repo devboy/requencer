@@ -198,6 +198,7 @@ export interface VariationSlot {
 export interface VariationPattern {
   enabled: boolean
   length: number
+  loopMode: boolean
   slots: VariationSlot[]
   currentBar: number
   subtrackOverrides: {

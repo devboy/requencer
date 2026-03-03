@@ -223,6 +223,7 @@ export function createDefaultVariationPattern(): VariationPattern {
   return {
     enabled: false,
     length: 4,
+    loopMode: false,
     slots,
     currentBar: 0,
     subtrackOverrides: {

@@ -582,16 +582,8 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
 
     case 'encoder-a-turn': {
       if (ui.varSelectedBar < 0) {
-        // Overview: change phrase length (2, 4, 8, 16)
-        const lengthOptions = [2, 4, 8, 16]
-        const curIdx = lengthOptions.indexOf(vp.length)
-        const newIdx = clamp((curIdx >= 0 ? curIdx : 1) + event.delta, 0, lengthOptions.length - 1)
-        const newLength = lengthOptions[newIdx]
-        if (newLength === vp.length) return { ui, engine }
-        const newSlots = Array.from({ length: newLength }, (_, i) =>
-          vp.slots[i] ?? { transforms: [] },
-        )
-        return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, length: newLength, slots: newSlots, currentBar: vp.currentBar % newLength }) }
+        // Overview: no-op (phrase length is changed via hold VAR + enc A)
+        return { ui, engine }
       }
       // Bar detail: move cursor through transform stack + "add" slot
       const maxCursor = vp.slots[ui.varSelectedBar].transforms.length // N items + "add" at index N
@@ -1503,25 +1495,57 @@ function dispatchHoldCombo(
 
   if (held.kind === 'feature' && held.feature === 'variation') {
     if (event.type === 'encoder-a-turn') {
-      // Hold VAR + enc A = variation phrase length (cycle 2, 4, 8, 16)
+      // Hold VAR + enc A = variation phrase length (1-16, any value)
       // Works on whichever pattern is being edited (track-level or subtrack override)
       const vp = getEditingVariationPattern(engine, ui)
-      const lengthOptions = [2, 4, 8, 16]
-      const curIdx = lengthOptions.indexOf(vp.length)
-      const newIdx = clamp((curIdx >= 0 ? curIdx : 1) + event.delta, 0, lengthOptions.length - 1)
-      const newLength = lengthOptions[newIdx]
+      const newLength = clamp(vp.length + event.delta, 1, 16)
+      if (newLength === vp.length) return { ui: uiUsed, engine }
       // Resize slots array to match new length
       const newSlots = Array.from({ length: newLength }, (_, i) =>
         vp.slots[i] ?? { transforms: [] },
       )
+      // Clamp varSelectedBar if it exceeds new length
+      const newVarSelectedBar = ui.varSelectedBar >= newLength ? -1 : ui.varSelectedBar
       return {
-        ui: uiUsed,
+        ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor },
         engine: updateEditingVariationPattern(engine, ui, {
           ...vp,
           length: newLength,
+          loopMode: false,
           slots: newSlots,
           currentBar: vp.currentBar % newLength,
         }),
+      }
+    }
+    if (event.type === 'encoder-b-turn') {
+      // Hold VAR + enc B = toggle loop mode (right = on, left = off)
+      // Loop mode: variation length follows gate subtrack length
+      const vp = getEditingVariationPattern(engine, ui)
+      const newLoopMode = event.delta > 0
+      if (newLoopMode === vp.loopMode) return { ui: uiUsed, engine }
+      if (newLoopMode) {
+        // Turning ON: set length to gate subtrack length
+        const gateLen = engine.tracks[trackIdx].gate.length
+        const newSlots = Array.from({ length: gateLen }, (_, i) =>
+          vp.slots[i] ?? { transforms: [] },
+        )
+        const newVarSelectedBar = ui.varSelectedBar >= gateLen ? -1 : ui.varSelectedBar
+        return {
+          ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor },
+          engine: updateEditingVariationPattern(engine, ui, {
+            ...vp,
+            loopMode: true,
+            length: gateLen,
+            slots: newSlots,
+            currentBar: vp.currentBar % gateLen,
+          }),
+        }
+      } else {
+        // Turning OFF: keep current length
+        return {
+          ui: uiUsed,
+          engine: updateEditingVariationPattern(engine, ui, { ...vp, loopMode: false }),
+        }
       }
     }
   }

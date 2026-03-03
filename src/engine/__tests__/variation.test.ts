@@ -379,6 +379,7 @@ describe('createDefaultVariationPattern', () => {
     const p = createDefaultVariationPattern()
     expect(p.enabled).toBe(false)
     expect(p.length).toBe(4)
+    expect(p.loopMode).toBe(false)
     expect(p.slots).toHaveLength(4)
     expect(p.currentBar).toBe(0)
     for (const slot of p.slots) {

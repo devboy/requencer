@@ -4,9 +4,10 @@
  * and transform catalog browser.
  *
  * Overview (no bar selected):
- *   Enc A turn: change phrase length (2/4/8/16)
  *   Enc A push: toggle enabled (track-level) or cycle override (subtrack)
  *   Step buttons: select bar
+ *   Hold VAR + Enc A: change phrase length (1-16)
+ *   Hold VAR + Enc B: toggle loop mode (length follows gate subtrack)
  *
  * Bar detail (bar selected):
  *   Enc A turn: move cursor through transform stack + "add" slot
@@ -82,7 +83,8 @@ export function renderVariationEdit(ctx: CanvasRenderingContext2D, engine: Seque
   drawText(ctx, `VAR \u2014 T${ui.selectedTrack + 1}${subLabel}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   const enabledText = vp.enabled ? 'ON' : 'OFF'
   const enabledColor = vp.enabled ? '#44ff66' : COLORS.textDim
-  drawText(ctx, `${vp.length} bars  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 14, 'right')
+  const lengthText = vp.loopMode ? `LOOP(${vp.length})` : `${vp.length} bars`
+  drawText(ctx, `${lengthText}  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 14, 'right')
 
   if (ui.varSelectedBar < 0) {
     renderBarOverview(ctx, vp, ui, trackColor)
@@ -182,7 +184,7 @@ function renderBarOverview(
 
   // Bottom hint
   const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'STEP:bar  A:phrase  PUSH:on/off', PAD, hintY, COLORS.textDim, 12)
+  drawText(ctx, 'STEP:bar  PUSH:on/off  hVAR:len/loop', PAD, hintY, COLORS.textDim, 12)
 }
 
 /** Bar detail mode — transform stack with cursor + catalog browser */
