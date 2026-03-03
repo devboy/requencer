@@ -35,7 +35,7 @@ const NUM_TRACKS = 4
 const DEFAULT_LENGTH = 16
 const DEFAULT_BPM = 135
 const MIN_LENGTH = 1
-const MAX_LENGTH = 64
+const MAX_LENGTH = 16
 const MIN_DIVIDER = 1
 const MAX_DIVIDER = 32
 
@@ -689,7 +689,7 @@ export function randomizeModPattern(state: SequencerState, trackIndex: number, s
 }
 
 function resizeSteps<T>(steps: T[], newLength: number, defaultValue: T): T[] {
-  if (newLength <= steps.length) return steps.slice(0, newLength)
+  if (newLength <= steps.length) return steps // Keep all data — don't truncate
   const padValue =
     typeof defaultValue === 'object' && defaultValue !== null ? () => ({ ...defaultValue }) : () => defaultValue
   return [...steps, ...Array.from({ length: newLength - steps.length }, padValue)]

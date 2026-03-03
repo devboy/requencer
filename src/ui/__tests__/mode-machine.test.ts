@@ -560,10 +560,10 @@ describe('hold combos', () => {
     it('hold track + enc A changes all subtrack lengths', () => {
       const ui = holdUI({ kind: 'track', track: 0 })
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 2 })
-      expect(result.engine.tracks[0].gate.length).toBe(18) // 16 + 2
-      expect(result.engine.tracks[0].pitch.length).toBe(18)
-      expect(result.engine.tracks[0].velocity.length).toBe(18)
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -2 })
+      expect(result.engine.tracks[0].gate.length).toBe(14) // 16 - 2
+      expect(result.engine.tracks[0].pitch.length).toBe(14)
+      expect(result.engine.tracks[0].velocity.length).toBe(14)
       expect(result.ui.holdEncoderUsed).toBe(true)
     })
 
@@ -586,8 +586,8 @@ describe('hold combos', () => {
       // selectedTrack is 0, but we hold track 3 — encoder should modify track 3
       const ui = { ...holdUI({ kind: 'track', track: 3 }), selectedTrack: 0 }
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 2 })
-      expect(result.engine.tracks[3].gate.length).toBe(18) // held track changed
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -2 })
+      expect(result.engine.tracks[3].gate.length).toBe(14) // held track changed
       expect(result.engine.tracks[0].gate.length).toBe(16) // selected track unchanged
     })
   })
@@ -596,8 +596,8 @@ describe('hold combos', () => {
     it('hold gate + enc A changes gate length only', () => {
       const ui = holdUI({ kind: 'subtrack', subtrack: 'gate' })
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 4 })
-      expect(result.engine.tracks[0].gate.length).toBe(20) // 16 + 4
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -4 })
+      expect(result.engine.tracks[0].gate.length).toBe(12) // 16 - 4
       expect(result.engine.tracks[0].pitch.length).toBe(16) // unchanged
     })
 
@@ -620,8 +620,8 @@ describe('hold combos', () => {
     it('hold mute + enc A changes mute length', () => {
       const ui = holdUI({ kind: 'feature', feature: 'mute' })
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 8 })
-      expect(result.engine.mutePatterns[0].length).toBe(24) // 16 + 8
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -8 })
+      expect(result.engine.mutePatterns[0].length).toBe(8) // 16 - 8
     })
 
     it('hold mute + enc B changes mute clock divider', () => {
