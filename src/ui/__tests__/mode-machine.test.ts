@@ -1637,5 +1637,227 @@ describe('route screen dispatch', () => {
       expect(result.ui.selectedTrack).toBe(2)
       expect(result.ui.mode).toBe('variation-edit')
     })
+
+    describe('per-subtrack overrides', () => {
+      it('hold subtrack + enc A push cycles override: null → bypass', () => {
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+        const engine = makeState()
+        expect(engine.variationPatterns[0].subtrackOverrides.gate).toBe(null)
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        expect(result.engine.variationPatterns[0].subtrackOverrides.gate).toBe('bypass')
+      })
+
+      it('hold subtrack + enc A push cycles override: bypass → override pattern', () => {
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate
+        expect(override).not.toBe(null)
+        expect(override).not.toBe('bypass')
+        expect((override as any).enabled).toBe(false)
+        expect((override as any).length).toBe(4)
+        expect((override as any).slots).toHaveLength(4)
+      })
+
+      it('hold subtrack + enc A push cycles override: override pattern → null', () => {
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'pitch' } })
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.pitch = {
+          enabled: true, length: 4, currentBar: 0,
+          slots: [{ transforms: [] }, { transforms: [] }, { transforms: [] }, { transforms: [] }],
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        expect(result.engine.variationPatterns[0].subtrackOverrides.pitch).toBe(null)
+      })
+
+      it('releasing subtrack hold enters subtrack editing when override is a pattern', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: true, length: 2, currentBar: 0,
+          slots: [{ transforms: [] }, { transforms: [{ type: 'reverse', param: 0 }] }],
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+        const result = dispatch(ui, engine, { type: 'hold-end' })
+        expect(result.ui.varEditSubtrack).toBe('gate')
+        expect(result.ui.varSelectedBar).toBe(-1)
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('releasing subtrack hold does NOT enter editing when override is null', () => {
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'hold-end' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+      })
+
+      it('releasing subtrack hold does NOT enter editing when override is bypass', () => {
+        const ui = varUI({ heldButton: { kind: 'subtrack', subtrack: 'gate' } })
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
+        const result = dispatch(ui, engine, { type: 'hold-end' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+      })
+
+      it('subtrack-select enters override editing when override pattern exists', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.pitch = {
+          enabled: false, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI()
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
+        expect(result.ui.varEditSubtrack).toBe('pitch')
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('subtrack-select toggles off override editing when already editing that subtrack', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.pitch = {
+          enabled: false, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ varEditSubtrack: 'pitch' })
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+      })
+
+      it('subtrack-select is no-op when override is null (inherit)', () => {
+        const ui = varUI()
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('subtrack-select is no-op when override is bypass', () => {
+        const ui = varUI()
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = 'bypass'
+        const result = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('back exits subtrack editing before exiting variation-edit', () => {
+        const ui = varUI({ varEditSubtrack: 'gate' })
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'back' })
+        expect(result.ui.varEditSubtrack).toBe(null)
+        expect(result.ui.mode).toBe('variation-edit')
+      })
+
+      it('back from track-level editing exits to home', () => {
+        const ui = varUI()
+        const engine = makeState()
+        const result = dispatch(ui, engine, { type: 'back' })
+        expect(result.ui.mode).toBe('home')
+      })
+
+      it('editing operations apply to subtrack override pattern when varEditSubtrack is set', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: false, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        // Select bar 1 in subtrack editing, add a transform
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 1, varParam: 0 }) // REVERSE
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        expect(override.slots[1].transforms.length).toBe(1)
+        expect(override.slots[1].transforms[0].type).toBe('reverse')
+        // Track-level should be unchanged
+        expect(result.engine.variationPatterns[0].slots[1].transforms.length).toBe(0)
+      })
+
+      it('toggle enabled applies to subtrack override when editing subtrack', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: false, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: -1 })
+        const result = dispatch(ui, engine, { type: 'encoder-a-push' })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        expect(override.enabled).toBe(true)
+        // Track-level should be unchanged
+        expect(result.engine.variationPatterns[0].enabled).toBe(false)
+      })
+
+      it('hold VAR + enc A changes phrase length for subtrack override', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: true, length: 4, currentBar: 0,
+          slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({
+          varEditSubtrack: 'gate',
+          heldButton: { kind: 'feature' as const, feature: 'variation' as const },
+        })
+        const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        expect(override.length).toBe(8)
+        expect(override.slots.length).toBe(8)
+        // Track-level should be unchanged
+        expect(result.engine.variationPatterns[0].length).toBe(4)
+      })
+
+      it('LEDs show subtrack override bars when editing subtrack', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.pitch = {
+          enabled: true, length: 2, currentBar: 0,
+          slots: [
+            { transforms: [{ type: 'reverse', param: 0 }] },
+            { transforms: [] },
+          ],
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ varEditSubtrack: 'pitch' })
+        const leds = getLEDState(ui, engine)
+        expect(leds.steps[0]).toBe('on')   // bar with transforms
+        expect(leds.steps[1]).toBe('dim')  // empty bar
+        expect(leds.steps[2]).toBe('off')  // beyond override phrase length (2 bars)
+      })
+
+      it('encoder A hold removes last transform from subtrack override bar', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: true, length: 4, currentBar: 0,
+          slots: [
+            { transforms: [{ type: 'reverse', param: 0 }, { type: 'transpose', param: 7 }] },
+            { transforms: [] }, { transforms: [] }, { transforms: [] },
+          ],
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0 })
+        const result = dispatch(ui, engine, { type: 'encoder-a-hold' })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        expect(override.slots[0].transforms.length).toBe(1)
+        expect(override.slots[0].transforms[0].type).toBe('reverse')
+      })
+
+      it('encoder B turn adjusts param in subtrack override bar', () => {
+        const engine = makeState()
+        engine.variationPatterns[0].subtrackOverrides.gate = {
+          enabled: true, length: 4, currentBar: 0,
+          slots: [
+            { transforms: [{ type: 'transpose', param: 7 }] },
+            { transforms: [] }, { transforms: [] }, { transforms: [] },
+          ],
+          subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
+        }
+        const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0 })
+        const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        expect(override.slots[0].transforms[0].param).toBe(8)
+      })
+    })
   })
 })

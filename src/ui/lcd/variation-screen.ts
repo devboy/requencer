@@ -9,18 +9,26 @@
  * Enc A hold (bar selected): remove last transform
  * Enc B turn: adjust param of last transform in selected bar
  * Hold VAR + Enc A: set phrase length
+ * Hold subtrack + Enc A push: cycle override state (inherit/bypass/override)
  */
 
-import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
+import type { SequencerState, VariationPattern } from '../../engine/types'
+import type { UIState, SubtrackId } from '../hw-types'
 import { COLORS } from '../colors'
 import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
-import { TRANSFORM_CATALOG } from '../mode-machine'
+import { TRANSFORM_CATALOG, getEditingVariationPattern } from '../mode-machine'
 
 const PAD = 8
 const HEADER_H = 30
 const ROW_H = 22
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 4
+
+const SUBTRACK_LABELS: Record<SubtrackId, string> = {
+  gate: 'GATE',
+  pitch: 'PITCH',
+  velocity: 'VEL',
+  mod: 'MOD',
+}
 
 /** Format a transform param for display */
 function formatParam(type: string, param: number): string {
@@ -35,12 +43,29 @@ function formatParam(type: string, param: number): string {
   }
 }
 
+/** Get the override state label for a subtrack */
+function overrideLabel(vp: VariationPattern, sub: SubtrackId): string {
+  const override = vp.subtrackOverrides[sub]
+  if (override === null) return 'INHERIT'
+  if (override === 'bypass') return 'BYPASS'
+  return 'OVERRIDE'
+}
+
 export function renderVariationEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const trackColor = COLORS.track[ui.selectedTrack]
-  const vp = engine.variationPatterns[ui.selectedTrack]
+  const trackVP = engine.variationPatterns[ui.selectedTrack]
 
-  // Header line: VAR — T1  Phrase: 4 bars  [ON/OFF]
-  drawText(ctx, `VAR — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
+  // Check if holding a subtrack button — show override state overlay
+  if (ui.heldButton?.kind === 'subtrack') {
+    renderSubtrackOverlay(ctx, trackVP, ui.heldButton.subtrack, trackColor)
+    return
+  }
+
+  const vp = getEditingVariationPattern(engine, ui)
+
+  // Header line: VAR — T1 [GATE]  Phrase: 4 bars  [ON/OFF]
+  const subLabel = ui.varEditSubtrack ? ` ${SUBTRACK_LABELS[ui.varEditSubtrack]}` : ''
+  drawText(ctx, `VAR — T${ui.selectedTrack + 1}${subLabel}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   const enabledText = vp.enabled ? 'ON' : 'OFF'
   const enabledColor = vp.enabled ? '#44ff66' : COLORS.textDim
   drawText(ctx, `${vp.length} bars  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 14, 'right')
@@ -50,13 +75,43 @@ export function renderVariationEdit(ctx: CanvasRenderingContext2D, engine: Seque
     renderBarOverview(ctx, vp, ui, trackColor)
   } else {
     // --- Bar detail mode: show transform stack + catalog browser ---
-    renderBarDetail(ctx, engine, ui, trackColor)
+    renderBarDetail(ctx, vp, ui, trackColor)
+  }
+}
+
+function renderSubtrackOverlay(
+  ctx: CanvasRenderingContext2D,
+  vp: VariationPattern,
+  sub: SubtrackId,
+  trackColor: string,
+): void {
+  const label = SUBTRACK_LABELS[sub]
+  const state = overrideLabel(vp, sub)
+
+  // Header
+  drawText(ctx, `VAR  ${label} override: ${state}`, PAD, LCD_CONTENT_Y + 22, trackColor, 16)
+
+  // Instruction
+  drawText(ctx, '[push Enc A to cycle]', PAD + 12, LIST_TOP + 16, COLORS.textDim, 14)
+
+  // State progression
+  const states = ['INHERIT', 'BYPASS', 'OVERRIDE']
+  const y = LIST_TOP + 50
+  for (let i = 0; i < states.length; i++) {
+    const s = states[i]
+    const x = PAD + 12 + i * 120
+    const isCurrent = s === state
+    const color = isCurrent ? trackColor : COLORS.textDim
+    drawText(ctx, s, x, y, color, 14)
+    if (i < states.length - 1) {
+      drawText(ctx, '\u2192', x + 80, y, COLORS.textDim, 14)
+    }
   }
 }
 
 function renderBarOverview(
   ctx: CanvasRenderingContext2D,
-  vp: import('../../engine/types').VariationPattern,
+  vp: VariationPattern,
   ui: UIState,
   trackColor: string,
 ): void {
@@ -82,7 +137,7 @@ function renderBarOverview(
       fillRect(ctx, { x: x + 4, y: y + 20, w: 32, h: 12 }, `${trackColor}44`)
       drawText(ctx, `${count}`, x + 20, y + 26, trackColor, 12, 'center')
     } else {
-      drawText(ctx, '—', x + 20, y + 26, COLORS.textDim, 12, 'center')
+      drawText(ctx, '\u2014', x + 20, y + 26, COLORS.textDim, 12, 'center')
     }
   }
 
@@ -114,11 +169,10 @@ function renderBarOverview(
 
 function renderBarDetail(
   ctx: CanvasRenderingContext2D,
-  engine: SequencerState,
+  vp: VariationPattern,
   ui: UIState,
   trackColor: string,
 ): void {
-  const vp = engine.variationPatterns[ui.selectedTrack]
   const bar = ui.varSelectedBar
   const slot = vp.slots[bar]
 
