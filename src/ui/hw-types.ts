@@ -75,6 +75,8 @@ export interface UIState {
   varSelectedBar: number      // -1 = no bar selected, 0-15 = selected bar position
   varCursor: number           // cursor in transform stack (0-N where N = "add" slot)
   varEditSubtrack: SubtrackId | null  // null = editing track-level, non-null = editing that subtrack's override
+  modLfoView: boolean          // false = MOD SEQ view, true = MOD LFO view
+  modLfoParam: number          // 0-6: selected LFO param row (WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE)
   midiDevices: Array<{ id: string; name: string }>  // available MIDI output devices
   midiDeviceIndex: number     // selected MIDI device index per output (into midiDevices)
 }

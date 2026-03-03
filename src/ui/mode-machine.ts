@@ -48,6 +48,8 @@ export function createInitialUIState(): UIState {
     varSelectedBar: -1,
     varCursor: 0,
     varEditSubtrack: null,
+    modLfoView: false,
+    modLfoParam: 0,
     midiDevices: [],
     midiDeviceIndex: 0,
   }
@@ -379,6 +381,22 @@ function dispatchMuteEdit(ui: UIState, engine: SequencerState, event: ControlEve
 // Enc B push: return home
 
 function dispatchModEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  // Encoder A push: toggle between MOD SEQ and MOD LFO views
+  if (event.type === 'encoder-a-push') {
+    return { ui: { ...ui, modLfoView: !ui.modLfoView }, engine }
+  }
+
+  // Delegate to view-specific dispatch
+  if (ui.modLfoView) {
+    return dispatchModLfo(ui, engine, event)
+  }
+  return dispatchModSeq(ui, engine, event)
+}
+
+const LFO_WAVEFORMS: import('../engine/types').LFOWaveform[] = ['sine', 'triangle', 'saw', 'square', 'slew-random', 's+h']
+const LFO_PARAM_COUNT = 7 // WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE
+
+function dispatchModSeq(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const track = engine.tracks[ui.selectedTrack]
   const maxPage = Math.max(0, Math.ceil(track.mod.length / 16) - 1)
 
@@ -398,8 +416,6 @@ function dispatchModEdit(ui: UIState, engine: SequencerState, event: ControlEven
         engine: setModStep(engine, ui.selectedTrack, stepIdx, { value: nextVal }),
       }
     }
-    case 'encoder-a-push':
-      return { ui, engine }  // reserved for future MOD SEQ/LFO view toggle
     case 'encoder-b-turn': {
       // If a step is being held, adjust its slew; otherwise page navigation
       if (ui.heldButton?.kind === 'step') {
@@ -415,11 +431,63 @@ function dispatchModEdit(ui: UIState, engine: SequencerState, event: ControlEven
       const newPage = clamp(ui.currentPage + event.delta, 0, maxPage)
       return { ui: { ...ui, currentPage: newPage }, engine }
     }
-    case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
+}
+
+function dispatchModLfo(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
+  const config = engine.lfoConfigs[ui.selectedTrack]
+
+  switch (event.type) {
+    case 'encoder-a-turn': {
+      // Adjust the currently selected LFO parameter
+      const newEngine = adjustLfoParam(engine, ui.selectedTrack, config, ui.modLfoParam, event.delta)
+      return { ui, engine: newEngine }
+    }
+    case 'encoder-b-turn': {
+      // Scroll through LFO params
+      const next = clamp(ui.modLfoParam + event.delta, 0, LFO_PARAM_COUNT - 1)
+      return { ui: { ...ui, modLfoParam: next }, engine }
+    }
+    default:
+      return { ui, engine }
+  }
+}
+
+function adjustLfoParam(engine: SequencerState, trackIdx: number, config: import('../engine/types').LFOConfig, paramIdx: number, delta: number): SequencerState {
+  let newConfig = { ...config }
+  switch (paramIdx) {
+    case 0: { // WAVE — cycle through waveforms
+      const curIdx = LFO_WAVEFORMS.indexOf(config.waveform)
+      const nextIdx = ((curIdx + delta) % LFO_WAVEFORMS.length + LFO_WAVEFORMS.length) % LFO_WAVEFORMS.length
+      newConfig.waveform = LFO_WAVEFORMS[nextIdx]
+      break
+    }
+    case 1: // SYNC — toggle track/free
+      newConfig.syncMode = config.syncMode === 'track' ? 'free' : 'track'
+      break
+    case 2: // RATE
+      if (config.syncMode === 'free') {
+        newConfig.freeRate = Math.round(clamp(config.freeRate + delta * 0.1, 0.1, 20.0) * 10) / 10
+      } else {
+        newConfig.rate = clamp(config.rate + delta, 1, 64)
+      }
+      break
+    case 3: // DEPTH
+      newConfig.depth = Math.round(clamp(config.depth + delta * 0.01, 0, 1) * 100) / 100
+      break
+    case 4: // OFFSET
+      newConfig.offset = Math.round(clamp(config.offset + delta * 0.01, 0, 1) * 100) / 100
+      break
+    case 5: // WIDTH
+      newConfig.width = Math.round(clamp(config.width + delta * 0.01, 0, 1) * 100) / 100
+      break
+    case 6: // PHASE
+      newConfig.phase = Math.round(clamp(config.phase + delta * 0.01, 0, 1) * 100) / 100
+      break
+  }
+  return updateLFOConfig(engine, trackIdx, newConfig)
 }
 
 function updateLFOConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').LFOConfig): SequencerState {
