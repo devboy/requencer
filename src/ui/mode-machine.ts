@@ -13,15 +13,49 @@
  * No DOM, no canvas, no side effects.
  */
 
-import type { SequencerState, RandomConfig, ArpDirection, ClockSource, TransformType, Transform, VariationPattern, ModMode } from '../engine/types'
-import { randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, randomizeModPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, setOutputSource, setStep, setModStep, setModSource, setGateOn, setGateLength, setGateRatchet, setPitchNote, setSlide, setTieRange, setGateTie } from '../engine/sequencer'
-import type { ScreenMode, ControlEvent, UIState, LEDState, HeldButtonTarget, SubtrackId } from './hw-types'
-import { createDefaultVariationPattern } from '../engine/variation'
+import { clamp } from '../engine/math'
 import { PRESETS } from '../engine/presets'
 import { SCALES } from '../engine/scales'
-import { getVisibleRows, getAllPresets, SECTION_PARAMS } from './rand-rows'
-import { getXposeVisibleRows } from './xpose-rows'
+import {
+  randomizeGatePattern,
+  randomizeModPattern,
+  randomizePitchPattern,
+  randomizeTrackPattern,
+  randomizeVelocityPattern,
+  resetSubtrackPlayhead,
+  resetTrackPlayheads,
+  saveUserPreset,
+  setGateLength,
+  setGateOn,
+  setGateRatchet,
+  setGateTie,
+  setModSource,
+  setModStep,
+  setMuteClockDivider,
+  setMuteLength,
+  setOutputSource,
+  setPitchNote,
+  setSlide,
+  setSubtrackClockDivider,
+  setSubtrackLength,
+  setTieRange,
+  setTrackClockDivider,
+} from '../engine/sequencer'
+import type {
+  ArpDirection,
+  ClockSource,
+  ModMode,
+  RandomConfig,
+  SequencerState,
+  Transform,
+  TransformType,
+  VariationPattern,
+} from '../engine/types'
+import { createDefaultVariationPattern } from '../engine/variation'
+import type { ControlEvent, LEDState, ScreenMode, SubtrackId, UIState } from './hw-types'
+import { getAllPresets, getVisibleRows, SECTION_PARAMS } from './rand-rows'
 import { getSettingsRows, SETTINGS_SECTION_PARAMS } from './settings-rows'
+import { getXposeVisibleRows } from './xpose-rows'
 
 export interface DispatchResult {
   ui: UIState
@@ -61,7 +95,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   if (event.type === 'hold-start') {
     // Step hold in gate-edit: select step for GL/ratchet editing
     if (event.button.kind === 'step' && ui.mode === 'gate-edit') {
-      return { ui: { ...ui, heldButton: event.button, holdEncoderUsed: false, selectedStep: event.button.step }, engine }
+      return {
+        ui: { ...ui, heldButton: event.button, holdEncoderUsed: false, selectedStep: event.button.step },
+        engine,
+      }
     }
     // Only feature buttons with hold combos (mute, variation) get hold state
     if (event.button.kind === 'feature' && event.button.feature !== 'mute' && event.button.feature !== 'variation') {
@@ -73,7 +110,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   if (event.type === 'hold-end') {
     // Clear step selection when hold ends
     const clearStep = ui.heldButton?.kind === 'step'
-    return { ui: { ...ui, heldButton: null, holdEncoderUsed: false, ...(clearStep ? { selectedStep: -1 } : {}) }, engine }
+    return {
+      ui: { ...ui, heldButton: null, holdEncoderUsed: false, ...(clearStep ? { selectedStep: -1 } : {}) },
+      engine,
+    }
   }
 
   // --- Hold combo: step held in gate-edit + step press → tie range ---
@@ -82,7 +122,11 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   }
 
   // --- Hold combo: step held in gate-edit → encoder A = gate length, encoder B = ratchet ---
-  if (ui.heldButton?.kind === 'step' && ui.mode === 'gate-edit' && (event.type === 'encoder-a-turn' || event.type === 'encoder-b-turn')) {
+  if (
+    ui.heldButton?.kind === 'step' &&
+    ui.mode === 'gate-edit' &&
+    (event.type === 'encoder-a-turn' || event.type === 'encoder-b-turn')
+  ) {
     return dispatchStepHoldCombo(ui, engine, event)
   }
 
@@ -173,7 +217,18 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       transpose: 'transpose-edit',
       variation: 'variation-edit',
     }
-    return { ui: { ...ui, mode: modeMap[event.feature], selectedStep: 0, currentPage: 0, varSelectedBar: -1, varCursor: 0, varEditSubtrack: null }, engine }
+    return {
+      ui: {
+        ...ui,
+        mode: modeMap[event.feature],
+        selectedStep: 0,
+        currentPage: 0,
+        varSelectedBar: -1,
+        varCursor: 0,
+        varEditSubtrack: null,
+      },
+      engine,
+    }
   }
 
   if (event.type === 'settings-press') {
@@ -216,7 +271,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
 function dispatchHome(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   switch (event.type) {
     case 'encoder-a-turn': {
-      const next = ((ui.selectedTrack - event.delta) % 4 + 4) % 4
+      const next = (((ui.selectedTrack - event.delta) % 4) + 4) % 4
       return { ui: { ...ui, selectedTrack: next }, engine }
     }
     case 'encoder-a-push': {
@@ -252,7 +307,7 @@ function dispatchGateEdit(ui: UIState, engine: SequencerState, event: ControlEve
       return { ui: { ...ui, currentPage: newPage }, engine }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -287,7 +342,7 @@ function dispatchPitchEdit(ui: UIState, engine: SequencerState, event: ControlEv
       const stepIdx = ui.currentPage * 16 + ui.selectedStep
       if (stepIdx >= track.pitch.length) return { ui, engine }
       const cur = track.pitch.steps[stepIdx].slide
-      const next = Math.round(clamp(cur + event.delta * 0.05, 0, 0.50) * 100) / 100
+      const next = Math.round(clamp(cur + event.delta * 0.05, 0, 0.5) * 100) / 100
       return { ui, engine: setSlide(engine, ui.selectedTrack, stepIdx, next) }
     }
     case 'encoder-a-push': {
@@ -296,7 +351,7 @@ function dispatchPitchEdit(ui: UIState, engine: SequencerState, event: ControlEv
       return { ui: { ...ui, currentPage: newPage }, engine }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -332,7 +387,7 @@ function dispatchVelEdit(ui: UIState, engine: SequencerState, event: ControlEven
       return { ui: { ...ui, currentPage: newPage }, engine }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -356,9 +411,7 @@ function dispatchMuteEdit(ui: UIState, engine: SequencerState, event: ControlEve
         ui,
         engine: {
           ...engine,
-          mutePatterns: engine.mutePatterns.map((m, i) =>
-            i === ui.selectedTrack ? { ...m, steps: newSteps } : m,
-          ),
+          mutePatterns: engine.mutePatterns.map((m, i) => (i === ui.selectedTrack ? { ...m, steps: newSteps } : m)),
         },
       }
     }
@@ -367,7 +420,7 @@ function dispatchMuteEdit(ui: UIState, engine: SequencerState, event: ControlEve
       return { ui: { ...ui, currentPage: newPage }, engine }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -393,7 +446,14 @@ function dispatchModEdit(ui: UIState, engine: SequencerState, event: ControlEven
   return dispatchModSeq(ui, engine, event)
 }
 
-const LFO_WAVEFORMS: import('../engine/types').LFOWaveform[] = ['sine', 'triangle', 'saw', 'square', 'slew-random', 's+h']
+const LFO_WAVEFORMS: import('../engine/types').LFOWaveform[] = [
+  'sine',
+  'triangle',
+  'saw',
+  'square',
+  'slew-random',
+  's+h',
+]
 const LFO_PARAM_COUNT = 7 // WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE
 
 function dispatchModSeq(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
@@ -455,12 +515,19 @@ function dispatchModLfo(ui: UIState, engine: SequencerState, event: ControlEvent
   }
 }
 
-function adjustLfoParam(engine: SequencerState, trackIdx: number, config: import('../engine/types').LFOConfig, paramIdx: number, delta: number): SequencerState {
-  let newConfig = { ...config }
+function adjustLfoParam(
+  engine: SequencerState,
+  trackIdx: number,
+  config: import('../engine/types').LFOConfig,
+  paramIdx: number,
+  delta: number,
+): SequencerState {
+  const newConfig = { ...config }
   switch (paramIdx) {
-    case 0: { // WAVE — cycle through waveforms
+    case 0: {
+      // WAVE — cycle through waveforms
       const curIdx = LFO_WAVEFORMS.indexOf(config.waveform)
-      const nextIdx = ((curIdx + delta) % LFO_WAVEFORMS.length + LFO_WAVEFORMS.length) % LFO_WAVEFORMS.length
+      const nextIdx = (((curIdx + delta) % LFO_WAVEFORMS.length) + LFO_WAVEFORMS.length) % LFO_WAVEFORMS.length
       newConfig.waveform = LFO_WAVEFORMS[nextIdx]
       break
     }
@@ -490,7 +557,11 @@ function adjustLfoParam(engine: SequencerState, trackIdx: number, config: import
   return updateLFOConfig(engine, trackIdx, newConfig)
 }
 
-function updateLFOConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').LFOConfig): SequencerState {
+function updateLFOConfig(
+  engine: SequencerState,
+  trackIdx: number,
+  config: import('../engine/types').LFOConfig,
+): SequencerState {
   return {
     ...engine,
     lfoConfigs: engine.lfoConfigs.map((c, i) => (i === trackIdx ? config : c)),
@@ -548,13 +619,17 @@ function dispatchMutateEdit(ui: UIState, engine: SequencerState, event: ControlE
       return { ui, engine: updateMutateConfig(engine, trackIdx, { ...mc, gate: 0, pitch: 0, velocity: 0, mod: 0 }) }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
 }
 
-function updateMutateConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').MutateConfig): SequencerState {
+function updateMutateConfig(
+  engine: SequencerState,
+  trackIdx: number,
+  config: import('../engine/types').MutateConfig,
+): SequencerState {
   return {
     ...engine,
     mutateConfigs: engine.mutateConfigs.map((c, i) => (i === trackIdx ? config : c)),
@@ -571,18 +646,18 @@ function updateMutateConfig(engine: SequencerState, trackIdx: number, config: im
 
 /** Transform catalog — browse order matching the design doc */
 export const TRANSFORM_CATALOG: Array<{ type: TransformType; label: string; defaultParam: number }> = [
-  { type: 'reverse',      label: 'REVERSE',      defaultParam: 0 },
-  { type: 'ping-pong',    label: 'PING-PONG',    defaultParam: 0 },
-  { type: 'rotate',       label: 'ROTATE',       defaultParam: 1 },
-  { type: 'thin',         label: 'THIN',          defaultParam: 0.5 },
-  { type: 'fill',         label: 'FILL',          defaultParam: 0 },
-  { type: 'skip-even',    label: 'SKIP-EVEN',     defaultParam: 0 },
-  { type: 'skip-odd',     label: 'SKIP-ODD',      defaultParam: 0 },
-  { type: 'transpose',    label: 'TRANSPOSE',     defaultParam: 7 },
-  { type: 'invert',       label: 'INVERT',        defaultParam: 60 },
-  { type: 'octave-shift', label: 'OCTAVE-SHIFT',  defaultParam: 1 },
-  { type: 'double-time',  label: 'DOUBLE-TIME',   defaultParam: 0 },
-  { type: 'stutter',      label: 'STUTTER',       defaultParam: 4 },
+  { type: 'reverse', label: 'REVERSE', defaultParam: 0 },
+  { type: 'ping-pong', label: 'PING-PONG', defaultParam: 0 },
+  { type: 'rotate', label: 'ROTATE', defaultParam: 1 },
+  { type: 'thin', label: 'THIN', defaultParam: 0.5 },
+  { type: 'fill', label: 'FILL', defaultParam: 0 },
+  { type: 'skip-even', label: 'SKIP-EVEN', defaultParam: 0 },
+  { type: 'skip-odd', label: 'SKIP-ODD', defaultParam: 0 },
+  { type: 'transpose', label: 'TRANSPOSE', defaultParam: 7 },
+  { type: 'invert', label: 'INVERT', defaultParam: 60 },
+  { type: 'octave-shift', label: 'OCTAVE-SHIFT', defaultParam: 1 },
+  { type: 'double-time', label: 'DOUBLE-TIME', defaultParam: 0 },
+  { type: 'stutter', label: 'STUTTER', defaultParam: 4 },
 ]
 
 function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
@@ -651,12 +726,8 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       const t = slot.transforms[ui.varCursor]
       const newParam = adjustTransformParam(t, event.delta)
       if (newParam === t.param) return { ui, engine }
-      const newTransforms = slot.transforms.map((tr, i) =>
-        i === ui.varCursor ? { ...tr, param: newParam } : tr,
-      )
-      const newSlots = vp.slots.map((s, i) =>
-        i === bar ? { transforms: newTransforms } : s,
-      )
+      const newTransforms = slot.transforms.map((tr, i) => (i === ui.varCursor ? { ...tr, param: newParam } : tr))
+      const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: newTransforms } : s))
       return { ui, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
     }
 
@@ -668,11 +739,12 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       // Cursor on "add" slot → add the catalog selection
       const catalogEntry = TRANSFORM_CATALOG[ui.varParam]
       const newTransform: Transform = { type: catalogEntry.type, param: catalogEntry.defaultParam }
-      const newSlots = vp.slots.map((s, i) =>
-        i === bar ? { transforms: [...slot.transforms, newTransform] } : s,
-      )
+      const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: [...slot.transforms, newTransform] } : s))
       // Move cursor to the new transform (so user can tweak param)
-      return { ui: { ...ui, varCursor: slot.transforms.length }, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
+      return {
+        ui: { ...ui, varCursor: slot.transforms.length },
+        engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
+      }
     }
 
     case 'encoder-b-hold': {
@@ -682,12 +754,13 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       if (ui.varCursor >= slot.transforms.length) return { ui, engine } // can't delete "add" slot
       // Delete transform at cursor
       const newTransforms = slot.transforms.filter((_, i) => i !== ui.varCursor)
-      const newSlots = vp.slots.map((s, i) =>
-        i === bar ? { transforms: newTransforms } : s,
-      )
+      const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: newTransforms } : s))
       // Adjust cursor if it would be past the end
       const newCursor = Math.min(ui.varCursor, newTransforms.length)
-      return { ui: { ...ui, varCursor: newCursor }, engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }) }
+      return {
+        ui: { ...ui, varCursor: newCursor },
+        engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
+      }
     }
 
     default:
@@ -803,7 +876,10 @@ function dispatchXposeParamAdjust(ui: UIState, engine: SequencerState, delta: nu
 
   switch (row.paramId) {
     case 'xpose.semi':
-      return { ui, engine: updateTransposeConfig(engine, trackIdx, { ...tc, semitones: clamp(tc.semitones + delta, -48, 48) }) }
+      return {
+        ui,
+        engine: updateTransposeConfig(engine, trackIdx, { ...tc, semitones: clamp(tc.semitones + delta, -48, 48) }),
+      }
     case 'xpose.noteLow': {
       const newLow = clamp(tc.noteLow + delta, 0, 127)
       const newHigh = Math.max(newLow, tc.noteHigh)
@@ -856,7 +932,11 @@ function dispatchXposeReset(ui: UIState, engine: SequencerState): DispatchResult
   return { ui, engine }
 }
 
-function updateTransposeConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').TransposeConfig): SequencerState {
+function updateTransposeConfig(
+  engine: SequencerState,
+  trackIdx: number,
+  config: import('../engine/types').TransposeConfig,
+): SequencerState {
   return {
     ...engine,
     transposeConfigs: engine.transposeConfigs.map((c, i) => (i === trackIdx ? config : c)),
@@ -916,7 +996,7 @@ function dispatchRand(ui: UIState, engine: SequencerState, event: ControlEvent):
       return dispatchRandParamAdjust(ui, engine, event.delta)
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -936,27 +1016,60 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       return { ui: { ...ui, randPresetIndex: next }, engine }
     }
     case 'pitch.scale': {
-      const curIdx = SCALE_LIST.findIndex(s => s.name === config.pitch.scale.name)
+      const curIdx = SCALE_LIST.findIndex((s) => s.name === config.pitch.scale.name)
       const nextIdx = clamp(curIdx + delta, 0, SCALE_LIST.length - 1)
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, scale: SCALE_LIST[nextIdx] } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, scale: SCALE_LIST[nextIdx] },
+        }),
+      }
     }
     case 'pitch.root':
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, root: clamp(config.pitch.root + delta, 0, 127) } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, root: clamp(config.pitch.root + delta, 0, 127) },
+        }),
+      }
     case 'pitch.low': {
       const newLow = clamp(config.pitch.low + delta, 0, 127)
       const newHigh = Math.max(newLow, config.pitch.high)
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, low: newLow, high: newHigh },
+        }),
+      }
     }
     case 'pitch.high': {
       const newHigh = clamp(config.pitch.high + delta, 0, 127)
       const newLow = Math.min(config.pitch.low, newHigh)
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, low: newLow, high: newHigh },
+        }),
+      }
     }
     case 'pitch.maxNotes':
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, maxNotes: clamp(config.pitch.maxNotes + delta, 0, 12) } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, maxNotes: clamp(config.pitch.maxNotes + delta, 0, 12) },
+        }),
+      }
     case 'slide.probability': {
       const newVal = Math.round(clamp(config.slide.probability + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, slide: { ...config.slide, probability: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, slide: { ...config.slide, probability: newVal } }),
+      }
     }
     case 'arp.enabled': {
       const ac = engine.arpConfigs[trackIdx]
@@ -966,90 +1079,168 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const ac = engine.arpConfigs[trackIdx]
       const dirs: ArpDirection[] = ['up', 'down', 'triangle', 'random']
       const curIdx = dirs.indexOf(ac.direction)
-      const nextIdx = ((curIdx + delta) % dirs.length + dirs.length) % dirs.length
+      const nextIdx = (((curIdx + delta) % dirs.length) + dirs.length) % dirs.length
       return { ui, engine: updateArpConfig(engine, trackIdx, { ...ac, direction: dirs[nextIdx] }) }
     }
     case 'arp.octaveRange': {
       const ac = engine.arpConfigs[trackIdx]
-      return { ui, engine: updateArpConfig(engine, trackIdx, { ...ac, octaveRange: clamp(ac.octaveRange + delta, 1, 4) }) }
+      return {
+        ui,
+        engine: updateArpConfig(engine, trackIdx, { ...ac, octaveRange: clamp(ac.octaveRange + delta, 1, 4) }),
+      }
     }
     case 'gate.fillMin': {
       const newMin = Math.round(clamp(config.gate.fillMin + delta * 0.05, 0, 1) * 100) / 100
       const newMax = Math.round(Math.max(newMin, config.gate.fillMax) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMin: newMin, fillMax: newMax } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          gate: { ...config.gate, fillMin: newMin, fillMax: newMax },
+        }),
+      }
     }
     case 'gate.fillMax': {
       const newMax = Math.round(clamp(config.gate.fillMax + delta * 0.05, 0, 1) * 100) / 100
       const newMin = Math.round(Math.min(config.gate.fillMin, newMax) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMin: newMin, fillMax: newMax } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          gate: { ...config.gate, fillMin: newMin, fillMax: newMax },
+        }),
+      }
     }
     case 'gate.mode': {
       const modes: Array<'random' | 'euclidean' | 'sync' | 'cluster'> = ['random', 'euclidean', 'sync', 'cluster']
       const curIdx = modes.indexOf(config.gate.mode)
-      const nextIdx = ((curIdx + delta) % modes.length + modes.length) % modes.length
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, mode: modes[nextIdx] } }) }
+      const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, mode: modes[nextIdx] } }),
+      }
     }
     case 'gate.randomOffset':
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, randomOffset: !config.gate.randomOffset } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          gate: { ...config.gate, randomOffset: !config.gate.randomOffset },
+        }),
+      }
     case 'gate.clusterContinuation': {
       const newVal = Math.round(clamp(config.gate.clusterContinuation + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, clusterContinuation: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          gate: { ...config.gate, clusterContinuation: newVal },
+        }),
+      }
     }
     case 'gateLength.min': {
       const newMin = Math.round(clamp(config.gateLength.min + delta * 0.05, 0.05, 1) * 100) / 100
       const newMax = Math.round(Math.max(newMin, config.gateLength.max) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gateLength: { min: newMin, max: newMax } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, gateLength: { min: newMin, max: newMax } }),
+      }
     }
     case 'gateLength.max': {
       const newMax = Math.round(clamp(config.gateLength.max + delta * 0.05, 0.05, 1) * 100) / 100
       const newMin = Math.round(Math.min(config.gateLength.min, newMax) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, gateLength: { min: newMin, max: newMax } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, gateLength: { min: newMin, max: newMax } }),
+      }
     }
     case 'ratchet.maxRatchet':
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, maxRatchet: clamp(config.ratchet.maxRatchet + delta, 1, 4) } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          ratchet: { ...config.ratchet, maxRatchet: clamp(config.ratchet.maxRatchet + delta, 1, 4) },
+        }),
+      }
     case 'ratchet.probability': {
       const newVal = Math.round(clamp(config.ratchet.probability + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, probability: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          ratchet: { ...config.ratchet, probability: newVal },
+        }),
+      }
     }
     case 'tie.probability': {
       const newVal = Math.round(clamp(config.tie.probability + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, probability: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, probability: newVal } }),
+      }
     }
     case 'tie.maxLength':
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, maxLength: clamp(config.tie.maxLength + delta, 1, 8) } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          tie: { ...config.tie, maxLength: clamp(config.tie.maxLength + delta, 1, 8) },
+        }),
+      }
     case 'velocity.low': {
       const newLow = clamp(config.velocity.low + delta, 0, 127)
       const newHigh = Math.max(newLow, config.velocity.high)
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }),
+      }
     }
     case 'velocity.high': {
       const newHigh = clamp(config.velocity.high + delta, 0, 127)
       const newLow = Math.min(config.velocity.low, newHigh)
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }),
+      }
     }
     case 'mod.low': {
       const newLow = Math.round(clamp(config.mod.low + delta * 0.05, 0, 1) * 100) / 100
       const newHigh = Math.round(Math.max(newLow, config.mod.high) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: newLow, high: newHigh } }),
+      }
     }
     case 'mod.high': {
       const newHigh = Math.round(clamp(config.mod.high + delta * 0.05, 0, 1) * 100) / 100
       const newLow = Math.round(Math.min(config.mod.low, newHigh) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: newLow, high: newHigh } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: newLow, high: newHigh } }),
+      }
     }
     case 'mod.mode': {
       const modes: ModMode[] = ['random', 'rise', 'fall', 'vee', 'hill', 'sync', 'walk']
       const curIdx = modes.indexOf(config.mod.mode)
-      const nextIdx = ((curIdx + delta) % modes.length + modes.length) % modes.length
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, mode: modes[nextIdx] } }) }
+      const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, mode: modes[nextIdx] } }),
+      }
     }
     case 'mod.walkStepSize': {
       const newVal = Math.round(clamp(config.mod.walkStepSize + delta * 0.05, 0, 0.5) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, walkStepSize: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, walkStepSize: newVal } }),
+      }
     }
     case 'mod.syncBias': {
       const newVal = Math.round(clamp(config.mod.syncBias + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, syncBias: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, syncBias: newVal } }),
+      }
     }
     case 'mod.slew': {
       const newVal = Math.round(clamp(config.mod.slew + delta * 0.05, 0, 1) * 100) / 100
@@ -1057,7 +1248,10 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
     }
     case 'mod.slewProb': {
       const newVal = Math.round(clamp(config.mod.slewProbability + delta * 0.05, 0, 1) * 100) / 100
-      return { ui, engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, slewProbability: newVal } }) }
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, slewProbability: newVal } }),
+      }
     }
     default:
       return { ui, engine }
@@ -1094,7 +1288,7 @@ const DEFAULT_PRESET_NAMES = ['Bassline', 'Acid', 'Hypnotic', 'Stab']
 
 function getDefaultRandomConfig(trackIdx: number): RandomConfig {
   const presetName = DEFAULT_PRESET_NAMES[trackIdx]
-  const preset = PRESETS.find(p => p.name === presetName)
+  const preset = PRESETS.find((p) => p.name === presetName)
   if (preset) return structuredClone(preset.config)
 
   return {
@@ -1119,40 +1313,107 @@ function resetSingleParam(
   const config = engine.randomConfigs[trackIdx]
 
   switch (paramId) {
-    case 'pitch.scale': return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, scale: dc.pitch.scale } })
-    case 'pitch.root': return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, root: dc.pitch.root } })
-    case 'pitch.low': return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, low: dc.pitch.low } })
-    case 'pitch.high': return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, high: dc.pitch.high } })
-    case 'pitch.maxNotes': return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, maxNotes: dc.pitch.maxNotes } })
-    case 'slide.probability': return updateRandomConfig(engine, trackIdx, { ...config, slide: dc.slide })
-    case 'arp.enabled': return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], enabled: da.enabled })
-    case 'arp.direction': return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], direction: da.direction })
-    case 'arp.octaveRange': return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], octaveRange: da.octaveRange })
-    case 'gate.fillMin': return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMin: dc.gate.fillMin } })
-    case 'gate.fillMax': return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMax: dc.gate.fillMax } })
-    case 'gate.mode': return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, mode: dc.gate.mode } })
-    case 'gate.randomOffset': return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, randomOffset: dc.gate.randomOffset } })
-    case 'gate.clusterContinuation': return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, clusterContinuation: dc.gate.clusterContinuation } })
-    case 'gateLength.min': return updateRandomConfig(engine, trackIdx, { ...config, gateLength: { ...config.gateLength, min: dc.gateLength.min } })
-    case 'gateLength.max': return updateRandomConfig(engine, trackIdx, { ...config, gateLength: { ...config.gateLength, max: dc.gateLength.max } })
-    case 'ratchet.maxRatchet': return updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, maxRatchet: dc.ratchet.maxRatchet } })
-    case 'ratchet.probability': return updateRandomConfig(engine, trackIdx, { ...config, ratchet: { ...config.ratchet, probability: dc.ratchet.probability } })
-    case 'tie.probability': return updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, probability: dc.tie.probability } })
-    case 'tie.maxLength': return updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, maxLength: dc.tie.maxLength } })
-    case 'velocity.low': return updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, low: dc.velocity.low } })
-    case 'velocity.high': return updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, high: dc.velocity.high } })
-    case 'mod.low': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: dc.mod.low } })
-    case 'mod.high': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, high: dc.mod.high } })
-    case 'mod.mode': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, mode: dc.mod.mode } })
-    case 'mod.walkStepSize': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, walkStepSize: dc.mod.walkStepSize } })
-    case 'mod.syncBias': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, syncBias: dc.mod.syncBias } })
-    case 'mod.slew': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, slew: dc.mod.slew } })
-    case 'mod.slewProb': return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, slewProbability: dc.mod.slewProbability } })
-    default: return engine
+    case 'pitch.scale':
+      return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, scale: dc.pitch.scale } })
+    case 'pitch.root':
+      return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, root: dc.pitch.root } })
+    case 'pitch.low':
+      return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, low: dc.pitch.low } })
+    case 'pitch.high':
+      return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, high: dc.pitch.high } })
+    case 'pitch.maxNotes':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        pitch: { ...config.pitch, maxNotes: dc.pitch.maxNotes },
+      })
+    case 'slide.probability':
+      return updateRandomConfig(engine, trackIdx, { ...config, slide: dc.slide })
+    case 'arp.enabled':
+      return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], enabled: da.enabled })
+    case 'arp.direction':
+      return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], direction: da.direction })
+    case 'arp.octaveRange':
+      return updateArpConfig(engine, trackIdx, { ...engine.arpConfigs[trackIdx], octaveRange: da.octaveRange })
+    case 'gate.fillMin':
+      return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMin: dc.gate.fillMin } })
+    case 'gate.fillMax':
+      return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, fillMax: dc.gate.fillMax } })
+    case 'gate.mode':
+      return updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, mode: dc.gate.mode } })
+    case 'gate.randomOffset':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        gate: { ...config.gate, randomOffset: dc.gate.randomOffset },
+      })
+    case 'gate.clusterContinuation':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        gate: { ...config.gate, clusterContinuation: dc.gate.clusterContinuation },
+      })
+    case 'gateLength.min':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        gateLength: { ...config.gateLength, min: dc.gateLength.min },
+      })
+    case 'gateLength.max':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        gateLength: { ...config.gateLength, max: dc.gateLength.max },
+      })
+    case 'ratchet.maxRatchet':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        ratchet: { ...config.ratchet, maxRatchet: dc.ratchet.maxRatchet },
+      })
+    case 'ratchet.probability':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        ratchet: { ...config.ratchet, probability: dc.ratchet.probability },
+      })
+    case 'tie.probability':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        tie: { ...config.tie, probability: dc.tie.probability },
+      })
+    case 'tie.maxLength':
+      return updateRandomConfig(engine, trackIdx, { ...config, tie: { ...config.tie, maxLength: dc.tie.maxLength } })
+    case 'velocity.low':
+      return updateRandomConfig(engine, trackIdx, { ...config, velocity: { ...config.velocity, low: dc.velocity.low } })
+    case 'velocity.high':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        velocity: { ...config.velocity, high: dc.velocity.high },
+      })
+    case 'mod.low':
+      return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: dc.mod.low } })
+    case 'mod.high':
+      return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, high: dc.mod.high } })
+    case 'mod.mode':
+      return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, mode: dc.mod.mode } })
+    case 'mod.walkStepSize':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        mod: { ...config.mod, walkStepSize: dc.mod.walkStepSize },
+      })
+    case 'mod.syncBias':
+      return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, syncBias: dc.mod.syncBias } })
+    case 'mod.slew':
+      return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, slew: dc.mod.slew } })
+    case 'mod.slewProb':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        mod: { ...config.mod, slewProbability: dc.mod.slewProbability },
+      })
+    default:
+      return engine
   }
 }
 
-function updateArpConfig(engine: SequencerState, trackIdx: number, config: import('../engine/types').ArpConfig): SequencerState {
+function updateArpConfig(
+  engine: SequencerState,
+  trackIdx: number,
+  config: import('../engine/types').ArpConfig,
+): SequencerState {
   return {
     ...engine,
     arpConfigs: engine.arpConfigs.map((c, i) => (i === trackIdx ? config : c)),
@@ -1193,7 +1454,7 @@ function dispatchRoute(ui: UIState, engine: SequencerState, event: ControlEvent)
       const param = ROUTE_PARAMS[ui.routeParam]
       const outputIdx = ui.selectedTrack
       const current = engine.routing[outputIdx][param]
-      const next = ((current + event.delta) % 4 + 4) % 4
+      const next = (((current + event.delta) % 4) + 4) % 4
       return { ui, engine: setOutputSource(engine, outputIdx, param, next) }
     }
     default:
@@ -1201,10 +1462,14 @@ function dispatchRoute(ui: UIState, engine: SequencerState, event: ControlEvent)
   }
 }
 
-function updateMIDIConfig(engine: SequencerState, outputIdx: number, patch: Partial<import('../engine/types').MIDIOutputConfig>): SequencerState {
+function updateMIDIConfig(
+  engine: SequencerState,
+  outputIdx: number,
+  patch: Partial<import('../engine/types').MIDIOutputConfig>,
+): SequencerState {
   return {
     ...engine,
-    midiConfigs: engine.midiConfigs.map((c, i) => i === outputIdx ? { ...c, ...patch } : c),
+    midiConfigs: engine.midiConfigs.map((c, i) => (i === outputIdx ? { ...c, ...patch } : c)),
   }
 }
 
@@ -1244,7 +1509,7 @@ function dispatchSettingsEncoderB(ui: UIState, engine: SequencerState, delta: nu
     }
     case 'clock.source': {
       const idx = CLOCK_SOURCES.indexOf(engine.transport.clockSource)
-      const next = ((idx + delta) % CLOCK_SOURCES.length + CLOCK_SOURCES.length) % CLOCK_SOURCES.length
+      const next = (((idx + delta) % CLOCK_SOURCES.length) + CLOCK_SOURCES.length) % CLOCK_SOURCES.length
       return { ui, engine: { ...engine, transport: { ...engine.transport, clockSource: CLOCK_SOURCES[next] } } }
     }
     case 'midi.enabled': {
@@ -1254,7 +1519,8 @@ function dispatchSettingsEncoderB(ui: UIState, engine: SequencerState, delta: nu
     }
     case 'midi.device': {
       if (ui.midiDevices.length === 0) return { ui, engine }
-      const next = ((ui.midiDeviceIndex + delta) % ui.midiDevices.length + ui.midiDevices.length) % ui.midiDevices.length
+      const next =
+        (((ui.midiDeviceIndex + delta) % ui.midiDevices.length) + ui.midiDevices.length) % ui.midiDevices.length
       return { ui: { ...ui, midiDeviceIndex: next }, engine }
     }
     default: {
@@ -1321,7 +1587,7 @@ export function getLEDState(ui: UIState, engine: SequencerState): LEDState {
   const play: LEDState['play'] = engine.transport.playing ? 'pulse' : 'off'
 
   // Track LEDs: selected track is 'on'
-  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map(i =>
+  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map((i) =>
     i === ui.selectedTrack ? 'on' : 'off',
   ) as LEDState['tracks']
 
@@ -1346,7 +1612,7 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         } else if (stepIdx === track.gate.currentStep) {
           leds[i] = 'flash'
         } else {
-          leds[i] = (track.gate.steps[stepIdx].on || track.gate.steps[stepIdx].tie) ? 'on' : 'dim'
+          leds[i] = track.gate.steps[stepIdx].on || track.gate.steps[stepIdx].tie ? 'on' : 'dim'
         }
       }
       break
@@ -1396,11 +1662,11 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         if (i >= vp.length) {
           leds[i] = 'off'
         } else if (i === ui.varSelectedBar) {
-          leds[i] = 'flash'  // selected bar
+          leds[i] = 'flash' // selected bar
         } else if (vp.slots[i] && vp.slots[i].transforms.length > 0) {
-          leds[i] = 'on'     // bar has transforms
+          leds[i] = 'on' // bar has transforms
         } else {
-          leds[i] = 'dim'    // empty bar
+          leds[i] = 'dim' // empty bar
         }
       }
       break
@@ -1413,7 +1679,7 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
         } else if (i === track.gate.currentStep) {
           leds[i] = 'flash'
         } else {
-          leds[i] = (track.gate.steps[i].on || track.gate.steps[i].tie) ? 'on' : 'off'
+          leds[i] = track.gate.steps[i].on || track.gate.steps[i].tie ? 'on' : 'off'
         }
       }
       break
@@ -1546,9 +1812,7 @@ function dispatchHoldCombo(
       const newLength = clamp(vp.length + event.delta, 1, 16)
       if (newLength === vp.length) return { ui: uiUsed, engine }
       // Resize slots array to match new length
-      const newSlots = Array.from({ length: newLength }, (_, i) =>
-        vp.slots[i] ?? { transforms: [] },
-      )
+      const newSlots = Array.from({ length: newLength }, (_, i) => vp.slots[i] ?? { transforms: [] })
       // Clamp varSelectedBar if it exceeds new length
       const newVarSelectedBar = ui.varSelectedBar >= newLength ? -1 : ui.varSelectedBar
       return {
@@ -1571,9 +1835,7 @@ function dispatchHoldCombo(
       if (newLoopMode) {
         // Turning ON: set length to gate subtrack length
         const gateLen = engine.tracks[trackIdx].gate.length
-        const newSlots = Array.from({ length: gateLen }, (_, i) =>
-          vp.slots[i] ?? { transforms: [] },
-        )
+        const newSlots = Array.from({ length: gateLen }, (_, i) => vp.slots[i] ?? { transforms: [] })
         const newVarSelectedBar = ui.varSelectedBar >= gateLen ? -1 : ui.varSelectedBar
         return {
           ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor },
@@ -1630,8 +1892,10 @@ function dispatchHoldRand(ui: UIState, engine: SequencerState): DispatchResult {
   if (held.kind === 'subtrack') {
     const sub = held.subtrack
     if (sub === 'gate') return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizeGatePattern(engine, trackIdx) }
-    if (sub === 'pitch') return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizePitchPattern(engine, trackIdx) }
-    if (sub === 'velocity') return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizeVelocityPattern(engine, trackIdx) }
+    if (sub === 'pitch')
+      return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizePitchPattern(engine, trackIdx) }
+    if (sub === 'velocity')
+      return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizeVelocityPattern(engine, trackIdx) }
     if (sub === 'mod') return { ui: { ...ui, holdEncoderUsed: true }, engine: randomizeModPattern(engine, trackIdx) }
   }
 
@@ -1650,7 +1914,8 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
   switch (event.type) {
     case 'encoder-a-turn': {
       const chars = [...ui.nameChars]
-      chars[ui.nameCursor] = ((chars[ui.nameCursor] + event.delta) % NAME_CHARSET.length + NAME_CHARSET.length) % NAME_CHARSET.length
+      chars[ui.nameCursor] =
+        (((chars[ui.nameCursor] + event.delta) % NAME_CHARSET.length) + NAME_CHARSET.length) % NAME_CHARSET.length
       return { ui: { ...ui, nameChars: chars }, engine }
     }
     case 'encoder-b-turn': {
@@ -1659,7 +1924,10 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
     }
     case 'encoder-a-push': {
       // Save: convert chars to string, trim trailing spaces, save preset
-      const name = ui.nameChars.map(i => NAME_CHARSET[i]).join('').trimEnd()
+      const name = ui.nameChars
+        .map((i) => NAME_CHARSET[i])
+        .join('')
+        .trimEnd()
       const config = engine.randomConfigs[ui.selectedTrack]
       return {
         ui: { ...ui, mode: 'rand' },
@@ -1671,7 +1939,7 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
       return { ui: { ...ui, mode: 'rand' }, engine }
     }
     case 'encoder-b-push':
-      return { ui, engine }  // no-op (context-sensitive TBD)
+      return { ui, engine } // no-op (context-sensitive TBD)
     default:
       return { ui, engine }
   }
@@ -1685,22 +1953,18 @@ export { getAllPresets } from './rand-rows'
 
 // --- Helpers ---
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
 function resetAllPlayheads(engine: SequencerState): SequencerState {
   return {
     ...engine,
     transport: { ...engine.transport, masterTick: 0 },
-    tracks: engine.tracks.map(t => ({
+    tracks: engine.tracks.map((t) => ({
       ...t,
       gate: { ...t.gate, currentStep: 0 },
       pitch: { ...t.pitch, currentStep: 0 },
       velocity: { ...t.velocity, currentStep: 0 },
       mod: { ...t.mod, currentStep: 0 },
     })),
-    mutePatterns: engine.mutePatterns.map(m => ({ ...m, currentStep: 0 })),
+    mutePatterns: engine.mutePatterns.map((m) => ({ ...m, currentStep: 0 })),
   }
 }
 

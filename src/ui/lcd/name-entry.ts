@@ -6,10 +6,10 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
 import { NAME_CHARSET } from '../mode-machine'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 const CHAR_W = 28
@@ -50,7 +50,7 @@ export function renderNameEntry(ctx: CanvasRenderingContext2D, _engine: Sequence
   }
 
   // Preview of full name below
-  const name = ui.nameChars.map(ci => NAME_CHARSET[ci] ?? ' ').join('')
+  const name = ui.nameChars.map((ci) => NAME_CHARSET[ci] ?? ' ').join('')
   drawText(ctx, name.trim() || '(empty)', LCD_W / 2, centerY + CHAR_H / 2 + 24, COLORS.textDim, 16, 'center')
 
   // Hint

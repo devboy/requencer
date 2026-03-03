@@ -1,12 +1,14 @@
-import { describe, test, expect } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { resolveOutputs } from '../routing'
-import type { SequenceTrack, MuteTrack, TransposeConfig, GateStep, PitchStep, ModStep } from '../types'
+import type { GateStep, MuteTrack, PitchStep, SequenceTrack, TransposeConfig } from '../types'
 
 function makeTrack(overrides: Partial<SequenceTrack> = {}): SequenceTrack {
   const defaultGateStep: GateStep = { on: true, tie: false, length: 0.5, ratchet: 1 }
   const defaultPitchStep: PitchStep = { note: 60, slide: 0 }
   return {
-    id: 't1', name: 'Track 1', clockDivider: 1,
+    id: 't1',
+    name: 'Track 1',
+    clockDivider: 1,
     gate: { steps: [defaultGateStep], length: 1, clockDivider: 1, currentStep: 0 },
     pitch: { steps: [defaultPitchStep], length: 1, clockDivider: 1, currentStep: 0 },
     velocity: { steps: [100], length: 1, clockDivider: 1, currentStep: 0 },
@@ -46,7 +48,12 @@ describe('Note window octave-wrapping', () => {
       pitch: { steps: [{ note: 84, slide: 0 }], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose(), noteHigh: 72 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].pitch).toBe(72)
   })
 
@@ -55,7 +62,12 @@ describe('Note window octave-wrapping', () => {
       pitch: { steps: [{ note: 36, slide: 0 }], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose(), noteLow: 48 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].pitch).toBe(48)
   })
 
@@ -65,7 +77,12 @@ describe('Note window octave-wrapping', () => {
       pitch: { steps: [{ note: 70, slide: 0 }], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose(), semitones: 7, noteHigh: 72 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].pitch).toBe(65)
   })
 
@@ -74,7 +91,12 @@ describe('Note window octave-wrapping', () => {
       pitch: { steps: [{ note: 100, slide: 0 }], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose() } // noteLow=0, noteHigh=127
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].pitch).toBe(100)
   })
 
@@ -84,7 +106,12 @@ describe('Note window octave-wrapping', () => {
       pitch: { steps: [{ note: 96, slide: 0 }], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose(), noteLow: 48, noteHigh: 60 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].pitch).toBe(60)
   })
 })
@@ -95,7 +122,12 @@ describe('GL/VEL scaling', () => {
     const track = makeTrack()
     // default gate step has length 0.5
     const xpose: TransposeConfig = { ...defaultXpose(), glScale: 0.5 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].gateLength).toBeCloseTo(0.25)
   })
 
@@ -106,7 +138,12 @@ describe('GL/VEL scaling', () => {
       gate: { steps: [gateStep], length: 1, clockDivider: 1, currentStep: 0 },
     })
     const xpose: TransposeConfig = { ...defaultXpose(), glScale: 2.0 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].gateLength).toBe(1.0)
   })
 
@@ -114,7 +151,12 @@ describe('GL/VEL scaling', () => {
     // velocity 100 * velScale 0.5 = 50
     const track = makeTrack()
     const xpose: TransposeConfig = { ...defaultXpose(), velScale: 0.5 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].velocity).toBe(50)
   })
 
@@ -122,14 +164,24 @@ describe('GL/VEL scaling', () => {
     // velocity 100 * velScale 3.0 = 300 -> clamped to 127
     const track = makeTrack()
     const xpose: TransposeConfig = { ...defaultXpose(), velScale: 3.0 }
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].velocity).toBe(127)
   })
 
   test('no scaling when glScale=1.0 velScale=1.0', () => {
     const track = makeTrack()
     const xpose: TransposeConfig = { ...defaultXpose() } // glScale=1.0, velScale=1.0
-    const events = resolveOutputs([track], [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }], [makeMute()], [xpose])
+    const events = resolveOutputs(
+      [track],
+      [{ gate: 0, pitch: 0, velocity: 0, mod: 0, modSource: 'seq' }],
+      [makeMute()],
+      [xpose],
+    )
     expect(events[0].gateLength).toBe(0.5)
     expect(events[0].velocity).toBe(100)
   })

@@ -1,13 +1,35 @@
-import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack, MutateConfig, GateStep, PitchStep, ModStep, LFORuntime } from './types'
-import { SCALES } from './scales'
-import { PRESETS } from './presets'
-import { getEffectiveStep } from './clock-divider'
-import { resolveOutputs, createDefaultRouting } from './routing'
-import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod, randomizeTies } from './randomizer'
 import { generateArpPattern } from './arpeggiator'
+import { getEffectiveStep } from './clock-divider'
 import { computeLFOValue } from './lfo'
-import { mutateTrack, isMutateActive } from './mutator'
-import { createDefaultVariationPattern, advanceVariationBar } from './variation'
+import { clamp } from './math'
+import { isMutateActive, mutateTrack } from './mutator'
+import { PRESETS } from './presets'
+import {
+  randomizeGateLength,
+  randomizeGates,
+  randomizeMod,
+  randomizePitch,
+  randomizeRatchets,
+  randomizeSlides,
+  randomizeTies,
+  randomizeTrack,
+  randomizeVelocity,
+} from './randomizer'
+import { createDefaultRouting, resolveOutputs } from './routing'
+import { SCALES } from './scales'
+import type {
+  GateStep,
+  ModStep,
+  MutateConfig,
+  MuteTrack,
+  NoteEvent,
+  PitchStep,
+  RandomConfig,
+  SequencerState,
+  SequenceTrack,
+  Subtrack,
+} from './types'
+import { advanceVariationBar, createDefaultVariationPattern } from './variation'
 
 const NUM_TRACKS = 4
 const DEFAULT_LENGTH = 16
@@ -21,16 +43,10 @@ const DEFAULT_GATE_STEP: GateStep = { on: false, tie: false, length: 0.5, ratche
 const DEFAULT_PITCH_STEP: PitchStep = { note: 60, slide: 0 }
 const DEFAULT_MOD_STEP: ModStep = { value: 0, slew: 0 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
 function createSubtrack<T>(defaultValue: T, length: number = DEFAULT_LENGTH): Subtrack<T> {
   return {
     steps: Array.from({ length }, () =>
-      typeof defaultValue === 'object' && defaultValue !== null
-        ? { ...defaultValue }
-        : defaultValue
+      typeof defaultValue === 'object' && defaultValue !== null ? { ...defaultValue } : defaultValue,
     ),
     length,
     clockDivider: 1,
@@ -55,7 +71,7 @@ const DEFAULT_PRESET_NAMES = ['Bassline', 'Acid', 'Hypnotic', 'Stab']
 
 function createDefaultRandomConfig(index: number): RandomConfig {
   const presetName = DEFAULT_PRESET_NAMES[index]
-  const preset = PRESETS.find(p => p.name === presetName)
+  const preset = PRESETS.find((p) => p.name === presetName)
   if (preset) return structuredClone(preset.config)
 
   // Fallback (should not happen)
@@ -122,8 +138,18 @@ export function createSequencer(): SequencerState {
       slewTarget: 0,
       slewCurrent: 0,
     })),
-    arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, direction: 'up' as const, octaveRange: 1 })),
-    transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 })),
+    arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({
+      enabled: false,
+      direction: 'up' as const,
+      octaveRange: 1,
+    })),
+    transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({
+      semitones: 0,
+      noteLow: 0,
+      noteHigh: 127,
+      glScale: 1.0,
+      velScale: 1.0,
+    })),
     mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
     midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ channel: i + 1 })),
     midiEnabled: false,
@@ -141,7 +167,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   const nextTick = masterTick + 1
 
   // Compute current steps (at masterTick) for event resolution
-  const currentTracks = state.tracks.map(track => {
+  const currentTracks = state.tracks.map((track) => {
     const trackDiv = track.clockDivider
     return {
       ...track,
@@ -152,7 +178,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
     }
   })
 
-  const currentMutes = state.mutePatterns.map(mute => ({
+  const currentMutes = state.mutePatterns.map((mute) => ({
     ...mute,
     currentStep: getEffectiveStep(masterTick, 1, mute.clockDivider, mute.length),
   }))
@@ -160,15 +186,9 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   // Compute LFO values for all 4 tracks at current tick
   const lfoResults = state.lfoConfigs.map((config, idx) => {
     const track = state.tracks[idx]
-    return computeLFOValue(
-      config,
-      state.lfoRuntimes[idx],
-      masterTick,
-      track.clockDivider,
-      state.transport.bpm,
-    )
+    return computeLFOValue(config, state.lfoRuntimes[idx], masterTick, track.clockDivider, state.transport.bpm)
   })
-  const lfoValues = lfoResults.map(r => r.value)
+  const lfoValues = lfoResults.map((r) => r.value)
 
   // Advance LFO runtimes for next tick
   const nextLFORuntimes = state.lfoConfigs.map((config, idx) => {
@@ -184,7 +204,14 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   })
 
   // Resolve routing to produce output events at the current tick
-  const events = resolveOutputs(currentTracks, state.routing, currentMutes, state.transposeConfigs, state.variationPatterns, lfoValues)
+  const events = resolveOutputs(
+    currentTracks,
+    state.routing,
+    currentMutes,
+    state.transposeConfigs,
+    state.variationPatterns,
+    lfoValues,
+  )
 
   // --- Mutation (Turing Machine drift) ---
   // Apply before advancing to next tick so mutations take effect on the next loop.
@@ -243,7 +270,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   })
 
   // Advance steps to the next tick for the returned state
-  const nextTracks = mutatedTracks.map(track => {
+  const nextTracks = mutatedTracks.map((track) => {
     const trackDiv = track.clockDivider
     return {
       ...track,
@@ -254,7 +281,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
     }
   })
 
-  const nextMutes = state.mutePatterns.map(mute => ({
+  const nextMutes = state.mutePatterns.map((mute) => ({
     ...mute,
     currentStep: getEffectiveStep(nextTick, 1, mute.clockDivider, mute.length),
   }))
@@ -325,7 +352,7 @@ export function setModStep(
         ...track,
         mod: {
           ...track.mod,
-          steps: track.mod.steps.map((s, j) => j === stepIndex ? { ...s, ...updates } : s),
+          steps: track.mod.steps.map((s, j) => (j === stepIndex ? { ...s, ...updates } : s)),
         },
       }
     }),
@@ -333,22 +360,42 @@ export function setModStep(
 }
 
 /** Toggle gate on/off for a step. */
-export function setGateOn(state: SequencerState, trackIndex: number, stepIndex: number, value: boolean): SequencerState {
+export function setGateOn(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  value: boolean,
+): SequencerState {
   return updateGateField(state, trackIndex, stepIndex, 'on', value)
 }
 
 /** Set gate length for a step (0.0-1.0). */
-export function setGateLength(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+export function setGateLength(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  value: number,
+): SequencerState {
   return updateGateField(state, trackIndex, stepIndex, 'length', value)
 }
 
 /** Set ratchet count for a step (1-4). */
-export function setGateRatchet(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+export function setGateRatchet(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  value: number,
+): SequencerState {
   return updateGateField(state, trackIndex, stepIndex, 'ratchet', value)
 }
 
 /** Set tie flag for a step. */
-export function setGateTie(state: SequencerState, trackIndex: number, stepIndex: number, value: boolean): SequencerState {
+export function setGateTie(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  value: boolean,
+): SequencerState {
   return updateGateField(state, trackIndex, stepIndex, 'tie', value)
 }
 
@@ -356,7 +403,12 @@ export function setGateTie(state: SequencerState, trackIndex: number, stepIndex:
  * Set a tie range: fromStep is the trigger, steps fromStep+1..toStep become ties.
  * Ensures fromStep gate is ON and tied steps get on: false, tie: true.
  */
-export function setTieRange(state: SequencerState, trackIndex: number, fromStep: number, toStep: number): SequencerState {
+export function setTieRange(
+  state: SequencerState,
+  trackIndex: number,
+  fromStep: number,
+  toStep: number,
+): SequencerState {
   if (fromStep >= toStep) return state
   let result = state
   // Ensure the trigger step is ON
@@ -370,7 +422,12 @@ export function setTieRange(state: SequencerState, trackIndex: number, fromStep:
 }
 
 /** Set pitch note for a step. */
-export function setPitchNote(state: SequencerState, trackIndex: number, stepIndex: number, value: number): SequencerState {
+export function setPitchNote(
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  value: number,
+): SequencerState {
   return updatePitchField(state, trackIndex, stepIndex, 'note', value)
 }
 
@@ -380,7 +437,11 @@ export function setSlide(state: SequencerState, trackIndex: number, stepIndex: n
 }
 
 function updateGateField<K extends keyof GateStep>(
-  state: SequencerState, trackIndex: number, stepIndex: number, field: K, value: GateStep[K],
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  field: K,
+  value: GateStep[K],
 ): SequencerState {
   return {
     ...state,
@@ -390,7 +451,7 @@ function updateGateField<K extends keyof GateStep>(
         ...track,
         gate: {
           ...track.gate,
-          steps: track.gate.steps.map((s, j) => j === stepIndex ? { ...s, [field]: value } : s),
+          steps: track.gate.steps.map((s, j) => (j === stepIndex ? { ...s, [field]: value } : s)),
         },
       }
     }),
@@ -398,7 +459,11 @@ function updateGateField<K extends keyof GateStep>(
 }
 
 function updatePitchField<K extends keyof PitchStep>(
-  state: SequencerState, trackIndex: number, stepIndex: number, field: K, value: PitchStep[K],
+  state: SequencerState,
+  trackIndex: number,
+  stepIndex: number,
+  field: K,
+  value: PitchStep[K],
 ): SequencerState {
   return {
     ...state,
@@ -408,7 +473,7 @@ function updatePitchField<K extends keyof PitchStep>(
         ...track,
         pitch: {
           ...track.pitch,
-          steps: track.pitch.steps.map((s, j) => j === stepIndex ? { ...s, [field]: value } : s),
+          steps: track.pitch.steps.map((s, j) => (j === stepIndex ? { ...s, [field]: value } : s)),
         },
       }
     }),
@@ -444,11 +509,7 @@ export function setOutputSource(
 /**
  * Set the mod source (seq/lfo) for a single output. Returns new state.
  */
-export function setModSource(
-  state: SequencerState,
-  outputIndex: number,
-  modSource: 'seq' | 'lfo',
-): SequencerState {
+export function setModSource(state: SequencerState, outputIndex: number, modSource: 'seq' | 'lfo'): SequencerState {
   return {
     ...state,
     routing: state.routing.map((r, i) => {
@@ -475,12 +536,16 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
   const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
 
-  const generated = randomizeTrack(config, {
-    gate: track.gate.length,
-    pitch: track.pitch.length,
-    velocity: track.velocity.length,
-    mod: track.mod.length,
-  }, seed)
+  const generated = randomizeTrack(
+    config,
+    {
+      gate: track.gate.length,
+      pitch: track.pitch.length,
+      velocity: track.velocity.length,
+      mod: track.mod.length,
+    },
+    seed,
+  )
 
   // Compose compound GateStep[] from generated booleans + gateLength + ratchet + tie
   const tiePattern = generated.tie
@@ -553,7 +618,14 @@ export function randomizePitchPattern(state: SequencerState, trackIndex: number,
   const s = seed ?? Date.now()
 
   const newNotes = arpConfig.enabled
-    ? generateArpPattern(config.pitch.root, config.pitch.scale, arpConfig.direction, arpConfig.octaveRange, track.pitch.length, s)
+    ? generateArpPattern(
+        config.pitch.root,
+        config.pitch.scale,
+        arpConfig.direction,
+        arpConfig.octaveRange,
+        track.pitch.length,
+        s,
+      )
     : randomizePitch(config.pitch, track.pitch.length, s)
 
   const newSlides = randomizeSlides(config.slide.probability, track.pitch.length, s + 5)
@@ -608,9 +680,8 @@ export function randomizeModPattern(state: SequencerState, trackIndex: number, s
 
 function resizeSteps<T>(steps: T[], newLength: number, defaultValue: T): T[] {
   if (newLength <= steps.length) return steps.slice(0, newLength)
-  const padValue = typeof defaultValue === 'object' && defaultValue !== null
-    ? () => ({ ...defaultValue })
-    : () => defaultValue
+  const padValue =
+    typeof defaultValue === 'object' && defaultValue !== null ? () => ({ ...defaultValue }) : () => defaultValue
   return [...steps, ...Array.from({ length: newLength - steps.length }, padValue)]
 }
 
@@ -673,11 +744,7 @@ export function setSubtrackClockDivider(
 /**
  * Set the track-level clock divider. Returns new state.
  */
-export function setTrackClockDivider(
-  state: SequencerState,
-  trackIndex: number,
-  divider: number,
-): SequencerState {
+export function setTrackClockDivider(state: SequencerState, trackIndex: number, divider: number): SequencerState {
   const clockDivider = clamp(divider, MIN_DIVIDER, MAX_DIVIDER)
   return {
     ...state,
@@ -758,11 +825,7 @@ export function resetSubtrackPlayhead(
 /**
  * Save a user preset. Returns new state with preset appended.
  */
-export function saveUserPreset(
-  state: SequencerState,
-  name: string,
-  config: RandomConfig,
-): SequencerState {
+export function saveUserPreset(state: SequencerState, name: string, config: RandomConfig): SequencerState {
   return {
     ...state,
     userPresets: [...state.userPresets, { name, config }],

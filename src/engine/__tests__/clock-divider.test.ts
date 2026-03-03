@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { shouldTick, getEffectiveStep } from '../clock-divider'
+import { describe, expect, it } from 'vitest'
+import { getEffectiveStep, shouldTick } from '../clock-divider'
 
 describe('shouldTick', () => {
   it('ticks every time with dividers of 1', () => {

@@ -4,16 +4,16 @@
  * and paramId-based identity for dispatch mapping.
  */
 
-import type { SequencerState, RandomConfig } from '../engine/types'
-import type { UIState } from './hw-types'
 import { PRESETS } from '../engine/presets'
+import type { RandomConfig, SequencerState } from '../engine/types'
 import { midiToNoteName } from './colors'
+import type { UIState } from './hw-types'
 
 export type RandRowType = 'header' | 'param' | 'subparam'
 
 export interface RandRow {
   type: RandRowType
-  paramId: string          // stable identity for dispatch mapping (e.g. 'pitch.scale')
+  paramId: string // stable identity for dispatch mapping (e.g. 'pitch.scale')
   label: string
   getValue: (engine: SequencerState, ui: UIState) => string
   visible: (engine: SequencerState, ui: UIState) => boolean
@@ -33,85 +33,123 @@ function buildRowDefs(): RandRow[] {
   return [
     // --- PRESET (always visible, not in a section) ---
     {
-      type: 'param', paramId: 'preset', label: 'PRESET',
+      type: 'param',
+      paramId: 'preset',
+      label: 'PRESET',
       getValue: (e, ui) => getAllPresets(e)[ui.randPresetIndex]?.name ?? '—',
       visible: always,
     },
 
     // --- PITCH section ---
     {
-      type: 'header', paramId: 'section.pitch', label: 'PITCH',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.pitch',
+      label: 'PITCH',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'pitch.scale', label: 'SCALE',
+      type: 'param',
+      paramId: 'pitch.scale',
+      label: 'SCALE',
       getValue: (e, ui) => cfg(e, ui).pitch.scale.name,
       visible: always,
     },
     {
-      type: 'param', paramId: 'pitch.root', label: 'ROOT',
+      type: 'param',
+      paramId: 'pitch.root',
+      label: 'ROOT',
       getValue: (e, ui) => midiToNoteName(cfg(e, ui).pitch.root),
       visible: always,
     },
     {
-      type: 'param', paramId: 'pitch.low', label: 'LO',
+      type: 'param',
+      paramId: 'pitch.low',
+      label: 'LO',
       getValue: (e, ui) => midiToNoteName(cfg(e, ui).pitch.low),
       visible: always,
     },
     {
-      type: 'param', paramId: 'pitch.high', label: 'HI',
+      type: 'param',
+      paramId: 'pitch.high',
+      label: 'HI',
       getValue: (e, ui) => midiToNoteName(cfg(e, ui).pitch.high),
       visible: always,
     },
     {
-      type: 'param', paramId: 'pitch.maxNotes', label: 'MAX NOTES',
-      getValue: (e, ui) => { const max = cfg(e, ui).pitch.maxNotes; return max === 0 ? 'ALL' : String(max) },
+      type: 'param',
+      paramId: 'pitch.maxNotes',
+      label: 'MAX NOTES',
+      getValue: (e, ui) => {
+        const max = cfg(e, ui).pitch.maxNotes
+        return max === 0 ? 'ALL' : String(max)
+      },
       visible: always,
     },
     {
-      type: 'param', paramId: 'slide.probability', label: 'SLD %',
+      type: 'param',
+      paramId: 'slide.probability',
+      label: 'SLD %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).slide.probability * 100)}%`,
       visible: always,
     },
 
     // --- ARP section ---
     {
-      type: 'header', paramId: 'section.arp', label: 'ARP',
-      getValue: () => '', visible: always,
-    },
-    {
-      type: 'param', paramId: 'arp.enabled', label: 'ARP',
-      getValue: (e, ui) => e.arpConfigs[ui.selectedTrack].enabled ? 'ON' : 'OFF',
+      type: 'header',
+      paramId: 'section.arp',
+      label: 'ARP',
+      getValue: () => '',
       visible: always,
     },
     {
-      type: 'subparam', paramId: 'arp.direction', label: 'DIR',
+      type: 'param',
+      paramId: 'arp.enabled',
+      label: 'ARP',
+      getValue: (e, ui) => (e.arpConfigs[ui.selectedTrack].enabled ? 'ON' : 'OFF'),
+      visible: always,
+    },
+    {
+      type: 'subparam',
+      paramId: 'arp.direction',
+      label: 'DIR',
       getValue: (e, ui) => e.arpConfigs[ui.selectedTrack].direction.toUpperCase(),
       visible: (e, ui) => e.arpConfigs[ui.selectedTrack].enabled,
     },
     {
-      type: 'subparam', paramId: 'arp.octaveRange', label: 'OCT',
+      type: 'subparam',
+      paramId: 'arp.octaveRange',
+      label: 'OCT',
       getValue: (e, ui) => String(e.arpConfigs[ui.selectedTrack].octaveRange),
       visible: (e, ui) => e.arpConfigs[ui.selectedTrack].enabled,
     },
 
     // --- GATE section ---
     {
-      type: 'header', paramId: 'section.gate', label: 'GATE',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.gate',
+      label: 'GATE',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'gate.fillMin', label: 'FILL MIN',
+      type: 'param',
+      paramId: 'gate.fillMin',
+      label: 'FILL MIN',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMin * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'gate.fillMax', label: 'FILL MAX',
+      type: 'param',
+      paramId: 'gate.fillMax',
+      label: 'FILL MAX',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMax * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'gate.mode', label: 'MODE',
+      type: 'param',
+      paramId: 'gate.mode',
+      label: 'MODE',
       getValue: (e, ui) => {
         const map: Record<string, string> = { random: 'RAND', euclidean: 'EUCL', sync: 'SYNC', cluster: 'CLST' }
         return map[cfg(e, ui).gate.mode] ?? cfg(e, ui).gate.mode.toUpperCase()
@@ -119,115 +157,168 @@ function buildRowDefs(): RandRow[] {
       visible: always,
     },
     {
-      type: 'subparam', paramId: 'gate.randomOffset', label: 'OFFSET',
-      getValue: (e, ui) => cfg(e, ui).gate.randomOffset ? 'RANDOM' : 'NONE',
+      type: 'subparam',
+      paramId: 'gate.randomOffset',
+      label: 'OFFSET',
+      getValue: (e, ui) => (cfg(e, ui).gate.randomOffset ? 'RANDOM' : 'NONE'),
       visible: (e, ui) => cfg(e, ui).gate.mode === 'euclidean',
     },
     {
-      type: 'subparam', paramId: 'gate.clusterContinuation', label: 'CLST %',
+      type: 'subparam',
+      paramId: 'gate.clusterContinuation',
+      label: 'CLST %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.clusterContinuation * 100)}%`,
       visible: (e, ui) => cfg(e, ui).gate.mode === 'cluster',
     },
     {
-      type: 'param', paramId: 'gateLength.min', label: 'GL MIN',
+      type: 'param',
+      paramId: 'gateLength.min',
+      label: 'GL MIN',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gateLength.min * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'gateLength.max', label: 'GL MAX',
+      type: 'param',
+      paramId: 'gateLength.max',
+      label: 'GL MAX',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gateLength.max * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'ratchet.maxRatchet', label: 'RATCH MAX',
+      type: 'param',
+      paramId: 'ratchet.maxRatchet',
+      label: 'RATCH MAX',
       getValue: (e, ui) => `${cfg(e, ui).ratchet.maxRatchet}x`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'ratchet.probability', label: 'RATCH %',
+      type: 'param',
+      paramId: 'ratchet.probability',
+      label: 'RATCH %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).ratchet.probability * 100)}%`,
       visible: always,
     },
 
     // --- TIE section ---
     {
-      type: 'header', paramId: 'section.tie', label: 'TIE',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.tie',
+      label: 'TIE',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'tie.probability', label: 'TIE %',
+      type: 'param',
+      paramId: 'tie.probability',
+      label: 'TIE %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).tie.probability * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'tie.maxLength', label: 'TIE MAX',
+      type: 'param',
+      paramId: 'tie.maxLength',
+      label: 'TIE MAX',
       getValue: (e, ui) => String(cfg(e, ui).tie.maxLength),
       visible: always,
     },
 
     // --- VEL section ---
     {
-      type: 'header', paramId: 'section.vel', label: 'VEL',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.vel',
+      label: 'VEL',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'velocity.low', label: 'VEL LO',
+      type: 'param',
+      paramId: 'velocity.low',
+      label: 'VEL LO',
       getValue: (e, ui) => String(cfg(e, ui).velocity.low),
       visible: always,
     },
     {
-      type: 'param', paramId: 'velocity.high', label: 'VEL HI',
+      type: 'param',
+      paramId: 'velocity.high',
+      label: 'VEL HI',
       getValue: (e, ui) => String(cfg(e, ui).velocity.high),
       visible: always,
     },
 
     // --- MOD section ---
     {
-      type: 'header', paramId: 'section.mod', label: 'MOD',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.mod',
+      label: 'MOD',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'mod.low', label: 'MOD LO',
+      type: 'param',
+      paramId: 'mod.low',
+      label: 'MOD LO',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.low * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'mod.high', label: 'MOD HI',
+      type: 'param',
+      paramId: 'mod.high',
+      label: 'MOD HI',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.high * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'mod.mode', label: 'MODE',
+      type: 'param',
+      paramId: 'mod.mode',
+      label: 'MODE',
       getValue: (e, ui) => {
-        const map: Record<string, string> = { random: 'RAND', rise: 'RISE', fall: 'FALL', vee: 'VEE', hill: 'HILL', sync: 'SYNC', walk: 'WALK' }
+        const map: Record<string, string> = {
+          random: 'RAND',
+          rise: 'RISE',
+          fall: 'FALL',
+          vee: 'VEE',
+          hill: 'HILL',
+          sync: 'SYNC',
+          walk: 'WALK',
+        }
         return map[cfg(e, ui).mod.mode] ?? cfg(e, ui).mod.mode.toUpperCase()
       },
       visible: always,
     },
     {
-      type: 'subparam', paramId: 'mod.walkStepSize', label: 'WALK Δ',
+      type: 'subparam',
+      paramId: 'mod.walkStepSize',
+      label: 'WALK Δ',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.walkStepSize * 100)}%`,
       visible: (e, ui) => cfg(e, ui).mod.mode === 'walk',
     },
     {
-      type: 'subparam', paramId: 'mod.syncBias', label: 'BIAS',
+      type: 'subparam',
+      paramId: 'mod.syncBias',
+      label: 'BIAS',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.syncBias * 100)}%`,
       visible: (e, ui) => cfg(e, ui).mod.mode === 'sync',
     },
     {
-      type: 'param', paramId: 'mod.slew', label: 'SLEW',
+      type: 'param',
+      paramId: 'mod.slew',
+      label: 'SLEW',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.slew * 100)}%`,
       visible: always,
     },
     {
-      type: 'param', paramId: 'mod.slewProb', label: 'SLEW %',
+      type: 'param',
+      paramId: 'mod.slewProb',
+      label: 'SLEW %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.slewProbability * 100)}%`,
       visible: always,
     },
 
     // --- SAVE (always last) ---
     {
-      type: 'param', paramId: 'save', label: '[ SAVE ]',
+      type: 'param',
+      paramId: 'save',
+      label: '[ SAVE ]',
       getValue: () => 'PUSH to name',
       visible: always,
     },
@@ -241,7 +332,7 @@ const ROW_DEFS = buildRowDefs()
  * Get visible rows for current state. Used by both renderer and mode-machine dispatch.
  */
 export function getVisibleRows(engine: SequencerState, ui: UIState): RandRow[] {
-  return ROW_DEFS.filter(row => row.visible(engine, ui))
+  return ROW_DEFS.filter((row) => row.visible(engine, ui))
 }
 
 /**
@@ -251,7 +342,17 @@ export function getVisibleRows(engine: SequencerState, ui: UIState): RandRow[] {
 export const SECTION_PARAMS: Record<string, string[]> = {
   'section.pitch': ['pitch.scale', 'pitch.root', 'pitch.low', 'pitch.high', 'pitch.maxNotes', 'slide.probability'],
   'section.arp': ['arp.enabled', 'arp.direction', 'arp.octaveRange'],
-  'section.gate': ['gate.fillMin', 'gate.fillMax', 'gate.mode', 'gate.randomOffset', 'gate.clusterContinuation', 'gateLength.min', 'gateLength.max', 'ratchet.maxRatchet', 'ratchet.probability'],
+  'section.gate': [
+    'gate.fillMin',
+    'gate.fillMax',
+    'gate.mode',
+    'gate.randomOffset',
+    'gate.clusterContinuation',
+    'gateLength.min',
+    'gateLength.max',
+    'ratchet.maxRatchet',
+    'ratchet.probability',
+  ],
   'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.low', 'velocity.high'],
   'section.mod': ['mod.low', 'mod.high', 'mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.slew', 'mod.slewProb'],

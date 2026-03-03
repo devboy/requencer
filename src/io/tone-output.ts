@@ -27,36 +27,44 @@ export class ToneOutput {
 
   constructor() {
     // T1: Sub Bass — warm triangle with gentle filter sweep, sits low in the mix
-    this.synths.push(new Tone.MonoSynth({
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.01, decay: 0.3, sustain: 0.8, release: 0.1 },
-      filter: { type: 'lowpass', frequency: 800, Q: 1 },
-      filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.1, baseFrequency: 200, octaves: 2 },
-    }).toDestination())
+    this.synths.push(
+      new Tone.MonoSynth({
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.01, decay: 0.3, sustain: 0.8, release: 0.1 },
+        filter: { type: 'lowpass', frequency: 800, Q: 1 },
+        filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.1, baseFrequency: 200, octaves: 2 },
+      }).toDestination(),
+    )
 
     // T2: Acid — sawtooth with resonant filter, snappy envelope for squelchy 303 lines
-    this.synths.push(new Tone.MonoSynth({
-      oscillator: { type: 'sawtooth' },
-      envelope: { attack: 0.005, decay: 0.2, sustain: 0.3, release: 0.05 },
-      filter: { type: 'lowpass', frequency: 1200, Q: 6 },
-      filterEnvelope: { attack: 0.005, decay: 0.15, sustain: 0.1, release: 0.1, baseFrequency: 300, octaves: 3.5 },
-    }).toDestination())
+    this.synths.push(
+      new Tone.MonoSynth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.005, decay: 0.2, sustain: 0.3, release: 0.05 },
+        filter: { type: 'lowpass', frequency: 1200, Q: 6 },
+        filterEnvelope: { attack: 0.005, decay: 0.15, sustain: 0.1, release: 0.1, baseFrequency: 300, octaves: 3.5 },
+      }).toDestination(),
+    )
 
     // T3: Lead — square with moderate filter, bright and cutting for melodic loops
-    this.synths.push(new Tone.MonoSynth({
-      oscillator: { type: 'square' },
-      envelope: { attack: 0.005, decay: 0.1, sustain: 0.7, release: 0.08 },
-      filter: { type: 'lowpass', frequency: 3000, Q: 2 },
-      filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.1, baseFrequency: 800, octaves: 2 },
-    }).toDestination())
+    this.synths.push(
+      new Tone.MonoSynth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.005, decay: 0.1, sustain: 0.7, release: 0.08 },
+        filter: { type: 'lowpass', frequency: 3000, Q: 2 },
+        filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.1, baseFrequency: 800, octaves: 2 },
+      }).toDestination(),
+    )
 
     // T4: Stab — detuned sawtooth for thick chords and atmospheric textures
-    this.synths.push(new Tone.MonoSynth({
-      oscillator: { type: 'fatsawtooth', spread: 20, count: 3 },
-      envelope: { attack: 0.01, decay: 0.4, sustain: 0.2, release: 0.3 },
-      filter: { type: 'lowpass', frequency: 2000, Q: 1.5 },
-      filterEnvelope: { attack: 0.01, decay: 0.5, sustain: 0.3, release: 0.2, baseFrequency: 400, octaves: 3 },
-    }).toDestination())
+    this.synths.push(
+      new Tone.MonoSynth({
+        oscillator: { type: 'fatsawtooth', spread: 20, count: 3 },
+        envelope: { attack: 0.01, decay: 0.4, sustain: 0.2, release: 0.3 },
+        filter: { type: 'lowpass', frequency: 2000, Q: 1.5 },
+        filterEnvelope: { attack: 0.01, decay: 0.5, sustain: 0.3, release: 0.2, baseFrequency: 400, octaves: 3 },
+      }).toDestination(),
+    )
 
     // Balance voice levels — bass louder, stab quieter to avoid mud
     this.synths[0].volume.value = -4
@@ -104,11 +112,14 @@ export class ToneOutput {
               synth.triggerAttackRelease(noteName, subGate, subTime)
             }
             this.activeNotes[outputIdx] = noteName
-            Tone.getTransport().scheduleOnce(() => {
-              if (this.activeNotes[outputIdx] === noteName) {
-                this.activeNotes[outputIdx] = null
-              }
-            }, time + (ratchetCount - 1) * subStep + subGate)
+            Tone.getTransport().scheduleOnce(
+              () => {
+                if (this.activeNotes[outputIdx] === noteName) {
+                  this.activeNotes[outputIdx] = null
+                }
+              },
+              time + (ratchetCount - 1) * subStep + subGate,
+            )
           } else {
             // Single trigger
             synth.volume.setValueAtTime(db, time)

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { mutateTrack, isMutateActive } from '../mutator'
+import { describe, expect, it } from 'vitest'
+import { isMutateActive, mutateTrack } from '../mutator'
 import { createSequencer, randomizeTrackPattern, tick } from '../sequencer'
 import type { MutateConfig } from '../types'
 
@@ -66,7 +66,7 @@ describe('mutateTrack', () => {
     let state = createSequencer()
     state = randomizeTrackPattern(state, 0, 42)
     const track = state.tracks[0]
-    const originalGate = track.gate.steps.map(s => ({ ...s }))
+    const originalGate = track.gate.steps.map((s) => ({ ...s }))
     const config: MutateConfig = { ...offConfig(), gate: 1 }
     mutateTrack(track, state.randomConfigs[0], config, 99)
     expect(track.gate.steps).toEqual(originalGate)
@@ -152,10 +152,10 @@ describe('tick mutation integration', () => {
     const config: MutateConfig = { ...offConfig(), gate: 1, trigger: 'bars', bars: 1 }
     state = {
       ...state,
-      mutateConfigs: state.mutateConfigs.map((c, i) => i === 0 ? config : c),
+      mutateConfigs: state.mutateConfigs.map((c, i) => (i === 0 ? config : c)),
       transport: { ...state.transport, playing: true },
     }
-    const originalGate = state.tracks[0].gate.steps.map(s => s.on)
+    const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
     // Advance 17 ticks: ticks 0-15 play the first bar,
     // tick 16 is when masterTick=16 hits the bars boundary check
@@ -175,10 +175,10 @@ describe('tick mutation integration', () => {
     const config: MutateConfig = { ...offConfig(), gate: 1, trigger: 'loop', bars: 2 }
     state = {
       ...state,
-      mutateConfigs: state.mutateConfigs.map((c, i) => i === 0 ? config : c),
+      mutateConfigs: state.mutateConfigs.map((c, i) => (i === 0 ? config : c)),
       transport: { ...state.transport, playing: true },
     }
-    const originalGate = state.tracks[0].gate.steps.map(s => s.on)
+    const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
     // Advance through first full loop (16 ticks) + 1 — should NOT mutate yet
     // (loop 0→1 transition = loop #1, which is odd, so skip)
@@ -186,7 +186,7 @@ describe('tick mutation integration', () => {
       const result = tick(state)
       state = result.state
     }
-    expect(state.tracks[0].gate.steps.map(s => s.on)).toEqual(originalGate)
+    expect(state.tracks[0].gate.steps.map((s) => s.on)).toEqual(originalGate)
 
     // Advance through second loop (another 16 ticks) — NOW should mutate
     // (loop 1→2 transition = loop #2, which is even, so trigger)
@@ -204,10 +204,10 @@ describe('tick mutation integration', () => {
     const config: MutateConfig = { ...offConfig(), gate: 1, trigger: 'loop', bars: 1 }
     state = {
       ...state,
-      mutateConfigs: state.mutateConfigs.map((c, i) => i === 0 ? config : c),
+      mutateConfigs: state.mutateConfigs.map((c, i) => (i === 0 ? config : c)),
       transport: { ...state.transport, playing: true },
     }
-    const originalGate = state.tracks[0].gate.steps.map(s => s.on)
+    const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
     // First loop boundary at tick 16
     for (let i = 0; i < 17; i++) {
@@ -225,7 +225,7 @@ describe('tick mutation integration', () => {
       ...state,
       transport: { ...state.transport, playing: true },
     }
-    const originalGate = state.tracks[0].gate.steps.map(s => ({ ...s }))
+    const originalGate = state.tracks[0].gate.steps.map((s) => ({ ...s }))
 
     for (let i = 0; i < 17; i++) {
       const result = tick(state)

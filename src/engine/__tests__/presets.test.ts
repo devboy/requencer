@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { PRESETS, getPresetByName } from '../presets'
+import { describe, expect, it } from 'vitest'
+import { getPresetByName, PRESETS } from '../presets'
 
 describe('PRESETS', () => {
   it('contains at least 6 presets', () => {
@@ -25,7 +25,7 @@ describe('PRESETS', () => {
   })
 
   it('has unique names', () => {
-    const names = PRESETS.map(p => p.name)
+    const names = PRESETS.map((p) => p.name)
     expect(new Set(names).size).toBe(names.length)
   })
 })
@@ -34,7 +34,7 @@ describe('getPresetByName', () => {
   it('finds a preset by name', () => {
     const preset = getPresetByName('Bassline')
     expect(preset).toBeDefined()
-    expect(preset!.name).toBe('Bassline')
+    expect(preset?.name).toBe('Bassline')
   })
 
   it('returns undefined for unknown name', () => {

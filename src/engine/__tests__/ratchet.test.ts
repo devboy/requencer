@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { createSequencer, tick, setGateOn, setGateRatchet, randomizeTrackPattern, setSubtrackLength } from '../sequencer'
-import { resolveOutputs } from '../routing'
+import { describe, expect, it } from 'vitest'
 import { randomizeRatchets } from '../randomizer'
+import { resolveOutputs } from '../routing'
+import { createSequencer, randomizeTrackPattern, setGateOn, setGateRatchet } from '../sequencer'
 
 describe('ratchet in compound GateStep', () => {
   it('createSequencer includes default ratchet 1 in gate steps', () => {
@@ -46,9 +46,7 @@ describe('ratchet in compound GateStep', () => {
     state = setGateOn(state, 1, 0, true)
     state = {
       ...state,
-      routing: state.routing.map((r, i) =>
-        i === 0 ? { ...r, gate: 1 } : r,
-      ),
+      routing: state.routing.map((r, i) => (i === 0 ? { ...r, gate: 1 } : r)),
     }
     const events = resolveOutputs(state.tracks, state.routing, state.mutePatterns)
     expect(events[0].ratchetCount).toBe(4)
@@ -79,7 +77,7 @@ describe('randomizeRatchets', () => {
 
   it('probability 1 gives some ratchets > 1', () => {
     const values = randomizeRatchets({ maxRatchet: 4, probability: 1.0 }, 64, 42)
-    const hasRatchets = values.some(v => v > 1)
+    const hasRatchets = values.some((v) => v > 1)
     expect(hasRatchets).toBe(true)
   })
 
@@ -100,7 +98,7 @@ describe('randomizeTrackPattern with ratchets', () => {
     const state = createSequencer()
     const next = {
       ...state,
-      randomConfigs: state.randomConfigs.map(c => ({
+      randomConfigs: state.randomConfigs.map((c) => ({
         ...c,
         ratchet: { maxRatchet: 4, probability: 0.5 },
       })),

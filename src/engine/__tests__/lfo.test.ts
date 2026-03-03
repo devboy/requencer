@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { waveformValue, computeLFOValue, createLFORuntime } from '../lfo'
-import type { LFOConfig, LFORuntime } from '../types'
+import { describe, expect, it } from 'vitest'
+import { computeLFOValue, createLFORuntime, waveformValue } from '../lfo'
+import type { LFOConfig } from '../types'
 
 const defaultConfig: LFOConfig = {
   waveform: 'sine',
@@ -85,9 +85,7 @@ describe('waveformValue', () => {
   })
 
   describe('all waveforms return values in [0, 1]', () => {
-    const waveforms: Array<'sine' | 'triangle' | 'saw' | 'square'> = [
-      'sine', 'triangle', 'saw', 'square',
-    ]
+    const waveforms: Array<'sine' | 'triangle' | 'saw' | 'square'> = ['sine', 'triangle', 'saw', 'square']
     const phases = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     const widths = [0.1, 0.25, 0.5, 0.75, 0.9]
 

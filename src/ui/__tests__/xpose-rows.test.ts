@@ -1,7 +1,7 @@
-import { describe, test, expect } from 'vitest'
-import { getXposeVisibleRows } from '../xpose-rows'
+import { describe, expect, test } from 'vitest'
 import { createSequencer } from '../../engine/sequencer'
 import { createInitialUIState } from '../mode-machine'
+import { getXposeVisibleRows } from '../xpose-rows'
 
 describe('xpose-rows', () => {
   test('returns 7 rows (2 headers + 5 params)', () => {
@@ -15,8 +15,8 @@ describe('xpose-rows', () => {
     const engine = createSequencer()
     const ui = createInitialUIState()
     const rows = getXposeVisibleRows(engine, ui)
-    const headers = rows.filter(r => r.type === 'header')
-    expect(headers.map(h => h.label)).toEqual(['PITCH', 'DYNAMICS'])
+    const headers = rows.filter((r) => r.type === 'header')
+    expect(headers.map((h) => h.label)).toEqual(['PITCH', 'DYNAMICS'])
   })
 
   test('SEMI getValue shows sign prefix for non-zero', () => {
@@ -24,7 +24,7 @@ describe('xpose-rows', () => {
     engine.transposeConfigs[0] = { semitones: 7, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 }
     const ui = createInitialUIState()
     const rows = getXposeVisibleRows(engine, ui)
-    const semi = rows.find(r => r.paramId === 'xpose.semi')!
+    const semi = rows.find((r) => r.paramId === 'xpose.semi')!
     expect(semi.getValue(engine, ui)).toBe('+7')
   })
 
@@ -32,7 +32,7 @@ describe('xpose-rows', () => {
     const engine = createSequencer()
     const ui = createInitialUIState()
     const rows = getXposeVisibleRows(engine, ui)
-    const semi = rows.find(r => r.paramId === 'xpose.semi')!
+    const semi = rows.find((r) => r.paramId === 'xpose.semi')!
     expect(semi.getValue(engine, ui)).toBe('0')
   })
 
@@ -41,8 +41,8 @@ describe('xpose-rows', () => {
     engine.transposeConfigs[0] = { semitones: 0, noteLow: 48, noteHigh: 72, glScale: 1.0, velScale: 1.0 }
     const ui = createInitialUIState()
     const rows = getXposeVisibleRows(engine, ui)
-    const lo = rows.find(r => r.paramId === 'xpose.noteLow')!
-    const hi = rows.find(r => r.paramId === 'xpose.noteHigh')!
+    const lo = rows.find((r) => r.paramId === 'xpose.noteLow')!
+    const hi = rows.find((r) => r.paramId === 'xpose.noteHigh')!
     expect(lo.getValue(engine, ui)).toBe('C3')
     expect(hi.getValue(engine, ui)).toBe('C5')
   })
@@ -52,8 +52,8 @@ describe('xpose-rows', () => {
     engine.transposeConfigs[0] = { semitones: 0, noteLow: 0, noteHigh: 127, glScale: 2.0, velScale: 0.5 }
     const ui = createInitialUIState()
     const rows = getXposeVisibleRows(engine, ui)
-    const gl = rows.find(r => r.paramId === 'xpose.glScale')!
-    const vel = rows.find(r => r.paramId === 'xpose.velScale')!
+    const gl = rows.find((r) => r.paramId === 'xpose.glScale')!
+    const vel = rows.find((r) => r.paramId === 'xpose.velScale')!
     expect(gl.getValue(engine, ui)).toBe('200%')
     expect(vel.getValue(engine, ui)).toBe('50%')
   })
@@ -63,7 +63,7 @@ describe('xpose-rows', () => {
     engine.transposeConfigs[2] = { semitones: -5, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 }
     const ui = { ...createInitialUIState(), selectedTrack: 2 }
     const rows = getXposeVisibleRows(engine, ui)
-    const semi = rows.find(r => r.paramId === 'xpose.semi')!
+    const semi = rows.find((r) => r.paramId === 'xpose.semi')!
     expect(semi.getValue(engine, ui)).toBe('-5')
   })
 })

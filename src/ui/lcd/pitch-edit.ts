@@ -5,9 +5,9 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS, midiToNoteName } from '../colors'
-import { fillRect, strokeRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 42
@@ -33,7 +33,14 @@ export function renderPitchEdit(ctx: CanvasRenderingContext2D, engine: Sequencer
   if (selIdx < track.pitch.length) {
     const step = track.pitch.steps[selIdx]
     const slideLabel = step.slide > 0 ? `  SLD:${Math.round(step.slide * 1000)}ms` : ''
-    drawText(ctx, `${midiToNoteName(step.note)} (${step.note})${slideLabel}`, PAD, LCD_CONTENT_Y + 36, COLORS.textBright, 16)
+    drawText(
+      ctx,
+      `${midiToNoteName(step.note)} (${step.note})${slideLabel}`,
+      PAD,
+      LCD_CONTENT_Y + 36,
+      COLORS.textBright,
+      16,
+    )
   }
 
   // Right side info

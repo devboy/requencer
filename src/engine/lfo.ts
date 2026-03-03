@@ -4,21 +4,9 @@
  * Pure functions, zero dependencies on DOM/audio.
  */
 
+import { clamp } from './math'
+import { createRng } from './rng'
 import type { LFOConfig, LFORuntime, LFOWaveform } from './types'
-
-function createRng(seed: number): () => number {
-  let t = seed | 0
-  return () => {
-    t = (t + 0x6d2b79f5) | 0
-    let r = Math.imul(t ^ (t >>> 15), 1 | t)
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v))
-}
 
 /**
  * Compute raw waveform value at a given phase (0.0-1.0) with width/skew.
@@ -91,7 +79,7 @@ export function computeLFOValue(
   bpm: number,
 ): { value: number; runtime: LFORuntime } {
   let phase: number
-  let newRuntime = { ...runtime }
+  const newRuntime = { ...runtime }
 
   if (config.syncMode === 'free') {
     // Free-running: accumulate phase based on Hz rate and tick duration
@@ -118,7 +106,7 @@ export function computeLFOValue(
     // Detect if we just crossed the trigger point
     const prevPhase = runtime.currentPhase
     const crossed = phase < prevPhase || (prevPhase < triggerPoint && phase >= triggerPoint)
-    if (crossed || runtime.lastSHValue === 0 && runtime.currentPhase === 0) {
+    if (crossed || (runtime.lastSHValue === 0 && runtime.currentPhase === 0)) {
       // Generate new random value based on tick for determinism
       const rng = createRng(masterTick * 7919 + 31)
       newRuntime.lastSHValue = rng()

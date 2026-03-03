@@ -1,27 +1,14 @@
-import type { Note, Velocity, GateLength, RatchetCount, Scale, RandomConfig, ModStep, ModMode } from './types'
 import { euclidean } from './euclidean'
+import { createRng } from './rng'
 import { getScaleNotes } from './scales'
-
-/**
- * Simple seeded PRNG (mulberry32). Returns a function that produces
- * deterministic values in [0, 1) for a given seed.
- */
-function createRng(seed: number): () => number {
-  let t = seed | 0
-  return () => {
-    t = (t + 0x6d2b79f5) | 0
-    let r = Math.imul(t ^ (t >>> 15), 1 | t)
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
-  }
-}
+import type { GateLength, ModMode, ModStep, Note, RandomConfig, RatchetCount, Scale, Velocity } from './types'
 
 interface GateConfig {
   fillMin: number
   fillMax: number
   mode: 'random' | 'euclidean' | 'sync' | 'cluster'
-  randomOffset?: boolean     // euclidean mode: randomize rotation
-  clusterContinuation?: number  // cluster mode: Markov continuation probability
+  randomOffset?: boolean // euclidean mode: randomize rotation
+  clusterContinuation?: number // cluster mode: Markov continuation probability
 }
 
 interface PitchConfig {
@@ -29,7 +16,7 @@ interface PitchConfig {
   high: Note
   scale: Scale
   root: Note
-  maxNotes?: number          // 0 or undefined = unlimited distinct pitches
+  maxNotes?: number // 0 or undefined = unlimited distinct pitches
 }
 
 interface VelocityConfig {
@@ -64,7 +51,7 @@ export function randomizeGates(config: GateConfig, length: number, seed: number 
 
     // Markov chain walk
     for (let i = 0; i < length; i++) {
-      const prob = (i > 0 && pattern[i - 1]) ? continuation : baseProb
+      const prob = i > 0 && pattern[i - 1] ? continuation : baseProb
       pattern[i] = rng() < prob
     }
 
@@ -104,9 +91,9 @@ export function randomizeGates(config: GateConfig, length: number, seed: number 
     // Weighted random placement biased away from strong beats
     const weights = Array.from({ length }, (_, i) => {
       const pos = i % 4
-      if (pos === 0) return 1   // downbeats: low weight
-      if (pos === 3) return 2   // upbeats ("a"): medium-low
-      return 4                  // "e" and "and" positions: high
+      if (pos === 0) return 1 // downbeats: low weight
+      if (pos === 3) return 2 // upbeats ("a"): medium-low
+      return 4 // "e" and "and" positions: high
     })
     const pattern = Array(length).fill(false)
     const indices = Array.from({ length }, (_, i) => i)
@@ -221,7 +208,7 @@ export function randomizeGateLength(config: GateLengthConfig, length: number, se
 
 interface RatchetConfig {
   maxRatchet: RatchetCount
-  probability: number       // 0.0-1.0
+  probability: number // 0.0-1.0
 }
 
 /**
@@ -249,7 +236,7 @@ export function randomizeSlides(probability: number, length: number, seed: numbe
   const rng = createRng(seed)
   const values: number[] = []
   for (let i = 0; i < length; i++) {
-    values.push(probability > 0 && rng() < probability ? 0.10 : 0)
+    values.push(probability > 0 && rng() < probability ? 0.1 : 0)
   }
   return values
 }
@@ -268,7 +255,19 @@ interface ModConfig {
  * Backward-compat wrapper: accepts either the old { low, high } shape or the full ModConfig.
  * Returns ModStep[] with per-step value and slew.
  */
-export function randomizeMod(config: { low: number; high: number; mode?: ModMode; slew?: number; slewProbability?: number; walkStepSize?: number; syncBias?: number }, length: number, seed: number = Date.now()): ModStep[] {
+export function randomizeMod(
+  config: {
+    low: number
+    high: number
+    mode?: ModMode
+    slew?: number
+    slewProbability?: number
+    walkStepSize?: number
+    syncBias?: number
+  },
+  length: number,
+  seed: number = Date.now(),
+): ModStep[] {
   const full: ModConfig = {
     low: config.low,
     high: config.high,
@@ -312,10 +311,18 @@ function randomizeModRamp(mode: 'rise' | 'fall' | 'vee' | 'hill', config: ModCon
     const t = length > 1 ? i / (length - 1) : 0
     let base: number
     switch (mode) {
-      case 'rise': base = t; break
-      case 'fall': base = 1 - t; break
-      case 'hill': base = t < 0.5 ? t * 2 : (1 - t) * 2; break
-      case 'vee':  base = t < 0.5 ? 1 - t * 2 : (t - 0.5) * 2; break
+      case 'rise':
+        base = t
+        break
+      case 'fall':
+        base = 1 - t
+        break
+      case 'hill':
+        base = t < 0.5 ? t * 2 : (1 - t) * 2
+        break
+      case 'vee':
+        base = t < 0.5 ? 1 - t * 2 : (t - 0.5) * 2
+        break
     }
     const value = Math.round((config.low + base * (config.high - config.low)) * 100) / 100
     steps.push({ value, slew: config.slew })
@@ -330,9 +337,11 @@ function randomizeModSync(config: ModConfig, length: number, seed: number): ModS
   for (let i = 0; i < length; i++) {
     const pos = i % 4
     let weight: number
-    if (pos === 0) weight = 0.15       // downbeats: low mod
-    else if (pos === 3) weight = 0.6   // "a" positions: medium-high
-    else weight = 1.0                  // "e" and "and": highest
+    if (pos === 0)
+      weight = 0.15 // downbeats: low mod
+    else if (pos === 3)
+      weight = 0.6 // "a" positions: medium-high
+    else weight = 1.0 // "e" and "and": highest
 
     // Bias controls how strongly the weighting applies
     const effectiveWeight = 0.5 + (weight - 0.5) * config.syncBias
@@ -401,7 +410,16 @@ export function randomizeTrack(
   config: RandomConfig,
   lengths: { gate: number; pitch: number; velocity: number; mod: number },
   seed: number = Date.now(),
-): { gate: boolean[]; pitch: Note[]; velocity: Velocity[]; gateLength: GateLength[]; ratchet: RatchetCount[]; slide: number[]; mod: ModStep[]; tie: boolean[] } {
+): {
+  gate: boolean[]
+  pitch: Note[]
+  velocity: Velocity[]
+  gateLength: GateLength[]
+  ratchet: RatchetCount[]
+  slide: number[]
+  mod: ModStep[]
+  tie: boolean[]
+} {
   // Use different derived seeds for each subtrack so they're independent
   const gate = randomizeGates(config.gate, lengths.gate, seed)
   return {

@@ -5,9 +5,9 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, strokeRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
 
 const PAD = 8
 const LABEL_W = 28

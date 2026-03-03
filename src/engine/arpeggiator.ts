@@ -3,6 +3,7 @@
  * Pure functions, zero dependencies on DOM/audio.
  */
 
+import { createRng } from './rng'
 import type { Note, Scale } from './types'
 
 export type ArpDirection = 'up' | 'down' | 'triangle' | 'random'
@@ -12,7 +13,7 @@ export type ArpDirection = 'up' | 'down' | 'triangle' | 'random'
  * For scales with 7+ notes, picks every other interval (indices 0, 2, 4, 6).
  * For smaller scales, uses all available intervals.
  */
-export function getChordNotes(root: Note, scale: Scale): number[] {
+export function getChordNotes(_root: Note, scale: Scale): number[] {
   const intervals = scale.intervals
   if (intervals.length <= 4) {
     return [...intervals]
@@ -27,19 +28,6 @@ export function getChordNotes(root: Note, scale: Scale): number[] {
     chord.push(intervals[i])
   }
   return chord
-}
-
-/**
- * Simple seeded PRNG (mulberry32).
- */
-function createRng(seed: number): () => number {
-  let t = seed | 0
-  return () => {
-    t = (t + 0x6d2b79f5) | 0
-    let r = Math.imul(t ^ (t >>> 15), 1 | t)
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
-  }
 }
 
 /**

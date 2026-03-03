@@ -1,23 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { GateStep, PitchStep, Subtrack, Transform, VariationPattern } from '../types'
 import {
-  transformStepIndex,
-  isPlayheadTransform,
-  transformGateValue,
-  transformPitchValue,
+  advanceVariationBar,
+  createDefaultVariationPattern,
   getEffectiveGateStep,
   getEffectivePitchStep,
   getEffectiveSimpleStep,
-  createDefaultVariationPattern,
   getTransformsForSubtrack,
-  advanceVariationBar,
+  isPlayheadTransform,
+  transformGateValue,
+  transformPitchValue,
+  transformStepIndex,
 } from '../variation'
-import type {
-  Transform,
-  GateStep,
-  PitchStep,
-  Subtrack,
-  VariationPattern,
-} from '../types'
 
 // --- Helpers ---
 
@@ -64,8 +58,8 @@ describe('transformStepIndex', () => {
     it('rotates index by N with wrap', () => {
       const t: Transform = { type: 'rotate', param: 3 }
       expect(transformStepIndex(0, 8, t)).toBe(3)
-      expect(transformStepIndex(5, 8, t)).toBe(0)  // (5+3)%8 = 0
-      expect(transformStepIndex(7, 8, t)).toBe(2)  // (7+3)%8 = 2
+      expect(transformStepIndex(5, 8, t)).toBe(0) // (5+3)%8 = 0
+      expect(transformStepIndex(7, 8, t)).toBe(2) // (7+3)%8 = 2
     })
 
     it('handles negative rotation via large param', () => {
@@ -327,10 +321,14 @@ describe('getEffectiveGateStep', () => {
   it('reverse+fill composes', () => {
     const sub = makeGateSubtrack([gateOn(false), gateOn(false), gateOn(false), gateOn(false)], 2)
     // reverse first → reads index 1, which is off, then fill → on
-    const result = getEffectiveGateStep(sub, [
-      { type: 'reverse', param: 0 },
-      { type: 'fill', param: 0 },
-    ], 0)
+    const result = getEffectiveGateStep(
+      sub,
+      [
+        { type: 'reverse', param: 0 },
+        { type: 'fill', param: 0 },
+      ],
+      0,
+    )
     expect(result.on).toBe(true)
   })
 })
@@ -437,10 +435,7 @@ describe('getTransformsForSubtrack', () => {
       enabled: true,
       length: 2,
       currentBar: 0,
-      slots: [
-        { transforms: [{ type: 'fill', param: 0 }] },
-        { transforms: [{ type: 'thin', param: 0.5 }] },
-      ],
+      slots: [{ transforms: [{ type: 'fill', param: 0 }] }, { transforms: [{ type: 'thin', param: 0.5 }] }],
     }
     const p: VariationPattern = {
       ...createDefaultVariationPattern(),
@@ -572,10 +567,7 @@ describe('variation integration in tick', () => {
           ...vp,
           enabled: true,
           length: 2,
-          slots: [
-            { transforms: [] },
-            { transforms: [{ type: 'reverse' as const, param: 0 }] },
-          ],
+          slots: [{ transforms: [] }, { transforms: [{ type: 'reverse' as const, param: 0 }] }],
           currentBar: 0,
         }
       }),
@@ -695,10 +687,7 @@ describe('variation integration in tick', () => {
           ...vp,
           enabled: true,
           length: 2,
-          slots: [
-            { transforms: [] },
-            { transforms: [{ type: 'transpose' as const, param: 12 }] },
-          ],
+          slots: [{ transforms: [] }, { transforms: [{ type: 'transpose' as const, param: 12 }] }],
           currentBar: 0,
         }
       }),

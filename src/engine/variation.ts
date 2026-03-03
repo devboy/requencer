@@ -8,29 +8,16 @@
  * All functions are pure: receive state, return new values, never mutate.
  */
 
-import type {
-  Transform,
-  TransformType,
-  GateStep,
-  PitchStep,
-  Subtrack,
-  VariationPattern,
-  VariationSlot,
-} from './types'
+import { clamp } from './math'
+import type { GateStep, PitchStep, Subtrack, Transform, TransformType, VariationPattern, VariationSlot } from './types'
 
 // --- Transform categorization ---
 
-const PLAYHEAD_TRANSFORMS: Set<TransformType> = new Set([
-  'reverse', 'ping-pong', 'rotate', 'double-time', 'stutter',
-])
+const PLAYHEAD_TRANSFORMS: Set<TransformType> = new Set(['reverse', 'ping-pong', 'rotate', 'double-time', 'stutter'])
 
-const GATE_VALUE_TRANSFORMS: Set<TransformType> = new Set([
-  'thin', 'fill', 'skip-even', 'skip-odd',
-])
+const GATE_VALUE_TRANSFORMS: Set<TransformType> = new Set(['thin', 'fill', 'skip-even', 'skip-odd'])
 
-const PITCH_VALUE_TRANSFORMS: Set<TransformType> = new Set([
-  'transpose', 'invert', 'octave-shift',
-])
+const PITCH_VALUE_TRANSFORMS: Set<TransformType> = new Set(['transpose', 'invert', 'octave-shift'])
 
 /**
  * Returns true if the transform modifies the playhead index.
@@ -119,10 +106,6 @@ export function transformGateValue(
 
 // --- TASK 4: Pitch value transforms ---
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
 /**
  * Apply a pitch value transform to a PitchStep.
  * Returns a new PitchStep (immutable). Preserves .slide.
@@ -185,10 +168,7 @@ export function getEffectiveGateStep(
  * Get effective pitch step after applying all transforms.
  * Playhead transforms change which step is read, then pitch value transforms modify it.
  */
-export function getEffectivePitchStep(
-  subtrack: Subtrack<PitchStep>,
-  transforms: Transform[],
-): PitchStep {
+export function getEffectivePitchStep(subtrack: Subtrack<PitchStep>, transforms: Transform[]): PitchStep {
   const idx = applyPlayheadTransforms(subtrack.currentStep, subtrack.length, transforms)
   let step = subtrack.steps[idx]
 
@@ -205,10 +185,7 @@ export function getEffectivePitchStep(
  * Get effective simple step (velocity/mod) after applying playhead transforms only.
  * Value transforms are not applied to velocity/mod subtracks.
  */
-export function getEffectiveSimpleStep(
-  subtrack: Subtrack<number>,
-  transforms: Transform[],
-): number {
+export function getEffectiveSimpleStep(subtrack: Subtrack<number>, transforms: Transform[]): number {
   const idx = applyPlayheadTransforms(subtrack.currentStep, subtrack.length, transforms)
   return subtrack.steps[idx]
 }
@@ -217,10 +194,7 @@ export function getEffectiveSimpleStep(
  * Get effective compound step (e.g. ModStep) after applying playhead transforms only.
  * Generic version of getEffectiveSimpleStep for non-numeric step types.
  */
-export function getEffectiveCompoundStep<T>(
-  subtrack: Subtrack<T>,
-  transforms: Transform[],
-): T {
+export function getEffectiveCompoundStep<T>(subtrack: Subtrack<T>, transforms: Transform[]): T {
   const idx = applyPlayheadTransforms(subtrack.currentStep, subtrack.length, transforms)
   return subtrack.steps[idx]
 }
@@ -257,10 +231,7 @@ type SubtrackKey = 'gate' | 'pitch' | 'velocity' | 'mod'
  * - If override is a VariationPattern → use override's own slots and currentBar
  * - If override is null → use track-level pattern's slots and currentBar
  */
-export function getTransformsForSubtrack(
-  pattern: VariationPattern,
-  subtrackKey: SubtrackKey,
-): Transform[] {
+export function getTransformsForSubtrack(pattern: VariationPattern, subtrackKey: SubtrackKey): Transform[] {
   const override = pattern.subtrackOverrides[subtrackKey]
 
   if (override === 'bypass') {
@@ -288,10 +259,7 @@ export function getTransformsForSubtrack(
  * - If no subtrackKey → advance track-level currentBar.
  * - Wraps: (currentBar + 1) % length
  */
-export function advanceVariationBar(
-  pattern: VariationPattern,
-  subtrackKey?: SubtrackKey,
-): VariationPattern {
+export function advanceVariationBar(pattern: VariationPattern, subtrackKey?: SubtrackKey): VariationPattern {
   if (!pattern.enabled) return pattern
 
   if (subtrackKey !== undefined) {

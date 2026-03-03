@@ -3,37 +3,36 @@
  */
 
 import { createSequencer, tick } from './engine/sequencer'
+import type { SequencerState } from './engine/types'
+import { DrumMachine } from './io/drum-machine'
+import { MIDIOutput } from './io/midi-output'
 import { ToneClock } from './io/tone-clock'
 import { ToneOutput } from './io/tone-output'
-import { MIDIOutput } from './io/midi-output'
-import type { SequencerState } from './engine/types'
-
-// UI imports
-import { createInitialUIState, dispatch, getLEDState } from './ui/mode-machine'
-import type { UIState, ControlEvent, ScreenMode } from './ui/hw-types'
 import { COLORS } from './ui/colors'
-import { setupLCDCanvas, drawStatusBar, LCD_W, LCD_H } from './ui/renderer'
-import { onControlEvent, setupKeyboardInput, emit } from './ui/input'
-import { createFaceplate, injectPanelStyles, setupMobileViewport } from './ui/panel/faceplate'
-import { createControls, updateLEDs, updateModeIndicators } from './ui/panel/controls'
+import { createDebugMenu } from './ui/debug-menu'
+import type { ControlEvent, ScreenMode, UIState } from './ui/hw-types'
+import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
+import { renderGateEdit } from './ui/lcd/gate-edit'
+import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 
 // LCD screen renderers
 import { renderHome } from './ui/lcd/home'
-import { renderGateEdit } from './ui/lcd/gate-edit'
-import { renderPitchEdit } from './ui/lcd/pitch-edit'
-import { renderVelEdit } from './ui/lcd/vel-edit'
-import { renderMuteEdit } from './ui/lcd/mute-edit'
-import { renderRoute } from './ui/lcd/route-screen'
-import { renderRand } from './ui/lcd/rand-screen'
-import { renderNameEntry } from './ui/lcd/name-entry'
-import { renderHoldOverlay } from './ui/lcd/hold-overlay'
-import { renderMutateEdit } from './ui/lcd/mutate-screen'
-import { renderTransposeEdit } from './ui/lcd/transpose-screen'
 import { renderModEdit } from './ui/lcd/mod-edit'
+import { renderMutateEdit } from './ui/lcd/mutate-screen'
+import { renderMuteEdit } from './ui/lcd/mute-edit'
+import { renderNameEntry } from './ui/lcd/name-entry'
+import { renderPitchEdit } from './ui/lcd/pitch-edit'
+import { renderRand } from './ui/lcd/rand-screen'
+import { renderRoute } from './ui/lcd/route-screen'
 import { renderSettings } from './ui/lcd/settings-screen'
+import { renderTransposeEdit } from './ui/lcd/transpose-screen'
 import { renderVariationEdit } from './ui/lcd/variation-screen'
-import { createDebugMenu } from './ui/debug-menu'
-import { DrumMachine } from './io/drum-machine'
+import { renderVelEdit } from './ui/lcd/vel-edit'
+// UI imports
+import { createInitialUIState, dispatch, getLEDState } from './ui/mode-machine'
+import { createControls, updateLEDs, updateModeIndicators } from './ui/panel/controls'
+import { createFaceplate, injectPanelStyles, setupMobileViewport } from './ui/panel/faceplate'
+import { drawStatusBar, LCD_H, LCD_W, setupLCDCanvas } from './ui/renderer'
 
 console.log('requencer starting')
 
@@ -51,7 +50,7 @@ const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
 
 const clock = new ToneClock({
   onTick(time: number, stepDuration: number) {
-    const step = engineState.transport.masterTick  // capture BEFORE tick advances it
+    const step = engineState.transport.masterTick // capture BEFORE tick advances it
     const result = tick(engineState)
     engineState = result.state
     output.handleEvents(result.events, time, stepDuration)
@@ -79,18 +78,27 @@ createDebugMenu({
     engineState = { ...engineState, transport: { ...engineState.transport, bpm } }
     clock.bpm = bpm
   },
-  togglePlay() { emit({ type: 'play-stop' }) },
+  togglePlay() {
+    emit({ type: 'play-stop' })
+  },
   clearTrack() {
     const i = uiState.selectedTrack
     const t = engineState.tracks[i]
     const len = t.gate.steps.length
     engineState = {
       ...engineState,
-      tracks: engineState.tracks.map((trk, idx) => idx !== i ? trk : {
-        ...trk,
-        gate: { ...trk.gate, steps: Array.from({ length: len }, () => ({ on: false, tie: false, length: 0.5, ratchet: 1 })) },
-        velocity: { ...trk.velocity, steps: Array(len).fill(0) },
-      }),
+      tracks: engineState.tracks.map((trk, idx) =>
+        idx !== i
+          ? trk
+          : {
+              ...trk,
+              gate: {
+                ...trk.gate,
+                steps: Array.from({ length: len }, () => ({ on: false, tie: false, length: 0.5, ratchet: 1 })),
+              },
+              velocity: { ...trk.velocity, steps: Array(len).fill(0) },
+            },
+      ),
     }
   },
   drums,
@@ -145,53 +153,53 @@ onControlEvent(async (event: ControlEvent) => {
 
 // --- Screen Renderers ---
 const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState) => void> = {
-  'home': renderHome,
+  home: renderHome,
   'gate-edit': renderGateEdit,
   'pitch-edit': renderPitchEdit,
   'vel-edit': renderVelEdit,
   'mute-edit': renderMuteEdit,
-  'route': renderRoute,
-  'rand': renderRand,
+  route: renderRoute,
+  rand: renderRand,
   'name-entry': renderNameEntry,
   'mutate-edit': renderMutateEdit,
   'transpose-edit': renderTransposeEdit,
   'variation-edit': renderVariationEdit,
   'mod-edit': renderModEdit,
-  'settings': renderSettings,
+  settings: renderSettings,
 }
 
 // Status bar text per mode
 const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
-  'home': () => 'REQUENCER',
+  home: () => 'REQUENCER',
   'gate-edit': (ui) => `T${ui.selectedTrack + 1} GATE`,
   'pitch-edit': (ui) => `T${ui.selectedTrack + 1} PITCH`,
   'vel-edit': (ui) => `T${ui.selectedTrack + 1} VELOCITY`,
   'mute-edit': (ui) => `T${ui.selectedTrack + 1} MUTE`,
-  'route': (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
-  'rand': (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
+  route: (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
+  rand: (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
   'name-entry': () => 'SAVE PRESET',
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
   'mod-edit': (ui) => `T${ui.selectedTrack + 1} ${ui.modLfoView ? 'LFO' : 'MOD'}`,
-  'settings': () => 'SETTINGS',
+  settings: () => 'SETTINGS',
 }
 
 // --- Shortcut Hints (below module) ---
 const SHORTCUT_HINTS: Record<ScreenMode, string> = {
-  'home':      '1-4: track   Q/W/E/R: edit   A-G: features   Hold+↑↓: len   Hold+←→: div   Space: play',
+  home: '1-4: track   Q/W/E/R: edit   A-G: features   Hold+↑↓: len   Hold+←→: div   Space: play',
   'gate-edit': 'Z-M: toggle steps   Shift+Z-M: 9-16   ←→: page   Hold Q+↑↓: len/div   Esc: back',
-  'pitch-edit':'Z-M: select   ↑↓: pitch   ←→: slide   Enter: page   Esc: back',
-  'vel-edit':  'Z-M: select   ↑↓: velocity   ←→: page   Hold E+↑↓: len/div   Esc: back',
+  'pitch-edit': 'Z-M: select   ↑↓: pitch   ←→: slide   Enter: page   Esc: back',
+  'vel-edit': 'Z-M: select   ↑↓: velocity   ←→: page   Hold E+↑↓: len/div   Esc: back',
   'mute-edit': 'Z-M: toggle mutes   ←→: page   Hold A+↑↓: len/div   Esc: back',
-  'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source  Esc: back',
-  'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
+  route: '1-4: output  \u2191\u2193: param  \u2190\u2192: source  Esc: back',
+  rand: '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
   'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
   'transpose-edit': '1-4: track   ↑↓: scroll   ←→: adjust   Hold ↑: reset   Esc: back',
-  'mod-edit':    'Z-M: select   ↑↓: value   ←→: page/scroll   Enter: MOD/LFO   Esc: back',
+  'mod-edit': 'Z-M: select   ↑↓: value   ←→: page/scroll   Enter: MOD/LFO   Esc: back',
   'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
-  'settings':    '↑↓: scroll   ←→: adjust   Esc: back',
+  settings: '↑↓: scroll   ←→: adjust   Esc: back',
 }
 
 const hintEl = document.createElement('div')

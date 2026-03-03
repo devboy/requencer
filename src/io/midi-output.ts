@@ -4,7 +4,7 @@
  * Uses MIDI timestamps (performance.now()) for precise scheduling.
  */
 
-import type { NoteEvent, MIDIOutputConfig } from '../engine/types'
+import type { MIDIOutputConfig, NoteEvent } from '../engine/types'
 
 export interface MIDIDevice {
   id: string
@@ -45,7 +45,13 @@ export class MIDIOutput {
    * deviceIds maps output index to selected MIDI device ID.
    * stepDuration is the duration of one 16th note in seconds.
    */
-  handleEvents(events: NoteEvent[], configs: MIDIOutputConfig[], deviceIds: string[], stepDuration: number, midiEnabled: boolean): void {
+  handleEvents(
+    events: NoteEvent[],
+    configs: MIDIOutputConfig[],
+    deviceIds: string[],
+    stepDuration: number,
+    midiEnabled: boolean,
+  ): void {
     if (!this.access) return
     if (!midiEnabled) return
     const now = performance.now()
@@ -109,7 +115,7 @@ export class MIDIOutput {
 
         // Send mod as CC1 (mod wheel)
         const modValue = Math.round(event.mod * 127)
-        port.send([0xB0 | channel, 1, Math.max(0, Math.min(127, modValue))], now)
+        port.send([0xb0 | channel, 1, Math.max(0, Math.min(127, modValue))], now)
       } else {
         // Gate off or mute cut — release note
         const prev = this.activeNotes.get(event.output)
@@ -126,7 +132,7 @@ export class MIDIOutput {
     if (!this.access) return
     this.access.outputs.forEach((port) => {
       for (let ch = 0; ch < 16; ch++) {
-        port.send([0xB0 | ch, 123, 0])
+        port.send([0xb0 | ch, 123, 0])
       }
     })
     this.activeNotes.clear()

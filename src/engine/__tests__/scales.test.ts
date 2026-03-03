@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { SCALES, getScaleNotes, snapToScale } from '../scales'
+import { describe, expect, it } from 'vitest'
+import { getScaleNotes, SCALES, snapToScale } from '../scales'
 
 describe('SCALES', () => {
   it('defines major scale with 7 intervals', () => {

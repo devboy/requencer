@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { createSequencer, tick, setGateOn, setGateLength, randomizeTrackPattern, setSubtrackLength } from '../sequencer'
-import { resolveOutputs } from '../routing'
+import { describe, expect, it } from 'vitest'
 import { randomizeGateLength } from '../randomizer'
+import { resolveOutputs } from '../routing'
+import { createSequencer, randomizeTrackPattern, setGateLength, setGateOn } from '../sequencer'
 
 describe('gate length in compound GateStep', () => {
   it('createSequencer includes default gate length of 0.5 in GateStep', () => {
@@ -46,9 +46,7 @@ describe('gate length in compound GateStep', () => {
     // Route output 0 gate to track 1
     state = {
       ...state,
-      routing: state.routing.map((r, i) =>
-        i === 0 ? { ...r, gate: 1 } : r,
-      ),
+      routing: state.routing.map((r, i) => (i === 0 ? { ...r, gate: 1 } : r)),
     }
     const events = resolveOutputs(state.tracks, state.routing, state.mutePatterns)
     expect(events[0].gateLength).toBe(0.3)
@@ -102,13 +100,11 @@ describe('randomizeTrackPattern with gateLength', () => {
     // Set non-trivial GL range so randomization produces varied values
     state = {
       ...state,
-      randomConfigs: state.randomConfigs.map((c, i) =>
-        i === 0 ? { ...c, gateLength: { min: 0.2, max: 0.8 } } : c
-      ),
+      randomConfigs: state.randomConfigs.map((c, i) => (i === 0 ? { ...c, gateLength: { min: 0.2, max: 0.8 } } : c)),
     }
     const next = randomizeTrackPattern(state, 0, 42)
     // gate length values should be randomized (not all 0.5 default)
-    const allDefault = next.tracks[0].gate.steps.every(s => s.length === 0.5)
+    const allDefault = next.tracks[0].gate.steps.every((s) => s.length === 0.5)
     expect(allDefault).toBe(false)
   })
 })

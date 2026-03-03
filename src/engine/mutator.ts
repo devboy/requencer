@@ -9,21 +9,9 @@
  * Each subtrack rate: 0 = off, >0 = fraction of steps to regenerate per cycle.
  */
 
-import type { SequenceTrack, RandomConfig, MutateConfig, GateStep, PitchStep, ModStep } from './types'
-import { randomizeGates, randomizePitch, randomizeVelocity, randomizeMod } from './randomizer'
-
-/**
- * Simple seeded PRNG (mulberry32).
- */
-function createRng(seed: number): () => number {
-  let t = seed | 0
-  return () => {
-    t = (t + 0x6d2b79f5) | 0
-    let r = Math.imul(t ^ (t >>> 15), 1 | t)
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
-  }
-}
+import { randomizeGates, randomizeMod, randomizePitch, randomizeVelocity } from './randomizer'
+import { createRng } from './rng'
+import type { MutateConfig, RandomConfig, SequenceTrack } from './types'
 
 /**
  * Pick random step indices to mutate based on rate (0.0-1.0).
@@ -107,8 +95,11 @@ export function mutateTrack(
   }
 
   const newVel = mutateSubtrack(
-    track.velocity.steps, mutateConfig.velocity,
-    (len, s) => randomizeVelocity(randomConfig.velocity, len, s), rng, seed + 12,
+    track.velocity.steps,
+    mutateConfig.velocity,
+    (len, s) => randomizeVelocity(randomConfig.velocity, len, s),
+    rng,
+    seed + 12,
   )
   // Mod mutation: only mutate .value, preserve .slew
   let newModSteps = track.mod.steps
@@ -125,8 +116,10 @@ export function mutateTrack(
 
   // Only create new track if something changed
   if (
-    newGateSteps === track.gate.steps && newPitchSteps === track.pitch.steps &&
-    newVel === track.velocity.steps && newModSteps === track.mod.steps
+    newGateSteps === track.gate.steps &&
+    newPitchSteps === track.pitch.steps &&
+    newVel === track.velocity.steps &&
+    newModSteps === track.mod.steps
   ) {
     return track
   }

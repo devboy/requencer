@@ -1,7 +1,7 @@
 // Musical types
-export type Note = number       // MIDI note 0-127
-export type Velocity = number   // 0-127
-export type CVValue = number    // 0.0 - 1.0 normalized
+export type Note = number // MIDI note 0-127
+export type Velocity = number // 0-127
+export type CVValue = number // 0.0 - 1.0 normalized
 export type GateLength = number // 0.0 - 1.0, fraction of step window
 export type RatchetCount = number // 1-4, number of sub-triggers per step
 
@@ -14,28 +14,28 @@ export interface Scale {
 // A single subtrack: a sequence of values with independent length and clock division
 export interface Subtrack<T> {
   steps: T[]
-  length: number            // can differ per subtrack for polyrhythms
-  clockDivider: number      // subtrack-level division
-  currentStep: number       // playback position
+  length: number // can differ per subtrack for polyrhythms
+  clockDivider: number // subtrack-level division
+  currentStep: number // playback position
 }
 
 // Compound step types — modifiers folded into their parent subtrack
 export interface GateStep {
   on: boolean
-  tie: boolean             // continues previous note, don't retrigger
-  length: GateLength       // 0.0-1.0, fraction of step window
-  ratchet: RatchetCount    // 1-4, sub-triggers per step
+  tie: boolean // continues previous note, don't retrigger
+  length: GateLength // 0.0-1.0, fraction of step window
+  ratchet: RatchetCount // 1-4, sub-triggers per step
 }
 
 export interface PitchStep {
   note: Note
-  slide: number            // 0 = off, 0.01-0.50 = portamento time in seconds
+  slide: number // 0 = off, 0.01-0.50 = portamento time in seconds
 }
 
 // Compound step type for mod subtrack (parallels PitchStep for pitch)
 export interface ModStep {
-  value: number              // 0.0-1.0, CV value
-  slew: number               // 0.0 = instant, 0.01-1.0 = interpolation time as fraction of step
+  value: number // 0.0-1.0, CV value
+  slew: number // 0.0 = instant, 0.01-1.0 = interpolation time as fraction of step
 }
 
 // MOD generation algorithm
@@ -45,7 +45,7 @@ export type ModMode = 'random' | 'rise' | 'fall' | 'vee' | 'hill' | 'sync' | 'wa
 export interface SequenceTrack {
   id: string
   name: string
-  clockDivider: number      // track-level division
+  clockDivider: number // track-level division
   gate: Subtrack<GateStep>
   pitch: Subtrack<PitchStep>
   velocity: Subtrack<Velocity>
@@ -58,15 +58,15 @@ export interface RandomConfig {
     low: Note
     high: Note
     scale: Scale
-    root: Note               // root note of the scale
-    maxNotes: number         // 0 = unlimited, else limit distinct pitches from scale
+    root: Note // root note of the scale
+    maxNotes: number // 0 = unlimited, else limit distinct pitches from scale
   }
   gate: {
-    fillMin: number          // 0.0 - 1.0
-    fillMax: number          // 0.0 - 1.0
+    fillMin: number // 0.0 - 1.0
+    fillMax: number // 0.0 - 1.0
     mode: 'random' | 'euclidean' | 'sync' | 'cluster'
-    randomOffset: boolean    // in euclidean mode: randomize rotation offset
-    clusterContinuation: number  // 0.0-1.0, Markov continuation probability for cluster mode
+    randomOffset: boolean // in euclidean mode: randomize rotation offset
+    clusterContinuation: number // 0.0-1.0, Markov continuation probability for cluster mode
   }
   velocity: {
     low: Velocity
@@ -78,38 +78,38 @@ export interface RandomConfig {
   }
   ratchet: {
     maxRatchet: RatchetCount
-    probability: number       // 0.0-1.0, chance any step has ratchet > 1
+    probability: number // 0.0-1.0, chance any step has ratchet > 1
   }
   slide: {
-    probability: number       // 0.0-1.0, chance any step has slide on
+    probability: number // 0.0-1.0, chance any step has slide on
   }
   mod: {
-    low: number               // 0.0-1.0, min CV value
-    high: number              // 0.0-1.0, max CV value
-    mode: ModMode             // generation algorithm
-    slew: number              // 0.0-1.0, default slew for generated steps
-    slewProbability: number   // 0.0-1.0, chance each step gets slew (rest get 0)
-    walkStepSize: number      // 0.0-0.5, max delta per step in WALK mode
-    syncBias: number          // 0.0-1.0, how strongly to weight offbeat positions in SYNC mode
+    low: number // 0.0-1.0, min CV value
+    high: number // 0.0-1.0, max CV value
+    mode: ModMode // generation algorithm
+    slew: number // 0.0-1.0, default slew for generated steps
+    slewProbability: number // 0.0-1.0, chance each step gets slew (rest get 0)
+    walkStepSize: number // 0.0-0.5, max delta per step in WALK mode
+    syncBias: number // 0.0-1.0, how strongly to weight offbeat positions in SYNC mode
   }
   tie: {
-    probability: number       // 0.0-1.0, chance a gate-on step starts a tie chain
-    maxLength: number         // 1-8, max consecutive tied steps
+    probability: number // 0.0-1.0, chance a gate-on step starts a tie chain
+    maxLength: number // 1-8, max consecutive tied steps
   }
 }
 
 // Routing: per-output mapping of which source track provides each param
 export interface OutputRouting {
-  gate: number      // source track index 0-3
+  gate: number // source track index 0-3
   pitch: number
   velocity: number
   mod: number
-  modSource: 'seq' | 'lfo'   // which mod source from the selected track
+  modSource: 'seq' | 'lfo' // which mod source from the selected track
 }
 
 // Mute pattern per track
 export interface MuteTrack {
-  steps: boolean[]           // true = muted
+  steps: boolean[] // true = muted
   length: number
   clockDivider: number
   currentStep: number
@@ -117,17 +117,17 @@ export interface MuteTrack {
 
 // Output events emitted by the engine
 export interface NoteEvent {
-  output: number             // output index 0-3
+  output: number // output index 0-3
   gate: boolean
   pitch: Note
   velocity: Velocity
-  mod: number                // 0-127
-  modSlew: number            // 0.0-1.0, interpolation time as fraction of step (0 = instant)
-  gateLength: GateLength     // 0.0-1.0, fraction of step window
+  mod: number // 0-127
+  modSlew: number // 0.0-1.0, interpolation time as fraction of step (0 = instant)
+  gateLength: GateLength // 0.0-1.0, fraction of step window
   ratchetCount: RatchetCount // 1-4, number of sub-triggers
-  slide: number              // portamento time in seconds (0 = off)
-  retrigger: boolean         // false = continuation step (skip attack)
-  sustain: boolean           // true = don't schedule release (next step is tied)
+  slide: number // portamento time in seconds (0 = off)
+  retrigger: boolean // false = continuation step (skip attack)
+  sustain: boolean // true = don't schedule release (next step is tied)
 }
 
 // Transport state
@@ -148,11 +148,11 @@ export interface UserPreset {
 
 // Pitch transposition config
 export interface TransposeConfig {
-  semitones: number           // -48 to +48
-  noteLow: number             // 0-127 (MIDI note floor, octave-wrap)
-  noteHigh: number            // 0-127 (MIDI note ceiling, octave-wrap)
-  glScale: number             // 0.25 to 4.0 (1.0 = 100%, gate length multiplier)
-  velScale: number            // 0.25 to 4.0 (1.0 = 100%, velocity multiplier)
+  semitones: number // -48 to +48
+  noteLow: number // 0-127 (MIDI note floor, octave-wrap)
+  noteHigh: number // 0-127 (MIDI note ceiling, octave-wrap)
+  glScale: number // 0.25 to 4.0 (1.0 = 100%, gate length multiplier)
+  velScale: number // 0.25 to 4.0 (1.0 = 100%, velocity multiplier)
 }
 
 // Arpeggiator direction
@@ -162,7 +162,7 @@ export type ArpDirection = 'up' | 'down' | 'triangle' | 'random'
 export interface ArpConfig {
   enabled: boolean
   direction: ArpDirection
-  octaveRange: number            // 1-4
+  octaveRange: number // 1-4
 }
 
 // LFO waveform type
@@ -175,20 +175,20 @@ export type LFOSyncMode = 'track' | 'free'
 export interface LFOConfig {
   waveform: LFOWaveform
   syncMode: LFOSyncMode
-  rate: number               // steps per cycle (1-64) in synced mode
-  freeRate: number           // Hz (0.05-20.0) in free mode
-  depth: number              // 0.0-1.0, amplitude scaling
-  offset: number             // 0.0-1.0, center value
-  width: number              // 0.0-1.0, waveform skew/symmetry (0.5 = symmetric)
-  phase: number              // 0.0-1.0, phase offset
+  rate: number // steps per cycle (1-64) in synced mode
+  freeRate: number // Hz (0.05-20.0) in free mode
+  depth: number // 0.0-1.0, amplitude scaling
+  offset: number // 0.0-1.0, center value
+  width: number // 0.0-1.0, waveform skew/symmetry (0.5 = symmetric)
+  phase: number // 0.0-1.0, phase offset
 }
 
 // Runtime LFO state — tracks the current phase position
 export interface LFORuntime {
-  currentPhase: number       // 0.0-1.0, current position in cycle
-  lastSHValue: number        // for S+H waveform: holds value until next trigger
-  slewTarget: number         // for slew-random: current interpolation target
-  slewCurrent: number        // for slew-random: current interpolated value
+  currentPhase: number // 0.0-1.0, current position in cycle
+  lastSHValue: number // for S+H waveform: holds value until next trigger
+  slewTarget: number // for slew-random: current interpolation target
+  slewCurrent: number // for slew-random: current interpolated value
 }
 
 // Turing Machine mutation config — per-track, per-subtrack rate
@@ -196,9 +196,9 @@ export interface LFORuntime {
 export type MutateTrigger = 'loop' | 'bars'
 
 export interface MutateConfig {
-  trigger: MutateTrigger     // 'loop' = per-subtrack boundary, 'bars' = every N bars
-  bars: number               // 1, 2, 4, 8, 16 — used in 'bars' mode
-  gate: number               // 0 = off, 0.01-1.0 = drift rate
+  trigger: MutateTrigger // 'loop' = per-subtrack boundary, 'bars' = every N bars
+  bars: number // 1, 2, 4, 8, 16 — used in 'bars' mode
+  gate: number // 0 = off, 0.01-1.0 = drift rate
   pitch: number
   velocity: number
   mod: number
@@ -206,15 +206,23 @@ export interface MutateConfig {
 
 // MIDI output config per output
 export interface MIDIOutputConfig {
-  channel: number            // 1-16
+  channel: number // 1-16
 }
 
 // Variation transform types
 export type TransformType =
-  | 'reverse' | 'ping-pong' | 'rotate'
-  | 'thin' | 'fill' | 'skip-even' | 'skip-odd'
-  | 'transpose' | 'invert' | 'octave-shift'
-  | 'double-time' | 'stutter'
+  | 'reverse'
+  | 'ping-pong'
+  | 'rotate'
+  | 'thin'
+  | 'fill'
+  | 'skip-even'
+  | 'skip-odd'
+  | 'transpose'
+  | 'invert'
+  | 'octave-shift'
+  | 'double-time'
+  | 'stutter'
 
 export interface Transform {
   type: TransformType
@@ -241,18 +249,18 @@ export interface VariationPattern {
 
 // Top-level sequencer state
 export interface SequencerState {
-  tracks: SequenceTrack[]           // 4 sequence tracks
+  tracks: SequenceTrack[] // 4 sequence tracks
   routing: OutputRouting[]
-  mutePatterns: MuteTrack[]         // 4 mute tracks (one per sequence)
+  mutePatterns: MuteTrack[] // 4 mute tracks (one per sequence)
   transport: Transport
-  randomConfigs: RandomConfig[]     // 4 configs (one per track)
+  randomConfigs: RandomConfig[] // 4 configs (one per track)
   transposeConfigs: TransposeConfig[] // 4 transpose configs (one per track)
-  lfoConfigs: LFOConfig[]          // 4 LFO configs (one per track)
-  lfoRuntimes: LFORuntime[]        // 4 LFO runtime states (one per track)
-  arpConfigs: ArpConfig[]          // 4 arp configs (one per track)
-  mutateConfigs: MutateConfig[]    // 4 mutate configs (one per track)
-  midiConfigs: MIDIOutputConfig[]  // 4 MIDI configs (one per output)
-  midiEnabled: boolean                  // global MIDI output on/off
-  userPresets: UserPreset[]         // user-saved presets (unlimited)
+  lfoConfigs: LFOConfig[] // 4 LFO configs (one per track)
+  lfoRuntimes: LFORuntime[] // 4 LFO runtime states (one per track)
+  arpConfigs: ArpConfig[] // 4 arp configs (one per track)
+  mutateConfigs: MutateConfig[] // 4 mutate configs (one per track)
+  midiConfigs: MIDIOutputConfig[] // 4 MIDI configs (one per output)
+  midiEnabled: boolean // global MIDI output on/off
+  userPresets: UserPreset[] // user-saved presets (unlimited)
   variationPatterns: VariationPattern[] // 4 variation patterns (one per track)
 }

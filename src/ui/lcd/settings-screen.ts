@@ -7,16 +7,16 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 import { getSettingsRows } from '../settings-rows'
 
 const PAD = 8
 const HEADER_H = 30
 const ROW_H = 24
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
-const LABEL_X = PAD + 18  // after cursor indicator
+const LABEL_X = PAD + 18 // after cursor indicator
 const VALUE_X = LCD_W - PAD
 
 export function renderSettings(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
@@ -29,7 +29,10 @@ export function renderSettings(ctx: CanvasRenderingContext2D, engine: SequencerS
   // Visible rows — fit as many as content area allows
   const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)
   // Scroll window: keep selected param centered when possible
-  const scrollOffset = Math.max(0, Math.min(ui.settingsParam - Math.floor(maxVisible / 2), visibleRows.length - maxVisible))
+  const scrollOffset = Math.max(
+    0,
+    Math.min(ui.settingsParam - Math.floor(maxVisible / 2), visibleRows.length - maxVisible),
+  )
 
   for (let vi = 0; vi < maxVisible && scrollOffset + vi < visibleRows.length; vi++) {
     const paramIdx = scrollOffset + vi
@@ -50,7 +53,7 @@ export function renderSettings(ctx: CanvasRenderingContext2D, engine: SequencerS
       ctx.stroke()
       // Section label over the line with background knockout
       const labelColor = isSelected ? COLORS.text : COLORS.textDim
-      const labelW = row.label.length * 10 + 16  // approximate width for 16px font
+      const labelW = row.label.length * 10 + 16 // approximate width for 16px font
       fillRect(ctx, { x: PAD, y: lineY - 10, w: labelW, h: 20 }, COLORS.bg)
       drawText(ctx, headerText, PAD + 4, lineY + 5, labelColor, 16)
 

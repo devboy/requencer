@@ -5,11 +5,11 @@
  * All text >=16px for readability on 3.5" TFT at 50cm.
  */
 
-import type { SequencerState, LFOConfig, LFOWaveform } from '../../engine/types'
-import type { UIState } from '../hw-types'
-import { COLORS } from '../colors'
-import { fillRect, strokeRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
 import { waveformValue } from '../../engine/lfo'
+import type { LFOConfig, LFOWaveform, SequencerState } from '../../engine/types'
+import { COLORS } from '../colors'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 42
@@ -21,7 +21,9 @@ const STEP_W = (LCD_W - PAD * 2 - (COLS - 1) * COL_GAP) / COLS
 const AVAIL_H = LCD_CONTENT_H - HEADER_H - 4
 const BAR_MAX_H = (AVAIL_H - ROW_GAP) / 2
 
-function clamp01(v: number): number { return Math.max(0, Math.min(1, v)) }
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v))
+}
 
 /** Stable seeded random for waveform preview — deterministic per segment index. */
 function previewRng(seed: number): number {
@@ -110,10 +112,10 @@ const WAVE_SAMPLES = 120 // sample points for waveform curve
 
 const LFO_PARAM_LABELS = ['WAVE', 'SYNC', 'RATE', 'DEPTH', 'OFFS', 'WIDTH', 'PHASE']
 const LFO_WAVEFORM_NAMES: Record<LFOWaveform, string> = {
-  'sine': 'SINE',
-  'triangle': 'TRI',
-  'saw': 'SAW',
-  'square': 'SQR',
+  sine: 'SINE',
+  triangle: 'TRI',
+  saw: 'SAW',
+  square: 'SQR',
   'slew-random': 'SLEW',
   's+h': 'S+H',
 }
@@ -128,9 +130,7 @@ function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
   drawText(ctx, LFO_WAVEFORM_NAMES[config.waveform], LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textBright, 16, 'right')
 
   // Waveform info line
-  const rateText = config.syncMode === 'free'
-    ? `${config.freeRate.toFixed(1)}Hz`
-    : `÷${config.rate}`
+  const rateText = config.syncMode === 'free' ? `${config.freeRate.toFixed(1)}Hz` : `÷${config.rate}`
   const depthPct = Math.round(config.depth * 100)
   drawText(ctx, `${rateText}  D${depthPct}%`, PAD, LCD_CONTENT_Y + 36, COLORS.textDim, 16)
 
@@ -180,7 +180,7 @@ function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
     targets[segments] = targets[0]
 
     const slewRate = 1 - config.width * 0.95
-    let current = targets[0]
+    const _current = targets[0]
 
     for (let s = 0; s <= WAVE_SAMPLES; s++) {
       const phase = s / WAVE_SAMPLES
@@ -193,7 +193,7 @@ function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui:
       // Approximate settled value at segment start
       const startVal = prevTarget + (target - prevTarget) * slewRate
       // Interpolate within segment
-      const raw = startVal + (target - startVal) * (1 - Math.pow(1 - slewRate, segPhase * 4))
+      const raw = startVal + (target - startVal) * (1 - (1 - slewRate) ** (segPhase * 4))
       const scaled = clamp01(config.offset + (raw - 0.5) * config.depth)
       const x = WAVE_X + phase * WAVE_W
       const y = WAVE_TOP + WAVE_H * (1 - scaled)
@@ -279,15 +279,21 @@ function computeDisplayValue(config: LFOConfig, runtime: import('../../engine/ty
 /** Format an LFO parameter value for display. */
 function getLfoParamValue(config: LFOConfig, paramIdx: number): string {
   switch (paramIdx) {
-    case 0: return LFO_WAVEFORM_NAMES[config.waveform]
-    case 1: return config.syncMode === 'track' ? 'SYNC' : 'FREE'
-    case 2: return config.syncMode === 'free'
-      ? `${config.freeRate.toFixed(1)}Hz`
-      : `${config.rate}`
-    case 3: return `${Math.round(config.depth * 100)}%`
-    case 4: return `${Math.round(config.offset * 100)}%`
-    case 5: return `${Math.round(config.width * 100)}%`
-    case 6: return `${Math.round(config.phase * 100)}%`
-    default: return ''
+    case 0:
+      return LFO_WAVEFORM_NAMES[config.waveform]
+    case 1:
+      return config.syncMode === 'track' ? 'SYNC' : 'FREE'
+    case 2:
+      return config.syncMode === 'free' ? `${config.freeRate.toFixed(1)}Hz` : `${config.rate}`
+    case 3:
+      return `${Math.round(config.depth * 100)}%`
+    case 4:
+      return `${Math.round(config.offset * 100)}%`
+    case 5:
+      return `${Math.round(config.width * 100)}%`
+    case 6:
+      return `${Math.round(config.phase * 100)}%`
+    default:
+      return ''
   }
 }

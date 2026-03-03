@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { euclidean } from '../euclidean'
 
 describe('euclidean', () => {
@@ -8,10 +8,22 @@ describe('euclidean', () => {
     expect(pattern.filter(Boolean).length).toBe(4)
     // Every 4th step should be a hit
     expect(pattern).toEqual([
-      true, false, false, false,
-      true, false, false, false,
-      true, false, false, false,
-      true, false, false, false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
     ])
   })
 
@@ -20,9 +32,7 @@ describe('euclidean', () => {
     expect(pattern.length).toBe(8)
     expect(pattern.filter(Boolean).length).toBe(3)
     // Tresillo: [x..x..x.]
-    expect(pattern).toEqual([
-      true, false, false, true, false, false, true, false,
-    ])
+    expect(pattern).toEqual([true, false, false, true, false, false, true, false])
   })
 
   it('produces the cinquillo rhythm for (5, 8)', () => {
@@ -30,21 +40,19 @@ describe('euclidean', () => {
     expect(pattern.length).toBe(8)
     expect(pattern.filter(Boolean).length).toBe(5)
     // Cinquillo: [x.xx.xx.]
-    expect(pattern).toEqual([
-      true, false, true, true, false, true, true, false,
-    ])
+    expect(pattern).toEqual([true, false, true, true, false, true, true, false])
   })
 
   it('returns all false for 0 hits', () => {
     const pattern = euclidean(0, 16)
     expect(pattern.length).toBe(16)
-    expect(pattern.every(s => s === false)).toBe(true)
+    expect(pattern.every((s) => s === false)).toBe(true)
   })
 
   it('returns all true when hits equals length', () => {
     const pattern = euclidean(16, 16)
     expect(pattern.length).toBe(16)
-    expect(pattern.every(s => s === true)).toBe(true)
+    expect(pattern.every((s) => s === true)).toBe(true)
   })
 
   it('handles (1, 4) — single hit', () => {

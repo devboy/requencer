@@ -3,13 +3,13 @@
  * Uses full content height. All text ≥16px for readability on 3.5" TFT at 50cm.
  */
 
-import type { SequencerState, SequenceTrack, RandomConfig, GateStep, PitchStep } from '../../engine/types'
-import type { UIState } from '../hw-types'
+import type { GateStep, PitchStep, RandomConfig, SequencerState, SequenceTrack } from '../../engine/types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_H, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_H, LCD_W } from '../renderer'
 
 const PAD = 8
-const LABEL_W = 36            // space for "T1" label
+const LABEL_W = 36 // space for "T1" label
 const GRID_LEFT = PAD + LABEL_W
 const GRID_W = LCD_W - GRID_LEFT - PAD
 const DISPLAY_STEPS = 16
@@ -17,14 +17,14 @@ const GAP = 1
 const STEP_W = (GRID_W - (DISPLAY_STEPS - 1) * GAP) / DISPLAY_STEPS
 
 // Use full content height for 4 tracks with info footer
-const INFO_H = 22             // compact info line at bottom
+const INFO_H = 22 // compact info line at bottom
 const TRACK_GAP = 6
 const BAND_H = Math.floor((LCD_CONTENT_H - PAD - INFO_H - 3 * TRACK_GAP) / 4)
 
 // Sub-lane proportions within a band
 const GATE_FRAC = 0.22
 const PITCH_FRAC = 0.42
-const VEL_FRAC = 0.36
+const _VEL_FRAC = 0.36
 
 export function renderHome(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   for (let i = 0; i < 4; i++) {
@@ -85,11 +85,28 @@ function renderTrackBand(
 
   // Pitch row
   const pitchY = gateY + gateH
-  renderPitchRow(ctx, track.pitch.steps, track.pitch.length, track.pitch.currentStep, pitchY, pitchH, trackColor, config)
+  renderPitchRow(
+    ctx,
+    track.pitch.steps,
+    track.pitch.length,
+    track.pitch.currentStep,
+    pitchY,
+    pitchH,
+    trackColor,
+    config,
+  )
 
   // Velocity row
   const velY = pitchY + pitchH
-  renderVelocityRow(ctx, track.velocity.steps, track.velocity.length, track.velocity.currentStep, velY, velH, trackColor)
+  renderVelocityRow(
+    ctx,
+    track.velocity.steps,
+    track.velocity.length,
+    track.velocity.currentStep,
+    velY,
+    velH,
+    trackColor,
+  )
 }
 
 function stepX(i: number): number {
@@ -111,7 +128,7 @@ function renderGateRow(
   for (let i = 0; i < DISPLAY_STEPS; i++) {
     const x = stepX(i)
     if (i < length) {
-      fillRect(ctx, { x, y, w: STEP_W, h }, (steps[i].on || steps[i].tie) ? onColor : offColor)
+      fillRect(ctx, { x, y, w: STEP_W, h }, steps[i].on || steps[i].tie ? onColor : offColor)
     } else {
       fillRect(ctx, { x, y, w: STEP_W, h }, INACTIVE_BG)
     }

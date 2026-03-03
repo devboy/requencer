@@ -10,9 +10,9 @@ const STEPS = 16
 
 // Underground techno patterns (16th note grid)
 //                    1 . . . 2 . . . 3 . . . 4 . . .
-const KICK_PATTERN  = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]
-const HH_PATTERN    = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]
-const OH_PATTERN    = [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]
+const KICK_PATTERN = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+const HH_PATTERN = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+const OH_PATTERN = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0]
 
 export class DrumMachine {
   private kick: Tone.MembraneSynth
@@ -41,7 +41,9 @@ export class DrumMachine {
     this.hihat.volume.value = -18
   }
 
-  get enabled(): boolean { return this._enabled }
+  get enabled(): boolean {
+    return this._enabled
+  }
 
   set enabled(on: boolean) {
     this._enabled = on
@@ -51,8 +53,8 @@ export class DrumMachine {
     if (!this._enabled) return
     const s = step % STEPS
 
-    if (KICK_PATTERN[s])  this.kick.triggerAttackRelease('C1', '8n', time)
-    if (OH_PATTERN[s])    this.hihat.triggerAttackRelease(400, '8n', time, 0.5)
+    if (KICK_PATTERN[s]) this.kick.triggerAttackRelease('C1', '8n', time)
+    if (OH_PATTERN[s]) this.hihat.triggerAttackRelease(400, '8n', time, 0.5)
     else if (HH_PATTERN[s]) this.hihat.triggerAttackRelease(400, '32n', time, 0.3)
   }
 

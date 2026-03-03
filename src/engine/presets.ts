@@ -3,8 +3,8 @@
  * Pure data, no dependencies.
  */
 
-import type { RandomConfig } from './types'
 import { SCALES } from './scales'
+import type { RandomConfig } from './types'
 
 export interface Preset {
   name: string
@@ -119,5 +119,5 @@ export const PRESETS: Preset[] = [
 ]
 
 export function getPresetByName(name: string): Preset | undefined {
-  return PRESETS.find(p => p.name === name)
+  return PRESETS.find((p) => p.name === name)
 }

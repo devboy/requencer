@@ -1,6 +1,30 @@
-import { describe, it, expect } from 'vitest'
-import { createSequencer, tick, setStep, setGateOn, setPitchNote, setRouting, setMutePattern, randomizeTrackPattern, randomizeGatePattern, randomizePitchPattern, randomizeVelocityPattern, setSubtrackLength, setSubtrackClockDivider, setTrackClockDivider, setMuteLength, setMuteClockDivider, resetTrackPlayheads, resetSubtrackPlayhead, saveUserPreset, deleteUserPreset, setOutputSource, setGateTie, setTieRange } from '../sequencer'
-import type { SequencerState, MuteTrack, GateStep, PitchStep } from '../types'
+import { describe, expect, it } from 'vitest'
+import {
+  createSequencer,
+  deleteUserPreset,
+  randomizeGatePattern,
+  randomizePitchPattern,
+  randomizeTrackPattern,
+  randomizeVelocityPattern,
+  resetSubtrackPlayhead,
+  resetTrackPlayheads,
+  saveUserPreset,
+  setGateOn,
+  setGateTie,
+  setMuteClockDivider,
+  setMuteLength,
+  setMutePattern,
+  setOutputSource,
+  setPitchNote,
+  setRouting,
+  setStep,
+  setSubtrackClockDivider,
+  setSubtrackLength,
+  setTieRange,
+  setTrackClockDivider,
+  tick,
+} from '../sequencer'
+import type { MuteTrack, PitchStep } from '../types'
 
 describe('createSequencer', () => {
   it('creates state with 4 tracks', () => {
@@ -64,7 +88,7 @@ describe('tick', () => {
   })
 
   it('advances subtrack currentStep on each tick with divider 1', () => {
-    let state = createSequencer()
+    const state = createSequencer()
     const { state: after1 } = tick(state)
     expect(after1.tracks[0].gate.currentStep).toBe(1)
     const { state: after2 } = tick(after1)
@@ -76,9 +100,7 @@ describe('tick', () => {
     // Set track 0 clock divider to 2
     state = {
       ...state,
-      tracks: state.tracks.map((t, i) =>
-        i === 0 ? { ...t, clockDivider: 2 } : t
-      ),
+      tracks: state.tracks.map((t, i) => (i === 0 ? { ...t, clockDivider: 2 } : t)),
     }
 
     const { state: after1 } = tick(state)
@@ -106,7 +128,7 @@ describe('tick', () => {
               ...t,
               pitch: { ...t.pitch, steps: pitchSteps, length: 3 },
             }
-          : t
+          : t,
       ),
     }
 
@@ -125,7 +147,7 @@ describe('tick', () => {
     state = {
       ...state,
       mutePatterns: state.mutePatterns.map((m, i) =>
-        i === 0 ? { ...m, steps: [true, false, false, false], length: 4 } : m
+        i === 0 ? { ...m, steps: [true, false, false, false], length: 4 } : m,
       ),
     }
 
@@ -212,8 +234,8 @@ describe('randomizeGatePattern', () => {
     const state = createSequencer()
     const next = randomizeGatePattern(state, 0, 42)
     // Gate steps changed — compare the .on values
-    const origOns = state.tracks[0].gate.steps.map(s => s.on)
-    const nextOns = next.tracks[0].gate.steps.map(s => s.on)
+    const origOns = state.tracks[0].gate.steps.map((s) => s.on)
+    const nextOns = next.tracks[0].gate.steps.map((s) => s.on)
     expect(nextOns).not.toEqual(origOns)
     expect(next.tracks[0].pitch).toBe(state.tracks[0].pitch)
     expect(next.tracks[0].velocity).toBe(state.tracks[0].velocity)
@@ -239,8 +261,8 @@ describe('randomizePitchPattern', () => {
     const state = createSequencer()
     const next = randomizePitchPattern(state, 0, 42)
     // Pitch steps changed — compare the .note values
-    const origNotes = state.tracks[0].pitch.steps.map(s => s.note)
-    const nextNotes = next.tracks[0].pitch.steps.map(s => s.note)
+    const origNotes = state.tracks[0].pitch.steps.map((s) => s.note)
+    const nextNotes = next.tracks[0].pitch.steps.map((s) => s.note)
     expect(nextNotes).not.toEqual(origNotes)
     expect(next.tracks[0].gate).toBe(state.tracks[0].gate)
     expect(next.tracks[0].velocity).toBe(state.tracks[0].velocity)

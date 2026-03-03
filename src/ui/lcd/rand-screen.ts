@@ -8,17 +8,17 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
 import { getVisibleRows } from '../rand-rows'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30
 const ROW_H = 24
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
-const LABEL_X = PAD + 18  // after cursor indicator
-const SUBPARAM_X = PAD + 30  // indented sub-params
+const LABEL_X = PAD + 18 // after cursor indicator
+const SUBPARAM_X = PAD + 30 // indented sub-params
 const VALUE_X = LCD_W - PAD
 
 export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
@@ -27,7 +27,15 @@ export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState
 
   // Header
   drawText(ctx, `RAND — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(ctx, 'ENC A:\u25B2\u25BC  ENC B:val  PUSH:apply', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
+  drawText(
+    ctx,
+    'ENC A:\u25B2\u25BC  ENC B:val  PUSH:apply',
+    LCD_W - PAD,
+    LCD_CONTENT_Y + 18,
+    COLORS.textDim,
+    12,
+    'right',
+  )
 
   // Visible rows — fit as many as content area allows
   const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)
@@ -53,7 +61,7 @@ export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState
       ctx.stroke()
       // Section label over the line with background knockout
       const labelColor = isSelected ? trackColor : COLORS.textDim
-      const labelW = row.label.length * 10 + 16  // approximate width for 16px font
+      const labelW = row.label.length * 10 + 16 // approximate width for 16px font
       fillRect(ctx, { x: PAD, y: lineY - 10, w: labelW, h: 20 }, COLORS.bg)
       drawText(ctx, headerText, PAD + 4, lineY + 5, labelColor, 16)
 

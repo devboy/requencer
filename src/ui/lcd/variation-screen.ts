@@ -24,10 +24,10 @@
  */
 
 import type { SequencerState, VariationPattern } from '../../engine/types'
-import type { UIState, SubtrackId } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
-import { TRANSFORM_CATALOG, getEditingVariationPattern } from '../mode-machine'
+import type { SubtrackId, UIState } from '../hw-types'
+import { getEditingVariationPattern, TRANSFORM_CATALOG } from '../mode-machine'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30
@@ -44,13 +44,20 @@ const SUBTRACK_LABELS: Record<SubtrackId, string> = {
 /** Format a transform param for display */
 function formatParam(type: string, param: number): string {
   switch (type) {
-    case 'rotate':       return `${param} step${param !== 1 ? 's' : ''}`
-    case 'thin':         return `${Math.round(param * 100)}%`
-    case 'transpose':    return `${param > 0 ? '+' : ''}${param} st`
-    case 'invert':       return `C${Math.floor(param / 12) - 1}`
-    case 'octave-shift': return `${param > 0 ? '+' : ''}${param} oct`
-    case 'stutter':      return `${param} step${param !== 1 ? 's' : ''}`
-    default:             return ''
+    case 'rotate':
+      return `${param} step${param !== 1 ? 's' : ''}`
+    case 'thin':
+      return `${Math.round(param * 100)}%`
+    case 'transpose':
+      return `${param > 0 ? '+' : ''}${param} st`
+    case 'invert':
+      return `C${Math.floor(param / 12) - 1}`
+    case 'octave-shift':
+      return `${param > 0 ? '+' : ''}${param} oct`
+    case 'stutter':
+      return `${param} step${param !== 1 ? 's' : ''}`
+    default:
+      return ''
   }
 }
 
@@ -134,7 +141,7 @@ function renderSubtrackStateScreen(
 function renderBarOverview(
   ctx: CanvasRenderingContext2D,
   vp: VariationPattern,
-  ui: UIState,
+  _ui: UIState,
   trackColor: string,
 ): void {
   const barY = LIST_TOP
@@ -168,12 +175,14 @@ function renderBarOverview(
     if (slot.transforms.length === 0) continue
     if (listY > LCD_CONTENT_Y + LCD_CONTENT_H - 30) break
 
-    const names = slot.transforms.map(t => {
-      const entry = TRANSFORM_CATALOG.find(c => c.type === t.type)
-      const label = entry?.label ?? t.type.toUpperCase()
-      const p = formatParam(t.type, t.param)
-      return p ? `${label}(${p})` : label
-    }).join(' + ')
+    const names = slot.transforms
+      .map((t) => {
+        const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
+        const label = entry?.label ?? t.type.toUpperCase()
+        const p = formatParam(t.type, t.param)
+        return p ? `${label}(${p})` : label
+      })
+      .join(' + ')
 
     const isCurrentPlayback = bar === vp.currentBar && vp.enabled
     const barColor = isCurrentPlayback ? '#44ff66' : trackColor
@@ -188,12 +197,7 @@ function renderBarOverview(
 }
 
 /** Bar detail mode — transform stack with cursor + catalog browser */
-function renderBarDetail(
-  ctx: CanvasRenderingContext2D,
-  vp: VariationPattern,
-  ui: UIState,
-  trackColor: string,
-): void {
+function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui: UIState, trackColor: string): void {
   const bar = ui.varSelectedBar
   const slot = vp.slots[bar]
   const cursor = ui.varCursor
@@ -218,7 +222,7 @@ function renderBarDetail(
       if (i < slot.transforms.length) {
         // Existing transform
         const t = slot.transforms[i]
-        const entry = TRANSFORM_CATALOG.find(c => c.type === t.type)
+        const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
         const label = entry?.label ?? t.type.toUpperCase()
         const p = formatParam(t.type, t.param)
 

@@ -82,8 +82,8 @@ export const LCD_CONTENT_H = LCD_H - LCD_STATUS_H
 
 /** Setup a fixed-size LCD canvas at native TFT resolution (480×320, no DPR scaling) */
 export function setupLCDCanvas(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-  canvas.width = LCD_W    // always 480 — true TFT pixel resolution
-  canvas.height = LCD_H   // always 320
+  canvas.width = LCD_W // always 480 — true TFT pixel resolution
+  canvas.height = LCD_H // always 320
   // CSS sizing handled by faceplate styles (73.44mm × 48.96mm active area)
   // image-rendering: pixelated set in panel CSS for authentic TFT look
   const ctx = canvas.getContext('2d')!
@@ -91,12 +91,7 @@ export function setupLCDCanvas(canvas: HTMLCanvasElement): CanvasRenderingContex
 }
 
 /** Draw the LCD status bar (top 18px) */
-export function drawStatusBar(
-  ctx: CanvasRenderingContext2D,
-  leftText: string,
-  bpm: number,
-  playing: boolean,
-): void {
+export function drawStatusBar(ctx: CanvasRenderingContext2D, leftText: string, bpm: number, playing: boolean): void {
   // Background
   ctx.fillStyle = '#12122a'
   ctx.fillRect(0, 0, LCD_W, LCD_STATUS_H)

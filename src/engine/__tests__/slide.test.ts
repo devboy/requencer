@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { createSequencer, setSlide, setGateOn } from '../sequencer'
-import { resolveOutputs, createDefaultRouting } from '../routing'
+import { describe, expect, it } from 'vitest'
 import { randomizeSlides } from '../randomizer'
-import type { SequenceTrack, MuteTrack, GateStep, PitchStep, ModStep } from '../types'
+import { createDefaultRouting, resolveOutputs } from '../routing'
+import { createSequencer, setSlide } from '../sequencer'
+import type { MuteTrack, PitchStep, SequenceTrack } from '../types'
 
 function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: string }): SequenceTrack {
   return {
@@ -30,7 +30,17 @@ function makeTrack(overrides: Partial<SequenceTrack> & { id: string; name: strin
       currentStep: 0,
     },
     velocity: { steps: [100, 80, 90, 70], length: 4, clockDivider: 1, currentStep: 0 },
-    mod: { steps: [{ value: 50, slew: 0 }, { value: 60, slew: 0 }, { value: 70, slew: 0 }, { value: 80, slew: 0 }], length: 4, clockDivider: 1, currentStep: 0 },
+    mod: {
+      steps: [
+        { value: 50, slew: 0 },
+        { value: 60, slew: 0 },
+        { value: 70, slew: 0 },
+        { value: 80, slew: 0 },
+      ],
+      length: 4,
+      clockDivider: 1,
+      currentStep: 0,
+    },
     ...overrides,
   }
 }
@@ -57,9 +67,9 @@ describe('slide in compound PitchStep', () => {
   it('setSlide does not alter the note value', () => {
     let state = createSequencer()
     const noteBefore = state.tracks[0].pitch.steps[2].note
-    state = setSlide(state, 0, 2, 0.10)
+    state = setSlide(state, 0, 2, 0.1)
     expect(state.tracks[0].pitch.steps[2].note).toBe(noteBefore)
-    expect(state.tracks[0].pitch.steps[2].slide).toBe(0.10)
+    expect(state.tracks[0].pitch.steps[2].slide).toBe(0.1)
   })
 })
 
@@ -67,7 +77,8 @@ describe('slide in routing', () => {
   it('resolveOutputs includes slide from pitch source track', () => {
     const tracks = [
       makeTrack({
-        id: '0', name: 'T1',
+        id: '0',
+        name: 'T1',
         pitch: {
           steps: [
             { note: 60, slide: 0.15 },
@@ -75,7 +86,9 @@ describe('slide in routing', () => {
             { note: 64, slide: 0 },
             { note: 65, slide: 0 },
           ],
-          length: 4, clockDivider: 1, currentStep: 0,
+          length: 4,
+          clockDivider: 1,
+          currentStep: 0,
         },
       }),
       makeTrack({ id: '1', name: 'T2' }),
@@ -93,15 +106,18 @@ describe('slide in routing', () => {
     const tracks = [
       makeTrack({ id: '0', name: 'T1' }),
       makeTrack({
-        id: '1', name: 'T2',
+        id: '1',
+        name: 'T2',
         pitch: {
           steps: [
-            { note: 60, slide: 0.20 },
-            { note: 62, slide: 0.20 },
-            { note: 64, slide: 0.20 },
-            { note: 65, slide: 0.20 },
+            { note: 60, slide: 0.2 },
+            { note: 62, slide: 0.2 },
+            { note: 64, slide: 0.2 },
+            { note: 65, slide: 0.2 },
           ],
-          length: 4, clockDivider: 1, currentStep: 0,
+          length: 4,
+          clockDivider: 1,
+          currentStep: 0,
         },
       }),
       makeTrack({ id: '2', name: 'T3' }),
@@ -113,24 +129,24 @@ describe('slide in routing', () => {
     routing[0] = { ...routing[0], pitch: 1 }
     const events = resolveOutputs(tracks, routing, mutes)
     // Slide should come from pitch source (track 1), not gate source (track 0)
-    expect(events[0].slide).toBe(0.20)
+    expect(events[0].slide).toBe(0.2)
   })
 })
 
 describe('randomizeSlides', () => {
   it('probability 0 produces all zeros', () => {
     const slides = randomizeSlides(0, 16, 42)
-    expect(slides.every(s => s === 0)).toBe(true)
+    expect(slides.every((s) => s === 0)).toBe(true)
   })
 
   it('probability 1 produces all non-zero', () => {
     const slides = randomizeSlides(1, 16, 42)
-    expect(slides.every(s => s > 0)).toBe(true)
+    expect(slides.every((s) => s > 0)).toBe(true)
   })
 
   it('probability 0.5 produces mix of zero and non-zero', () => {
     const slides = randomizeSlides(0.5, 64, 42)
-    const activeCount = slides.filter(s => s > 0).length
+    const activeCount = slides.filter((s) => s > 0).length
     expect(activeCount).toBeGreaterThan(10)
     expect(activeCount).toBeLessThan(54)
   })
@@ -138,7 +154,7 @@ describe('randomizeSlides', () => {
   it('non-zero values are 0.10 (default portamento time)', () => {
     const slides = randomizeSlides(1, 8, 42)
     for (const s of slides) {
-      expect(s).toBe(0.10)
+      expect(s).toBe(0.1)
     }
   })
 

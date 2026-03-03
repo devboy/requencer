@@ -34,7 +34,7 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
   },
   {
     title: 'ROUTING',
-    body: 'Press S to enter the route screen. Each track\'s 4 subtrack outputs (gate/pitch/vel/mod) can be freely routed to any of the 4 output jacks (A–D), enabling multi-voice or layered configurations.',
+    body: "Press S to enter the route screen. Each track's 4 subtrack outputs (gate/pitch/vel/mod) can be freely routed to any of the 4 output jacks (A–D), enabling multi-voice or layered configurations.",
   },
   {
     title: 'SETTINGS',

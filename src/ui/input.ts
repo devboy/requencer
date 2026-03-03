@@ -17,9 +17,9 @@
  *   Shift + above     → Step buttons 9-16
  */
 
-import type { ControlEvent, SubtrackId, FeatureId, HeldButtonTarget } from './hw-types'
-import { toggleHelp, isHelpOpen } from './help-modal'
-import { isStickyHoldActive, endStickyHold, setStickyHold, getStickyHoldButton } from './panel/controls'
+import { isHelpOpen, toggleHelp } from './help-modal'
+import type { ControlEvent, FeatureId, HeldButtonTarget, SubtrackId } from './hw-types'
+import { endStickyHold, getStickyHoldButton, isStickyHoldActive, setStickyHold } from './panel/controls'
 
 type ControlEventCallback = (event: ControlEvent) => void
 
@@ -42,7 +42,14 @@ const STEP_KEYS = ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',']
 
 const TRACK_KEYS: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3 }
 const SUBTRACK_KEYS: Record<string, SubtrackId> = { q: 'gate', w: 'pitch', e: 'velocity', r: 'mod' }
-const FEATURE_KEYS: Record<string, FeatureId> = { a: 'mute', s: 'route', d: 'rand', f: 'mutate', g: 'transpose', h: 'variation' }
+const FEATURE_KEYS: Record<string, FeatureId> = {
+  a: 'mute',
+  s: 'route',
+  d: 'rand',
+  f: 'mutate',
+  g: 'transpose',
+  h: 'variation',
+}
 
 const HOLD_THRESHOLD_MS = 200
 const STICKY_THRESHOLD_MS = 300
@@ -69,7 +76,10 @@ let keyboardSticky = false // true when keyboard initiated the sticky hold
 // Shift+Q/W/E/R → track select (alternative to 1-4)
 const SHIFT_TRACK_KEYS: Record<string, number> = { q: 0, w: 1, e: 2, r: 3 }
 
-function getHoldableButton(key: string, shiftKey: boolean): { button: HeldButtonTarget; tapEvent: ControlEvent } | null {
+function getHoldableButton(
+  key: string,
+  shiftKey: boolean,
+): { button: HeldButtonTarget; tapEvent: ControlEvent } | null {
   if (key in TRACK_KEYS) {
     const track = TRACK_KEYS[key]
     return { button: { kind: 'track', track }, tapEvent: { type: 'track-select', track } }
@@ -114,7 +124,10 @@ function startEncAHold(): void {
 }
 
 function clearEncAHold(): void {
-  if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+  if (encAHoldTimer) {
+    clearTimeout(encAHoldTimer)
+    encAHoldTimer = null
+  }
 }
 
 function startEncBHold(): void {
@@ -128,7 +141,10 @@ function startEncBHold(): void {
 }
 
 function clearEncBHold(): void {
-  if (encBHoldTimer) { clearTimeout(encBHoldTimer); encBHoldTimer = null }
+  if (encBHoldTimer) {
+    clearTimeout(encBHoldTimer)
+    encBHoldTimer = null
+  }
 }
 
 function keyToImmediateEvent(e: KeyboardEvent): ControlEvent | null {
@@ -187,7 +203,9 @@ function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
       if (button.feature === 'rand') {
         return document.querySelector('.rand-btn')
       }
-      const idx = (['mute', 'route', 'mutate', 'transpose'] as const).indexOf(button.feature as 'mute' | 'route' | 'mutate' | 'transpose')
+      const idx = (['mute', 'route', 'mutate', 'transpose'] as const).indexOf(
+        button.feature as 'mute' | 'route' | 'mutate' | 'transpose',
+      )
       return document.querySelector(`.feature-btn[data-index="${idx}"]`)
     }
     case 'step':
@@ -200,9 +218,15 @@ export function setupKeyboardInput(): () => void {
     if (e.repeat) return // ignore key repeat
 
     // "?" toggles help modal (Shift+/ on US layout)
-    if (e.key === '?') { toggleHelp(); return }
+    if (e.key === '?') {
+      toggleHelp()
+      return
+    }
     // Close help on any other key
-    if (isHelpOpen()) { toggleHelp(); return }
+    if (isHelpOpen()) {
+      toggleHelp()
+      return
+    }
 
     const key = e.key.toLowerCase()
 

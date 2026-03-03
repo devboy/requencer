@@ -10,9 +10,9 @@
  */
 
 import type { SequencerState } from '../../engine/types'
-import type { UIState } from '../hw-types'
 import { COLORS } from '../colors'
-import { fillRect, drawText, LCD_W, LCD_CONTENT_Y, LCD_CONTENT_H } from '../renderer'
+import type { UIState } from '../hw-types'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30
@@ -31,7 +31,15 @@ export function renderMutateEdit(ctx: CanvasRenderingContext2D, engine: Sequence
   // Header
   drawText(ctx, `DRIFT — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   const unit = mc.trigger === 'bars' ? 'bar' : 'loop'
-  drawText(ctx, `${mc.trigger.toUpperCase()}  ${mc.bars}${unit}`, LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 14, 'right')
+  drawText(
+    ctx,
+    `${mc.trigger.toUpperCase()}  ${mc.bars}${unit}`,
+    LCD_W - PAD,
+    LCD_CONTENT_Y + 18,
+    COLORS.textDim,
+    14,
+    'right',
+  )
 
   // 6 rows: 4 subtracks + trigger + bars
   for (let row = 0; row < 6; row++) {
@@ -75,7 +83,15 @@ export function renderMutateEdit(ctx: CanvasRenderingContext2D, engine: Sequence
       // Trigger mode
       const labelColor = isSelected ? COLORS.text : COLORS.textDim
       drawText(ctx, 'TRIGGER', LABEL_X, y + ROW_H / 2 - 2, labelColor, 16)
-      drawText(ctx, mc.trigger.toUpperCase(), VALUE_X, y + ROW_H / 2 - 2, isSelected ? '#ffaa00' : COLORS.textDim, 16, 'right')
+      drawText(
+        ctx,
+        mc.trigger.toUpperCase(),
+        VALUE_X,
+        y + ROW_H / 2 - 2,
+        isSelected ? '#ffaa00' : COLORS.textDim,
+        16,
+        'right',
+      )
     } else {
       // Every-N count (applies to both bars and loop modes)
       const labelColor = isSelected ? COLORS.text : COLORS.textDim

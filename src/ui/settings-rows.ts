@@ -24,52 +24,74 @@ function buildSettingsRowDefs(): SettingsRow[] {
   return [
     // --- CLOCK section ---
     {
-      type: 'header', paramId: 'section.clock', label: 'CLOCK',
-      getValue: () => '', visible: always,
+      type: 'header',
+      paramId: 'section.clock',
+      label: 'CLOCK',
+      getValue: () => '',
+      visible: always,
     },
     {
-      type: 'param', paramId: 'clock.bpm', label: 'BPM',
+      type: 'param',
+      paramId: 'clock.bpm',
+      label: 'BPM',
       getValue: (e) => String(e.transport.bpm),
       visible: always,
     },
     {
-      type: 'param', paramId: 'clock.source', label: 'SOURCE',
+      type: 'param',
+      paramId: 'clock.source',
+      label: 'SOURCE',
       getValue: (e) => clockSourceMap[e.transport.clockSource] ?? 'INT',
       visible: always,
     },
 
     // --- MIDI section ---
     {
-      type: 'header', paramId: 'section.midi', label: 'MIDI',
-      getValue: () => '', visible: always,
-    },
-    {
-      type: 'param', paramId: 'midi.enabled', label: 'MIDI',
-      getValue: (e) => e.midiEnabled ? 'ON' : 'OFF',
+      type: 'header',
+      paramId: 'section.midi',
+      label: 'MIDI',
+      getValue: () => '',
       visible: always,
     },
     {
-      type: 'param', paramId: 'midi.device', label: 'DEVICE',
+      type: 'param',
+      paramId: 'midi.enabled',
+      label: 'MIDI',
+      getValue: (e) => (e.midiEnabled ? 'ON' : 'OFF'),
+      visible: always,
+    },
+    {
+      type: 'param',
+      paramId: 'midi.device',
+      label: 'DEVICE',
       getValue: (_e, ui) => ui.midiDevices[ui.midiDeviceIndex]?.name ?? 'None',
       visible: always,
     },
     {
-      type: 'param', paramId: 'midi.ch.0', label: 'OUT 1 CH',
+      type: 'param',
+      paramId: 'midi.ch.0',
+      label: 'OUT 1 CH',
       getValue: (e) => String(e.midiConfigs[0].channel),
       visible: always,
     },
     {
-      type: 'param', paramId: 'midi.ch.1', label: 'OUT 2 CH',
+      type: 'param',
+      paramId: 'midi.ch.1',
+      label: 'OUT 2 CH',
       getValue: (e) => String(e.midiConfigs[1].channel),
       visible: always,
     },
     {
-      type: 'param', paramId: 'midi.ch.2', label: 'OUT 3 CH',
+      type: 'param',
+      paramId: 'midi.ch.2',
+      label: 'OUT 3 CH',
       getValue: (e) => String(e.midiConfigs[2].channel),
       visible: always,
     },
     {
-      type: 'param', paramId: 'midi.ch.3', label: 'OUT 4 CH',
+      type: 'param',
+      paramId: 'midi.ch.3',
+      label: 'OUT 4 CH',
       getValue: (e) => String(e.midiConfigs[3].channel),
       visible: always,
     },
@@ -79,7 +101,7 @@ function buildSettingsRowDefs(): SettingsRow[] {
 const SETTINGS_ROW_DEFS = buildSettingsRowDefs()
 
 export function getSettingsRows(engine: SequencerState, ui: UIState): SettingsRow[] {
-  return SETTINGS_ROW_DEFS.filter(row => row.visible(engine, ui))
+  return SETTINGS_ROW_DEFS.filter((row) => row.visible(engine, ui))
 }
 
 export const SETTINGS_SECTION_PARAMS: Record<string, string[]> = {

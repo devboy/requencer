@@ -4,8 +4,8 @@
  */
 
 import type { SequencerState } from '../engine/types'
-import type { UIState } from './hw-types'
 import { midiToNoteName } from './colors'
+import type { UIState } from './hw-types'
 
 export type XposeRowType = 'header' | 'param'
 
@@ -25,11 +25,15 @@ function buildRowDefs(): XposeRow[] {
   return [
     // --- PITCH section ---
     {
-      type: 'header', paramId: 'section.pitch', label: 'PITCH',
+      type: 'header',
+      paramId: 'section.pitch',
+      label: 'PITCH',
       getValue: () => '',
     },
     {
-      type: 'param', paramId: 'xpose.semi', label: 'SEMI',
+      type: 'param',
+      paramId: 'xpose.semi',
+      label: 'SEMI',
       getValue: (e, ui) => {
         const s = cfg(e, ui).semitones
         if (s > 0) return `+${s}`
@@ -38,25 +42,35 @@ function buildRowDefs(): XposeRow[] {
       },
     },
     {
-      type: 'param', paramId: 'xpose.noteLow', label: 'NOTE LO',
+      type: 'param',
+      paramId: 'xpose.noteLow',
+      label: 'NOTE LO',
       getValue: (e, ui) => midiToNoteName(cfg(e, ui).noteLow),
     },
     {
-      type: 'param', paramId: 'xpose.noteHigh', label: 'NOTE HI',
+      type: 'param',
+      paramId: 'xpose.noteHigh',
+      label: 'NOTE HI',
       getValue: (e, ui) => midiToNoteName(cfg(e, ui).noteHigh),
     },
 
     // --- DYNAMICS section ---
     {
-      type: 'header', paramId: 'section.dynamics', label: 'DYNAMICS',
+      type: 'header',
+      paramId: 'section.dynamics',
+      label: 'DYNAMICS',
       getValue: () => '',
     },
     {
-      type: 'param', paramId: 'xpose.glScale', label: 'GL SCALE',
+      type: 'param',
+      paramId: 'xpose.glScale',
+      label: 'GL SCALE',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).glScale * 100)}%`,
     },
     {
-      type: 'param', paramId: 'xpose.velScale', label: 'VEL SCALE',
+      type: 'param',
+      paramId: 'xpose.velScale',
+      label: 'VEL SCALE',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).velScale * 100)}%`,
     },
   ]

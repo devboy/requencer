@@ -1,0 +1,62 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint & format
+        run: npm run check
+
+      - name: Tests with coverage
+        run: npm run test:coverage
+
+      - name: Dead code check
+        run: npm run dead-code
+
+      - name: Engine purity check
+        run: |
+          if grep -rE "from ['\"]tone['\"]|from ['\"]tone/|require\(['\"]tone|window\.|document\.|navigator\." src/engine/ --include="*.ts" | grep -v "__tests__" | grep -v ".bench.ts"; then
+            echo "::error::Engine layer contains forbidden imports (DOM/audio/Tone.js)"
+            exit 1
+          fi
+          echo "Engine purity check passed"
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "## Coverage Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            node -e "
+              const c = require('./coverage/coverage-summary.json').total;
+              const fmt = (m) => m.pct + '%';
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Statements | ' + fmt(c.statements) + ' |');
+              console.log('| Branches | ' + fmt(c.branches) + ' |');
+              console.log('| Functions | ' + fmt(c.functions) + ' |');
+              console.log('| Lines | ' + fmt(c.lines) + ' |');
+            " >> "$GITHUB_STEP_SUMMARY"
+          fi

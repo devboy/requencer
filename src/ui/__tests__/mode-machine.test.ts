@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { createInitialUIState, dispatch, getLEDState } from '../mode-machine'
+import { describe, expect, it } from 'vitest'
 import { createSequencer } from '../../engine/sequencer'
 import type { SequencerState } from '../../engine/types'
 import type { UIState } from '../hw-types'
+import { createInitialUIState, dispatch, getLEDState } from '../mode-machine'
 import { getVisibleRows } from '../rand-rows'
 
 function makeState(): SequencerState {
@@ -46,7 +46,7 @@ describe('dispatch', () => {
       eng = {
         ...eng,
         transport: { ...eng.transport, masterTick: 42 },
-        tracks: eng.tracks.map(t => ({
+        tracks: eng.tracks.map((t) => ({
           ...t,
           gate: { ...t.gate, currentStep: 5 },
           pitch: { ...t.pitch, currentStep: 3 },
@@ -146,7 +146,6 @@ describe('dispatch', () => {
       const result = dispatch(ui, eng, { type: 'feature-press', feature: 'rand' })
       expect(result.ui.mode).toBe('rand')
     })
-
   })
 
   describe('home mode', () => {
@@ -196,12 +195,10 @@ describe('dispatch', () => {
       const ui = gateUI()
       let eng = makeState()
       // Set gate step 3 to off
-      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: false } : s)
+      const steps = eng.tracks[0].gate.steps.map((s, i) => (i === 3 ? { ...s, on: false } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps } } : t)),
       }
       const result = dispatch(ui, eng, { type: 'step-press', step: 3 })
       expect(result.engine.tracks[0].gate.steps[3].on).toBe(true)
@@ -210,12 +207,10 @@ describe('dispatch', () => {
     it('step-press on ON step toggles it off immediately', () => {
       const ui = gateUI()
       let eng = makeState()
-      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 5 ? { ...s, on: true } : s)
+      const steps = eng.tracks[0].gate.steps.map((s, i) => (i === 5 ? { ...s, on: true } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps } } : t)),
       }
       const result = dispatch(ui, eng, { type: 'step-press', step: 5 })
       expect(result.engine.tracks[0].gate.steps[5].on).toBe(false)
@@ -224,12 +219,10 @@ describe('dispatch', () => {
     it('hold step selects it, encoder A adjusts gate length', () => {
       const ui = gateUI()
       let eng = makeState()
-      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: true } : s)
+      const steps = eng.tracks[0].gate.steps.map((s, i) => (i === 3 ? { ...s, on: true } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps } } : t)),
       }
       // Hold step 3
       const held = dispatch(ui, eng, { type: 'hold-start', button: { kind: 'step', step: 3 } })
@@ -243,12 +236,10 @@ describe('dispatch', () => {
     it('hold step + encoder B adjusts ratchet count', () => {
       const ui = gateUI()
       let eng = makeState()
-      const steps = eng.tracks[0].gate.steps.map((s, i) => i === 3 ? { ...s, on: true } : s)
+      const steps = eng.tracks[0].gate.steps.map((s, i) => (i === 3 ? { ...s, on: true } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps } } : t)),
       }
       const held = dispatch(ui, eng, { type: 'hold-start', button: { kind: 'step', step: 3 } })
       const adjusted = dispatch(held.ui, held.engine, { type: 'encoder-b-turn', delta: 1 })
@@ -270,9 +261,7 @@ describe('dispatch', () => {
       const steps = Array.from({ length: 32 }, () => ({ on: false, tie: false, length: 0.5, ratchet: 1 }))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps, length: 32 } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps, length: 32 } } : t)),
       }
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.ui.currentPage).toBe(1)
@@ -296,14 +285,10 @@ describe('dispatch', () => {
       // Hold step 2, press step 5 → steps 3, 4, 5 become ties
       let eng = makeState()
       // Ensure step 2 is gate on (trigger point)
-      const steps = eng.tracks[0].gate.steps.map((s, i) =>
-        i === 2 ? { ...s, on: true } : s
-      )
+      const steps = eng.tracks[0].gate.steps.map((s, i) => (i === 2 ? { ...s, on: true } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, gate: { ...t.gate, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, gate: { ...t.gate, steps } } : t)),
       }
       const ui: UIState = {
         ...gateUI(),
@@ -359,12 +344,10 @@ describe('dispatch', () => {
     it('pitch clamps to 0-127', () => {
       const ui = pitchUI(0)
       let eng = makeState()
-      const steps = eng.tracks[0].pitch.steps.map((s, i) => i === 0 ? { ...s, note: 127 } : s)
+      const steps = eng.tracks[0].pitch.steps.map((s, i) => (i === 0 ? { ...s, note: 127 } : s))
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) =>
-          i === 0 ? { ...t, pitch: { ...t.pitch, steps } } : t
-        ),
+        tracks: eng.tracks.map((t, i) => (i === 0 ? { ...t, pitch: { ...t.pitch, steps } } : t)),
       }
       const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 5 })
       expect(result.engine.tracks[0].pitch.steps[0].note).toBe(127)
@@ -388,7 +371,7 @@ describe('dispatch', () => {
       let e = eng
       for (let i = 0; i < 12; i++) e = dispatch(ui, e, { type: 'encoder-b-turn', delta: 1 }).engine as any
       // After 12 increments of 0.05 = 0.60, should clamp to 0.50
-      expect((e as any).tracks[0].pitch.steps[0].slide).toBeLessThanOrEqual(0.50)
+      expect((e as any).tracks[0].pitch.steps[0].slide).toBeLessThanOrEqual(0.5)
     })
 
     it('encoder-a-push cycles page', () => {
@@ -496,13 +479,13 @@ describe('getLEDState', () => {
     eng = {
       ...eng,
       tracks: eng.tracks.map((t, i) =>
-        i === 0 ? { ...t, gate: { ...t.gate, steps, length: 16, currentStep: 3 } } : t
+        i === 0 ? { ...t, gate: { ...t.gate, steps, length: 16, currentStep: 3 } } : t,
       ),
     }
     const leds = getLEDState(ui, eng)
-    expect(leds.steps[0]).toBe('on')   // gate on
-    expect(leds.steps[5]).toBe('on')   // gate on
-    expect(leds.steps[1]).toBe('dim')  // gate off
+    expect(leds.steps[0]).toBe('on') // gate on
+    expect(leds.steps[5]).toBe('on') // gate on
+    expect(leds.steps[1]).toBe('dim') // gate off
     expect(leds.steps[3]).toBe('flash') // playhead
   })
 
@@ -619,7 +602,7 @@ describe('hold combos', () => {
       let eng = makeState()
       eng = {
         ...eng,
-        tracks: eng.tracks.map((t, i) => ({
+        tracks: eng.tracks.map((t, _i) => ({
           ...t,
           gate: { ...t.gate, currentStep: 5 },
           pitch: { ...t.pitch, currentStep: 3 },
@@ -640,7 +623,7 @@ describe('hold combos', () => {
       let eng = makeState()
       eng = {
         ...eng,
-        tracks: eng.tracks.map(t => ({
+        tracks: eng.tracks.map((t) => ({
           ...t,
           gate: { ...t.gate, currentStep: 5 },
           pitch: { ...t.pitch, currentStep: 3 },
@@ -712,7 +695,6 @@ describe('hold combos', () => {
 describe('rand screen dispatch', () => {
   // Helper: find the visible row index for a paramId in the current state
   function findRowIdx(paramId: string, eng: SequencerState, ui: UIState): number {
-
     const rows = getVisibleRows(eng, ui)
     const idx = rows.findIndex((r: { paramId: string }) => r.paramId === paramId)
     if (idx === -1) throw new Error(`paramId '${paramId}' not visible`)
@@ -841,9 +823,7 @@ describe('rand screen dispatch', () => {
       let eng = makeState()
       eng = {
         ...eng,
-        randomConfigs: eng.randomConfigs.map((c, i) =>
-          i === 0 ? { ...c, pitch: { ...c.pitch, root: 127 } } : c
-        ),
+        randomConfigs: eng.randomConfigs.map((c, i) => (i === 0 ? { ...c, pitch: { ...c.pitch, root: 127 } } : c)),
       }
       const ui = randUI('pitch.root', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
@@ -884,9 +864,7 @@ describe('rand screen dispatch', () => {
       let eng = makeState()
       eng = {
         ...eng,
-        randomConfigs: eng.randomConfigs.map((c, i) =>
-          i === 0 ? { ...c, pitch: { ...c.pitch, maxNotes: 0 } } : c
-        ),
+        randomConfigs: eng.randomConfigs.map((c, i) => (i === 0 ? { ...c, pitch: { ...c.pitch, maxNotes: 0 } } : c)),
       }
       const ui = randUI('pitch.maxNotes', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
@@ -907,9 +885,7 @@ describe('rand screen dispatch', () => {
       let eng = makeState()
       eng = {
         ...eng,
-        randomConfigs: eng.randomConfigs.map((c, i) =>
-          i === 0 ? { ...c, gate: { ...c.gate, fillMin: 0 } } : c
-        ),
+        randomConfigs: eng.randomConfigs.map((c, i) => (i === 0 ? { ...c, gate: { ...c.gate, fillMin: 0 } } : c)),
       }
       const ui = randUI('gate.fillMin', eng)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
@@ -953,7 +929,10 @@ describe('rand screen dispatch', () => {
   describe('cluster continuation row', () => {
     it('enc B adjusts cluster continuation by 0.05', () => {
       let eng = makeState()
-      eng = { ...eng, randomConfigs: eng.randomConfigs.map(c => ({ ...c, gate: { ...c.gate, mode: 'cluster' as const } })) }
+      eng = {
+        ...eng,
+        randomConfigs: eng.randomConfigs.map((c) => ({ ...c, gate: { ...c.gate, mode: 'cluster' as const } })),
+      }
       const ui = randUI('gate.clusterContinuation', eng)
       const before = eng.randomConfigs[0].gate.clusterContinuation
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
@@ -1030,7 +1009,7 @@ describe('rand screen dispatch', () => {
 
     it('ARP sub-params shown when ARP is on', () => {
       let eng = makeState()
-      eng = { ...eng, arpConfigs: eng.arpConfigs.map((c, i) => i === 0 ? { ...c, enabled: true } : c) }
+      eng = { ...eng, arpConfigs: eng.arpConfigs.map((c, i) => (i === 0 ? { ...c, enabled: true } : c)) }
       const ui = randUIRaw(0)
 
       const rows = getVisibleRows(eng, ui)
@@ -1044,7 +1023,7 @@ describe('rand screen dispatch', () => {
       eng = {
         ...eng,
         randomConfigs: eng.randomConfigs.map((c, i) =>
-          i === 0 ? { ...c, gate: { ...c.gate, mode: 'random' as const } } : c
+          i === 0 ? { ...c, gate: { ...c.gate, mode: 'random' as const } } : c,
         ),
       }
       const ui = randUIRaw(0)
@@ -1057,7 +1036,12 @@ describe('rand screen dispatch', () => {
     it('MOD sub-params hidden when mod.mode is not walk or sync', () => {
       let eng = makeState()
       // Force mod.mode to 'random' to test visibility
-      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'random' as const } } : c) }
+      eng = {
+        ...eng,
+        randomConfigs: eng.randomConfigs.map((c, i) =>
+          i === 0 ? { ...c, mod: { ...c.mod, mode: 'random' as const } } : c,
+        ),
+      }
       const ui = randUIRaw(0)
 
       const rows = getVisibleRows(eng, ui)
@@ -1069,7 +1053,12 @@ describe('rand screen dispatch', () => {
     it('MOD sub-params shown when mod.mode is walk or sync', () => {
       let eng = makeState()
       // Set track 0 mod.mode to 'walk'
-      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'walk' as const } } : c) }
+      eng = {
+        ...eng,
+        randomConfigs: eng.randomConfigs.map((c, i) =>
+          i === 0 ? { ...c, mod: { ...c.mod, mode: 'walk' as const } } : c,
+        ),
+      }
       const ui = randUIRaw(0)
 
       let rows = getVisibleRows(eng, ui)
@@ -1078,7 +1067,12 @@ describe('rand screen dispatch', () => {
       expect(paramIds).not.toContain('mod.syncBias')
 
       // Now set track 0 mod.mode to 'sync'
-      eng = { ...eng, randomConfigs: eng.randomConfigs.map((c, i) => i === 0 ? { ...c, mod: { ...c.mod, mode: 'sync' as const } } : c) }
+      eng = {
+        ...eng,
+        randomConfigs: eng.randomConfigs.map((c, i) =>
+          i === 0 ? { ...c, mod: { ...c.mod, mode: 'sync' as const } } : c,
+        ),
+      }
 
       rows = getVisibleRows(eng, ui)
       paramIds = rows.map((r: { paramId: string }) => r.paramId)
@@ -1203,7 +1197,7 @@ describe('name-entry dispatch', () => {
     const eng = makeState()
     const result = dispatch(ui, eng, { type: 'track-select', track: 2 })
     expect(result.ui.mode).toBe('name-entry') // stays in name-entry
-    expect(result.ui.selectedTrack).toBe(0)   // doesn't change
+    expect(result.ui.selectedTrack).toBe(0) // doesn't change
   })
 })
 
@@ -1280,7 +1274,7 @@ describe('route screen dispatch', () => {
     it('enc B cycles pitch source backward', () => {
       const ui = routeUI(1, 0)
       let eng = makeState()
-      eng = { ...eng, routing: eng.routing.map((r, i) => i === 0 ? { ...r, pitch: 2 } : r) }
+      eng = { ...eng, routing: eng.routing.map((r, i) => (i === 0 ? { ...r, pitch: 2 } : r)) }
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(result.engine.routing[0].pitch).toBe(1)
     })
@@ -1288,7 +1282,7 @@ describe('route screen dispatch', () => {
     it('enc B wraps source track forward', () => {
       const ui = routeUI(0, 0)
       let eng = makeState()
-      eng = { ...eng, routing: eng.routing.map((r, i) => i === 0 ? { ...r, gate: 3 } : r) }
+      eng = { ...eng, routing: eng.routing.map((r, i) => (i === 0 ? { ...r, gate: 3 } : r)) }
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
       expect(result.engine.routing[0].gate).toBe(0)
     })
@@ -1499,7 +1493,14 @@ describe('route screen dispatch', () => {
 
   describe('variation-edit', () => {
     function varUI(overrides: Partial<UIState> = {}): UIState {
-      return { ...createInitialUIState(), mode: 'variation-edit' as const, varSelectedBar: -1, varParam: 0, varCursor: 0, ...overrides }
+      return {
+        ...createInitialUIState(),
+        mode: 'variation-edit' as const,
+        varSelectedBar: -1,
+        varParam: 0,
+        varCursor: 0,
+        ...overrides,
+      }
     }
 
     it('feature-press variation enters variation-edit mode', () => {
@@ -1553,7 +1554,10 @@ describe('route screen dispatch', () => {
         const ui = varUI({ varSelectedBar: 0, varCursor: 0 })
         const engine = makeState()
         engine.variationPatterns[0].slots[0] = {
-          transforms: [{ type: 'reverse', param: 0 }, { type: 'transpose', param: 7 }],
+          transforms: [
+            { type: 'reverse', param: 0 },
+            { type: 'transpose', param: 7 },
+          ],
         }
         // Move cursor from 0 to 1
         const r1 = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
@@ -1732,11 +1736,11 @@ describe('route screen dispatch', () => {
       const engine = makeState()
       engine.variationPatterns[0].slots[2] = { transforms: [{ type: 'reverse', param: 0 }] }
       const leds = getLEDState(ui, engine)
-      expect(leds.steps[0]).toBe('dim')   // empty bar
+      expect(leds.steps[0]).toBe('dim') // empty bar
       expect(leds.steps[1]).toBe('flash') // selected bar
-      expect(leds.steps[2]).toBe('on')    // bar with transforms
-      expect(leds.steps[3]).toBe('dim')   // empty bar
-      expect(leds.steps[4]).toBe('off')   // beyond phrase length
+      expect(leds.steps[2]).toBe('on') // bar with transforms
+      expect(leds.steps[3]).toBe('dim') // empty bar
+      expect(leds.steps[4]).toBe('off') // beyond phrase length
     })
 
     it('back returns to home', () => {
@@ -1772,7 +1776,10 @@ describe('route screen dispatch', () => {
       it('subtrack-select enters sub-screen when override pattern exists', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.pitch = {
-          enabled: false, length: 4, loopMode: false, currentBar: 0,
+          enabled: false,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1811,7 +1818,10 @@ describe('route screen dispatch', () => {
       it('enc A push cycles override: override pattern → null (in sub-screen with no bar)', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.pitch = {
-          enabled: true, length: 4, loopMode: false, currentBar: 0,
+          enabled: true,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: [{ transforms: [] }, { transforms: [] }, { transforms: [] }, { transforms: [] }],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1853,7 +1863,10 @@ describe('route screen dispatch', () => {
       it('editing (enc B push) applies to subtrack override pattern', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: false, length: 4, loopMode: false, currentBar: 0,
+          enabled: false,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1870,7 +1883,10 @@ describe('route screen dispatch', () => {
       it('enc A push in override sub-screen with no bar cycles state (not toggle enabled)', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: false, length: 4, loopMode: false, currentBar: 0,
+          enabled: false,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1883,7 +1899,10 @@ describe('route screen dispatch', () => {
       it('hold VAR + enc A changes phrase length for subtrack override (linear)', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: true, length: 4, loopMode: false, currentBar: 0,
+          enabled: true,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: Array.from({ length: 4 }, () => ({ transforms: [] })),
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1901,27 +1920,37 @@ describe('route screen dispatch', () => {
       it('LEDs show subtrack override bars when editing subtrack', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.pitch = {
-          enabled: true, length: 2, loopMode: false, currentBar: 0,
-          slots: [
-            { transforms: [{ type: 'reverse', param: 0 }] },
-            { transforms: [] },
-          ],
+          enabled: true,
+          length: 2,
+          loopMode: false,
+          currentBar: 0,
+          slots: [{ transforms: [{ type: 'reverse', param: 0 }] }, { transforms: [] }],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
         const ui = varUI({ varEditSubtrack: 'pitch' })
         const leds = getLEDState(ui, engine)
-        expect(leds.steps[0]).toBe('on')   // bar with transforms
-        expect(leds.steps[1]).toBe('dim')  // empty bar
-        expect(leds.steps[2]).toBe('off')  // beyond override phrase length (2 bars)
+        expect(leds.steps[0]).toBe('on') // bar with transforms
+        expect(leds.steps[1]).toBe('dim') // empty bar
+        expect(leds.steps[2]).toBe('off') // beyond override phrase length (2 bars)
       })
 
       it('encoder B hold deletes transform from subtrack override bar', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: true, length: 4, loopMode: false, currentBar: 0,
+          enabled: true,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: [
-            { transforms: [{ type: 'reverse', param: 0 }, { type: 'transpose', param: 7 }] },
-            { transforms: [] }, { transforms: [] }, { transforms: [] },
+            {
+              transforms: [
+                { type: 'reverse', param: 0 },
+                { type: 'transpose', param: 7 },
+              ],
+            },
+            { transforms: [] },
+            { transforms: [] },
+            { transforms: [] },
           ],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }
@@ -1935,10 +1964,15 @@ describe('route screen dispatch', () => {
       it('encoder B turn adjusts param in subtrack override bar', () => {
         const engine = makeState()
         engine.variationPatterns[0].subtrackOverrides.gate = {
-          enabled: true, length: 4, loopMode: false, currentBar: 0,
+          enabled: true,
+          length: 4,
+          loopMode: false,
+          currentBar: 0,
           slots: [
             { transforms: [{ type: 'transpose', param: 7 }] },
-            { transforms: [] }, { transforms: [] }, { transforms: [] },
+            { transforms: [] },
+            { transforms: [] },
+            { transforms: [] },
           ],
           subtrackOverrides: { gate: null, pitch: null, velocity: null, mod: null },
         }

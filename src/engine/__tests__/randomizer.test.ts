@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { randomizeGates, randomizePitch, randomizeVelocity, randomizeTrack, randomizeTies, randomizeMod } from '../randomizer'
+import { describe, expect, it } from 'vitest'
+import {
+  randomizeGates,
+  randomizeMod,
+  randomizePitch,
+  randomizeTies,
+  randomizeTrack,
+  randomizeVelocity,
+} from '../randomizer'
 import { SCALES } from '../scales'
 
 describe('randomizeGates', () => {
@@ -12,8 +19,8 @@ describe('randomizeGates', () => {
   it('produces fill count within range in random mode', () => {
     const pattern = randomizeGates({ fillMin: 0.25, fillMax: 0.75, mode: 'random' }, 16, 42)
     const hits = pattern.filter(Boolean).length
-    expect(hits).toBeGreaterThanOrEqual(4)  // 0.25 * 16
-    expect(hits).toBeLessThanOrEqual(12)    // 0.75 * 16
+    expect(hits).toBeGreaterThanOrEqual(4) // 0.25 * 16
+    expect(hits).toBeLessThanOrEqual(12) // 0.75 * 16
   })
 
   it('produces euclidean pattern within fill range', () => {
@@ -26,12 +33,12 @@ describe('randomizeGates', () => {
 
   it('returns all false for fill 0', () => {
     const pattern = randomizeGates({ fillMin: 0, fillMax: 0, mode: 'random' }, 16, 42)
-    expect(pattern.every(s => s === false)).toBe(true)
+    expect(pattern.every((s) => s === false)).toBe(true)
   })
 
   it('returns all true for fill 1', () => {
     const pattern = randomizeGates({ fillMin: 1, fillMax: 1, mode: 'random' }, 16, 42)
-    expect(pattern.every(s => s === true)).toBe(true)
+    expect(pattern.every((s) => s === true)).toBe(true)
   })
 
   it('is deterministic with same seed', () => {
@@ -121,7 +128,11 @@ describe('randomizeGates cluster mode', () => {
     let totalHits = 0
     const trials = 100
     for (let seed = 0; seed < trials; seed++) {
-      const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.9 }, 16, seed)
+      const pattern = randomizeGates(
+        { fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.9 },
+        16,
+        seed,
+      )
       const hits = pattern.filter(Boolean).length
       totalHits += hits
       // Count distinct runs (groups of consecutive true values)
@@ -141,7 +152,11 @@ describe('randomizeGates cluster mode', () => {
     let totalHits = 0
     const trials = 100
     for (let seed = 0; seed < trials; seed++) {
-      const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.1 }, 16, seed)
+      const pattern = randomizeGates(
+        { fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.1 },
+        16,
+        seed,
+      )
       const hits = pattern.filter(Boolean).length
       totalHits += hits
       let runs = 0
@@ -177,7 +192,7 @@ describe('randomizePitch', () => {
     for (const note of notes) {
       expect(note).toBeGreaterThanOrEqual(60)
       expect(note).toBeLessThanOrEqual(72)
-      const interval = ((note - 60) % 12 + 12) % 12
+      const interval = (((note - 60) % 12) + 12) % 12
       expect(SCALES.major.intervals).toContain(interval)
     }
   })
@@ -189,7 +204,7 @@ describe('randomizePitch', () => {
     for (const note of notes) {
       expect(note).toBeGreaterThanOrEqual(57)
       expect(note).toBeLessThanOrEqual(81)
-      const interval = ((note - 69) % 12 + 12) % 12
+      const interval = (((note - 69) % 12) + 12) % 12
       expect(SCALES.minorPentatonic.intervals).toContain(interval)
     }
   })
@@ -255,7 +270,7 @@ describe('randomizeTies', () => {
     const gatePattern = [true, false, true, true, false, true, false, true]
     const ties = randomizeTies(0, 4, gatePattern, 8, 42)
     expect(ties.length).toBe(8)
-    expect(ties.every(t => t === false)).toBe(true)
+    expect(ties.every((t) => t === false)).toBe(true)
   })
 
   it('only creates ties after gate-on steps', () => {
@@ -343,7 +358,15 @@ describe('randomizeTrack', () => {
 
 describe('randomizeMod', () => {
   it('produces ModStep objects with value and slew', () => {
-    const config = { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const config = {
+      low: 0,
+      high: 1,
+      mode: 'random' as const,
+      slew: 0,
+      slewProbability: 0,
+      walkStepSize: 0.15,
+      syncBias: 0.7,
+    }
     const steps = randomizeMod(config, 16, 42)
     expect(steps.length).toBe(16)
     for (const step of steps) {
@@ -356,7 +379,15 @@ describe('randomizeMod', () => {
   })
 
   it('values fall within configured range', () => {
-    const config = { low: 0.2, high: 0.8, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const config = {
+      low: 0.2,
+      high: 0.8,
+      mode: 'random' as const,
+      slew: 0,
+      slewProbability: 0,
+      walkStepSize: 0.15,
+      syncBias: 0.7,
+    }
     const steps = randomizeMod(config, 32, 99)
     for (const step of steps) {
       expect(step.value).toBeGreaterThanOrEqual(0.2)
@@ -365,7 +396,15 @@ describe('randomizeMod', () => {
   })
 
   it('is deterministic with same seed', () => {
-    const config = { low: 0, high: 1, mode: 'random' as const, slew: 0, slewProbability: 0, walkStepSize: 0.15, syncBias: 0.7 }
+    const config = {
+      low: 0,
+      high: 1,
+      mode: 'random' as const,
+      slew: 0,
+      slewProbability: 0,
+      walkStepSize: 0.15,
+      syncBias: 0.7,
+    }
     const a = randomizeMod(config, 16, 42)
     const b = randomizeMod(config, 16, 42)
     expect(a).toEqual(b)
@@ -391,7 +430,7 @@ describe('randomizeMod modes', () => {
     expect(steps[0].value).toBeCloseTo(0.2, 1)
     expect(steps[15].value).toBeCloseTo(0.8, 1)
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].value).toBeGreaterThanOrEqual(steps[i-1].value - 0.001)
+      expect(steps[i].value).toBeGreaterThanOrEqual(steps[i - 1].value - 0.001)
     }
   })
 
@@ -400,7 +439,7 @@ describe('randomizeMod modes', () => {
     expect(steps[0].value).toBeCloseTo(0.8, 1)
     expect(steps[15].value).toBeCloseTo(0.2, 1)
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].value).toBeLessThanOrEqual(steps[i-1].value + 0.001)
+      expect(steps[i].value).toBeLessThanOrEqual(steps[i - 1].value + 0.001)
     }
   })
 
@@ -425,7 +464,7 @@ describe('randomizeMod modes', () => {
     const cfg = { ...baseConfig, mode: 'walk' as const, walkStepSize: 0.1 }
     const steps = randomizeMod(cfg, 32, 42)
     for (let i = 1; i < steps.length; i++) {
-      expect(Math.abs(steps[i].value - steps[i-1].value)).toBeLessThanOrEqual(0.1 + 0.01)
+      expect(Math.abs(steps[i].value - steps[i - 1].value)).toBeLessThanOrEqual(0.1 + 0.01)
     }
   })
 
@@ -441,12 +480,20 @@ describe('randomizeMod modes', () => {
   it('SYNC mode: offbeat positions get higher average values than downbeats', () => {
     const cfg = { ...baseConfig, mode: 'sync' as const, syncBias: 1.0, slewProbability: 0 }
     // Run many iterations to get statistical average
-    let downbeatSum = 0, offbeatSum = 0, downbeatN = 0, offbeatN = 0
+    let downbeatSum = 0,
+      offbeatSum = 0,
+      downbeatN = 0,
+      offbeatN = 0
     for (let seed = 0; seed < 50; seed++) {
       const steps = randomizeMod(cfg, 16, seed)
       for (let i = 0; i < steps.length; i++) {
-        if (i % 4 === 0) { downbeatSum += steps[i].value; downbeatN++ }
-        else { offbeatSum += steps[i].value; offbeatN++ }
+        if (i % 4 === 0) {
+          downbeatSum += steps[i].value
+          downbeatN++
+        } else {
+          offbeatSum += steps[i].value
+          offbeatN++
+        }
       }
     }
     expect(offbeatSum / offbeatN).toBeGreaterThan(downbeatSum / downbeatN)

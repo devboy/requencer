@@ -5,7 +5,7 @@
  * 2 encoders: vertical drag = turn, click without drag = push
  */
 
-import type { LEDState, SubtrackId, FeatureId, ControlEvent, HeldButtonTarget } from '../hw-types'
+import type { ControlEvent, FeatureId, HeldButtonTarget, LEDState, SubtrackId } from '../hw-types'
 import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
@@ -134,12 +134,7 @@ function endHold(): void {
 // --- Multitouch: track active pointers on holdable buttons ---
 const activePointers = new Map<number, { button: HeldButtonTarget; el: HTMLElement }>()
 
-function holdablePointerDown(
-  e: PointerEvent,
-  button: HeldButtonTarget,
-  tapEvent: ControlEvent,
-  el: HTMLElement,
-): void {
+function holdablePointerDown(e: PointerEvent, button: HeldButtonTarget, tapEvent: ControlEvent, el: HTMLElement): void {
   e.preventDefault()
 
   // Check for true multitouch combo: another pointer is already down on a different holdable button
@@ -219,12 +214,7 @@ export function createControls(panel: FaceplateElements): void {
   for (let i = 0; i < panel.stepBtns.length; i++) {
     const btn = panel.stepBtns[i]
     btn.addEventListener('pointerdown', (e) => {
-      holdablePointerDown(
-        e,
-        { kind: 'step', step: i },
-        { type: 'step-press', step: i },
-        btn,
-      )
+      holdablePointerDown(e, { kind: 'step', step: i }, { type: 'step-press', step: i }, btn)
     })
     btn.addEventListener('pointerup', (e) => holdablePointerUp(e))
     btn.addEventListener('pointerleave', (e) => holdablePointerUp(e))
@@ -239,7 +229,10 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'play-stop' })
   })
   panel.playBtn.addEventListener('pointerdown', () => {
-    if (playTouchHandled) { playTouchHandled = false; return }
+    if (playTouchHandled) {
+      playTouchHandled = false
+      return
+    }
     emit({ type: 'play-stop' })
   })
   panel.resetBtn.addEventListener('pointerdown', () => emit({ type: 'reset' }))
@@ -252,7 +245,10 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'feature-press', feature: 'rand' })
   })
   panel.randBtn.addEventListener('pointerdown', () => {
-    if (randTouchHandled) { randTouchHandled = false; return }
+    if (randTouchHandled) {
+      randTouchHandled = false
+      return
+    }
     emit({ type: 'feature-press', feature: 'rand' })
   })
 
@@ -264,7 +260,10 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'back' })
   })
   panel.backBtn.addEventListener('pointerdown', () => {
-    if (backTouchHandled) { backTouchHandled = false; return }
+    if (backTouchHandled) {
+      backTouchHandled = false
+      return
+    }
     emit({ type: 'back' })
   })
 
@@ -280,7 +279,12 @@ export function createControls(panel: FaceplateElements): void {
     if (!stickyHold) return
     const target = e.target as HTMLElement
     // Ignore clicks on interactive controls (these have their own handling)
-    if (target.closest('.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .tbd-btn')) return
+    if (
+      target.closest(
+        '.track-btn, .subtrack-btn, .feature-btn, .step-btn, .encoder, .transport-btn, .rand-btn, .back-btn, .tbd-btn',
+      )
+    )
+      return
     endStickyHold()
   })
 
@@ -292,7 +296,7 @@ export function createControls(panel: FaceplateElements): void {
     startY: number
     accum: number
     angle: number
-    pointerId: number  // track which pointer started the drag
+    pointerId: number // track which pointer started the drag
     prefix: 'encoder-a' | 'encoder-b'
   }
 
@@ -314,7 +318,10 @@ export function createControls(panel: FaceplateElements): void {
   }
 
   function clearEncAHoldPanel(): void {
-    if (encAHoldTimer) { clearTimeout(encAHoldTimer); encAHoldTimer = null }
+    if (encAHoldTimer) {
+      clearTimeout(encAHoldTimer)
+      encAHoldTimer = null
+    }
   }
 
   function startEncBHoldPanel(): void {
@@ -328,12 +335,33 @@ export function createControls(panel: FaceplateElements): void {
   }
 
   function clearEncBHoldPanel(): void {
-    if (encBHoldTimer) { clearTimeout(encBHoldTimer); encBHoldTimer = null }
+    if (encBHoldTimer) {
+      clearTimeout(encBHoldTimer)
+      encBHoldTimer = null
+    }
   }
 
   const encStates: EncState[] = [
-    { el: panel.encoderA, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-a' },
-    { el: panel.encoderB, dragging: false, turned: false, startY: 0, accum: 0, angle: 0, pointerId: -1, prefix: 'encoder-b' },
+    {
+      el: panel.encoderA,
+      dragging: false,
+      turned: false,
+      startY: 0,
+      accum: 0,
+      angle: 0,
+      pointerId: -1,
+      prefix: 'encoder-a',
+    },
+    {
+      el: panel.encoderB,
+      dragging: false,
+      turned: false,
+      startY: 0,
+      accum: 0,
+      angle: 0,
+      pointerId: -1,
+      prefix: 'encoder-b',
+    },
   ]
 
   for (const enc of encStates) {
@@ -403,8 +431,13 @@ export function createControls(panel: FaceplateElements): void {
           }
         } else {
           // Drag ended — clean up hold state
-          if (enc.prefix === 'encoder-a') { clearEncAHoldPanel(); encAHoldFired = false }
-          else { clearEncBHoldPanel(); encBHoldFired = false }
+          if (enc.prefix === 'encoder-a') {
+            clearEncAHoldPanel()
+            encAHoldFired = false
+          } else {
+            clearEncBHoldPanel()
+            encBHoldFired = false
+          }
         }
       }
     }
@@ -426,9 +459,15 @@ export function updateLEDs(ledState: LEDState): void {
     const btn = controls.stepBtns[i]
     btn.classList.remove('led-on', 'led-dim', 'led-flash')
     switch (ledState.steps[i]) {
-      case 'on': btn.classList.add('led-on'); break
-      case 'dim': btn.classList.add('led-dim'); break
-      case 'flash': btn.classList.add('led-flash'); break
+      case 'on':
+        btn.classList.add('led-on')
+        break
+      case 'dim':
+        btn.classList.add('led-dim')
+        break
+      case 'flash':
+        btn.classList.add('led-flash')
+        break
     }
   }
 
@@ -445,8 +484,12 @@ export function updateLEDs(ledState: LEDState): void {
   const playBtn = controls.playBtn
   playBtn.classList.remove('play-on', 'play-pulse')
   switch (ledState.play) {
-    case 'on': playBtn.classList.add('play-on'); break
-    case 'pulse': playBtn.classList.add('play-pulse'); break
+    case 'on':
+      playBtn.classList.add('play-on')
+      break
+    case 'pulse':
+      playBtn.classList.add('play-pulse')
+      break
   }
 }
 
