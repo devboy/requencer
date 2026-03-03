@@ -290,7 +290,7 @@ function render(): void {
   updateLEDs(ledState)
 
   // Update mode indicators on subtrack/feature buttons
-  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, uiState.mode)
+  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState.mode)
 
   // Update shortcut hints
   hintEl.textContent = SHORTCUT_HINTS[uiState.mode]

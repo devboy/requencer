@@ -509,11 +509,12 @@ export function updateLEDs(ledState: LEDState): void {
   }
 }
 
-/** Update active state on subtrack/feature/rand buttons to show current mode */
+/** Update active state on subtrack/feature/rand/pat buttons to show current mode */
 export function updateModeIndicators(
   subtrackBtns: HTMLButtonElement[],
   featureBtns: HTMLButtonElement[],
   randBtn: HTMLButtonElement,
+  patBtn: HTMLButtonElement,
   mode: string,
 ): void {
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']
@@ -526,4 +527,5 @@ export function updateModeIndicators(
     featureBtns[i].classList.toggle('active', mode === featureModes[i])
   }
   randBtn.classList.toggle('active', mode === 'rand')
+  patBtn.classList.toggle('active', mode === 'pattern' || mode === 'pattern-load')
 }

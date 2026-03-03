@@ -204,7 +204,7 @@ export function createFaceplate(): FaceplateElements {
     trackBtns.push(btn)
   }
 
-  // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) ---
+  // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) + PAT ---
   const subtrackCol = root.querySelector('#subtrack-col') as HTMLDivElement
   const subtrackBtns: HTMLButtonElement[] = []
   const subtrackLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
@@ -219,6 +219,14 @@ export function createFaceplate(): FaceplateElements {
     subtrackCol.appendChild(btn)
     subtrackBtns.push(btn)
   }
+
+  const patBtn = document.createElement('button')
+  patBtn.className = 'circle-btn pat-btn'
+  const patLabel = document.createElement('span')
+  patLabel.className = 'btn-label label-above'
+  patLabel.textContent = 'PAT'
+  patBtn.appendChild(patLabel)
+  subtrackCol.appendChild(patBtn)
 
   // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
   const featureCol = root.querySelector('#feature-col') as HTMLDivElement
@@ -292,11 +300,6 @@ export function createFaceplate(): FaceplateElements {
   clrBtn.className = 'large-btn clr-btn'
   clrBtn.innerHTML = '<span class="btn-icon">✕</span><span class="btn-text">CLR</span>'
   controlStripBtns.appendChild(clrBtn)
-
-  const patBtn = document.createElement('button')
-  patBtn.className = 'large-btn pat-btn'
-  patBtn.innerHTML = '<span class="btn-icon">▦</span><span class="btn-text">PAT</span>'
-  controlStripBtns.appendChild(patBtn)
 
   // --- Generate output jack rows (OUT 1-4) ---
   const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
@@ -811,10 +814,10 @@ const PANEL_CSS = `
   .track-btn.led-on[data-track="2"] { background: #5aaa6e; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,170,110,0.5), 0 0 16px rgba(90,170,110,0.2); }
   .track-btn.led-on[data-track="3"] { background: #5aabb4; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,171,180,0.5), 0 0 16px rgba(90,171,180,0.2); }
 
-  /* Subtrack/feature buttons */
-  .subtrack-btn, .feature-btn { background: #555; }
-  .subtrack-btn:active, .feature-btn:active { background: #777; }
-  .subtrack-btn.active, .feature-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  /* Subtrack/feature/pat buttons */
+  .subtrack-btn, .feature-btn, .pat-btn { background: #555; }
+  .subtrack-btn:active, .feature-btn:active, .pat-btn:active { background: #777; }
+  .subtrack-btn.active, .feature-btn.active, .pat-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* Transport buttons — styled by .large-btn, these are overrides only */
 
