@@ -317,47 +317,56 @@ describe('randomizeVelocityPattern', () => {
 
 describe('setSubtrackLength', () => {
   it('increases gate length by padding with default GateStep', () => {
-    const state = createSequencer()
-    const next = setSubtrackLength(state, 0, 'gate', 20)
-    expect(next.tracks[0].gate.length).toBe(20)
-    expect(next.tracks[0].gate.steps).toHaveLength(20)
-    // New steps should have default GateStep values
-    expect(next.tracks[0].gate.steps[16].on).toBe(false)
-    expect(next.tracks[0].gate.steps[16].length).toBe(0.5)
-    expect(next.tracks[0].gate.steps[16].ratchet).toBe(1)
-    expect(next.tracks[0].gate.steps[19].on).toBe(false)
+    // Reduce to 8 first, then increase to 12 to test padding
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'gate', 8)
+    const next = setSubtrackLength(state, 0, 'gate', 12)
+    expect(next.tracks[0].gate.length).toBe(12)
+    // steps.length >= length (may retain original 16 steps)
+    expect(next.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(12)
+    // Steps within original 16 have default GateStep values
+    expect(next.tracks[0].gate.steps[8].on).toBe(false)
+    expect(next.tracks[0].gate.steps[8].length).toBe(0.5)
+    expect(next.tracks[0].gate.steps[8].ratchet).toBe(1)
+    expect(next.tracks[0].gate.steps[11].on).toBe(false)
   })
 
   it('increases pitch length by padding with default PitchStep', () => {
-    const state = createSequencer()
-    const next = setSubtrackLength(state, 0, 'pitch', 20)
-    expect(next.tracks[0].pitch.length).toBe(20)
-    expect(next.tracks[0].pitch.steps).toHaveLength(20)
-    expect(next.tracks[0].pitch.steps[16].note).toBe(60)
-    expect(next.tracks[0].pitch.steps[16].slide).toBe(0)
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'pitch', 8)
+    const next = setSubtrackLength(state, 0, 'pitch', 12)
+    expect(next.tracks[0].pitch.length).toBe(12)
+    expect(next.tracks[0].pitch.steps.length).toBeGreaterThanOrEqual(12)
+    expect(next.tracks[0].pitch.steps[8].note).toBe(60)
+    expect(next.tracks[0].pitch.steps[8].slide).toBe(0)
   })
 
   it('increases velocity length by padding with 100', () => {
-    const state = createSequencer()
-    const next = setSubtrackLength(state, 0, 'velocity', 20)
-    expect(next.tracks[0].velocity.length).toBe(20)
-    expect(next.tracks[0].velocity.steps).toHaveLength(20)
-    expect(next.tracks[0].velocity.steps[16]).toBe(100)
+    let state = createSequencer()
+    state = setSubtrackLength(state, 0, 'velocity', 8)
+    const next = setSubtrackLength(state, 0, 'velocity', 12)
+    expect(next.tracks[0].velocity.length).toBe(12)
+    expect(next.tracks[0].velocity.steps.length).toBeGreaterThanOrEqual(12)
+    expect(next.tracks[0].velocity.steps[8]).toBe(100)
   })
 
-  it('decreases length by truncating', () => {
+  it('decreases length but preserves step data beyond new length', () => {
     let state = createSequencer()
     state = setGateOn(state, 0, 5, true)
     const next = setSubtrackLength(state, 0, 'gate', 4)
     expect(next.tracks[0].gate.length).toBe(4)
-    expect(next.tracks[0].gate.steps).toHaveLength(4)
-    // Step 5 is gone
+    // steps array still contains data beyond length
+    expect(next.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(4)
+    // Step 5 data is preserved (not truncated)
+    expect(next.tracks[0].gate.steps[5].on).toBe(true)
   })
 
   it('preserves existing step values on increase', () => {
     let state = createSequencer()
     state = setPitchNote(state, 0, 3, 72)
-    const next = setSubtrackLength(state, 0, 'pitch', 32)
+    // Reduce first, then expand back
+    state = setSubtrackLength(state, 0, 'pitch', 4)
+    const next = setSubtrackLength(state, 0, 'pitch', 16)
     expect(next.tracks[0].pitch.steps[3].note).toBe(72)
   })
 
@@ -365,14 +374,15 @@ describe('setSubtrackLength', () => {
     const state = createSequencer()
     const next = setSubtrackLength(state, 0, 'gate', 0)
     expect(next.tracks[0].gate.length).toBe(1)
-    expect(next.tracks[0].gate.steps).toHaveLength(1)
+    // steps array preserves all data (>= length)
+    expect(next.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('clamps to maximum length of 64', () => {
+  it('clamps to maximum length of 16', () => {
     const state = createSequencer()
     const next = setSubtrackLength(state, 0, 'gate', 100)
-    expect(next.tracks[0].gate.length).toBe(64)
-    expect(next.tracks[0].gate.steps).toHaveLength(64)
+    expect(next.tracks[0].gate.length).toBe(16)
+    expect(next.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(16)
   })
 
   it('does not affect other tracks', () => {
@@ -392,6 +402,45 @@ describe('setSubtrackLength', () => {
     const state = createSequencer()
     setSubtrackLength(state, 0, 'gate', 8)
     expect(state.tracks[0].gate.length).toBe(16)
+  })
+
+  it('round-trip: reduce then expand preserves step data', () => {
+    let state = createSequencer()
+    // Set distinctive data at steps 10, 12, 15
+    state = setPitchNote(state, 0, 10, 80)
+    state = setPitchNote(state, 0, 12, 90)
+    state = setPitchNote(state, 0, 15, 100)
+    state = setGateOn(state, 0, 12, true)
+
+    // Reduce to 8 — hides steps 8-15
+    state = setSubtrackLength(state, 0, 'pitch', 8)
+    state = setSubtrackLength(state, 0, 'gate', 8)
+    expect(state.tracks[0].pitch.length).toBe(8)
+    expect(state.tracks[0].gate.length).toBe(8)
+
+    // Expand back to 16 — data should be intact
+    state = setSubtrackLength(state, 0, 'pitch', 16)
+    state = setSubtrackLength(state, 0, 'gate', 16)
+    expect(state.tracks[0].pitch.steps[10].note).toBe(80)
+    expect(state.tracks[0].pitch.steps[12].note).toBe(90)
+    expect(state.tracks[0].pitch.steps[15].note).toBe(100)
+    expect(state.tracks[0].gate.steps[12].on).toBe(true)
+  })
+
+  it('maintains invariant: steps.length >= length', () => {
+    let state = createSequencer()
+    // Reduce
+    state = setSubtrackLength(state, 0, 'gate', 4)
+    expect(state.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(state.tracks[0].gate.length)
+    // Expand back
+    state = setSubtrackLength(state, 0, 'gate', 12)
+    expect(state.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(state.tracks[0].gate.length)
+    // At max
+    state = setSubtrackLength(state, 0, 'gate', 16)
+    expect(state.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(state.tracks[0].gate.length)
+    // At min
+    state = setSubtrackLength(state, 0, 'gate', 1)
+    expect(state.tracks[0].gate.steps.length).toBeGreaterThanOrEqual(state.tracks[0].gate.length)
   })
 })
 
@@ -471,19 +520,23 @@ describe('setMuteLength', () => {
     const state = createSequencer()
     const next = setMuteLength(state, 0, 8)
     expect(next.mutePatterns[0].length).toBe(8)
-    expect(next.mutePatterns[0].steps).toHaveLength(8)
+    // steps array preserves data (>= length)
+    expect(next.mutePatterns[0].steps.length).toBeGreaterThanOrEqual(8)
   })
 
   it('pads new steps with false (unmuted)', () => {
-    const state = createSequencer()
-    const next = setMuteLength(state, 0, 20)
-    expect(next.mutePatterns[0].steps[16]).toBe(false)
+    // Reduce first to 8, then expand to 12 to test padding
+    let state = createSequencer()
+    state = setMuteLength(state, 0, 8)
+    const next = setMuteLength(state, 0, 12)
+    // Original steps at index 8 should still be false (default)
+    expect(next.mutePatterns[0].steps[8]).toBe(false)
   })
 
-  it('clamps to 1-64', () => {
+  it('clamps to 1-16', () => {
     const state = createSequencer()
     expect(setMuteLength(state, 0, 0).mutePatterns[0].length).toBe(1)
-    expect(setMuteLength(state, 0, 100).mutePatterns[0].length).toBe(64)
+    expect(setMuteLength(state, 0, 100).mutePatterns[0].length).toBe(16)
   })
 
   it('does not affect other mute patterns', () => {

@@ -42,15 +42,16 @@ function applyMutation<T>(original: T[], replacement: T[], indices: number[]): T
  */
 function mutateSubtrack<T>(
   steps: T[],
+  activeLength: number,
   rate: number,
   generateReplacement: (length: number, seed: number) => T[],
   rng: () => number,
   seed: number,
 ): T[] {
   if (rate <= 0) return steps
-  const indices = pickMutationIndices(steps.length, rate, rng)
+  const indices = pickMutationIndices(activeLength, rate, rng)
   if (indices.length === 0) return steps
-  const replacement = generateReplacement(steps.length, seed)
+  const replacement = generateReplacement(activeLength, seed)
   return applyMutation(steps, replacement, indices)
 }
 
@@ -71,9 +72,9 @@ export function mutateTrack(
   // Gate mutation: only mutate .on, preserve .length and .ratchet
   let newGateSteps = track.gate.steps
   if (mutateConfig.gate > 0) {
-    const indices = pickMutationIndices(track.gate.steps.length, mutateConfig.gate, rng)
+    const indices = pickMutationIndices(track.gate.length, mutateConfig.gate, rng)
     if (indices.length > 0) {
-      const replacementBools = randomizeGates(randomConfig.gate, track.gate.steps.length, seed + 10)
+      const replacementBools = randomizeGates(randomConfig.gate, track.gate.length, seed + 10)
       newGateSteps = [...track.gate.steps]
       for (const idx of indices) {
         newGateSteps[idx] = { ...newGateSteps[idx], on: replacementBools[idx] }
@@ -84,9 +85,9 @@ export function mutateTrack(
   // Pitch mutation: only mutate .note, preserve .slide
   let newPitchSteps = track.pitch.steps
   if (mutateConfig.pitch > 0) {
-    const indices = pickMutationIndices(track.pitch.steps.length, mutateConfig.pitch, rng)
+    const indices = pickMutationIndices(track.pitch.length, mutateConfig.pitch, rng)
     if (indices.length > 0) {
-      const replacementNotes = randomizePitch(randomConfig.pitch, track.pitch.steps.length, seed + 11)
+      const replacementNotes = randomizePitch(randomConfig.pitch, track.pitch.length, seed + 11)
       newPitchSteps = [...track.pitch.steps]
       for (const idx of indices) {
         newPitchSteps[idx] = { ...newPitchSteps[idx], note: replacementNotes[idx] }
@@ -96,6 +97,7 @@ export function mutateTrack(
 
   const newVel = mutateSubtrack(
     track.velocity.steps,
+    track.velocity.length,
     mutateConfig.velocity,
     (len, s) => randomizeVelocity(randomConfig.velocity, len, s),
     rng,
@@ -104,9 +106,9 @@ export function mutateTrack(
   // Mod mutation: only mutate .value, preserve .slew
   let newModSteps = track.mod.steps
   if (mutateConfig.mod > 0) {
-    const indices = pickMutationIndices(track.mod.steps.length, mutateConfig.mod, rng)
+    const indices = pickMutationIndices(track.mod.length, mutateConfig.mod, rng)
     if (indices.length > 0) {
-      const replacementModSteps = randomizeMod(randomConfig.mod, track.mod.steps.length, seed + 13)
+      const replacementModSteps = randomizeMod(randomConfig.mod, track.mod.length, seed + 13)
       newModSteps = [...track.mod.steps]
       for (const idx of indices) {
         newModSteps[idx] = { ...newModSteps[idx], value: replacementModSteps[idx].value }

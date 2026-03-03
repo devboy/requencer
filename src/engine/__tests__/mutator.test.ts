@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TICKS_PER_STEP } from '../clock-divider'
 import { isMutateActive, mutateTrack } from '../mutator'
-import { createSequencer, randomizeTrackPattern, tick } from '../sequencer'
+import { createSequencer, randomizeTrackPattern, setSubtrackLength, tick } from '../sequencer'
 import type { MutateConfig } from '../types'
 
 /** Helper: create a MutateConfig with everything off */
@@ -117,6 +117,38 @@ describe('mutateTrack', () => {
     for (const p of result.pitch.steps) {
       expect(p.note).toBeGreaterThanOrEqual(pitchConfig.low)
       expect(p.note).toBeLessThanOrEqual(pitchConfig.high)
+    }
+  })
+})
+
+describe('mutation respects active length', () => {
+  it('only mutates steps within active length, not hidden steps', () => {
+    let state = createSequencer()
+    state = randomizeTrackPattern(state, 0, 42)
+
+    // Reduce length to 8 — steps 8-15 become hidden
+    state = setSubtrackLength(state, 0, 'gate', 8)
+    state = setSubtrackLength(state, 0, 'pitch', 8)
+    state = setSubtrackLength(state, 0, 'velocity', 8)
+    state = setSubtrackLength(state, 0, 'mod', 8)
+
+    const track = state.tracks[0]
+    // Snapshot hidden steps (indices 8-15)
+    const hiddenGate = track.gate.steps.slice(8).map((s) => ({ ...s }))
+    const hiddenPitch = track.pitch.steps.slice(8).map((s) => ({ ...s }))
+    const hiddenVel = [...track.velocity.steps.slice(8)]
+    const hiddenMod = track.mod.steps.slice(8).map((s) => ({ ...s }))
+
+    // Mutate with rate=1 (all active steps mutated)
+    const config: MutateConfig = { ...offConfig(), gate: 1, pitch: 1, velocity: 1, mod: 1 }
+    const result = mutateTrack(track, state.randomConfigs[0], config, 99)
+
+    // Hidden steps (8-15) must be unchanged
+    for (let i = 0; i < hiddenGate.length; i++) {
+      expect(result.gate.steps[8 + i]).toEqual(hiddenGate[i])
+      expect(result.pitch.steps[8 + i]).toEqual(hiddenPitch[i])
+      expect(result.velocity.steps[8 + i]).toBe(hiddenVel[i])
+      expect(result.mod.steps[8 + i]).toEqual(hiddenMod[i])
     }
   })
 })
