@@ -16,7 +16,9 @@ describe('PRESETS', () => {
       expect(preset.config.gate.fillMin).toBeGreaterThanOrEqual(0)
       expect(preset.config.gate.fillMax).toBeLessThanOrEqual(1)
       expect(preset.config.gate.fillMin).toBeLessThanOrEqual(preset.config.gate.fillMax)
-      expect(['random', 'euclidean']).toContain(preset.config.gate.mode)
+      expect(['random', 'euclidean', 'sync', 'cluster']).toContain(preset.config.gate.mode)
+      expect(preset.config.gate.clusterContinuation).toBeGreaterThanOrEqual(0)
+      expect(preset.config.gate.clusterContinuation).toBeLessThanOrEqual(1)
       expect(preset.config.velocity.low).toBeGreaterThanOrEqual(0)
       expect(preset.config.velocity.high).toBeLessThanOrEqual(127)
     }

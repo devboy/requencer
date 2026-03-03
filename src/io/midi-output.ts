@@ -45,13 +45,14 @@ export class MIDIOutput {
    * deviceIds maps output index to selected MIDI device ID.
    * stepDuration is the duration of one 16th note in seconds.
    */
-  handleEvents(events: NoteEvent[], configs: MIDIOutputConfig[], deviceIds: string[], stepDuration: number): void {
+  handleEvents(events: NoteEvent[], configs: MIDIOutputConfig[], deviceIds: string[], stepDuration: number, midiEnabled: boolean): void {
     if (!this.access) return
+    if (!midiEnabled) return
     const now = performance.now()
 
     for (const event of events) {
       const config = configs[event.output]
-      if (!config?.enabled) continue
+      if (!config) continue
 
       const deviceId = deviceIds[event.output]
       if (!deviceId) continue

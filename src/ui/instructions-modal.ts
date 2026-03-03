@@ -14,13 +14,19 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'RANDOMIZER',
-    body: `Press D to open the RAND screen. Configure per-track: musical scale & root, pitch range, max distinct notes, fill density (min/max %), gate algorithm (euclidean or random), velocity range. Use Enc A to scroll params, Enc B to adjust values, Enc A push to apply a preset or save your own.
+    body: `Press D to open the RAND screen. Configure per-track: musical scale & root, pitch range, max distinct notes, fill density (min/max %), velocity range, and gate mode. Four gate algorithms: RAND (shuffle), EUCL (euclidean), SYNC (offbeat-biased), CLST (clustered bursts). EUCL has a random offset sub-param, CLST has a continuation probability. Use Enc A to scroll params, Enc B to adjust values, Enc A push to apply a preset or save your own.
 
-Quick randomize: Hold a track button (1–4) + D to regenerate all subtracks. Hold a subtrack button (Q/W/E) + D to regenerate only that layer. Hold D alone to randomize everything.`,
+Quick randomize: Hold a track button (1–4) + D to regenerate all subtracks. Hold a subtrack button (Q/W/E/R) + D to regenerate only that layer. Hold D alone to randomize everything.`,
   },
   {
     title: 'PRESETS',
-    body: '6 factory presets shape the randomizer: Bassline (minor pent, euclidean grooves), Hypnotic (dense, repetitive), Acid (blues scale, wide velocity), Ambient (sparse, major), Percussive (chromatic, high velocity), Sparse (dorian, light fills). Save custom presets from the RAND screen.',
+    body: '8 factory presets shape the randomizer: Bassline (deep sub, euclidean), Hypnotic (cluster mode, dense rolls), Acid (sync mode, blues scale, slides), Ambient (sparse, major), Percussive (chromatic, ratchets), Sparse (dorian, light fills), Stab (offbeat minor hits), Driving (relentless pulse). Save custom presets from the RAND screen.',
+  },
+  {
+    title: 'DRIFT & TRANSPOSE',
+    body: `Press F for DRIFT — per-track stochastic mutation. Each subtrack (gate, pitch, vel, mod) has an independent drift rate. When enabled, steps randomly mutate over time, creating gradual pattern evolution. Higher rates mean faster change.
+
+Press G for TRANSPOSE — per-track transposition. Set semitone offset, note range (low/high), and scale quantization. Transpose applies to the pitch subtrack output in real time.`,
   },
   {
     title: 'HOLD COMBOS',
@@ -29,6 +35,10 @@ Quick randomize: Hold a track button (1–4) + D to regenerate all subtracks. Ho
   {
     title: 'ROUTING',
     body: 'Press S to enter the route screen. Each track\'s 4 subtrack outputs (gate/pitch/vel/mod) can be freely routed to any of the 4 output jacks (A–D), enabling multi-voice or layered configurations.',
+  },
+  {
+    title: 'SETTINGS',
+    body: 'Press the SET button (jack zone) to open global settings. Clock section: adjust BPM and clock source (INT/MIDI/EXT). MIDI section: global MIDI on/off, device selection, and per-output MIDI channel assignment (1–16).',
   },
 ]
 

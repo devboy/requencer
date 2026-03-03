@@ -112,7 +112,10 @@ function buildRowDefs(): RandRow[] {
     },
     {
       type: 'param', paramId: 'gate.mode', label: 'MODE',
-      getValue: (e, ui) => cfg(e, ui).gate.mode.toUpperCase(),
+      getValue: (e, ui) => {
+        const map: Record<string, string> = { random: 'RAND', euclidean: 'EUCL', sync: 'SYNC', cluster: 'CLST' }
+        return map[cfg(e, ui).gate.mode] ?? cfg(e, ui).gate.mode.toUpperCase()
+      },
       visible: always,
     },
     {
@@ -121,14 +124,9 @@ function buildRowDefs(): RandRow[] {
       visible: (e, ui) => cfg(e, ui).gate.mode === 'euclidean',
     },
     {
-      type: 'param', paramId: 'gate.smartBars', label: 'BARS',
-      getValue: (e, ui) => String(cfg(e, ui).gate.smartBars),
-      visible: always,
-    },
-    {
-      type: 'param', paramId: 'gate.smartDensity', label: 'PHRASE',
-      getValue: (e, ui) => cfg(e, ui).gate.smartDensity.toUpperCase(),
-      visible: always,
+      type: 'subparam', paramId: 'gate.clusterContinuation', label: 'CLST %',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.clusterContinuation * 100)}%`,
+      visible: (e, ui) => cfg(e, ui).gate.mode === 'cluster',
     },
     {
       type: 'param', paramId: 'gateLength.min', label: 'GL MIN',
@@ -251,7 +249,7 @@ export function getVisibleRows(engine: SequencerState, ui: UIState): RandRow[] {
 export const SECTION_PARAMS: Record<string, string[]> = {
   'section.pitch': ['pitch.scale', 'pitch.root', 'pitch.low', 'pitch.high', 'pitch.maxNotes', 'slide.probability'],
   'section.arp': ['arp.enabled', 'arp.direction', 'arp.octaveRange'],
-  'section.gate': ['gate.fillMin', 'gate.fillMax', 'gate.mode', 'gate.randomOffset', 'gate.smartBars', 'gate.smartDensity', 'gateLength.min', 'gateLength.max', 'ratchet.maxRatchet', 'ratchet.probability'],
+  'section.gate': ['gate.fillMin', 'gate.fillMax', 'gate.mode', 'gate.randomOffset', 'gate.clusterContinuation', 'gateLength.min', 'gateLength.max', 'ratchet.maxRatchet', 'ratchet.probability'],
   'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.low', 'velocity.high'],
   'section.mod': ['mod.low', 'mod.high'],

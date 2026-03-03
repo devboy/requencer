@@ -55,10 +55,9 @@ export interface RandomConfig {
   gate: {
     fillMin: number          // 0.0 - 1.0
     fillMax: number          // 0.0 - 1.0
-    mode: 'random' | 'euclidean'
+    mode: 'random' | 'euclidean' | 'sync' | 'cluster'
     randomOffset: boolean    // in euclidean mode: randomize rotation offset
-    smartBars: number        // 1/2/4/8/16 — number of bars for smart gate
-    smartDensity: SmartGateDensity
+    clusterContinuation: number  // 0.0-1.0, Markov continuation probability for cluster mode
   }
   velocity: {
     low: Velocity
@@ -116,10 +115,13 @@ export interface NoteEvent {
 }
 
 // Transport state
+export type ClockSource = 'internal' | 'midi' | 'external'
+
 export interface Transport {
   bpm: number
   playing: boolean
   masterTick: number
+  clockSource: ClockSource
 }
 
 // A saved user preset
@@ -136,9 +138,6 @@ export interface TransposeConfig {
   glScale: number             // 0.25 to 4.0 (1.0 = 100%, gate length multiplier)
   velScale: number            // 0.25 to 4.0 (1.0 = 100%, velocity multiplier)
 }
-
-// Smart gate density mode
-export type SmartGateDensity = 'build' | 'decay' | 'build-drop' | 'variation'
 
 // Arpeggiator direction
 export type ArpDirection = 'up' | 'down' | 'triangle' | 'random'
@@ -177,7 +176,6 @@ export interface MutateConfig {
 
 // MIDI output config per output
 export interface MIDIOutputConfig {
-  enabled: boolean
   channel: number            // 1-16
 }
 
@@ -193,5 +191,6 @@ export interface SequencerState {
   arpConfigs: ArpConfig[]          // 4 arp configs (one per track)
   mutateConfigs: MutateConfig[]    // 4 mutate configs (one per track)
   midiConfigs: MIDIOutputConfig[]  // 4 MIDI configs (one per output)
+  midiEnabled: boolean                  // global MIDI output on/off
   userPresets: UserPreset[]         // user-saved presets (unlimited)
 }

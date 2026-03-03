@@ -25,6 +25,7 @@ export type ScreenMode =
   | 'mutate-edit'
   | 'mod-edit'
   | 'transpose-edit'
+  | 'settings'
 
 export type ControlEvent =
   | { type: 'encoder-a-turn'; delta: number }
@@ -41,6 +42,7 @@ export type ControlEvent =
   | { type: 'step-press'; step: number }          // 0-15
   | { type: 'hold-start'; button: HeldButtonTarget }
   | { type: 'hold-end' }
+  | { type: 'settings-press' }
 
 export type SubtrackId = 'gate' | 'pitch' | 'velocity' | 'mod'
 export type FeatureId = 'mute' | 'route' | 'rand' | 'mutate' | 'transpose'
@@ -66,7 +68,7 @@ export interface UIState {
   nameCursor: number          // cursor position in name-entry (0 to nameChars.length-1)
   mutateParam: number         // 0-8: selected row in DRIFT screen (7 subtracks + trigger + bars)
   routeParam: number          // 0-3: selected param row in ROUTE screen (gate/pitch/vel/mod)
-  routePage: number           // 0=routing, 1=midi
+  settingsParam: number       // 0-N: selected row in SETTINGS screen
   midiDevices: Array<{ id: string; name: string }>  // available MIDI output devices
   midiDeviceIndex: number     // selected MIDI device index per output (into midiDevices)
 }

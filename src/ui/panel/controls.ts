@@ -268,6 +268,9 @@ export function createControls(panel: FaceplateElements): void {
     emit({ type: 'back' })
   })
 
+  // --- SETTINGS button — enters settings screen ---
+  panel.settingsBtn.addEventListener('pointerdown', () => emit({ type: 'settings-press' }))
+
   // --- TBD button — no-op for now ---
 
   // --- Global click: end sticky hold on clicks outside interactive controls ---

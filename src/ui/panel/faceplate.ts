@@ -76,6 +76,7 @@ export interface FaceplateElements {
   randBtn: HTMLButtonElement
   backBtn: HTMLButtonElement
   tdbBtn: HTMLButtonElement
+  settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
 }
@@ -196,7 +197,7 @@ export function createFaceplate(): FaceplateElements {
     btn.dataset.track = String(i)
     const label = document.createElement('span')
     label.className = 'btn-label label-above'
-    label.textContent = `T/O ${i + 1}`
+    label.textContent = `${i + 1}`
     btn.appendChild(label)
     trackBtnGroup.appendChild(btn)
     trackBtns.push(btn)
@@ -265,6 +266,14 @@ export function createFaceplate(): FaceplateElements {
   resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
   utilRowReset.insertBefore(resetBtn, utilRowReset.firstChild)
 
+  // --- SETTINGS button in jack zone ---
+  const utilRowMidi = root.querySelector('#util-row-midi') as HTMLDivElement
+  const settingsBtn = document.createElement('button')
+  settingsBtn.className = 'large-btn transport-btn jack-zone-btn'
+  settingsBtn.innerHTML = '<span class="btn-icon">⚙</span><span class="btn-text">SET</span>'
+  const spacer = utilRowMidi.querySelector('.jack-row-3-spacer')
+  if (spacer) utilRowMidi.replaceChild(settingsBtn, spacer)
+
   // --- Generate control strip buttons (RAND, BACK, TBD) ---
   const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
 
@@ -315,6 +324,7 @@ export function createFaceplate(): FaceplateElements {
     randBtn,
     backBtn,
     tdbBtn,
+    settingsBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
   }

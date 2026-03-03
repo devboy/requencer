@@ -64,6 +64,111 @@ describe('randomizeGates', () => {
   })
 })
 
+describe('randomizeGates sync mode', () => {
+  it('produces correct hit count', () => {
+    const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'sync' }, 16, 42)
+    expect(pattern.length).toBe(16)
+    expect(pattern.filter(Boolean).length).toBe(8)
+  })
+
+  it('is deterministic with same seed', () => {
+    const a = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'sync' }, 16, 42)
+    const b = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'sync' }, 16, 42)
+    expect(a).toEqual(b)
+  })
+
+  it('statistically biases away from downbeats', () => {
+    const downbeatPositions = [0, 4, 8, 12]
+    const offbeatPositions = [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15]
+    let downbeatHits = 0
+    let offbeatHits = 0
+
+    for (let seed = 0; seed < 200; seed++) {
+      const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'sync' }, 16, seed)
+      for (const pos of downbeatPositions) if (pattern[pos]) downbeatHits++
+      for (const pos of offbeatPositions) if (pattern[pos]) offbeatHits++
+    }
+
+    // Downbeats should be hit proportionally less than offbeats
+    const downbeatRate = downbeatHits / (200 * downbeatPositions.length)
+    const offbeatRate = offbeatHits / (200 * offbeatPositions.length)
+    expect(downbeatRate).toBeLessThan(offbeatRate)
+  })
+
+  it('respects fillMin/fillMax range', () => {
+    const pattern = randomizeGates({ fillMin: 0.25, fillMax: 0.75, mode: 'sync' }, 16, 42)
+    const hits = pattern.filter(Boolean).length
+    expect(hits).toBeGreaterThanOrEqual(4)
+    expect(hits).toBeLessThanOrEqual(12)
+  })
+})
+
+describe('randomizeGates cluster mode', () => {
+  it('produces correct hit count', () => {
+    const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.7 }, 16, 42)
+    expect(pattern.length).toBe(16)
+    expect(pattern.filter(Boolean).length).toBe(8)
+  })
+
+  it('is deterministic with same seed', () => {
+    const a = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.7 }, 16, 42)
+    const b = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.7 }, 16, 42)
+    expect(a).toEqual(b)
+  })
+
+  it('high continuation produces consecutive runs', () => {
+    let totalRuns = 0
+    let totalHits = 0
+    const trials = 100
+    for (let seed = 0; seed < trials; seed++) {
+      const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.9 }, 16, seed)
+      const hits = pattern.filter(Boolean).length
+      totalHits += hits
+      // Count distinct runs (groups of consecutive true values)
+      let runs = 0
+      for (let i = 0; i < pattern.length; i++) {
+        if (pattern[i] && (i === 0 || !pattern[i - 1])) runs++
+      }
+      totalRuns += runs
+    }
+    // With high continuation, average run length should be > 1.7 (well above scattered ~1.2)
+    const avgRunLength = totalHits / totalRuns
+    expect(avgRunLength).toBeGreaterThan(1.7)
+  })
+
+  it('low continuation produces scattered singles', () => {
+    let totalRuns = 0
+    let totalHits = 0
+    const trials = 100
+    for (let seed = 0; seed < trials; seed++) {
+      const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster', clusterContinuation: 0.1 }, 16, seed)
+      const hits = pattern.filter(Boolean).length
+      totalHits += hits
+      let runs = 0
+      for (let i = 0; i < pattern.length; i++) {
+        if (pattern[i] && (i === 0 || !pattern[i - 1])) runs++
+      }
+      totalRuns += runs
+    }
+    // With low continuation, average run length should be close to 1
+    const avgRunLength = totalHits / totalRuns
+    expect(avgRunLength).toBeLessThan(2)
+  })
+
+  it('respects fillMin/fillMax range', () => {
+    const pattern = randomizeGates({ fillMin: 0.25, fillMax: 0.75, mode: 'cluster', clusterContinuation: 0.5 }, 16, 42)
+    const hits = pattern.filter(Boolean).length
+    expect(hits).toBeGreaterThanOrEqual(4)
+    expect(hits).toBeLessThanOrEqual(12)
+  })
+
+  it('defaults to 0.5 continuation when not specified', () => {
+    const pattern = randomizeGates({ fillMin: 0.5, fillMax: 0.5, mode: 'cluster' }, 16, 42)
+    expect(pattern.length).toBe(16)
+    expect(pattern.filter(Boolean).length).toBe(8)
+  })
+})
+
 describe('randomizePitch', () => {
   it('produces notes within range and in scale', () => {
     const config = { low: 60, high: 72, scale: SCALES.major, root: 60 }
@@ -209,7 +314,7 @@ describe('randomizeTrack', () => {
   it('generates all subtracks with independent lengths', () => {
     const config = {
       pitch: { low: 60, high: 72, scale: SCALES.major, root: 60, maxNotes: 0 },
-      gate: { fillMin: 0.25, fillMax: 0.75, mode: 'random' as const, randomOffset: false, smartBars: 1, smartDensity: 'build' as const },
+      gate: { fillMin: 0.25, fillMax: 0.75, mode: 'random' as const, randomOffset: false, clusterContinuation: 0.7 },
       velocity: { low: 64, high: 127 },
       gateLength: { min: 0.25, max: 0.75 },
       ratchet: { maxRatchet: 3, probability: 0.2 },

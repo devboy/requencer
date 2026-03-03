@@ -609,7 +609,7 @@ describe('hold combos', () => {
       const ui = holdUI({ kind: 'feature', feature: 'mute' })
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 2 })
-      expect(result.engine.mutePatterns[0].clockDivider).toBe(3) // 1 + 2
+      expect(result.engine.mutePatterns[0].clockDivider).toBe(6) // 4 + 2
     })
   })
 
@@ -810,9 +810,9 @@ describe('rand screen dispatch', () => {
       const eng = makeState()
       const ui = randUI('preset', eng, 0) // Bassline preset
       const result = dispatch(ui, eng, { type: 'encoder-a-push' })
-      // Bassline: pitch low=36, high=48
-      expect(result.engine.randomConfigs[0].pitch.low).toBe(36)
-      expect(result.engine.randomConfigs[0].pitch.high).toBe(48)
+      // Bassline: pitch low=24, high=36
+      expect(result.engine.randomConfigs[0].pitch.low).toBe(24)
+      expect(result.engine.randomConfigs[0].pitch.high).toBe(36)
       // Other tracks unchanged
       expect(result.engine.randomConfigs[1]).toEqual(eng.randomConfigs[1])
     })
@@ -928,12 +928,36 @@ describe('rand screen dispatch', () => {
   })
 
   describe('gate mode row', () => {
-    it('enc B toggles gate mode', () => {
+    it('enc B cycles through 4 gate modes', () => {
       const eng = makeState()
       const ui = randUI('gate.mode', eng)
-      const before = eng.randomConfigs[0].gate.mode
+      // Default is euclidean, cycling forward: euclidean → sync → cluster → random → euclidean
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r1.engine.randomConfigs[0].gate.mode).toBe('sync')
+      const r2 = dispatch(ui, r1.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r2.engine.randomConfigs[0].gate.mode).toBe('cluster')
+      const r3 = dispatch(ui, r2.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r3.engine.randomConfigs[0].gate.mode).toBe('random')
+      const r4 = dispatch(ui, r3.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r4.engine.randomConfigs[0].gate.mode).toBe('euclidean')
+    })
+
+    it('enc B cycles backwards', () => {
+      const eng = makeState()
+      const ui = randUI('gate.mode', eng)
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
+      expect(r1.engine.randomConfigs[0].gate.mode).toBe('random')
+    })
+  })
+
+  describe('cluster continuation row', () => {
+    it('enc B adjusts cluster continuation by 0.05', () => {
+      let eng = makeState()
+      eng = { ...eng, randomConfigs: eng.randomConfigs.map(c => ({ ...c, gate: { ...c.gate, mode: 'cluster' as const } })) }
+      const ui = randUI('gate.clusterContinuation', eng)
+      const before = eng.randomConfigs[0].gate.clusterContinuation
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
-      expect(result.engine.randomConfigs[0].gate.mode).toBe(before === 'random' ? 'euclidean' : 'random')
+      expect(result.engine.randomConfigs[0].gate.clusterContinuation).toBeCloseTo(before + 0.05)
     })
   })
 
@@ -1285,59 +1309,112 @@ describe('route screen dispatch', () => {
     })
   })
 
-  describe('MIDI page', () => {
-    it('enc A push toggles to MIDI page', () => {
-      const ui = routeUI(0)
+  describe('settings-press', () => {
+    it('enters settings mode', () => {
+      const ui = createInitialUIState()
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-push' })
-      expect(result.ui.routePage).toBe(1)
-      expect(result.ui.routeParam).toBe(0)
+      const result = dispatch(ui, eng, { type: 'settings-press' })
+      expect(result.ui.mode).toBe('settings')
+      expect(result.ui.settingsParam).toBe(0)
+    })
+  })
+
+  describe('settings mode', () => {
+    function settingsUI(param = 0) {
+      return { ...createInitialUIState(), mode: 'settings' as const, settingsParam: param }
+    }
+
+    it('enc A scrolls settingsParam', () => {
+      const ui = settingsUI(0)
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.settingsParam).toBe(1)
     })
 
-    it('enc A push on MIDI page returns to route page', () => {
-      const ui = { ...routeUI(0), routePage: 1 }
+    it('enc A clamps to 0', () => {
+      const ui = settingsUI(0)
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-a-push' })
-      expect(result.ui.routePage).toBe(0)
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: -1 })
+      expect(result.ui.settingsParam).toBe(0)
     })
 
-    it('enc B toggles MIDI enabled', () => {
-      const ui = { ...routeUI(0), routePage: 1 }
+    it('enc B adjusts BPM on clock.bpm row', () => {
+      // Row 1 is clock.bpm (row 0 is CLOCK header)
+      const ui = settingsUI(1)
       const eng = makeState()
-      expect(eng.midiConfigs[0].enabled).toBe(false)
-      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
-      expect(result.engine.midiConfigs[0].enabled).toBe(true)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 5 })
+      expect(result.engine.transport.bpm).toBe(eng.transport.bpm + 5)
     })
 
-    it('enc B adjusts MIDI channel on param 1', () => {
-      const ui = { ...routeUI(1), routePage: 1 }
+    it('BPM clamps 20-300', () => {
+      const ui = settingsUI(1)
+      const eng = makeState()
+      const up = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 999 })
+      expect(up.engine.transport.bpm).toBe(300)
+      const down = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -999 })
+      expect(down.engine.transport.bpm).toBe(20)
+    })
+
+    it('enc B cycles clock source', () => {
+      // Row 2 is clock.source
+      const ui = settingsUI(2)
+      const eng = makeState()
+      expect(eng.transport.clockSource).toBe('internal')
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r1.engine.transport.clockSource).toBe('midi')
+      const r2 = dispatch(ui, r1.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r2.engine.transport.clockSource).toBe('external')
+      const r3 = dispatch(ui, r2.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r3.engine.transport.clockSource).toBe('internal')
+    })
+
+    it('enc B toggles MIDI enabled directionally', () => {
+      // Row 4 is midi.enabled (row 3 is MIDI header)
+      const ui = settingsUI(4)
+      const eng = makeState()
+      expect(eng.midiEnabled).toBe(false)
+      // Turn right → ON
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r1.engine.midiEnabled).toBe(true)
+      // Turn right again → stays ON
+      const r2 = dispatch(ui, r1.engine, { type: 'encoder-b-turn', delta: 1 })
+      expect(r2.engine.midiEnabled).toBe(true)
+      // Turn left → OFF
+      const r3 = dispatch(ui, r1.engine, { type: 'encoder-b-turn', delta: -1 })
+      expect(r3.engine.midiEnabled).toBe(false)
+    })
+
+    it('enc B adjusts MIDI channel', () => {
+      // Row 6 is midi.ch.0
+      const ui = settingsUI(6)
       const eng = makeState()
       expect(eng.midiConfigs[0].channel).toBe(1)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 3 })
       expect(result.engine.midiConfigs[0].channel).toBe(4)
     })
 
-    it('MIDI channel clamps at 1-16', () => {
-      const ui = { ...routeUI(1), routePage: 1 }
+    it('MIDI channel clamps 1-16', () => {
+      const ui = settingsUI(6)
       const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -5 })
-      expect(result.engine.midiConfigs[0].channel).toBe(1)
+      const down = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -5 })
+      expect(down.engine.midiConfigs[0].channel).toBe(1)
+      const up = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 50 })
+      expect(up.engine.midiConfigs[0].channel).toBe(16)
     })
 
-    it('back from MIDI page returns home and resets page', () => {
-      const ui = { ...routeUI(0), routePage: 1 }
+    it('enc B is no-op on header rows', () => {
+      // Row 0 is CLOCK header
+      const ui = settingsUI(0)
+      const eng = makeState()
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.engine).toBe(eng)
+    })
+
+    it('back returns to home', () => {
+      const ui = settingsUI(3)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'back' })
       expect(result.ui.mode).toBe('home')
-      expect(result.ui.routePage).toBe(0)
-    })
-
-    it('encoder-b-push is no-op on MIDI page', () => {
-      const ui = { ...routeUI(0), routePage: 1 }
-      const eng = makeState()
-      const result = dispatch(ui, eng, { type: 'encoder-b-push' })
-      expect(result.ui.mode).toBe('route')
-      expect(result.ui.routePage).toBe(1)
     })
   })
 

@@ -1,10 +1,10 @@
 import type { SequencerState, SequenceTrack, RandomConfig, MuteTrack, NoteEvent, Subtrack, MutateConfig, GateStep, PitchStep } from './types'
 import { SCALES } from './scales'
+import { PRESETS } from './presets'
 import { getEffectiveStep } from './clock-divider'
 import { resolveOutputs, createDefaultRouting } from './routing'
 import { randomizeTrack, randomizeGates, randomizePitch, randomizeVelocity, randomizeGateLength, randomizeRatchets, randomizeSlides, randomizeMod, randomizeTies } from './randomizer'
 import { generateArpPattern } from './arpeggiator'
-import { generateSmartGatePattern } from './smart-gate'
 import { generateLFOPattern } from './lfo'
 import { mutateTrack, isMutateActive } from './mutator'
 
@@ -48,46 +48,24 @@ function createTrack(index: number): SequenceTrack {
   }
 }
 
+// Per-track default presets: T1=Bassline, T2=Acid, T3=Hypnotic, T4=Stab
+const DEFAULT_PRESET_NAMES = ['Bassline', 'Acid', 'Hypnotic', 'Stab']
+
 function createDefaultRandomConfig(index: number): RandomConfig {
+  const presetName = DEFAULT_PRESET_NAMES[index]
+  const preset = PRESETS.find(p => p.name === presetName)
+  if (preset) return structuredClone(preset.config)
+
+  // Fallback (should not happen)
   return {
-    pitch: {
-      low: 48,
-      high: 72,
-      scale: SCALES.minorPentatonic,
-      root: 60,
-      maxNotes: 4,
-    },
-    gate: {
-      fillMin: 0.25,
-      fillMax: 0.75,
-      mode: 'euclidean',
-      randomOffset: true,
-      smartBars: 1,
-      smartDensity: 'build',
-    },
-    velocity: {
-      low: 64,
-      high: 120,
-    },
-    gateLength: {
-      min: 0.5,
-      max: 0.5,
-    },
-    ratchet: {
-      maxRatchet: 1,
-      probability: 0,
-    },
-    slide: {
-      probability: 0,
-    },
-    mod: {
-      low: 0,
-      high: 1,
-    },
-    tie: {
-      probability: 0,
-      maxLength: 2,
-    },
+    pitch: { low: 48, high: 72, scale: SCALES.minorPentatonic, root: 60, maxNotes: 4 },
+    gate: { fillMin: 0.25, fillMax: 0.75, mode: 'euclidean', randomOffset: true, clusterContinuation: 0.7 },
+    velocity: { low: 64, high: 120 },
+    gateLength: { min: 0.5, max: 0.5 },
+    ratchet: { maxRatchet: 1, probability: 0 },
+    slide: { probability: 0 },
+    mod: { low: 0, high: 1 },
+    tie: { probability: 0, maxLength: 2 },
   }
 }
 
@@ -106,7 +84,7 @@ function createDefaultMute(): MuteTrack {
   return {
     steps: Array(DEFAULT_LENGTH).fill(false),
     length: DEFAULT_LENGTH,
-    clockDivider: 1,
+    clockDivider: 4,
     currentStep: 0,
   }
 }
@@ -123,13 +101,15 @@ export function createSequencer(): SequencerState {
       bpm: DEFAULT_BPM,
       playing: false,
       masterTick: 0,
+      clockSource: 'internal',
     },
     randomConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => createDefaultRandomConfig(i)),
     lfoConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, waveform: 'sine' as const, rate: 16, depth: 1, offset: 0.5 })),
     arpConfigs: Array.from({ length: NUM_TRACKS }, () => ({ enabled: false, direction: 'up' as const, octaveRange: 1 })),
     transposeConfigs: Array.from({ length: NUM_TRACKS }, () => ({ semitones: 0, noteLow: 0, noteHigh: 127, glScale: 1.0, velScale: 1.0 })),
     mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
-    midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ enabled: false, channel: i + 1 })),
+    midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ channel: i + 1 })),
+    midiEnabled: false,
     userPresets: [],
   }
 }
@@ -439,19 +419,7 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
   const config = state.randomConfigs[trackIndex]
   const s = seed ?? Date.now()
 
-  let newGateBools: boolean[]
-  if (config.gate.smartBars > 1) {
-    newGateBools = generateSmartGatePattern({
-      fillMin: config.gate.fillMin,
-      fillMax: config.gate.fillMax,
-      stepsPerBar: 16,
-      bars: config.gate.smartBars,
-      density: config.gate.smartDensity,
-      seed: s,
-    })
-  } else {
-    newGateBools = randomizeGates(config.gate, track.gate.length, s)
-  }
+  const newGateBools = randomizeGates(config.gate, track.gate.length, s)
 
   // Also regenerate gateLength and ratchet for the new gate pattern
   const newGateLengths = randomizeGateLength(config.gateLength, newGateBools.length, s + 3)

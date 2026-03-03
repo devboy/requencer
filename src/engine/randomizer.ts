@@ -19,8 +19,9 @@ function createRng(seed: number): () => number {
 interface GateConfig {
   fillMin: number
   fillMax: number
-  mode: 'random' | 'euclidean'
+  mode: 'random' | 'euclidean' | 'sync' | 'cluster'
   randomOffset?: boolean     // euclidean mode: randomize rotation
+  clusterContinuation?: number  // cluster mode: Markov continuation probability
 }
 
 interface PitchConfig {
@@ -52,6 +53,79 @@ export function randomizeGates(config: GateConfig, length: number, seed: number 
     if (config.randomOffset && length > 0) {
       const offset = Math.floor(rng() * length)
       return [...pattern.slice(offset), ...pattern.slice(0, offset)]
+    }
+    return pattern
+  }
+
+  if (config.mode === 'cluster') {
+    const continuation = config.clusterContinuation ?? 0.5
+    const baseProb = length > 0 ? hits / length : 0
+    const pattern = Array(length).fill(false)
+
+    // Markov chain walk
+    for (let i = 0; i < length; i++) {
+      const prob = (i > 0 && pattern[i - 1]) ? continuation : baseProb
+      pattern[i] = rng() < prob
+    }
+
+    // Adjust to exact hit count
+    let currentHits = pattern.filter(Boolean).length
+    const indices = Array.from({ length }, (_, i) => i)
+    // Shuffle indices for random adjustment
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      const tmp = indices[i]
+      indices[i] = indices[j]
+      indices[j] = tmp
+    }
+
+    if (currentHits < hits) {
+      for (const idx of indices) {
+        if (!pattern[idx]) {
+          pattern[idx] = true
+          currentHits++
+          if (currentHits >= hits) break
+        }
+      }
+    } else if (currentHits > hits) {
+      for (const idx of indices) {
+        if (pattern[idx]) {
+          pattern[idx] = false
+          currentHits--
+          if (currentHits <= hits) break
+        }
+      }
+    }
+
+    return pattern
+  }
+
+  if (config.mode === 'sync') {
+    // Weighted random placement biased away from strong beats
+    const weights = Array.from({ length }, (_, i) => {
+      const pos = i % 4
+      if (pos === 0) return 1   // downbeats: low weight
+      if (pos === 3) return 2   // upbeats ("a"): medium-low
+      return 4                  // "e" and "and" positions: high
+    })
+    const pattern = Array(length).fill(false)
+    const indices = Array.from({ length }, (_, i) => i)
+    for (let placed = 0; placed < hits; placed++) {
+      // Cumulative weight selection from remaining candidates
+      let totalWeight = 0
+      for (const idx of indices) {
+        if (!pattern[idx]) totalWeight += weights[idx]
+      }
+      if (totalWeight === 0) break
+      let pick = rng() * totalWeight
+      for (const idx of indices) {
+        if (pattern[idx]) continue
+        pick -= weights[idx]
+        if (pick <= 0) {
+          pattern[idx] = true
+          break
+        }
+      }
     }
     return pattern
   }

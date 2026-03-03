@@ -20,6 +20,7 @@ const MODE_LABELS: Record<ScreenMode, string> = {
   'mutate-edit': 'MUTATE',
   'transpose-edit': 'TRANSPOSE',
   'mod-edit': 'MOD EDIT',
+  'settings': 'SETTINGS',
 }
 
 export function renderStub(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {

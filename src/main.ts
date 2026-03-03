@@ -30,6 +30,7 @@ import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 import { renderMutateEdit } from './ui/lcd/mutate-screen'
 import { renderTransposeEdit } from './ui/lcd/transpose-screen'
 import { renderModEdit } from './ui/lcd/mod-edit'
+import { renderSettings } from './ui/lcd/settings-screen'
 import { createDebugMenu } from './ui/debug-menu'
 import { DrumMachine } from './io/drum-machine'
 
@@ -53,7 +54,7 @@ const clock = new ToneClock({
     const result = tick(engineState)
     engineState = result.state
     output.handleEvents(result.events, time, stepDuration)
-    midi.handleEvents(result.events, engineState.midiConfigs, midiDeviceIds, stepDuration)
+    midi.handleEvents(result.events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
     drums.triggerStep(step, time)
   },
 })
@@ -154,6 +155,7 @@ const RENDERERS: Record<ScreenMode, (ctx: CanvasRenderingContext2D, engine: Sequ
   'mutate-edit': renderMutateEdit,
   'transpose-edit': renderTransposeEdit,
   'mod-edit': renderModEdit,
+  'settings': renderSettings,
 }
 
 // Status bar text per mode
@@ -169,21 +171,23 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'mod-edit': (ui) => `T${ui.selectedTrack + 1} MOD`,
+  'settings': () => 'SETTINGS',
 }
 
 // --- Shortcut Hints (below module) ---
 const SHORTCUT_HINTS: Record<ScreenMode, string> = {
-  'home':      '1-4: track   Q/W/E: edit   Hold+↑↓: length   Hold+←→: div   Space: play',
+  'home':      '1-4: track   Q/W/E/R: edit   A-G: features   Hold+↑↓: len   Hold+←→: div   Space: play',
   'gate-edit': 'Z-M: toggle steps   Shift+Z-M: 9-16   ←→: page   Hold Q+↑↓: len/div   Esc: back',
   'pitch-edit':'Z-M: select   ↑↓: pitch   ←→: slide   Enter: page   Esc: back',
   'vel-edit':  'Z-M: select   ↑↓: velocity   ←→: page   Hold E+↑↓: len/div   Esc: back',
   'mute-edit': 'Z-M: toggle mutes   ←→: page   Hold A+↑↓: len/div   Esc: back',
-  'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source  Enter: midi page  Esc: back',
+  'route':     '1-4: output  \u2191\u2193: param  \u2190\u2192: source  Esc: back',
   'rand':      '↑↓: scroll params   ←→: adjust value   Enter: apply preset   Hold+D: randomize   Esc: back',
   'name-entry': '↑↓: change letter   ←→: move cursor   Enter: save   Esc: cancel',
   'mutate-edit': '1-4: track   ↑↓: scroll   ←→: rate   Enter: all off   Esc: back',
   'transpose-edit': '1-4: track   ↑↓: scroll   ←→: adjust   Hold ↑: reset   Esc: back',
   'mod-edit':    'Z-M: select   ↑↓: mod value   ←→: page   Hold R+↑↓: len/div   Esc: back',
+  'settings':    '↑↓: scroll   ←→: adjust   Esc: back',
 }
 
 const hintEl = document.createElement('div')
