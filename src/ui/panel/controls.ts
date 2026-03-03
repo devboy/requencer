@@ -10,7 +10,7 @@ import { emit } from '../input'
 import type { FaceplateElements } from './faceplate'
 
 const SUBTRACK_IDS: SubtrackId[] = ['gate', 'pitch', 'velocity', 'mod']
-const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'mutate', 'transpose']
+const FEATURE_IDS: FeatureId[] = ['mute', 'route', 'mutate', 'transpose', 'variation']
 const HOLD_THRESHOLD_MS = 200
 
 interface PanelControls {

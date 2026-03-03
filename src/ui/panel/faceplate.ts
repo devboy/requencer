@@ -541,7 +541,7 @@ const PANEL_CSS = `
   /* ── Top section: track col | LCD | right button cols ── */
   .top-section {
     display: flex;
-    align-items: center;    /* vertically center buttons alongside LCD */
+    align-items: flex-start; /* top-align button columns */
     gap: ${COMPONENT_GAP}px;   /* clearance between columns and LCD */
   }
 
