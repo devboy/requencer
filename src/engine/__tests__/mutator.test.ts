@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TICKS_PER_STEP } from '../clock-divider'
 import { isMutateActive, mutateTrack } from '../mutator'
 import { createSequencer, randomizeTrackPattern, tick } from '../sequencer'
 import type { MutateConfig } from '../types'
@@ -157,9 +158,9 @@ describe('tick mutation integration', () => {
     }
     const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
-    // Advance 17 ticks: ticks 0-15 play the first bar,
-    // tick 16 is when masterTick=16 hits the bars boundary check
-    for (let i = 0; i < 17; i++) {
+    // Advance through first bar (16 steps × TICKS_PER_STEP) + 1 tick to cross the boundary
+    const barTicks = 16 * TICKS_PER_STEP
+    for (let i = 0; i < barTicks + 1; i++) {
       const result = tick(state)
       state = result.state
     }
@@ -180,17 +181,18 @@ describe('tick mutation integration', () => {
     }
     const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
-    // Advance through first full loop (16 ticks) + 1 — should NOT mutate yet
+    // Advance through first full loop (16 steps) + 1 tick — should NOT mutate yet
     // (loop 0→1 transition = loop #1, which is odd, so skip)
-    for (let i = 0; i < 17; i++) {
+    const loopTicks = 16 * TICKS_PER_STEP
+    for (let i = 0; i < loopTicks + 1; i++) {
       const result = tick(state)
       state = result.state
     }
     expect(state.tracks[0].gate.steps.map((s) => s.on)).toEqual(originalGate)
 
-    // Advance through second loop (another 16 ticks) — NOW should mutate
+    // Advance through second loop (another 16 steps) — NOW should mutate
     // (loop 1→2 transition = loop #2, which is even, so trigger)
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < loopTicks; i++) {
       const result = tick(state)
       state = result.state
     }
@@ -209,8 +211,9 @@ describe('tick mutation integration', () => {
     }
     const originalGate = state.tracks[0].gate.steps.map((s) => s.on)
 
-    // First loop boundary at tick 16
-    for (let i = 0; i < 17; i++) {
+    // First loop boundary at 16 steps
+    const loopTicks = 16 * TICKS_PER_STEP
+    for (let i = 0; i < loopTicks + 1; i++) {
       const result = tick(state)
       state = result.state
     }
@@ -227,7 +230,8 @@ describe('tick mutation integration', () => {
     }
     const originalGate = state.tracks[0].gate.steps.map((s) => ({ ...s }))
 
-    for (let i = 0; i < 17; i++) {
+    const loopTicks = 16 * TICKS_PER_STEP
+    for (let i = 0; i < loopTicks + 1; i++) {
       const result = tick(state)
       state = result.state
     }

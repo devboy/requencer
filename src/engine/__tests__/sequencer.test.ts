@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TICKS_PER_STEP } from '../clock-divider'
 import {
   createSequencer,
   deleteUserPreset,
@@ -24,7 +25,16 @@ import {
   setTrackClockDivider,
   tick,
 } from '../sequencer'
-import type { MuteTrack, PitchStep } from '../types'
+import type { MuteTrack, NoteEvent, PitchStep } from '../types'
+
+/** Advance state by N steps (N * TICKS_PER_STEP ticks) */
+function advanceSteps(state: ReturnType<typeof createSequencer>, n: number) {
+  let s = state
+  for (let i = 0; i < n * TICKS_PER_STEP; i++) {
+    s = tick(s).state
+  }
+  return s
+}
 
 describe('createSequencer', () => {
   it('creates state with 4 tracks', () => {
@@ -71,13 +81,23 @@ describe('tick', () => {
     expect(next.transport.masterTick).toBe(1)
   })
 
-  it('returns note events for each output', () => {
+  it('returns note events for each output at step boundary (tick 0)', () => {
     const state = createSequencer()
     const { events } = tick(state)
     expect(events).toHaveLength(4)
+    const nonNull = events.filter((e): e is NoteEvent => e !== null)
+    expect(nonNull).toHaveLength(4)
     for (let i = 0; i < 4; i++) {
-      expect(events[i].output).toBe(i)
+      expect(nonNull[i].output).toBe(i)
     }
+  })
+
+  it('returns null events between step boundaries', () => {
+    const state = createSequencer()
+    const { state: after0 } = tick(state) // tick 0 → step boundary
+    const { events } = tick(after0) // tick 1 → between steps
+    const nonNull = events.filter((e): e is NoteEvent => e !== null)
+    expect(nonNull).toHaveLength(0)
   })
 
   it('does not mutate the original state', () => {
@@ -87,11 +107,13 @@ describe('tick', () => {
     expect(state.transport.masterTick).toBe(originalTick)
   })
 
-  it('advances subtrack currentStep on each tick with divider 1', () => {
+  it('advances subtrack currentStep each step (TICKS_PER_STEP ticks)', () => {
     const state = createSequencer()
-    const { state: after1 } = tick(state)
+    // After 1 step (TICKS_PER_STEP ticks), currentStep = 1
+    const after1 = advanceSteps(state, 1)
     expect(after1.tracks[0].gate.currentStep).toBe(1)
-    const { state: after2 } = tick(after1)
+    // After 2 steps, currentStep = 2
+    const after2 = advanceSteps(after1, 1)
     expect(after2.tracks[0].gate.currentStep).toBe(2)
   })
 
@@ -103,13 +125,13 @@ describe('tick', () => {
       tracks: state.tracks.map((t, i) => (i === 0 ? { ...t, clockDivider: 2 } : t)),
     }
 
-    const { state: after1 } = tick(state)
-    // Tick 0 → step 0 (divider 2: tick 0 fires), masterTick becomes 1
-    // At tick 0: step = floor(0/2) % length = 0
-    expect(after1.tracks[0].gate.currentStep).toBe(0) // tick 1, step = floor(1/2)=0
+    // After 1 step worth of ticks, divider=2 means still on step 0
+    const after1step = advanceSteps(state, 1)
+    expect(after1step.tracks[0].gate.currentStep).toBe(0)
 
-    const { state: after2 } = tick(after1)
-    expect(after2.tracks[0].gate.currentStep).toBe(1) // tick 2, step = floor(2/2)=1
+    // After 2 steps worth of ticks, divider=2 means step 1
+    const after2steps = advanceSteps(state, 2)
+    expect(after2steps.tracks[0].gate.currentStep).toBe(1)
   })
 
   it('wraps subtrack steps at subtrack length (polyrhythm)', () => {
@@ -132,13 +154,9 @@ describe('tick', () => {
       ),
     }
 
-    // Advance 3 ticks — pitch should wrap back to step 0
-    let current = state
-    for (let i = 0; i < 3; i++) {
-      const result = tick(current)
-      current = result.state
-    }
-    expect(current.tracks[0].pitch.currentStep).toBe(0) // 3 % 3 = 0
+    // Advance 3 steps — pitch should wrap back to step 0
+    const after3 = advanceSteps(state, 3)
+    expect(after3.tracks[0].pitch.currentStep).toBe(0) // 3 % 3 = 0
   })
 
   it('muted steps produce gate=false in events', () => {
@@ -151,9 +169,11 @@ describe('tick', () => {
       ),
     }
 
-    // First tick at step 0 — muted
+    // First tick at step 0 — muted (tick 0 is a step boundary)
     const { events } = tick(state)
-    expect(events[0].gate).toBe(false)
+    const event = events[0] as NoteEvent
+    expect(event).not.toBeNull()
+    expect(event.gate).toBe(false)
   })
 })
 
@@ -490,8 +510,8 @@ describe('setMuteClockDivider', () => {
 describe('resetTrackPlayheads', () => {
   it('resets all subtrack playheads to 0', () => {
     let state = createSequencer()
-    // Advance a few ticks so playheads move
-    for (let i = 0; i < 5; i++) state = tick(state).state
+    // Advance a few steps so playheads move
+    state = advanceSteps(state, 5)
     expect(state.tracks[0].gate.currentStep).toBeGreaterThan(0)
 
     const next = resetTrackPlayheads(state, 0)
@@ -503,7 +523,7 @@ describe('resetTrackPlayheads', () => {
 
   it('does not affect other tracks', () => {
     let state = createSequencer()
-    for (let i = 0; i < 5; i++) state = tick(state).state
+    state = advanceSteps(state, 5)
     const next = resetTrackPlayheads(state, 0)
     expect(next.tracks[1].gate.currentStep).toBe(state.tracks[1].gate.currentStep)
   })
@@ -512,7 +532,7 @@ describe('resetTrackPlayheads', () => {
 describe('resetSubtrackPlayhead', () => {
   it('resets only the specified subtrack playhead', () => {
     let state = createSequencer()
-    for (let i = 0; i < 5; i++) state = tick(state).state
+    state = advanceSteps(state, 5)
     const next = resetSubtrackPlayhead(state, 0, 'gate')
     expect(next.tracks[0].gate.currentStep).toBe(0)
     expect(next.tracks[0].pitch.currentStep).toBe(state.tracks[0].pitch.currentStep)
@@ -583,8 +603,9 @@ describe('mod subtrack', () => {
   it('tick advances mod subtrack currentStep', () => {
     let state = createSequencer()
     state = { ...state, transport: { ...state.transport, playing: true } }
-    const result = tick(state)
-    expect(result.state.tracks[0].mod.currentStep).toBe(1)
+    // Advance one full step
+    const after1step = advanceSteps(state, 1)
+    expect(after1step.tracks[0].mod.currentStep).toBe(1)
   })
 })
 

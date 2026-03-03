@@ -552,7 +552,38 @@ describe('advanceVariationBar', () => {
 
 // --- Integration tests with sequencer tick ---
 
+import { TICKS_PER_STEP } from '../clock-divider'
 import { createSequencer, randomizeTrackPattern, tick } from '../sequencer'
+import type { NoteEvent } from '../types'
+
+/** Advance one full bar (16 steps), collecting pitch events for output 0 at step boundaries */
+function collectBarPitches(
+  initialState: ReturnType<typeof createSequencer>,
+): { pitches: number[]; state: ReturnType<typeof createSequencer> } {
+  let state = initialState
+  const pitches: number[] = []
+  for (let step = 0; step < 16; step++) {
+    for (let sub = 0; sub < TICKS_PER_STEP; sub++) {
+      const result = tick(state)
+      if (sub === 0) {
+        // Step boundary — event should be non-null
+        const event = result.events[0] as NoteEvent
+        pitches.push(event.pitch)
+      }
+      state = result.state
+    }
+  }
+  return { pitches, state }
+}
+
+/** Advance N steps (N * TICKS_PER_STEP ticks), returning final state */
+function advanceSteps(state: ReturnType<typeof createSequencer>, n: number) {
+  let s = state
+  for (let i = 0; i < n * TICKS_PER_STEP; i++) {
+    s = tick(s).state
+  }
+  return s
+}
 
 describe('variation integration in tick', () => {
   it('reverse transform plays pitch steps backwards on configured bar', () => {
@@ -574,24 +605,15 @@ describe('variation integration in tick', () => {
       transport: { ...state.transport, playing: true },
     }
 
-    // Collect pitch events for first 16 ticks (bar 0 — normal)
-    const bar0Events: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      bar0Events.push(result.events[0].pitch)
-      state = result.state
-    }
+    // Collect pitch events for bar 0 (normal)
+    const bar0 = collectBarPitches(state)
+    state = bar0.state
 
-    // Collect pitch events for next 16 ticks (bar 1 — reversed)
-    const bar1Events: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      bar1Events.push(result.events[0].pitch)
-      state = result.state
-    }
+    // Collect pitch events for bar 1 (reversed)
+    const bar1 = collectBarPitches(state)
 
     // Bar 1 should be bar 0 reversed
-    expect(bar1Events).toEqual([...bar0Events].reverse())
+    expect(bar1.pitches).toEqual([...bar0.pitches].reverse())
   })
 
   it('disabled variation has no effect on playback', () => {
@@ -599,23 +621,14 @@ describe('variation integration in tick', () => {
     state = randomizeTrackPattern(state, 0, 42)
     state = { ...state, transport: { ...state.transport, playing: true } }
 
-    // Collect 16 ticks of output
-    const events1: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      events1.push(result.events[0].pitch)
-      state = result.state
-    }
+    // Collect first bar of output
+    const bar1 = collectBarPitches(state)
+    state = bar1.state
 
     // Second loop should be identical (no variation, no drift)
-    const events2: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      events2.push(result.events[0].pitch)
-      state = result.state
-    }
+    const bar2 = collectBarPitches(state)
 
-    expect(events2).toEqual(events1)
+    expect(bar2.pitches).toEqual(bar1.pitches)
   })
 
   it('variation bar counter advances on gate loop boundary', () => {
@@ -635,18 +648,12 @@ describe('variation integration in tick', () => {
       transport: { ...state.transport, playing: true },
     }
 
-    // After 16 ticks (one full loop of 16-step gate), bar should advance to 1
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      state = result.state
-    }
+    // After 16 steps (one full loop of 16-step gate), bar should advance to 1
+    state = advanceSteps(state, 16)
     expect(state.variationPatterns[0].currentBar).toBe(1)
 
-    // After another 16 ticks, bar should be 2
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      state = result.state
-    }
+    // After another 16 steps, bar should be 2
+    state = advanceSteps(state, 16)
     expect(state.variationPatterns[0].currentBar).toBe(2)
   })
 
@@ -667,11 +674,8 @@ describe('variation integration in tick', () => {
       transport: { ...state.transport, playing: true },
     }
 
-    // After 2 full loops (32 ticks), should wrap back to 0
-    for (let i = 0; i < 32; i++) {
-      const result = tick(state)
-      state = result.state
-    }
+    // After 2 full loops (32 steps), should wrap back to 0
+    state = advanceSteps(state, 32)
     expect(state.variationPatterns[0].currentBar).toBe(0)
   })
 
@@ -695,24 +699,15 @@ describe('variation integration in tick', () => {
     }
 
     // Collect bar 0 pitches
-    const bar0: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      bar0.push(result.events[0].pitch)
-      state = result.state
-    }
+    const bar0Result = collectBarPitches(state)
+    state = bar0Result.state
 
     // Collect bar 1 pitches (transposed +12)
-    const bar1: number[] = []
-    for (let i = 0; i < 16; i++) {
-      const result = tick(state)
-      bar1.push(result.events[0].pitch)
-      state = result.state
-    }
+    const bar1Result = collectBarPitches(state)
 
     // Each bar 1 pitch should be bar 0 pitch + 12 (clamped to 127)
     for (let i = 0; i < 16; i++) {
-      expect(bar1[i]).toBe(Math.min(127, bar0[i] + 12))
+      expect(bar1Result.pitches[i]).toBe(Math.min(127, bar0Result.pitches[i] + 12))
     }
   })
 

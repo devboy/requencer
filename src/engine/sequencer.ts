@@ -1,5 +1,5 @@
 import { generateArpPattern } from './arpeggiator'
-import { getEffectiveStep } from './clock-divider'
+import { getEffectiveStep, TICKS_PER_STEP } from './clock-divider'
 import { computeLFOValue } from './lfo'
 import { clamp } from './math'
 import { isMutateActive, mutateTrack } from './mutator'
@@ -162,7 +162,7 @@ export function createSequencer(): SequencerState {
  * Advance the sequencer by one tick. Returns new state and output events.
  * Pure function — does not mutate input state.
  */
-export function tick(state: SequencerState): { state: SequencerState; events: NoteEvent[] } {
+export function tick(state: SequencerState): { state: SequencerState; events: (NoteEvent | null)[] } {
   const masterTick = state.transport.masterTick
   const nextTick = masterTick + 1
 
@@ -204,7 +204,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
   })
 
   // Resolve routing to produce output events at the current tick
-  const events = resolveOutputs(
+  const rawEvents = resolveOutputs(
     currentTracks,
     state.routing,
     currentMutes,
@@ -212,6 +212,15 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
     state.variationPatterns,
     lfoValues,
   )
+
+  // Only emit events at per-output step boundaries (gate track determines step rate)
+  const events: (NoteEvent | null)[] = rawEvents.map((event) => {
+    const route = state.routing[event.output]
+    const gateTrack = state.tracks[route.gate]
+    const combined = TICKS_PER_STEP * gateTrack.clockDivider * gateTrack.gate.clockDivider
+    if (masterTick === 0 || masterTick % combined === 0) return event
+    return null // between steps — no event for this output
+  })
 
   // --- Mutation (Turing Machine drift) ---
   // Apply before advancing to next tick so mutations take effect on the next loop.
@@ -222,7 +231,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
 
     if (mc.trigger === 'bars') {
       // Bars mode: mutate all enabled subtracks every N bars (N * 16 steps)
-      const interval = mc.bars * 16
+      const interval = mc.bars * 16 * TICKS_PER_STEP
       if (interval > 0 && masterTick > 0 && masterTick % interval === 0) {
         return mutateTrack(track, state.randomConfigs[idx], mc, masterTick)
       }
@@ -237,7 +246,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: No
       const nxt = getEffectiveStep(nextTick, trackDiv, sub.clockDivider, sub.length)
       if (!(cur > 0 && nxt === 0)) return false
       // Compute which loop number we're entering (0-based)
-      const combined = trackDiv * sub.clockDivider
+      const combined = TICKS_PER_STEP * trackDiv * sub.clockDivider
       const loopNum = Math.floor(nextTick / combined / sub.length)
       return mc.bars <= 1 || loopNum % mc.bars === 0
     }

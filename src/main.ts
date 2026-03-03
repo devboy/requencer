@@ -2,8 +2,9 @@
  * Main entry point — wires engine, I/O, mode machine, LCD renderers, and panel controls.
  */
 
+import { TICKS_PER_STEP } from './engine/clock-divider'
 import { createSequencer, tick } from './engine/sequencer'
-import type { SequencerState } from './engine/types'
+import type { NoteEvent, SequencerState } from './engine/types'
 import { DrumMachine } from './io/drum-machine'
 import { MIDIOutput } from './io/midi-output'
 import { ToneClock } from './io/tone-clock'
@@ -49,13 +50,23 @@ const midi = new MIDIOutput()
 const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
 
 const clock = new ToneClock({
-  onTick(time: number, stepDuration: number) {
-    const step = engineState.transport.masterTick // capture BEFORE tick advances it
+  onTick(time: number, stepDuration: number, _tickDuration: number) {
+    const mt = engineState.transport.masterTick // capture BEFORE tick advances it
     const result = tick(engineState)
     engineState = result.state
-    output.handleEvents(result.events, time, stepDuration)
-    midi.handleEvents(result.events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
-    drums.triggerStep(step, time)
+
+    // Filter to only non-null events (outputs at step boundaries)
+    const events = result.events.filter((e): e is NoteEvent => e !== null)
+    if (events.length > 0) {
+      output.handleEvents(events, time, stepDuration)
+      midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
+    }
+
+    // Drums: only trigger at base step boundaries
+    if (mt === 0 || mt % TICKS_PER_STEP === 0) {
+      const step = mt / TICKS_PER_STEP
+      drums.triggerStep(step, time)
+    }
   },
 })
 clock.bpm = engineState.transport.bpm

@@ -1,7 +1,8 @@
 import * as Tone from 'tone'
+import { PPQN } from '../engine/clock-divider'
 
 export interface ClockCallbacks {
-  onTick: (time: number, stepDuration: number) => void
+  onTick: (time: number, stepDuration: number, tickDuration: number) => void
 }
 
 /**
@@ -25,7 +26,7 @@ export class ToneClock {
   }
 
   /**
-   * Start the clock. Schedules 16th-note ticks (one tick per 16th note).
+   * Start the clock. Schedules 24 PPQN ticks (one tick per 96th note).
    * Must be called after a user gesture (Tone.start() requirement).
    */
   async start(): Promise<void> {
@@ -35,11 +36,12 @@ export class ToneClock {
     }
     const transport = Tone.getTransport()
 
-    // Schedule a repeating callback at 16th note intervals
+    // Schedule a repeating callback at 96th note intervals (= 1/PPQN of a quarter note)
     this.repeatId = transport.scheduleRepeat((time) => {
       const stepDuration = 60 / transport.bpm.value / 4 // 16th note duration in seconds
-      this.callbacks.onTick(time, stepDuration)
-    }, '16n')
+      const tickDuration = 60 / transport.bpm.value / PPQN // single PPQN tick duration
+      this.callbacks.onTick(time, stepDuration, tickDuration)
+    }, '96n')
 
     transport.start()
   }

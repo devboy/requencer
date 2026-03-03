@@ -4,6 +4,7 @@
  * Pure functions, zero dependencies on DOM/audio.
  */
 
+import { PPQN, TICKS_PER_STEP } from './clock-divider'
 import { clamp } from './math'
 import { createRng } from './rng'
 import type { LFOConfig, LFORuntime, LFOWaveform } from './types'
@@ -83,13 +84,14 @@ export function computeLFOValue(
 
   if (config.syncMode === 'free') {
     // Free-running: accumulate phase based on Hz rate and tick duration
-    const tickDuration = 60 / bpm / 4 // seconds per sixteenth note
+    const tickDuration = 60 / bpm / PPQN // seconds per PPQN tick
     const phaseIncrement = config.freeRate * tickDuration
     phase = (runtime.currentPhase + phaseIncrement) % 1.0
     newRuntime.currentPhase = phase
   } else {
     // Synced: phase derived deterministically from tick position
-    const effectiveTick = Math.floor(masterTick / trackClockDivider)
+    // Fractional effective tick gives smooth inter-step phase progression
+    const effectiveTick = masterTick / (TICKS_PER_STEP * trackClockDivider)
     const rate = Math.max(1, config.rate)
     phase = ((effectiveTick + config.phase * rate) % rate) / rate
     // Wrap phase to [0, 1)

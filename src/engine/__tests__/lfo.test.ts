@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TICKS_PER_STEP } from '../clock-divider'
 import { computeLFOValue, createLFORuntime, waveformValue } from '../lfo'
 import type { LFOConfig } from '../types'
 
@@ -119,12 +120,12 @@ describe('computeLFOValue', () => {
       const config: LFOConfig = { ...defaultConfig, syncMode: 'track', rate: 16, waveform: 'saw' }
       const runtime = createLFORuntime()
 
-      // At tick 0, phase should be 0 -> saw at 0 -> raw = 0
+      // At step 0 (tick 0), phase should be 0 -> saw at 0 -> raw = 0
       const r0 = computeLFOValue(config, runtime, 0, 1, 120)
-      // At tick 8, phase should be 0.5 -> saw at 0.5 (with width=0.5 -> peak)
-      const r8 = computeLFOValue(config, runtime, 8, 1, 120)
+      // At step 8 (tick 8*TPS), phase should be 0.5 -> saw at 0.5 (with width=0.5 -> peak)
+      const r8 = computeLFOValue(config, runtime, 8 * TICKS_PER_STEP, 1, 120)
 
-      // Values at different ticks should differ
+      // Values at different steps should differ
       expect(r0.value).not.toBeCloseTo(r8.value, 1)
     })
 
@@ -132,14 +133,28 @@ describe('computeLFOValue', () => {
       const config: LFOConfig = { ...defaultConfig, syncMode: 'track', rate: 8, waveform: 'saw' }
       const runtime = createLFORuntime()
 
-      // With rate=8, tick 0 and tick 8 should be at the same phase (start of cycle)
+      // With rate=8 steps, step 0 and step 8 should be at the same phase (start of cycle)
       const r0 = computeLFOValue(config, runtime, 0, 1, 120)
-      const r8 = computeLFOValue(config, runtime, 8, 1, 120)
+      const r8 = computeLFOValue(config, runtime, 8 * TICKS_PER_STEP, 1, 120)
       expect(r0.value).toBeCloseTo(r8.value, 1)
 
-      // Tick 4 should be at phase 0.5 (middle of cycle)
-      const r4 = computeLFOValue(config, runtime, 4, 1, 120)
+      // Step 4 should be at phase 0.5 (middle of cycle)
+      const r4 = computeLFOValue(config, runtime, 4 * TICKS_PER_STEP, 1, 120)
       expect(r4.value).not.toBeCloseTo(r0.value, 1)
+    })
+
+    it('provides smooth inter-step phase progression', () => {
+      const config: LFOConfig = { ...defaultConfig, syncMode: 'track', rate: 16, waveform: 'saw' }
+      const runtime = createLFORuntime()
+
+      // Consecutive sub-ticks within a step should produce slightly different values
+      const v0 = computeLFOValue(config, runtime, 0, 1, 120).value
+      const v1 = computeLFOValue(config, runtime, 1, 1, 120).value
+      const v2 = computeLFOValue(config, runtime, 2, 1, 120).value
+
+      // Values should differ between sub-ticks (smooth interpolation)
+      expect(v1).not.toBeCloseTo(v0, 5)
+      expect(v2).not.toBeCloseTo(v1, 5)
     })
   })
 
@@ -166,9 +181,9 @@ describe('computeLFOValue', () => {
       const config: LFOConfig = { ...defaultConfig, depth: 0, offset: 0.7 }
       const runtime = createLFORuntime()
 
-      // At various ticks, output should always be the offset value
-      for (let tick = 0; tick < 16; tick++) {
-        const result = computeLFOValue(config, runtime, tick, 1, 120)
+      // At various step positions, output should always be the offset value
+      for (let step = 0; step < 16; step++) {
+        const result = computeLFOValue(config, runtime, step * TICKS_PER_STEP, 1, 120)
         expect(result.value).toBeCloseTo(0.7, 1)
       }
     })
@@ -177,10 +192,10 @@ describe('computeLFOValue', () => {
       const config: LFOConfig = { ...defaultConfig, depth: 1.0, offset: 0.5, waveform: 'sine', rate: 16 }
       const runtime = createLFORuntime()
 
-      // Collect values across a full cycle
+      // Collect values across a full cycle (16 steps)
       const values: number[] = []
-      for (let tick = 0; tick < 16; tick++) {
-        const result = computeLFOValue(config, runtime, tick, 1, 120)
+      for (let step = 0; step < 16; step++) {
+        const result = computeLFOValue(config, runtime, step * TICKS_PER_STEP, 1, 120)
         values.push(result.value)
       }
 
@@ -199,9 +214,9 @@ describe('computeLFOValue', () => {
 
       let sumLow = 0
       let sumHigh = 0
-      for (let tick = 0; tick < 16; tick++) {
-        sumLow += computeLFOValue(lowConfig, runtime, tick, 1, 120).value
-        sumHigh += computeLFOValue(highConfig, runtime, tick, 1, 120).value
+      for (let step = 0; step < 16; step++) {
+        sumLow += computeLFOValue(lowConfig, runtime, step * TICKS_PER_STEP, 1, 120).value
+        sumHigh += computeLFOValue(highConfig, runtime, step * TICKS_PER_STEP, 1, 120).value
       }
 
       const avgLow = sumLow / 16
@@ -218,12 +233,12 @@ describe('computeLFOValue', () => {
       const configLow: LFOConfig = { ...defaultConfig, depth: 1.0, offset: 0.1 }
       const runtime = createLFORuntime()
 
-      for (let tick = 0; tick < 32; tick++) {
-        const rHigh = computeLFOValue(configHigh, runtime, tick, 1, 120)
+      for (let step = 0; step < 32; step++) {
+        const rHigh = computeLFOValue(configHigh, runtime, step * TICKS_PER_STEP, 1, 120)
         expect(rHigh.value).toBeGreaterThanOrEqual(0)
         expect(rHigh.value).toBeLessThanOrEqual(1)
 
-        const rLow = computeLFOValue(configLow, runtime, tick, 1, 120)
+        const rLow = computeLFOValue(configLow, runtime, step * TICKS_PER_STEP, 1, 120)
         expect(rLow.value).toBeGreaterThanOrEqual(0)
         expect(rLow.value).toBeLessThanOrEqual(1)
       }
