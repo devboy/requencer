@@ -309,42 +309,6 @@ Features reviewed against our project goals: **random generation + live performa
 
 ---
 
-#### Beat Repeat / Live Stutter — HIGH VALUE for techno
-**Who has it:** Ableton (Beat Repeat), OXI One (FLOW system)
-**What:** Probability-triggered real-time stutter effect. Captures a slice of recent playback and repeats it with controllable grid size, pitch decay, and volume decay. Chance parameter controls how often it activates.
-
-**Why we want it:** This is *the* techno performance tool. A momentary stutter with pitch decay creates builds, breakdowns, and tension — the bread and butter of live techno. Unlike ratchets (which subdivide a single step), beat repeat grabs a *phrase fragment* and loops it, creating a fundamentally different effect.
-
-**Possible implementation:** An overlay that, when active, overrides normal playback by repeating the last N steps. Parameters: grid size (1/2/4/8/16 steps), repeat count, pitch decay (each repeat shifted down), velocity decay, chance %. Could be momentary (hold button) or latched.
-
-**Architectural fit:** Engine overlay — intercepts tick output and replays buffered events. Medium complexity. Needs a small event buffer (last N steps of output per track).
-
----
-
-#### Snapshot Morphing — INTERESTING, extends existing snapshot concept
-**Who has it:** Electra One (interpolate between saved snapshots), Elektron Octatrack (scene crossfader)
-**What:** Instead of binary snapshot/revert, *interpolate* between two states. A crossfader or morph knob blends parameters between state A and state B.
-
-**Why we want it:** Live transitions. Instead of jumping between two randomizer configs or transpose settings, smoothly morph between them. E.g., slowly morph gate fill from 30% to 80%, or crossfade between two pitch ranges. Creates gradual builds that feel intentional.
-
-**Possible implementation:** Store two RandomConfig/TransposeConfig states. A morph parameter (0.0–1.0) linearly interpolates all numeric fields. Trigger re-randomize at crossfade positions to hear the blend.
-
-**Architectural fit:** Pure math on config objects. Low engine complexity. UX is the challenge — needs a good control metaphor (encoder as crossfader? dedicated morph page?).
-
----
-
-#### Control-All — USEFUL for live performance
-**Who has it:** Elektron Digitakt/Syntakt (control-all mode), Electra One (multi-device control)
-**What:** Adjust the same parameter across all tracks simultaneously with a single control. E.g., turn one knob to increase gate fill density on all 4 tracks at once, or shift all tracks' pitch ranges up.
-
-**Why we want it:** During live performance, reaching into individual tracks is slow. Being able to sweep a single parameter across all tracks creates dramatic whole-mix changes — essential for builds and drops.
-
-**Possible implementation:** A modifier key/mode that makes encoder changes apply to all tracks instead of just the active track. Works with any existing per-track parameter (fill, gate length range, velocity range, mutate rate, transpose).
-
-**Architectural fit:** Pure UI/action layer. When control-all is active, dispatch the same action to all 4 tracks. Very low complexity.
-
----
-
 ### Needs More Research
 
 #### Loop Evolution: Step Conditions + Accumulator
@@ -362,29 +326,6 @@ Features reviewed against our project goals: **random generation + live performa
 
 ---
 
-#### Internal Mod Routing — NEEDS MORE THINKING, depends on CV input design
-**Who has it:** Metropolix (mod lanes → 30+ internal params), PER|FORMER (curve tracks → any param), NerdSEQ (automator), OXI One
-**What:** Route LFO/mod subtrack to internal sequencer parameters (gate length, transpose, clock division) instead of only CV output.
-
-**Open questions:**
-- With CV inputs planned, external modulation could cover some of this. What parameters actually benefit from internal modulation vs. external?
-- Which internal targets make musical sense for our workflow?
-
----
-
-#### Velocity Humanization — SIMPLE, high musical value
-**Who has it:** Ableton (Velocity MIDI effect with Random knob), T-1 (accent knob)
-**What:** Add a small random offset to velocity values at playback time. Not stored — applied as an overlay. Single parameter: humanize amount (0–100%).
-
-**Why interesting:** Our velocity generation modes (random, accent, sync, etc.) produce fixed patterns. Adding a light random offset at playback gives the mechanical loops a more organic, breathing feel — critical for long techno sets where static velocities become fatiguing.
-
-**Open questions:**
-- Should this be per-track or global?
-- Should it apply to velocity only, or also gate length? (Ableton's approach is velocity-only; others bundle it)
-- We already have a "humanize" variation transform — is a dedicated always-on humanize distinct enough?
-
----
-
 ### Covered by Existing Features
 
 | Feature | Covered by |
@@ -397,6 +338,8 @@ Features reviewed against our project goals: **random generation + live performa
 | Ableton Chord MIDI effect | Not applicable — we're monophonic per track. Our routing matrix can combine tracks for pseudo-polyphony |
 | Elektron parameter locks | **Per-step values** — our subtracks already store per-step pitch, velocity, gate length, ratchet, slide, mod. P-locks are Elektron's name for what we do natively via independent subtracks |
 | Elektron retrigs | **Ratchets** — same concept (1–4 sub-triggers per step). Elektron adds velocity curves to retrigs which we don't have |
+| Beat Repeat / Live Stutter (Ableton) | **Variations** — our variation system with per-bar transform overlays already provides phrase-level repetition and evolution. Different mechanism but covers the same musical territory |
+| Velocity Humanization (Ableton) | **Humanize variation transform** — already exists as a variation transform that adds random offsets to velocity and other parameters |
 
 ### Rejected Features
 
@@ -411,9 +354,12 @@ Features reviewed against our project goals: **random generation + live performa
 | Lua scripting (Electra One) | We're a standalone sequencer, not a scripting platform. Custom behavior comes from our randomizer/variation/mutator system |
 | Elektron sound locks | Not applicable — we don't have a built-in sound engine to switch per step (Tone.js synths are fixed per output) |
 | Ableton Note Length effect | Already covered — our per-step gate length (0.05–1.0) does this natively |
+| Snapshot Morphing (Electra One / Octatrack) | Binary snapshot/revert is sufficient for our workflow |
+| Control-All (Elektron Digitakt) | Per-track control is sufficient for 4 tracks |
 
 ### Lower Priority / Future Consideration
 
+- **Internal mod routing** (Metropolix, PER|FORMER, NerdSEQ, OXI One) — route LFO/mod to internal params (gate length, transpose, clock div). Depends on CV input design
 - **Voice-leading algorithm** (T-1) — niche, requires polyphonic output
 - **Cartesian XY navigation** (Mimetic Digitalis) — incompatible with linear step model
 - **Tracker-style editing** (NerdSEQ) — UI paradigm change, not incremental
@@ -429,19 +375,13 @@ Features reviewed against our project goals: **random generation + live performa
 
 ### Engine Layer (`src/engine/`)
 - **Snapshot** — deep clone of `SequencerState`. Trivially immutable.
-- **Snapshot morphing** — linear interpolation between two config objects. Pure math on numeric fields.
-- **Beat repeat** — event buffer + replay logic. Buffers last N NoteEvents, replays with pitch/velocity decay. Medium complexity.
 - **Step conditions / Accumulator** — loop iteration counter per subtrack, evaluated in `tick()`. Pure math.
 
 ### I/O Layer (`src/io/`)
 - **Swing/groove** — timing offsets applied to Tone.js scheduling in `tone-output.ts`. Engine stays on-grid.
-- **Velocity humanization** — random offset applied to velocity in output scheduling. Trivial.
 
 ### UI Layer (`src/ui/`)
 - **Snapshot** — needs UX design for trigger mechanism (button combo or overlay).
-- **Snapshot morphing** — encoder-as-crossfader or dedicated morph page.
-- **Beat repeat** — momentary button hold or latch toggle. Grid size / pitch decay parameters in overlay.
-- **Control-all** — modifier key that broadcasts encoder changes to all tracks. Very simple.
 - **Swing** — per-track parameter, editable in hold-overlay or new section.
 - **Step conditions / Accumulator** — may need new screen section or subtrack editing mode.
 
@@ -450,10 +390,6 @@ Features reviewed against our project goals: **random generation + live performa
 | Feature | Priority | Engine Complexity | Status |
 |---|---|---|---|
 | Snapshot / Undo | High | Very low | Needs UX design |
-| Beat Repeat / Live Stutter | High | Medium | New — needs design |
-| Control-All | High | Very low (UI only) | New — ready to implement |
 | Swing / Groove | Useful | Low (I/O only) | Ready to implement |
-| Snapshot Morphing | Useful | Low | New — extends snapshot concept |
-| Velocity Humanization | Useful | Very low (I/O only) | New — needs research |
 | Step conditions + Accumulator | TBD | Medium | Needs more research |
-| Internal mod routing | TBD | Medium | Depends on CV input design |
+| Internal mod routing | Lower | Medium | Depends on CV input design |
