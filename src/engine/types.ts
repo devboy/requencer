@@ -306,6 +306,7 @@ export interface SequencerState {
   mutateConfigs: MutateConfig[] // 4 mutate configs (one per track)
   midiConfigs: MIDIOutputConfig[] // 4 MIDI configs (one per output)
   midiEnabled: boolean // global MIDI output on/off
+  midiClockOut: boolean // send MIDI clock (0xF8) + transport to output devices
   userPresets: UserPreset[] // user-saved presets (unlimited)
   variationPatterns: VariationPattern[] // 4 variation patterns (one per track)
   savedPatterns: SavedPattern[] // user-saved patterns (unlimited)

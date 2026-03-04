@@ -44,6 +44,13 @@ function buildSettingsRowDefs(): SettingsRow[] {
       getValue: (e) => clockSourceMap[e.transport.clockSource] ?? 'INT',
       visible: always,
     },
+    {
+      type: 'param',
+      paramId: 'clock.out',
+      label: 'CLOCK OUT',
+      getValue: (e) => (e.midiClockOut ? 'ON' : 'OFF'),
+      visible: always,
+    },
 
     // --- MIDI section ---
     {
@@ -63,8 +70,15 @@ function buildSettingsRowDefs(): SettingsRow[] {
     {
       type: 'param',
       paramId: 'midi.device',
-      label: 'DEVICE',
+      label: 'OUT DEVICE',
       getValue: (_e, ui) => ui.midiDevices[ui.midiDeviceIndex]?.name ?? 'None',
+      visible: always,
+    },
+    {
+      type: 'param',
+      paramId: 'midi.in.device',
+      label: 'IN DEVICE',
+      getValue: (_e, ui) => ui.midiInputDevices[ui.midiInputDeviceIndex]?.name ?? 'None',
       visible: always,
     },
     {
@@ -105,6 +119,6 @@ export function getSettingsRows(engine: SequencerState, ui: UIState): SettingsRo
 }
 
 export const SETTINGS_SECTION_PARAMS: Record<string, string[]> = {
-  'section.clock': ['clock.bpm', 'clock.source'],
-  'section.midi': ['midi.enabled', 'midi.device', 'midi.ch.0', 'midi.ch.1', 'midi.ch.2', 'midi.ch.3'],
+  'section.clock': ['clock.bpm', 'clock.source', 'clock.out'],
+  'section.midi': ['midi.enabled', 'midi.device', 'midi.in.device', 'midi.ch.0', 'midi.ch.1', 'midi.ch.2', 'midi.ch.3'],
 }

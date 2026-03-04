@@ -1412,8 +1412,8 @@ describe('route screen dispatch', () => {
     })
 
     it('enc B toggles MIDI enabled directionally', () => {
-      // Row 4 is midi.enabled (row 3 is MIDI header)
-      const ui = settingsUI(4)
+      // Row 5 is midi.enabled (row 4 is MIDI header, row 3 is clock.out)
+      const ui = settingsUI(5)
       const eng = makeState()
       expect(eng.midiEnabled).toBe(false)
       // Turn right → ON
@@ -1428,8 +1428,8 @@ describe('route screen dispatch', () => {
     })
 
     it('enc B adjusts MIDI channel', () => {
-      // Row 6 is midi.ch.0
-      const ui = settingsUI(6)
+      // Row 8 is midi.ch.0 (after clock.out + midi.in.device rows)
+      const ui = settingsUI(8)
       const eng = makeState()
       expect(eng.midiConfigs[0].channel).toBe(1)
       const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 3 })
@@ -1437,12 +1437,40 @@ describe('route screen dispatch', () => {
     })
 
     it('MIDI channel clamps 1-16', () => {
-      const ui = settingsUI(6)
+      const ui = settingsUI(8)
       const eng = makeState()
       const down = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -5 })
       expect(down.engine.midiConfigs[0].channel).toBe(1)
       const up = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 50 })
       expect(up.engine.midiConfigs[0].channel).toBe(16)
+    })
+
+    it('enc B toggles clock out', () => {
+      // Row 3 is clock.out
+      const ui = settingsUI(3)
+      const eng = makeState()
+      expect(eng.midiClockOut).toBe(false)
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r1.engine.midiClockOut).toBe(true)
+      const r2 = dispatch(ui, r1.engine, { type: 'encoder-b-turn', delta: -1 })
+      expect(r2.engine.midiClockOut).toBe(false)
+    })
+
+    it('enc B cycles MIDI input device', () => {
+      // Row 7 is midi.in.device
+      const ui: UIState = {
+        ...settingsUI(7),
+        midiInputDevices: [
+          { id: 'a', name: 'Dev A' },
+          { id: 'b', name: 'Dev B' },
+        ],
+        midiInputDeviceIndex: 0,
+      }
+      const eng = makeState()
+      const r1 = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r1.ui.midiInputDeviceIndex).toBe(1)
+      const r2 = dispatch(r1.ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(r2.ui.midiInputDeviceIndex).toBe(0) // wraps
     })
 
     it('enc B is no-op on header rows', () => {
@@ -1454,7 +1482,7 @@ describe('route screen dispatch', () => {
     })
 
     it('back returns to home', () => {
-      const ui = settingsUI(3)
+      const ui = settingsUI(4)
       const eng = makeState()
       const result = dispatch(ui, eng, { type: 'back' })
       expect(result.ui.mode).toBe('home')

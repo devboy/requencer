@@ -223,69 +223,19 @@ export function createControls(panel: FaceplateElements): void {
   }
 
   // --- Transport — no hold ---
-  // Use touchend for iOS audio unlock — pointerdown may not count as user gesture
-  let playTouchHandled = false
-  panel.playBtn.addEventListener('touchend', (e) => {
-    e.preventDefault()
-    playTouchHandled = true
-    emit({ type: 'play-stop' })
-  })
-  panel.playBtn.addEventListener('pointerdown', () => {
-    if (playTouchHandled) {
-      playTouchHandled = false
-      return
-    }
+  // Use 'click' — fires exactly once per tap on both mobile and desktop,
+  // and is always a valid user gesture for iOS audio unlock.
+  panel.playBtn.addEventListener('click', () => {
     emit({ type: 'play-stop' })
   })
   panel.resetBtn.addEventListener('pointerdown', () => emit({ type: 'reset' }))
 
-  // --- RAND button (in control strip) — no hold, direct emit ---
-  let randTouchHandled = false
-  panel.randBtn.addEventListener('touchend', (e) => {
-    e.preventDefault()
-    randTouchHandled = true
-    emit({ type: 'feature-press', feature: 'rand' })
-  })
-  panel.randBtn.addEventListener('pointerdown', () => {
-    if (randTouchHandled) {
-      randTouchHandled = false
-      return
-    }
-    emit({ type: 'feature-press', feature: 'rand' })
-  })
-
-  // --- BACK button — emits back event ---
-  let backTouchHandled = false
-  panel.backBtn.addEventListener('touchend', (e) => {
-    e.preventDefault()
-    backTouchHandled = true
-    emit({ type: 'back' })
-  })
-  panel.backBtn.addEventListener('pointerdown', () => {
-    if (backTouchHandled) {
-      backTouchHandled = false
-      return
-    }
-    emit({ type: 'back' })
-  })
-
-  // --- SETTINGS button — enters settings screen ---
+  // --- RAND / BACK / CLR buttons — use pointerdown so they work during multi-touch combos.
+  // Single handler = no double-fire (the old bug was caused by having BOTH touchend + pointerdown).
+  panel.randBtn.addEventListener('pointerdown', () => emit({ type: 'feature-press', feature: 'rand' }))
+  panel.backBtn.addEventListener('pointerdown', () => emit({ type: 'back' }))
   panel.settingsBtn.addEventListener('pointerdown', () => emit({ type: 'settings-press' }))
-
-  // --- CLR button ---
-  let clrTouchHandled = false
-  panel.clrBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault()
-    clrTouchHandled = true
-    emit({ type: 'clr-press' })
-  })
-  panel.clrBtn.addEventListener('pointerdown', () => {
-    if (clrTouchHandled) {
-      clrTouchHandled = false
-      return
-    }
-    emit({ type: 'clr-press' })
-  })
+  panel.clrBtn.addEventListener('pointerdown', () => emit({ type: 'clr-press' }))
 
   // --- PAT button — enters pattern screen ---
   panel.patBtn.addEventListener('pointerdown', () => emit({ type: 'pattern-press' }))

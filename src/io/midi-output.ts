@@ -30,6 +30,11 @@ export class MIDIOutput {
     }
   }
 
+  /** Get the MIDIAccess instance (for sharing with clock in/out modules) */
+  getAccess(): MIDIAccess | null {
+    return this.access
+  }
+
   /** List available MIDI output devices */
   getDevices(): MIDIDevice[] {
     if (!this.access) return []

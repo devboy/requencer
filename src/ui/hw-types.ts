@@ -84,6 +84,8 @@ export interface UIState {
   modLfoParam: number // 0-6: selected LFO param row (WAVE, SYNC, RATE, DEPTH, OFFSET, WIDTH, PHASE)
   midiDevices: Array<{ id: string; name: string }> // available MIDI output devices
   midiDeviceIndex: number // selected MIDI device index per output (into midiDevices)
+  midiInputDevices: Array<{ id: string; name: string }> // available MIDI input devices
+  midiInputDeviceIndex: number // selected MIDI input device index (into midiInputDevices)
   clrPending: boolean // true after first CLR press, waiting for confirm
   clrPendingAt: number // timestamp of first CLR press (for 2s timeout)
   patternParam: number // selected row in PATTERN screen

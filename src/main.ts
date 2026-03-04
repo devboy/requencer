@@ -2,10 +2,13 @@
  * Main entry point — wires engine, I/O, mode machine, LCD renderers, and panel controls.
  */
 
+import * as Tone from 'tone'
 import { TICKS_PER_STEP } from './engine/clock-divider'
 import { createSequencer, tick } from './engine/sequencer'
-import type { NoteEvent, SequencerState } from './engine/types'
+import type { ClockSource, NoteEvent, SequencerState } from './engine/types'
 import { DrumMachine } from './io/drum-machine'
+import { MIDIClockIn } from './io/midi-clock-in'
+import { MIDIClockOut } from './io/midi-clock-out'
 import { MIDIOutput } from './io/midi-output'
 import { loadPatterns, loadPresets, savePatterns, savePresets } from './io/persistence'
 import { ToneClock } from './io/tone-clock'
@@ -55,29 +58,77 @@ let uiState: UIState = createInitialUIState()
 const output = new ToneOutput()
 const drums = new DrumMachine()
 const midi = new MIDIOutput()
+const midiClockOut = new MIDIClockOut()
 const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
+
+/** Shared tick handler — called by both ToneClock and MIDIClockIn */
+function handleEngineTick(time: number, stepDuration: number) {
+  const mt = engineState.transport.masterTick // capture BEFORE tick advances it
+  const result = tick(engineState)
+  engineState = result.state
+
+  // Filter to only non-null events (outputs at step boundaries)
+  const events = result.events.filter((e): e is NoteEvent => e !== null)
+  if (events.length > 0) {
+    output.handleEvents(events, time, stepDuration)
+    midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
+  }
+
+  // Drums: only trigger at base step boundaries
+  if (mt === 0 || mt % TICKS_PER_STEP === 0) {
+    const step = mt / TICKS_PER_STEP
+    drums.triggerStep(step, time)
+  }
+
+  // Send MIDI clock out if enabled
+  midiClockOut.tick(engineState.transport.playing, engineState.midiClockOut)
+}
 
 const clock = new ToneClock({
   onTick(time: number, stepDuration: number, _tickDuration: number) {
-    const mt = engineState.transport.masterTick // capture BEFORE tick advances it
-    const result = tick(engineState)
-    engineState = result.state
-
-    // Filter to only non-null events (outputs at step boundaries)
-    const events = result.events.filter((e): e is NoteEvent => e !== null)
-    if (events.length > 0) {
-      output.handleEvents(events, time, stepDuration)
-      midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
-    }
-
-    // Drums: only trigger at base step boundaries
-    if (mt === 0 || mt % TICKS_PER_STEP === 0) {
-      const step = mt / TICKS_PER_STEP
-      drums.triggerStep(step, time)
-    }
+    handleEngineTick(time, stepDuration)
   },
 })
 clock.bpm = engineState.transport.bpm
+
+// --- MIDI Clock Input ---
+const midiClockIn = new MIDIClockIn({
+  onTick(stepDuration: number, _tickDuration: number) {
+    if (engineState.transport.clockSource !== 'midi') return
+    if (!engineState.transport.playing) return
+    // Use current audio context time for synth scheduling
+    const time = Tone.getContext().currentTime
+    handleEngineTick(time, stepDuration)
+  },
+  onStart() {
+    if (engineState.transport.clockSource !== 'midi') return
+    engineState = {
+      ...engineState,
+      transport: { ...engineState.transport, playing: true, masterTick: 0 },
+    }
+  },
+  onStop() {
+    if (engineState.transport.clockSource !== 'midi') return
+    output.releaseAll()
+    midi.panic()
+    midiClockOut.sendStop()
+    engineState = {
+      ...engineState,
+      transport: { ...engineState.transport, playing: false },
+    }
+  },
+  onBpmChange(bpm: number) {
+    if (engineState.transport.clockSource !== 'midi') return
+    engineState = {
+      ...engineState,
+      transport: { ...engineState.transport, bpm },
+    }
+  },
+})
+
+/** Track current clock source and MIDI input device to detect changes */
+let activeClockSource: ClockSource = engineState.transport.clockSource
+let prevMidiInputDeviceIndex = 0
 
 // --- Panel Setup ---
 injectPanelStyles()
@@ -125,7 +176,8 @@ createDebugMenu({
 
 function refreshMIDIDevices() {
   const devices = midi.getDevices()
-  uiState = { ...uiState, midiDevices: devices }
+  const inputDevices = midiClockIn.getInputDevices()
+  uiState = { ...uiState, midiDevices: devices, midiInputDevices: inputDevices }
   // Auto-assign first device to any output that doesn't have one
   if (devices.length > 0) {
     for (let i = 0; i < 4; i++) {
@@ -134,27 +186,84 @@ function refreshMIDIDevices() {
   }
 }
 
+/** Share MIDIAccess with clock modules after init */
+function shareMIDIAccess() {
+  const access = midi.getAccess()
+  if (access) {
+    midiClockOut.setAccess(access)
+    midiClockIn.setAccess(access)
+  }
+}
+
+/** Handle clock source changes — start/stop MIDI clock input listening */
+function syncClockSource() {
+  const source = engineState.transport.clockSource
+  if (source === activeClockSource) return
+  const prevSource = activeClockSource
+  activeClockSource = source
+
+  if (source === 'midi') {
+    // Switching TO MIDI clock: stop internal clock, start listening
+    if (clock.playing) clock.stop()
+    const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
+    if (inputDevice) {
+      midiClockIn.startListening(inputDevice.id)
+    }
+  } else if (prevSource === 'midi') {
+    // Switching FROM MIDI clock: stop listening
+    midiClockIn.stopListening()
+  }
+}
+
 // --- Control Event Handler ---
+let _playStopInProgress = false // re-entrancy guard for async play-stop
+
 onControlEvent(async (event: ControlEvent) => {
   // Handle play-stop specially — needs async Tone.start()
   if (event.type === 'play-stop') {
-    if (clock.playing) {
-      clock.stop()
-      output.releaseAll()
-      midi.panic()
-      engineState = {
-        ...engineState,
-        transport: { ...engineState.transport, playing: false },
+    if (_playStopInProgress) return
+    _playStopInProgress = true
+    try {
+      const isPlaying = clock.playing || engineState.transport.playing
+      if (isPlaying) {
+        if (clock.playing) clock.stop()
+        midiClockIn.stopListening()
+        output.releaseAll()
+        midi.panic()
+        midiClockOut.sendStop()
+        engineState = {
+          ...engineState,
+          transport: { ...engineState.transport, playing: false },
+        }
+      } else {
+        // Always start Tone.js audio context (needed for synths even in MIDI clock mode)
+        await Tone.start()
+        // Init MIDI on first play (user gesture requirement)
+        await midi.init()
+        shareMIDIAccess()
+        refreshMIDIDevices()
+
+        if (engineState.transport.clockSource === 'midi') {
+          // MIDI clock mode: don't start ToneClock, just wait for incoming clock
+          const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
+          if (inputDevice) {
+            midiClockIn.startListening(inputDevice.id)
+          }
+          engineState = {
+            ...engineState,
+            transport: { ...engineState.transport, playing: true, masterTick: 0 },
+          }
+        } else {
+          // Internal clock: use ToneClock as before
+          await clock.start()
+          engineState = {
+            ...engineState,
+            transport: { ...engineState.transport, playing: true },
+          }
+        }
       }
-    } else {
-      await clock.start()
-      // Init MIDI on first play (user gesture requirement)
-      await midi.init()
-      refreshMIDIDevices()
-      engineState = {
-        ...engineState,
-        transport: { ...engineState.transport, playing: true },
-      }
+    } finally {
+      _playStopInProgress = false
     }
     return
   }
@@ -170,9 +279,23 @@ onControlEvent(async (event: ControlEvent) => {
   if (engineState.savedPatterns !== prevPatterns) savePatterns(engineState.savedPatterns)
   if (engineState.userPresets !== prevPresets) savePresets(engineState.userPresets)
 
-  // Sync BPM if it changed
-  if (clock.bpm !== engineState.transport.bpm) {
+  // Sync BPM if it changed (only for internal clock)
+  if (engineState.transport.clockSource === 'internal' && clock.bpm !== engineState.transport.bpm) {
     clock.bpm = engineState.transport.bpm
+  }
+
+  // Handle clock source changes
+  syncClockSource()
+
+  // Handle MIDI input device changes — re-listen on new device only if index changed
+  if (engineState.transport.clockSource === 'midi' && midiClockIn.isListening) {
+    if (uiState.midiInputDeviceIndex !== prevMidiInputDeviceIndex) {
+      prevMidiInputDeviceIndex = uiState.midiInputDeviceIndex
+      const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
+      if (inputDevice) {
+        midiClockIn.startListening(inputDevice.id)
+      }
+    }
   }
 })
 
@@ -270,14 +393,18 @@ panel.root.insertBefore(hintEl, ruler)
 
 // --- Render Loop ---
 function render(): void {
-  // Sync transport state from clock (authoritative source)
-  const isPlaying = clock.playing
-  if (engineState.transport.playing !== isPlaying) {
-    engineState = {
-      ...engineState,
-      transport: { ...engineState.transport, playing: isPlaying },
+  // Sync transport state from clock — only in internal mode.
+  // In MIDI clock mode, transport is controlled by incoming MIDI messages, not ToneClock.
+  if (engineState.transport.clockSource === 'internal') {
+    const clockPlaying = clock.playing
+    if (engineState.transport.playing !== clockPlaying) {
+      engineState = {
+        ...engineState,
+        transport: { ...engineState.transport, playing: clockPlaying },
+      }
     }
   }
+  const isPlaying = engineState.transport.playing
 
   // Clear LCD
   lcdCtx.fillStyle = COLORS.lcdBg
