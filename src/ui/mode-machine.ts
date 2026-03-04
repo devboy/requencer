@@ -110,6 +110,8 @@ export function createInitialUIState(): UIState {
     patternLayerFlags: createDefaultLayerFlags(),
     patternLoadTarget: 0,
     nameEntryContext: 'preset',
+    flashMessage: '',
+    flashUntil: 0,
   }
 }
 
@@ -2150,7 +2152,15 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
         if (engine.savedPatterns.length === 0) return { ui, engine }
         const newEngine = deletePattern(engine, ui.patternIndex)
         const newIdx = clamp(ui.patternIndex, 0, Math.max(0, newEngine.savedPatterns.length - 1))
-        return { ui: { ...ui, patternIndex: newIdx }, engine: newEngine }
+        return {
+          ui: {
+            ...ui,
+            patternIndex: newIdx,
+            flashMessage: 'DELETED',
+            flashUntil: performance.now() + 1200,
+          },
+          engine: newEngine,
+        }
       }
       return { ui, engine }
     }
@@ -2180,7 +2190,15 @@ function dispatchPatternLoad(ui: UIState, engine: SequencerState, event: Control
     case 'encoder-a-push': {
       // Apply: load selected layers into destination track
       const newEngine = restoreTrackSlot(engine, ui.patternLoadTarget, pattern.data, ui.patternLayerFlags)
-      return { ui: { ...ui, mode: 'pattern' }, engine: newEngine }
+      return {
+        ui: {
+          ...ui,
+          mode: 'pattern',
+          flashMessage: `LOADED → T${ui.patternLoadTarget + 1}`,
+          flashUntil: performance.now() + 1200,
+        },
+        engine: newEngine,
+      }
     }
     case 'encoder-b-turn': {
       // Browse destination track with encoder B
@@ -2219,9 +2237,16 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
         }
       }
       if (ui.nameEntryContext === 'pattern') {
+        const newEngine = savePattern(engine, createSavedPattern(engine, ui.selectedTrack, name))
         return {
-          ui: { ...ui, mode: 'pattern' },
-          engine: savePattern(engine, createSavedPattern(engine, ui.selectedTrack, name)),
+          ui: {
+            ...ui,
+            mode: 'pattern',
+            patternIndex: newEngine.savedPatterns.length - 1,
+            flashMessage: 'SAVED',
+            flashUntil: performance.now() + 1200,
+          },
+          engine: newEngine,
         }
       }
       return { ui, engine }

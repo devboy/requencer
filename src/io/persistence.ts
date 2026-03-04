@@ -15,10 +15,18 @@ export function loadPatterns(): SavedPattern[] {
   try {
     const raw = localStorage.getItem(PATTERNS_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as SavedPattern[]
+    const parsed = JSON.parse(raw) as unknown[]
+    // Filter out old-format or corrupt entries
+    return parsed.filter(isValidPattern) as SavedPattern[]
   } catch {
     return []
   }
+}
+
+function isValidPattern(p: unknown): boolean {
+  if (!p || typeof p !== 'object') return false
+  const obj = p as Record<string, unknown>
+  return typeof obj.name === 'string' && typeof obj.data === 'object' && obj.data !== null
 }
 
 export function savePresets(presets: UserPreset[]): void {

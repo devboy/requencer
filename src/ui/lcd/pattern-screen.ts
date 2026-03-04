@@ -60,11 +60,11 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
         drawText(ctx, pattern.name, LABEL_X, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
         drawText(
           ctx,
-          `T${pattern.sourceTrack + 1}`,
+          `${ui.patternIndex + 1}/${engine.savedPatterns.length}`,
           VALUE_X,
           y + ROW_H / 2 - 2,
           isSelected ? '#ffffff' : COLORS.textDim,
-          16,
+          14,
           'right',
         )
       }

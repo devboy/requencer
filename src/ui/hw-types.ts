@@ -90,6 +90,8 @@ export interface UIState {
   patternLayerFlags: import('../engine/types').LayerFlags
   patternLoadTarget: number // 0-3: destination track for pattern load
   nameEntryContext: 'preset' | 'pattern'
+  flashMessage: string // brief overlay text, cleared by timer
+  flashUntil: number // performance.now() timestamp when flash expires
 }
 
 export interface LEDState {

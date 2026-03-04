@@ -521,24 +521,40 @@ export function updateModeIndicators(
 ): void {
   const mode = ui.mode
 
+  // Collect all toggleable buttons for cleanup
+  const allBtns = [...subtrackBtns, ...featureBtns, randBtn, patBtn]
+
   if (mode === 'pattern-load') {
-    // In pattern-load: subtrack/feature buttons reflect layer flags
+    // In pattern-load: subtrack/feature buttons reflect layer flags with track color
     const flags = ui.patternLayerFlags
-    subtrackBtns[0].classList.toggle('active', flags.gate)
-    subtrackBtns[1].classList.toggle('active', flags.pitch)
-    subtrackBtns[2].classList.toggle('active', flags.velocity)
-    subtrackBtns[3].classList.toggle('active', flags.mod)
+    const TRACK_BTN_COLORS = ['#c8566e', '#c89040', '#5aaa6e', '#5aabb4']
+    const color = TRACK_BTN_COLORS[ui.patternLoadTarget] || TRACK_BTN_COLORS[0]
 
-    // featureBtns: [mute, route, mutate/drift, transpose, variation]
-    featureBtns[0].classList.toggle('active', false) // mute — not applicable
-    featureBtns[1].classList.toggle('active', false) // route — not applicable
-    featureBtns[2].classList.toggle('active', flags.drift)
-    featureBtns[3].classList.toggle('active', flags.transpose)
-    featureBtns[4].classList.toggle('active', flags.variation)
-
-    randBtn.classList.toggle('active', false)
-    patBtn.classList.toggle('active', true)
+    const states: [HTMLButtonElement, boolean][] = [
+      [subtrackBtns[0], flags.gate],
+      [subtrackBtns[1], flags.pitch],
+      [subtrackBtns[2], flags.velocity],
+      [subtrackBtns[3], flags.mod],
+      [featureBtns[0], false], // mute — not applicable
+      [featureBtns[1], false], // route — not applicable
+      [featureBtns[2], flags.drift],
+      [featureBtns[3], flags.transpose],
+      [featureBtns[4], flags.variation],
+      [randBtn, false],
+      [patBtn, true],
+    ]
+    for (const [btn, on] of states) {
+      btn.classList.toggle('active', on)
+      btn.style.backgroundColor = on ? color : ''
+      btn.style.boxShadow = on ? `0 0 6px ${color}88` : ''
+    }
     return
+  }
+
+  // Normal mode — clear any inline styles from pattern-load
+  for (const btn of allBtns) {
+    btn.style.backgroundColor = ''
+    btn.style.boxShadow = ''
   }
 
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']

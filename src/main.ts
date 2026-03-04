@@ -15,6 +15,7 @@ import { createDebugMenu } from './ui/debug-menu'
 import type { ControlEvent, ScreenMode, UIState } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
 import { renderClrConfirmOverlay } from './ui/lcd/clr-confirm-overlay'
+import { renderFlashOverlay } from './ui/lcd/flash-overlay'
 import { renderGateEdit } from './ui/lcd/gate-edit'
 import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 
@@ -286,6 +287,13 @@ function render(): void {
     }
   }
   panel.clrBtn.classList.toggle('clr-pending', uiState.clrPending)
+
+  // Flash message overlay (SAVED, LOADED, DELETED)
+  if (uiState.flashMessage && performance.now() < uiState.flashUntil) {
+    renderFlashOverlay(lcdCtx, uiState.flashMessage)
+  } else if (uiState.flashMessage) {
+    uiState = { ...uiState, flashMessage: '', flashUntil: 0 }
+  }
 
   // Update panel LEDs
   const ledState = getLEDState(uiState, engineState)
