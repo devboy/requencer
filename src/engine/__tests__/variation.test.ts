@@ -655,11 +655,7 @@ describe('getEffectiveVelocityStep', () => {
     const sub = makeSimpleSubtrack([100, 80, 60, 40], 0)
     // reverse reads step 3 (=40), then accent every 4th (step 0) → 127
     // Wait, after reverse, idx=3, which is not 0 % 4. Let me use a simpler test.
-    const result = getEffectiveVelocityStep(
-      sub,
-      [{ type: 'accent', param: 4 }],
-      0,
-    )
+    const result = getEffectiveVelocityStep(sub, [{ type: 'accent', param: 4 }], 0)
     // currentStep=0, 0 % 4 = 0 → accent → 127
     expect(result).toBe(127)
   })
@@ -669,7 +665,10 @@ describe('getEffectiveVelocityStep', () => {
     // reverse: step 0 → reads step 3, fade-in: step 3 of 4 → 3/3 = 1.0 → 100
     const result = getEffectiveVelocityStep(
       sub,
-      [{ type: 'reverse', param: 0 }, { type: 'fade-in', param: 0 }],
+      [
+        { type: 'reverse', param: 0 },
+        { type: 'fade-in', param: 0 },
+      ],
       0,
     )
     // idx after reverse = 3, fade-in: 3/3 = 1.0, 100*1.0 = 100
