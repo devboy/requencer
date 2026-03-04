@@ -18,15 +18,7 @@ export function renderPatternLoad(ctx: CanvasRenderingContext2D, engine: Sequenc
 
   // Header: pattern name + destination
   drawText(ctx, `LOAD: ${pattern.name}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(
-    ctx,
-    `\u2192 T${ui.patternLoadTarget + 1}`,
-    LCD_W - PAD,
-    LCD_CONTENT_Y + 18,
-    trackColor,
-    14,
-    'right',
-  )
+  drawText(ctx, `\u2192 T${ui.patternLoadTarget + 1}`, LCD_W - PAD, LCD_CONTENT_Y + 18, trackColor, 14, 'right')
 
   // Layer flags summary — show which layers are selected
   const y1 = LCD_CONTENT_Y + 40

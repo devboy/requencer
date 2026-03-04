@@ -1769,9 +1769,7 @@ export function getLEDState(ui: UIState, engine: SequencerState): LEDState {
 
   // Track LEDs: pattern-load uses patternLoadTarget, others use selectedTrack
   const activeTrack = ui.mode === 'pattern-load' ? ui.patternLoadTarget : ui.selectedTrack
-  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map((i) =>
-    i === activeTrack ? 'on' : 'off',
-  ) as LEDState['tracks']
+  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map((i) => (i === activeTrack ? 'on' : 'off')) as LEDState['tracks']
 
   // Step LEDs: depend on mode
   const steps = getStepLEDs(ui, engine)

@@ -204,10 +204,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'mute-edit': (ui) => `T${ui.selectedTrack + 1} MUTE`,
   route: (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   rand: (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
-  'name-entry': (ui) =>
-    ui.nameEntryContext === 'preset'
-      ? 'SAVE PRESET'
-      : `SAVE T${ui.selectedTrack + 1} PATTERN`,
+  'name-entry': (ui) => (ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : `SAVE T${ui.selectedTrack + 1} PATTERN`),
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,

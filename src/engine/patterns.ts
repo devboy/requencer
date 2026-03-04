@@ -56,18 +56,12 @@ export function restoreTrackSlot(
         if (i !== targetTrack) return t
         return {
           ...t,
-          gate: layers.gate
-            ? { ...slot.track.gate, currentStep: existing.gate.currentStep }
-            : t.gate,
-          pitch: layers.pitch
-            ? { ...slot.track.pitch, currentStep: existing.pitch.currentStep }
-            : t.pitch,
+          gate: layers.gate ? { ...slot.track.gate, currentStep: existing.gate.currentStep } : t.gate,
+          pitch: layers.pitch ? { ...slot.track.pitch, currentStep: existing.pitch.currentStep } : t.pitch,
           velocity: layers.velocity
             ? { ...slot.track.velocity, currentStep: existing.velocity.currentStep }
             : t.velocity,
-          mod: layers.mod
-            ? { ...slot.track.mod, currentStep: existing.mod.currentStep }
-            : t.mod,
+          mod: layers.mod ? { ...slot.track.mod, currentStep: existing.mod.currentStep } : t.mod,
         }
       }),
     }
