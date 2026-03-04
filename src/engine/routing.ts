@@ -12,6 +12,7 @@ import {
   getEffectiveGateStep,
   getEffectivePitchStep,
   getEffectiveSimpleStep,
+  getEffectiveVelocityStep,
   getTransformsForSubtrack,
 } from './variation'
 
@@ -98,7 +99,7 @@ export function resolveOutputs(
     const velTransforms = velVP?.enabled ? getTransformsForSubtrack(velVP, 'velocity') : []
     let velocity = velTrack
       ? velTransforms.length > 0
-        ? getEffectiveSimpleStep(velTrack.velocity, velTransforms)
+        ? getEffectiveVelocityStep(velTrack.velocity, velTransforms, velVP?.currentBar ?? 0)
         : velTrack.velocity.steps[velTrack.velocity.currentStep]
       : 0
 

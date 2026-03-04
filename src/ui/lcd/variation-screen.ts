@@ -24,6 +24,7 @@
  */
 
 import type { SequencerState, VariationPattern } from '../../engine/types'
+import { QUANTIZE_SCALE_NAMES } from '../../engine/variation'
 import { COLORS } from '../colors'
 import type { SubtrackId, UIState } from '../hw-types'
 import { getEditingVariationPattern, TRANSFORM_CATALOG } from '../mode-machine'
@@ -45,8 +46,10 @@ const SUBTRACK_LABELS: Record<SubtrackId, string> = {
 function formatParam(type: string, param: number): string {
   switch (type) {
     case 'rotate':
+    case 'stutter':
       return `${param} step${param !== 1 ? 's' : ''}`
     case 'thin':
+    case 'densify':
       return `${Math.round(param * 100)}%`
     case 'transpose':
       return `${param > 0 ? '+' : ''}${param} st`
@@ -54,8 +57,19 @@ function formatParam(type: string, param: number): string {
       return `C${Math.floor(param / 12) - 1}`
     case 'octave-shift':
       return `${param > 0 ? '+' : ''}${param} oct`
-    case 'stutter':
-      return `${param} step${param !== 1 ? 's' : ''}`
+    case 'skip':
+    case 'drop':
+    case 'accent':
+      return `/${param}`
+    case 'drunk-walk':
+    case 'humanize':
+      return `${Math.round(param * 100)}%`
+    case 'ratchet':
+      return `×${param}`
+    case 'fold':
+      return `${param} st`
+    case 'quantize':
+      return QUANTIZE_SCALE_NAMES[Math.floor(param)] ?? 'CHROM'
     default:
       return ''
   }

@@ -735,18 +735,36 @@ function updateMutateConfig(
 
 /** Transform catalog — browse order matching the design doc */
 export const TRANSFORM_CATALOG: Array<{ type: TransformType; label: string; defaultParam: number }> = [
+  // Playhead
   { type: 'reverse', label: 'REVERSE', defaultParam: 0 },
   { type: 'ping-pong', label: 'PING-PONG', defaultParam: 0 },
   { type: 'rotate', label: 'ROTATE', defaultParam: 1 },
+  { type: 'double-time', label: 'DOUBLE-TIME', defaultParam: 0 },
+  { type: 'half-time', label: 'HALF-TIME', defaultParam: 0 },
+  { type: 'stutter', label: 'STUTTER', defaultParam: 4 },
+  { type: 'skip', label: 'SKIP', defaultParam: 3 },
+  { type: 'drunk-walk', label: 'DRUNK-WALK', defaultParam: 0.3 },
+  { type: 'scramble', label: 'SCRAMBLE', defaultParam: 0 },
+  // Gate
   { type: 'thin', label: 'THIN', defaultParam: 0.5 },
   { type: 'fill', label: 'FILL', defaultParam: 0 },
   { type: 'skip-even', label: 'SKIP-EVEN', defaultParam: 0 },
   { type: 'skip-odd', label: 'SKIP-ODD', defaultParam: 0 },
+  { type: 'invert-gates', label: 'INV-GATE', defaultParam: 0 },
+  { type: 'densify', label: 'DENSIFY', defaultParam: 0.5 },
+  { type: 'drop', label: 'DROP', defaultParam: 3 },
+  { type: 'ratchet', label: 'RATCHET', defaultParam: 2 },
+  // Pitch
   { type: 'transpose', label: 'TRANSPOSE', defaultParam: 7 },
   { type: 'invert', label: 'INVERT', defaultParam: 60 },
   { type: 'octave-shift', label: 'OCTAVE-SHIFT', defaultParam: 1 },
-  { type: 'double-time', label: 'DOUBLE-TIME', defaultParam: 0 },
-  { type: 'stutter', label: 'STUTTER', defaultParam: 4 },
+  { type: 'fold', label: 'FOLD', defaultParam: 12 },
+  { type: 'quantize', label: 'QUANTIZE', defaultParam: 1 },
+  // Velocity
+  { type: 'accent', label: 'ACCENT', defaultParam: 4 },
+  { type: 'fade-in', label: 'FADE-IN', defaultParam: 0 },
+  { type: 'fade-out', label: 'FADE-OUT', defaultParam: 0 },
+  { type: 'humanize', label: 'HUMANIZE', defaultParam: 0.5 },
 ]
 
 function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
@@ -847,6 +865,7 @@ function adjustTransformParam(t: Transform, delta: number): number {
     case 'rotate':
       return clamp(t.param + delta, 1, 64)
     case 'thin':
+    case 'densify':
       return Math.round(clamp(t.param + delta * 0.1, 0.1, 0.9) * 10) / 10
     case 'transpose':
       return clamp(t.param + delta, -24, 24)
@@ -856,6 +875,21 @@ function adjustTransformParam(t: Transform, delta: number): number {
       return clamp(t.param + delta, -3, 3)
     case 'stutter':
       return clamp(t.param + delta, 1, 16)
+    case 'skip':
+      return clamp(t.param + delta, 2, 8)
+    case 'drunk-walk':
+    case 'humanize':
+      return Math.round(clamp(t.param + delta * 0.1, 0.1, 1.0) * 10) / 10
+    case 'drop':
+      return clamp(t.param + delta, 2, 8)
+    case 'ratchet':
+      return clamp(t.param + delta, 2, 4)
+    case 'fold':
+      return clamp(t.param + delta * 2, 6, 48)
+    case 'quantize':
+      return clamp(t.param + delta, 0, 7)
+    case 'accent':
+      return clamp(t.param + delta, 2, 8)
     default:
       // No param for this transform type
       return t.param

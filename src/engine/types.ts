@@ -211,18 +211,36 @@ export interface MIDIOutputConfig {
 
 // Variation transform types
 export type TransformType =
+  // Playhead transforms (change which step index is read)
   | 'reverse'
   | 'ping-pong'
   | 'rotate'
+  | 'double-time'
+  | 'stutter'
+  | 'half-time'
+  | 'skip'
+  | 'drunk-walk'
+  | 'scramble'
+  // Gate value transforms (modify gate output)
   | 'thin'
   | 'fill'
   | 'skip-even'
   | 'skip-odd'
+  | 'invert-gates'
+  | 'densify'
+  | 'drop'
+  | 'ratchet'
+  // Pitch value transforms (modify pitch output)
   | 'transpose'
   | 'invert'
   | 'octave-shift'
-  | 'double-time'
-  | 'stutter'
+  | 'fold'
+  | 'quantize'
+  // Velocity value transforms (modify velocity output)
+  | 'accent'
+  | 'fade-in'
+  | 'fade-out'
+  | 'humanize'
 
 export interface Transform {
   type: TransformType
