@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { PPQN } from '../engine/clock-divider'
+import { PPQN, TICKS_PER_STEP } from '../engine/clock-divider'
 
 export interface ClockCallbacks {
   onTick: (time: number, stepDuration: number, tickDuration: number) => void
@@ -7,7 +7,11 @@ export interface ClockCallbacks {
 
 /**
  * Connects Tone.js Transport to the sequencer engine.
- * Each scheduled repeat fires the onTick callback with audio-context time.
+ *
+ * Schedules at '16n' (16th-note) intervals and emits TICKS_PER_STEP (6)
+ * sub-tick callbacks per step to achieve 24 PPQN resolution.
+ * Each sub-tick callback receives a time offset so audio events are
+ * scheduled at the correct sub-tick positions.
  */
 export class ToneClock {
   private repeatId: number | null = null
@@ -26,7 +30,8 @@ export class ToneClock {
   }
 
   /**
-   * Start the clock. Schedules 24 PPQN ticks (one tick per 96th note).
+   * Start the clock. Schedules 16th-note callbacks, each emitting
+   * TICKS_PER_STEP sub-ticks for 24 PPQN resolution.
    * Must be called after a user gesture (Tone.start() requirement).
    */
   async start(): Promise<void> {
@@ -36,12 +41,22 @@ export class ToneClock {
     }
     const transport = Tone.getTransport()
 
-    // Schedule a repeating callback at 96th note intervals (= 1/PPQN of a quarter note)
+    // Safety: clear any existing repeat to prevent double-scheduling
+    if (this.repeatId !== null) {
+      transport.clear(this.repeatId)
+      this.repeatId = null
+    }
+
     this.repeatId = transport.scheduleRepeat((time) => {
-      const stepDuration = 60 / transport.bpm.value / 4 // 16th note duration in seconds
-      const tickDuration = 60 / transport.bpm.value / PPQN // single PPQN tick duration
-      this.callbacks.onTick(time, stepDuration, tickDuration)
-    }, '96n')
+      const bpm = transport.bpm.value
+      const stepDuration = 60 / bpm / 4 // 16th note in seconds
+      const tickDuration = 60 / bpm / PPQN // single PPQN tick in seconds
+
+      // Emit TICKS_PER_STEP sub-ticks with precise audio-time offsets
+      for (let i = 0; i < TICKS_PER_STEP; i++) {
+        this.callbacks.onTick(time + i * tickDuration, stepDuration, tickDuration)
+      }
+    }, '16n')
 
     transport.start()
   }

@@ -153,6 +153,7 @@ export function createSequencer(): SequencerState {
     mutateConfigs: Array.from({ length: NUM_TRACKS }, () => createDefaultMutateConfig()),
     midiConfigs: Array.from({ length: NUM_TRACKS }, (_, i) => ({ channel: i + 1 })),
     midiEnabled: false,
+    midiClockOut: false,
     userPresets: [],
     variationPatterns: Array.from({ length: NUM_TRACKS }, () => createDefaultVariationPattern()),
     savedPatterns: [],

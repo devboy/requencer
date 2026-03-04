@@ -105,6 +105,8 @@ export function createInitialUIState(): UIState {
     modLfoParam: 0,
     midiDevices: [],
     midiDeviceIndex: 0,
+    midiInputDevices: [],
+    midiInputDeviceIndex: 0,
     clrPending: false,
     clrPendingAt: 0,
     patternParam: 0,
@@ -1613,10 +1615,22 @@ function dispatchSettingsEncoderB(ui: UIState, engine: SequencerState, delta: nu
       const next = (((idx + delta) % CLOCK_SOURCES.length) + CLOCK_SOURCES.length) % CLOCK_SOURCES.length
       return { ui, engine: { ...engine, transport: { ...engine.transport, clockSource: CLOCK_SOURCES[next] } } }
     }
+    case 'clock.out': {
+      if (delta > 0 && !engine.midiClockOut) return { ui, engine: { ...engine, midiClockOut: true } }
+      if (delta < 0 && engine.midiClockOut) return { ui, engine: { ...engine, midiClockOut: false } }
+      return { ui, engine }
+    }
     case 'midi.enabled': {
       if (delta > 0 && !engine.midiEnabled) return { ui, engine: { ...engine, midiEnabled: true } }
       if (delta < 0 && engine.midiEnabled) return { ui, engine: { ...engine, midiEnabled: false } }
       return { ui, engine }
+    }
+    case 'midi.in.device': {
+      if (ui.midiInputDevices.length === 0) return { ui, engine }
+      const next =
+        (((ui.midiInputDeviceIndex + delta) % ui.midiInputDevices.length) + ui.midiInputDevices.length) %
+        ui.midiInputDevices.length
+      return { ui: { ...ui, midiInputDeviceIndex: next }, engine }
     }
     case 'midi.device': {
       if (ui.midiDevices.length === 0) return { ui, engine }
@@ -1667,10 +1681,14 @@ function resetSettingsParam(ui: UIState, engine: SequencerState, paramId: string
       return { ui, engine: { ...engine, transport: { ...engine.transport, bpm: 135 } } }
     case 'clock.source':
       return { ui, engine: { ...engine, transport: { ...engine.transport, clockSource: 'internal' } } }
+    case 'clock.out':
+      return { ui, engine: { ...engine, midiClockOut: false } }
     case 'midi.enabled':
       return { ui, engine: { ...engine, midiEnabled: false } }
     case 'midi.device':
       return { ui: { ...ui, midiDeviceIndex: 0 }, engine }
+    case 'midi.in.device':
+      return { ui: { ...ui, midiInputDeviceIndex: 0 }, engine }
     default: {
       const match = paramId.match(/^midi\.ch\.(\d)$/)
       if (match) {
