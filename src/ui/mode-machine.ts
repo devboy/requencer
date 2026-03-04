@@ -1109,6 +1109,13 @@ function dispatchRand(ui: UIState, engine: SequencerState, event: ControlEvent):
     case 'encoder-b-turn': {
       return dispatchRandParamAdjust(ui, engine, event.delta)
     }
+    case 'encoder-b-push': {
+      // Close dropdown if open
+      if (ui.randDropdownOpen) {
+        return { ui: { ...ui, randDropdownOpen: false }, engine }
+      }
+      return { ui, engine }
+    }
     default:
       return { ui, engine }
   }
