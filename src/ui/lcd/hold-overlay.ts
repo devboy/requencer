@@ -2,11 +2,19 @@
  * LCD Hold Overlay — shown when a button is held for length/division combos.
  * Displays the parameter being adjusted with large, readable values.
  * All text ≥16px for readability on 3.5" TFT at 50cm.
+ *
+ * Thin mode: 42px header strip overlay (used in step-edit screens)
+ * Full mode: semi-transparent overlay covering entire content area
+ *
+ * Layout conventions:
+ *   Thin: values at 22px (or 18px for track with 4 subtracks)
+ *   Full: title at 18px, values at 24px, no hint text
  */
 
 import type { SequencerState } from '../../engine/types'
 import { COLORS } from '../colors'
 import type { UIState } from '../hw-types'
+import { getEditingVariationPattern } from '../mode-machine'
 import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 16
@@ -26,7 +34,6 @@ export function renderHoldOverlay(
     // Thin overlay — only covers header area, step grid stays visible
     fillRect(ctx, { x: 0, y: LCD_CONTENT_Y, w: LCD_W, h: THIN_H }, 'rgba(8,8,20,0.92)')
     const trackIdx = held.kind === 'track' ? held.track : ui.selectedTrack
-    const _trackColor = COLORS.track[trackIdx]
 
     if (held.kind === 'subtrack') {
       const sub = held.subtrack
@@ -34,24 +41,26 @@ export function renderHoldOverlay(
         const subtrack = engine.tracks[trackIdx][sub]
         drawText(ctx, `LEN ${subtrack.length}`, PAD, LCD_CONTENT_Y + 22, COLORS.textBright, 22)
         drawText(ctx, `÷${subtrack.clockDivider}`, PAD + 140, LCD_CONTENT_Y + 22, COLORS.textBright, 22)
-        drawText(ctx, 'A:len  B:div', LCD_W - PAD, LCD_CONTENT_Y + 22, COLORS.textDim, 12, 'right')
       }
     } else if (held.kind === 'track') {
       const track = engine.tracks[trackIdx]
       drawText(
         ctx,
-        `LEN G:${track.gate.length} P:${track.pitch.length} V:${track.velocity.length}`,
+        `LEN G:${track.gate.length} P:${track.pitch.length} V:${track.velocity.length} M:${track.mod.length}`,
         PAD,
         LCD_CONTENT_Y + 22,
         COLORS.textBright,
-        16,
+        18,
       )
-      drawText(ctx, `÷${track.clockDivider}`, LCD_W - PAD - 80, LCD_CONTENT_Y + 22, COLORS.textBright, 16)
-      drawText(ctx, 'A:len B:div', LCD_W - PAD, LCD_CONTENT_Y + 22, COLORS.textDim, 12, 'right')
+      drawText(ctx, `÷${track.clockDivider}`, LCD_W - PAD - 50, LCD_CONTENT_Y + 22, COLORS.textBright, 18)
     } else if (held.kind === 'feature' && held.feature === 'mute') {
       const mute = engine.mutePatterns[trackIdx]
       drawText(ctx, `MUTE LEN ${mute.length}`, PAD, LCD_CONTENT_Y + 22, COLORS.textBright, 22)
       drawText(ctx, `÷${mute.clockDivider}`, PAD + 200, LCD_CONTENT_Y + 22, COLORS.textBright, 22)
+    } else if (held.kind === 'feature' && held.feature === 'variation') {
+      const vp = getEditingVariationPattern(engine, ui)
+      const loopText = vp.loopMode ? '  LOOP' : ''
+      drawText(ctx, `VAR ${vp.length} bars${loopText}`, PAD, LCD_CONTENT_Y + 22, COLORS.textBright, 22)
     }
     return // skip full overlay
   }
@@ -67,22 +76,16 @@ export function renderHoldOverlay(
     const track = engine.tracks[held.track]
     drawText(ctx, `TRACK ${held.track + 1}`, PAD, LCD_CONTENT_Y + 30, trackColor, 18)
 
-    // Show all subtrack lengths
-    const y = centerY - 20
+    const y = centerY - 10
     drawText(
       ctx,
-      `LEN  G:${track.gate.length}  P:${track.pitch.length}  V:${track.velocity.length}  M:${track.mod.length}`,
+      `G:${track.gate.length} P:${track.pitch.length} V:${track.velocity.length} M:${track.mod.length}`,
       PAD,
       y,
       COLORS.textBright,
-      18,
+      24,
     )
-
-    // Track clock divider
-    drawText(ctx, `DIV  ÷${track.clockDivider}`, PAD, y + 26, COLORS.textBright, 18)
-
-    // Hint
-    drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
+    drawText(ctx, `÷${track.clockDivider}`, PAD, y + 30, COLORS.textBright, 24)
   }
 
   if (held.kind === 'subtrack') {
@@ -95,8 +98,6 @@ export function renderHoldOverlay(
       const y = centerY - 10
       drawText(ctx, `LEN ${subtrack.length}`, PAD, y, COLORS.textBright, 24)
       drawText(ctx, `÷${subtrack.clockDivider}`, PAD + 200, y, COLORS.textBright, 24)
-
-      drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
     }
   }
 
@@ -107,7 +108,15 @@ export function renderHoldOverlay(
     const y = centerY - 10
     drawText(ctx, `LEN ${mute.length}`, PAD, y, COLORS.textBright, 24)
     drawText(ctx, `÷${mute.clockDivider}`, PAD + 200, y, COLORS.textBright, 24)
+  }
 
-    drawText(ctx, 'ENC A: length  ENC B: divider', PAD, LCD_CONTENT_Y + LCD_CONTENT_H - 20, COLORS.textDim, 16)
+  if (held.kind === 'feature' && held.feature === 'variation') {
+    const vp = getEditingVariationPattern(engine, ui)
+    drawText(ctx, `VAR — T${trackIdx + 1}`, PAD, LCD_CONTENT_Y + 30, trackColor, 18)
+
+    const y = centerY - 10
+    drawText(ctx, `LEN ${vp.length}`, PAD, y, COLORS.textBright, 24)
+    const loopText = vp.loopMode ? 'LOOP' : 'FIXED'
+    drawText(ctx, loopText, PAD + 200, y, COLORS.textBright, 24)
   }
 }

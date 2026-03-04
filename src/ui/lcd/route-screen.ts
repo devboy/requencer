@@ -27,7 +27,6 @@ export function renderRoute(ctx: CanvasRenderingContext2D, engine: SequencerStat
 
   // Header
   drawText(ctx, `ROUTE — O${outputIdx + 1}`, PAD, LCD_CONTENT_Y + 18, COLORS.track[outputIdx], 18)
-  drawText(ctx, 'ENC B:source', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 
   // 4 param rows
   for (let i = 0; i < 4; i++) {

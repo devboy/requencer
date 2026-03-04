@@ -22,7 +22,6 @@ export function renderNameEntry(ctx: CanvasRenderingContext2D, _engine: Sequence
   // Header — context-aware title
   const headerText = ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : `SAVE T${ui.selectedTrack + 1} PATTERN`
   drawText(ctx, headerText, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(ctx, 'ENC A:char  ENC B:cursor  PUSH:save', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 
   // Center the character grid
   const totalW = ui.nameChars.length * (CHAR_W + CHAR_GAP) - CHAR_GAP
@@ -53,7 +52,4 @@ export function renderNameEntry(ctx: CanvasRenderingContext2D, _engine: Sequence
   // Preview of full name below
   const name = ui.nameChars.map((ci) => NAME_CHARSET[ci] ?? ' ').join('')
   drawText(ctx, name.trim() || '(empty)', LCD_W / 2, centerY + CHAR_H / 2 + 24, COLORS.textDim, 16, 'center')
-
-  // Hint
-  drawText(ctx, 'ESC: cancel', LCD_W / 2, LCD_CONTENT_Y + LCD_CONTENT_H - 12, COLORS.textDim, 12, 'center')
 }
