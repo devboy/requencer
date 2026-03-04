@@ -112,56 +112,12 @@ function buildRowDefs(): RandRow[] {
       visible: always,
     },
 
-    // --- ARP section ---
-    {
-      type: 'header',
-      paramId: 'section.arp',
-      label: 'ARP',
-      getValue: () => '',
-      visible: always,
-    },
-    {
-      type: 'param',
-      paramId: 'arp.enabled',
-      label: 'ARP',
-      getValue: (e, ui) => (e.arpConfigs[ui.selectedTrack].enabled ? 'ON' : 'OFF'),
-      visible: always,
-    },
-    {
-      type: 'subparam',
-      paramId: 'arp.direction',
-      label: 'DIR',
-      getValue: (e, ui) => e.arpConfigs[ui.selectedTrack].direction.toUpperCase(),
-      visible: (e, ui) => e.arpConfigs[ui.selectedTrack].enabled,
-    },
-    {
-      type: 'subparam',
-      paramId: 'arp.octaveRange',
-      label: 'OCT',
-      getValue: (e, ui) => String(e.arpConfigs[ui.selectedTrack].octaveRange),
-      visible: (e, ui) => e.arpConfigs[ui.selectedTrack].enabled,
-    },
-
     // --- GATE section ---
     {
       type: 'header',
       paramId: 'section.gate',
       label: 'GATE',
       getValue: () => '',
-      visible: always,
-    },
-    {
-      type: 'param',
-      paramId: 'gate.fillMin',
-      label: 'FILL MIN',
-      getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMin * 100)}%`,
-      visible: always,
-    },
-    {
-      type: 'param',
-      paramId: 'gate.fillMax',
-      label: 'FILL MAX',
-      getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMax * 100)}%`,
       visible: always,
     },
     {
@@ -190,6 +146,20 @@ function buildRowDefs(): RandRow[] {
     },
     {
       type: 'param',
+      paramId: 'gate.fillMin',
+      label: 'FILL MIN',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMin * 100)}%`,
+      visible: always,
+    },
+    {
+      type: 'param',
+      paramId: 'gate.fillMax',
+      label: 'FILL MAX',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).gate.fillMax * 100)}%`,
+      visible: always,
+    },
+    {
+      type: 'param',
       paramId: 'gateLength.min',
       label: 'GL MIN',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).gateLength.min * 100)}%`,
@@ -214,15 +184,6 @@ function buildRowDefs(): RandRow[] {
       paramId: 'ratchet.probability',
       label: 'RATCH %',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).ratchet.probability * 100)}%`,
-      visible: always,
-    },
-
-    // --- TIE section ---
-    {
-      type: 'header',
-      paramId: 'section.tie',
-      label: 'TIE',
-      getValue: () => '',
       visible: always,
     },
     {
@@ -290,20 +251,6 @@ function buildRowDefs(): RandRow[] {
     },
     {
       type: 'param',
-      paramId: 'mod.low',
-      label: 'MOD LO',
-      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.low * 100)}%`,
-      visible: always,
-    },
-    {
-      type: 'param',
-      paramId: 'mod.high',
-      label: 'MOD HI',
-      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.high * 100)}%`,
-      visible: always,
-    },
-    {
-      type: 'param',
       paramId: 'mod.mode',
       label: 'MODE',
       getValue: (e, ui) => {
@@ -333,6 +280,20 @@ function buildRowDefs(): RandRow[] {
       label: 'BIAS',
       getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.syncBias * 100)}%`,
       visible: (e, ui) => cfg(e, ui).mod.mode === 'sync',
+    },
+    {
+      type: 'param',
+      paramId: 'mod.low',
+      label: 'MOD LO',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.low * 100)}%`,
+      visible: always,
+    },
+    {
+      type: 'param',
+      paramId: 'mod.high',
+      label: 'MOD HI',
+      getValue: (e, ui) => `${Math.round(cfg(e, ui).mod.high * 100)}%`,
+      visible: always,
     },
     {
       type: 'param',
@@ -385,21 +346,21 @@ export const SECTION_PARAMS: Record<string, string[]> = {
     'pitch.maxNotes',
     'slide.probability',
   ],
-  'section.arp': ['arp.enabled', 'arp.direction', 'arp.octaveRange'],
   'section.gate': [
-    'gate.fillMin',
-    'gate.fillMax',
     'gate.mode',
     'gate.randomOffset',
     'gate.clusterContinuation',
+    'gate.fillMin',
+    'gate.fillMax',
     'gateLength.min',
     'gateLength.max',
     'ratchet.maxRatchet',
     'ratchet.probability',
+    'tie.probability',
+    'tie.maxLength',
   ],
-  'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.mode', 'velocity.low', 'velocity.high'],
-  'section.mod': ['mod.low', 'mod.high', 'mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.slew', 'mod.slewProb'],
+  'section.mod': ['mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.low', 'mod.high', 'mod.slew', 'mod.slewProb'],
 }
 
 /** ParamIds that use dropdown popups instead of inline value cycling */
