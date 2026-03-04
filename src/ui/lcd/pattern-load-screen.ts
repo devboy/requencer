@@ -20,10 +20,10 @@ export function renderPatternLoad(ctx: CanvasRenderingContext2D, engine: Sequenc
   drawText(ctx, `LOAD: ${pattern.name}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   drawText(
     ctx,
-    `T${pattern.sourceTrack + 1} \u2192 T${ui.patternLoadTarget + 1}`,
+    `\u2192 T${ui.patternLoadTarget + 1}`,
     LCD_W - PAD,
     LCD_CONTENT_Y + 18,
-    COLORS.text,
+    trackColor,
     14,
     'right',
   )
