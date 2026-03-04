@@ -16,11 +16,10 @@
 import { clamp } from '../engine/math'
 import {
   createDefaultLayerFlags,
+  createSavedPattern,
   deletePattern,
-  loadPattern,
+  restoreTrackSlot,
   savePattern,
-  snapshotAllTracks,
-  snapshotSingleTrack,
 } from '../engine/patterns'
 import { PRESETS } from '../engine/presets'
 import { createDefaultRouting } from '../engine/routing'
@@ -63,6 +62,7 @@ import type {
   LayerFlags,
   ModMode,
   RandomConfig,
+  SavedPattern,
   SequencerState,
   Transform,
   TransformType,
@@ -108,11 +108,11 @@ export function createInitialUIState(): UIState {
     clrPendingAt: 0,
     patternParam: 0,
     patternIndex: 0,
-    patternLoadSlot: 0,
-    patternSlotMapping: [0, 1, 2, 3],
     patternLayerFlags: createDefaultLayerFlags(),
-    patternLoadStep: 'mapping',
+    patternLoadTarget: 0,
     nameEntryContext: 'preset',
+    flashMessage: '',
+    flashUntil: 0,
   }
 }
 
@@ -193,6 +193,43 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui, engine: resetAllPlayheads(engine) }
   }
 
+  // --- Pattern-load mode intercepts (before cross-modal handlers) ---
+  if (ui.mode === 'pattern-load') {
+    if (event.type === 'track-select') {
+      return { ui: { ...ui, patternLoadTarget: event.track }, engine }
+    }
+    if (event.type === 'subtrack-select') {
+      const key = event.subtrack // 'gate' | 'pitch' | 'velocity' | 'mod'
+      const flags = { ...ui.patternLayerFlags, [key]: !ui.patternLayerFlags[key] }
+      return { ui: { ...ui, patternLayerFlags: flags }, engine }
+    }
+    if (event.type === 'feature-press') {
+      const featureToLayer: Record<string, keyof LayerFlags | null> = {
+        mutate: 'drift',
+        transpose: 'transpose',
+        variation: 'variation',
+        mute: null,
+        route: null,
+        rand: null,
+      }
+      const layerKey = featureToLayer[event.feature]
+      if (layerKey) {
+        const flags = { ...ui.patternLayerFlags, [layerKey]: !ui.patternLayerFlags[layerKey] }
+        return { ui: { ...ui, patternLayerFlags: flags }, engine }
+      }
+      return { ui, engine }
+    }
+    // Block settings/clr/step/pattern presses — stay in load mode
+    if (
+      event.type === 'settings-press' ||
+      event.type === 'clr-press' ||
+      event.type === 'step-press' ||
+      event.type === 'pattern-press'
+    ) {
+      return { ui, engine }
+    }
+  }
+
   // Track select — cross-modal
   if (event.type === 'track-select') {
     return { ui: { ...ui, selectedTrack: event.track, currentPage: 0, selectedStep: 0 }, engine }
@@ -229,16 +266,9 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
     return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
   }
 
-  // Back — pattern-load: step back through phases
+  // Back — pattern-load: return to pattern screen
   if (event.type === 'back' && ui.mode === 'pattern-load') {
-    if (ui.patternLoadStep === 'confirm') {
-      return { ui: { ...ui, patternLoadStep: 'layers' }, engine }
-    }
-    if (ui.patternLoadStep === 'layers') {
-      return { ui: { ...ui, patternLoadStep: 'mapping' }, engine }
-    }
-    // mapping → back to pattern screen
-    return { ui: { ...ui, mode: 'pattern', patternLoadStep: 'mapping' }, engine }
+    return { ui: { ...ui, mode: 'pattern' }, engine }
   }
 
   // Back — cross-modal navigation to home (name-entry handled above)
@@ -1662,8 +1692,26 @@ function executeClr(ui: UIState, engine: SequencerState): DispatchResult {
       return dispatchSettingsReset(ui, engine)
     case 'route':
       return dispatchClrRoute(ui, engine)
+    case 'pattern': {
+      const rows = getPatternRows(engine)
+      const row = rows[ui.patternParam]
+      if (row?.type === 'pattern-item') {
+        const newEngine = deletePattern(engine, row.patternIndex)
+        const newRows = getPatternRows(newEngine)
+        const newParam = clamp(ui.patternParam, 0, Math.max(0, newRows.length - 1))
+        return {
+          ui: {
+            ...ui,
+            patternParam: newParam,
+            flashMessage: 'DELETED',
+            flashUntil: performance.now() + 1200,
+          },
+          engine: newEngine,
+        }
+      }
+      return { ui, engine }
+    }
     case 'name-entry':
-    case 'pattern':
     case 'pattern-load':
       return { ui, engine }
   }
@@ -1719,10 +1767,9 @@ function dispatchClrRoute(ui: UIState, engine: SequencerState): DispatchResult {
 export function getLEDState(ui: UIState, engine: SequencerState): LEDState {
   const play: LEDState['play'] = engine.transport.playing ? 'pulse' : 'off'
 
-  // Track LEDs: selected track is 'on'
-  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map((i) =>
-    i === ui.selectedTrack ? 'on' : 'off',
-  ) as LEDState['tracks']
+  // Track LEDs: pattern-load uses patternLoadTarget, others use selectedTrack
+  const activeTrack = ui.mode === 'pattern-load' ? ui.patternLoadTarget : ui.selectedTrack
+  const tracks: LEDState['tracks'] = [0, 1, 2, 3].map((i) => (i === activeTrack ? 'on' : 'off')) as LEDState['tracks']
 
   // Step LEDs: depend on mode
   const steps = getStepLEDs(ui, engine)
@@ -1808,6 +1855,18 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
       }
       break
     }
+    case 'pattern': {
+      const patRows = getPatternRows(engine)
+      const patRow = patRows[ui.patternParam]
+      if (patRow?.type === 'pattern-item') {
+        fillGatePreviewLEDs(leds, engine.savedPatterns[patRow.patternIndex])
+      }
+      break
+    }
+    case 'pattern-load': {
+      fillGatePreviewLEDs(leds, engine.savedPatterns[ui.patternIndex])
+      break
+    }
     default: {
       // Home and stub modes: show gate pattern overview
       for (let i = 0; i < 16; i++) {
@@ -1824,6 +1883,18 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
   }
 
   return leds
+}
+
+function fillGatePreviewLEDs(leds: LEDState['steps'], pattern: SavedPattern | undefined): void {
+  if (!pattern) return
+  const gateData = pattern.data.track.gate
+  for (let i = 0; i < 16; i++) {
+    if (i >= gateData.length) {
+      leds[i] = 'off'
+    } else {
+      leds[i] = gateData.steps[i].on || gateData.steps[i].tie ? 'on' : 'dim'
+    }
+  }
 }
 
 // --- Hold Combo Dispatch ---
@@ -2051,9 +2122,9 @@ function dispatchHoldRand(ui: UIState, engine: SequencerState): DispatchResult {
 export const NAME_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789-'
 
 // --- PATTERN Screen ---
-// Enc A: scroll rows
-// Enc B: on pattern rows, browse patterns
-// Enc A push: action (save, load, delete)
+// Enc A: scroll rows (save action + individual pattern rows)
+// Enc A push: save (on save row) or enter load mode (on pattern row)
+// CLR: delete selected pattern
 
 function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const rows = getPatternRows(engine)
@@ -2064,32 +2135,9 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
       const next = clamp(ui.patternParam + event.delta, 0, maxIdx)
       return { ui: { ...ui, patternParam: next }, engine }
     }
-    case 'encoder-b-turn': {
-      const row = rows[ui.patternParam]
-      if (!row) return { ui, engine }
-      if (row.paramId === 'pattern-slot') {
-        const patCount = engine.savedPatterns.length
-        if (patCount === 0) return { ui, engine }
-        const next = clamp(ui.patternIndex + event.delta, 0, patCount - 1)
-        return { ui: { ...ui, patternIndex: next }, engine }
-      }
-      return { ui, engine }
-    }
     case 'encoder-a-push': {
       const row = rows[ui.patternParam]
       if (!row) return { ui, engine }
-      if (row.paramId === 'save-all') {
-        return {
-          ui: {
-            ...ui,
-            mode: 'name-entry',
-            nameChars: Array(NAME_MAX_LEN).fill(26),
-            nameCursor: 0,
-            nameEntryContext: 'pattern-all',
-          },
-          engine,
-        }
-      }
       if (row.paramId === 'save-track') {
         return {
           ui: {
@@ -2097,31 +2145,24 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
             mode: 'name-entry',
             nameChars: Array(NAME_MAX_LEN).fill(26),
             nameCursor: 0,
-            nameEntryContext: 'pattern-single',
+            nameEntryContext: 'pattern',
           },
           engine,
         }
       }
-      if (row.paramId === 'pattern-slot') {
-        const pattern = engine.savedPatterns[ui.patternIndex]
+      if (row.type === 'pattern-item') {
+        const pattern = engine.savedPatterns[row.patternIndex]
         if (!pattern) return { ui, engine }
         return {
           ui: {
             ...ui,
             mode: 'pattern-load',
-            patternLoadSlot: 0,
-            patternSlotMapping: [0, 1, 2, 3],
+            patternIndex: row.patternIndex,
             patternLayerFlags: createDefaultLayerFlags(),
-            patternLoadStep: 'mapping',
+            patternLoadTarget: ui.selectedTrack,
           },
           engine,
         }
-      }
-      if (row.paramId === 'delete') {
-        if (engine.savedPatterns.length === 0) return { ui, engine }
-        const newEngine = deletePattern(engine, ui.patternIndex)
-        const newIdx = clamp(ui.patternIndex, 0, Math.max(0, newEngine.savedPatterns.length - 1))
-        return { ui: { ...ui, patternIndex: newIdx }, engine: newEngine }
       }
       return { ui, engine }
     }
@@ -2131,88 +2172,43 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
 }
 
 // --- PATTERN LOAD Screen ---
-// Three-phase flow: mapping → layers → confirm
+// Single screen: physical buttons toggle layers, track buttons select destination, encoder push applies.
 
-const LAYER_KEYS: (keyof LayerFlags)[] = ['subtracks', 'transpose', 'drift', 'variation', 'lfo', 'random', 'arp']
 export const LAYER_LABELS: Record<keyof LayerFlags, string> = {
-  subtracks: 'SEQS',
+  gate: 'GATE',
+  pitch: 'PITCH',
+  velocity: 'VEL',
+  mod: 'MOD',
   transpose: 'TRNS',
   drift: 'DRIFT',
   variation: 'VAR',
-  lfo: 'LFO',
-  random: 'RAND',
-  arp: 'ARP',
 }
 
 function dispatchPatternLoad(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const pattern = engine.savedPatterns[ui.patternIndex]
   if (!pattern) return { ui: { ...ui, mode: 'pattern' }, engine }
 
-  if (ui.patternLoadStep === 'mapping') {
-    return dispatchPatternMapping(ui, engine, event, pattern)
-  }
-  if (ui.patternLoadStep === 'layers') {
-    return dispatchPatternLayers(ui, engine, event)
-  }
-  // confirm
-  return dispatchPatternConfirm(ui, engine, event, pattern)
-}
-
-function dispatchPatternMapping(
-  ui: UIState,
-  engine: SequencerState,
-  event: ControlEvent,
-  pattern: import('../engine/types').SavedPattern,
-): DispatchResult {
-  switch (event.type) {
-    case 'encoder-a-turn': {
-      const next = clamp(ui.patternLoadSlot + event.delta, 0, 3)
-      return { ui: { ...ui, patternLoadSlot: next }, engine }
-    }
-    case 'encoder-b-turn': {
-      const slot = pattern.slots[ui.patternLoadSlot]
-      if (!slot) return { ui, engine } // empty slot, no remapping
-      const mapping = [...ui.patternSlotMapping] as [number, number, number, number]
-      mapping[ui.patternLoadSlot] = clamp(mapping[ui.patternLoadSlot] + event.delta, 0, 3)
-      return { ui: { ...ui, patternSlotMapping: mapping }, engine }
-    }
-    case 'encoder-a-push':
-      return { ui: { ...ui, patternLoadStep: 'layers', patternLoadSlot: 0 }, engine }
-    default:
-      return { ui, engine }
-  }
-}
-
-function dispatchPatternLayers(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
-  switch (event.type) {
-    case 'encoder-a-turn': {
-      const next = clamp(ui.patternLoadSlot + event.delta, 0, LAYER_KEYS.length - 1)
-      return { ui: { ...ui, patternLoadSlot: next }, engine }
-    }
-    case 'encoder-b-turn': {
-      const key = LAYER_KEYS[ui.patternLoadSlot]
-      const flags = { ...ui.patternLayerFlags, [key]: !ui.patternLayerFlags[key] }
-      return { ui: { ...ui, patternLayerFlags: flags }, engine }
-    }
-    case 'encoder-a-push':
-      return { ui: { ...ui, patternLoadStep: 'confirm' }, engine }
-    default:
-      return { ui, engine }
-  }
-}
-
-function dispatchPatternConfirm(
-  ui: UIState,
-  engine: SequencerState,
-  event: ControlEvent,
-  pattern: import('../engine/types').SavedPattern,
-): DispatchResult {
   switch (event.type) {
     case 'encoder-a-push': {
-      const newEngine = loadPattern(engine, pattern, ui.patternSlotMapping, ui.patternLayerFlags)
-      return { ui: { ...ui, mode: 'pattern' }, engine: newEngine }
+      // Apply: load selected layers into destination track
+      const newEngine = restoreTrackSlot(engine, ui.patternLoadTarget, pattern.data, ui.patternLayerFlags)
+      return {
+        ui: {
+          ...ui,
+          mode: 'pattern',
+          flashMessage: `LOADED → T${ui.patternLoadTarget + 1}`,
+          flashUntil: performance.now() + 1200,
+        },
+        engine: newEngine,
+      }
+    }
+    case 'encoder-b-turn': {
+      // Browse destination track with encoder B
+      const next = clamp(ui.patternLoadTarget + event.delta, 0, 3)
+      return { ui: { ...ui, patternLoadTarget: next }, engine }
     }
     default:
+      // track-select, subtrack-select, feature-press handled in cross-modal intercept above
       return { ui, engine }
   }
 }
@@ -2242,16 +2238,19 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
           engine: saveUserPreset(engine, name, config),
         }
       }
-      if (ui.nameEntryContext === 'pattern-all') {
+      if (ui.nameEntryContext === 'pattern') {
+        const newEngine = savePattern(engine, createSavedPattern(engine, ui.selectedTrack, name))
+        // Point to the newly saved pattern's row (save + header + patterns)
+        const newPatternRow = 1 + newEngine.savedPatterns.length
         return {
-          ui: { ...ui, mode: 'pattern' },
-          engine: savePattern(engine, snapshotAllTracks(engine, name)),
-        }
-      }
-      if (ui.nameEntryContext === 'pattern-single') {
-        return {
-          ui: { ...ui, mode: 'pattern' },
-          engine: savePattern(engine, snapshotSingleTrack(engine, ui.selectedTrack, name)),
+          ui: {
+            ...ui,
+            mode: 'pattern',
+            patternParam: newPatternRow,
+            flashMessage: 'SAVED',
+            flashUntil: performance.now() + 1200,
+          },
+          engine: newEngine,
         }
       }
       return { ui, engine }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultLayerFlags, createSavedPattern, savePattern } from '../../engine/patterns'
 import { createSequencer, randomizeTrackPattern, setGateOn } from '../../engine/sequencer'
 import type { SequencerState, VariationPattern } from '../../engine/types'
 import type { UIState } from '../hw-types'
@@ -2152,5 +2153,283 @@ describe('CLR dispatch', () => {
     const result = dispatch(ui, eng, { type: 'clr-press' })
     // name-entry dispatch isolates all input, CLR should not crash
     expect(result.ui.mode).toBe('name-entry')
+  })
+})
+
+// --- Pattern Load Mode ---
+
+function makePatternLoadState(): { ui: UIState; engine: SequencerState } {
+  let engine = createSequencer()
+  engine = randomizeTrackPattern(engine, 0, 42)
+  engine = savePattern(engine, createSavedPattern(engine, 0, 'TEST'))
+  const ui: UIState = {
+    ...createInitialUIState(),
+    mode: 'pattern-load',
+    patternIndex: 0,
+    patternLayerFlags: createDefaultLayerFlags(),
+    patternLoadTarget: 0,
+  }
+  return { ui, engine }
+}
+
+describe('pattern-load mode', () => {
+  it('subtrack-select toggles layer flags', () => {
+    const { ui, engine } = makePatternLoadState()
+    expect(ui.patternLayerFlags.gate).toBe(true)
+
+    const r1 = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+    expect(r1.ui.patternLayerFlags.gate).toBe(false)
+    expect(r1.ui.mode).toBe('pattern-load') // stays in mode
+
+    const r2 = dispatch(r1.ui, engine, { type: 'subtrack-select', subtrack: 'gate' })
+    expect(r2.ui.patternLayerFlags.gate).toBe(true)
+  })
+
+  it('subtrack-select toggles pitch/velocity/mod independently', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r = dispatch(ui, engine, { type: 'subtrack-select', subtrack: 'pitch' })
+    expect(r.ui.patternLayerFlags.pitch).toBe(false)
+    expect(r.ui.patternLayerFlags.gate).toBe(true) // others unchanged
+    expect(r.ui.patternLayerFlags.velocity).toBe(true)
+    expect(r.ui.patternLayerFlags.mod).toBe(true)
+  })
+
+  it('feature-press toggles drift/transpose/variation flags', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r1 = dispatch(ui, engine, { type: 'feature-press', feature: 'mutate' })
+    expect(r1.ui.patternLayerFlags.drift).toBe(false)
+
+    const r2 = dispatch(ui, engine, { type: 'feature-press', feature: 'transpose' })
+    expect(r2.ui.patternLayerFlags.transpose).toBe(false)
+
+    const r3 = dispatch(ui, engine, { type: 'feature-press', feature: 'variation' })
+    expect(r3.ui.patternLayerFlags.variation).toBe(false)
+  })
+
+  it('feature-press mute/route/rand are no-ops', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r1 = dispatch(ui, engine, { type: 'feature-press', feature: 'mute' })
+    expect(r1.ui.mode).toBe('pattern-load')
+    expect(r1.ui.patternLayerFlags).toEqual(ui.patternLayerFlags)
+
+    const r2 = dispatch(ui, engine, { type: 'feature-press', feature: 'route' })
+    expect(r2.ui.mode).toBe('pattern-load')
+
+    const r3 = dispatch(ui, engine, { type: 'feature-press', feature: 'rand' })
+    expect(r3.ui.mode).toBe('pattern-load')
+  })
+
+  it('track-select changes patternLoadTarget', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r = dispatch(ui, engine, { type: 'track-select', track: 2 })
+    expect(r.ui.patternLoadTarget).toBe(2)
+    expect(r.ui.mode).toBe('pattern-load')
+    // selectedTrack should NOT change (track-select is intercepted)
+    expect(r.ui.selectedTrack).toBe(ui.selectedTrack)
+  })
+
+  it('encoder-a-push applies pattern to target track', () => {
+    const { ui, engine } = makePatternLoadState()
+    const loadUi = { ...ui, patternLoadTarget: 2 }
+
+    const r = dispatch(loadUi, engine, { type: 'encoder-a-push' })
+    expect(r.ui.mode).toBe('pattern')
+    // Track 2 should now have the saved pattern's gate data
+    const savedGate = engine.savedPatterns[0].data.track.gate.steps
+    expect(r.engine.tracks[2].gate.steps).toEqual(savedGate)
+  })
+
+  it('encoder-a-push respects layer flags (gate off = gate not loaded)', () => {
+    const { ui, engine } = makePatternLoadState()
+    const loadUi: UIState = {
+      ...ui,
+      patternLoadTarget: 2,
+      patternLayerFlags: { ...createDefaultLayerFlags(), gate: false },
+    }
+    const originalGate = engine.tracks[2].gate.steps
+
+    const r = dispatch(loadUi, engine, { type: 'encoder-a-push' })
+    // Gate should be unchanged
+    expect(r.engine.tracks[2].gate.steps).toEqual(originalGate)
+    // But pitch should be loaded
+    const savedPitch = engine.savedPatterns[0].data.track.pitch.steps
+    expect(r.engine.tracks[2].pitch.steps).toEqual(savedPitch)
+  })
+
+  it('encoder-b-turn changes destination track', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
+    expect(r.ui.patternLoadTarget).toBe(1)
+
+    const r2 = dispatch(r.ui, engine, { type: 'encoder-b-turn', delta: 2 })
+    expect(r2.ui.patternLoadTarget).toBe(3) // clamped to 0-3
+  })
+
+  it('back returns to pattern screen', () => {
+    const { ui, engine } = makePatternLoadState()
+
+    const r = dispatch(ui, engine, { type: 'back' })
+    expect(r.ui.mode).toBe('pattern')
+  })
+
+  it('settings-press is blocked', () => {
+    const { ui, engine } = makePatternLoadState()
+    const r = dispatch(ui, engine, { type: 'settings-press' })
+    expect(r.ui.mode).toBe('pattern-load')
+  })
+
+  it('clr-press is blocked', () => {
+    const { ui, engine } = makePatternLoadState()
+    const r = dispatch(ui, engine, { type: 'clr-press' })
+    expect(r.ui.mode).toBe('pattern-load')
+  })
+
+  it('step-press is blocked', () => {
+    const { ui, engine } = makePatternLoadState()
+    const r = dispatch(ui, engine, { type: 'step-press', step: 5 })
+    expect(r.ui.mode).toBe('pattern-load')
+  })
+
+  it('pattern-press is blocked', () => {
+    const { ui, engine } = makePatternLoadState()
+    const r = dispatch(ui, engine, { type: 'pattern-press' })
+    expect(r.ui.mode).toBe('pattern-load')
+  })
+
+  it('getLEDState shows patternLoadTarget for track LEDs', () => {
+    const { ui, engine } = makePatternLoadState()
+    const loadUi = { ...ui, patternLoadTarget: 3 }
+
+    const leds = getLEDState(loadUi, engine)
+    expect(leds.tracks[3]).toBe('on')
+    expect(leds.tracks[0]).toBe('off')
+    expect(leds.tracks[1]).toBe('off')
+    expect(leds.tracks[2]).toBe('off')
+  })
+
+  it('getLEDState previews saved gate pattern on step LEDs', () => {
+    const { ui, engine } = makePatternLoadState()
+    const leds = getLEDState(ui, engine)
+
+    // Step LEDs should reflect the saved pattern's gate data
+    const gateSteps = engine.savedPatterns[0].data.track.gate.steps
+    for (let i = 0; i < 16; i++) {
+      if (i >= engine.savedPatterns[0].data.track.gate.length) {
+        expect(leds.steps[i]).toBe('off')
+      } else {
+        const isOn = gateSteps[i].on || gateSteps[i].tie
+        expect(leds.steps[i]).toBe(isOn ? 'on' : 'dim')
+      }
+    }
+  })
+})
+
+// --- Pattern Screen (list mode) ---
+
+function makePatternScreenState(patternCount: number): { ui: UIState; engine: SequencerState } {
+  let engine = createSequencer()
+  for (let i = 0; i < patternCount; i++) {
+    engine = randomizeTrackPattern(engine, 0, 42 + i)
+    engine = savePattern(engine, createSavedPattern(engine, 0, `PAT${i + 1}`))
+  }
+  const ui: UIState = {
+    ...createInitialUIState(),
+    mode: 'pattern',
+    patternParam: 0,
+  }
+  return { ui, engine }
+}
+
+describe('pattern screen (list)', () => {
+  it('enc A scrolls through save row + pattern rows', () => {
+    const { ui, engine } = makePatternScreenState(3)
+    // Row 0: save, Row 1: header, Rows 2-4: patterns
+    const r1 = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+    expect(r1.ui.patternParam).toBe(1)
+
+    const r2 = dispatch(r1.ui, engine, { type: 'encoder-a-turn', delta: 1 })
+    expect(r2.ui.patternParam).toBe(2) // first pattern row
+
+    const r3 = dispatch(r2.ui, engine, { type: 'encoder-a-turn', delta: 2 })
+    expect(r3.ui.patternParam).toBe(4) // third pattern row
+  })
+
+  it('enc A push on save row enters name-entry', () => {
+    const { ui, engine } = makePatternScreenState(0)
+    const r = dispatch(ui, engine, { type: 'encoder-a-push' })
+    expect(r.ui.mode).toBe('name-entry')
+    expect(r.ui.nameEntryContext).toBe('pattern')
+  })
+
+  it('enc A push on pattern row enters pattern-load', () => {
+    const { ui, engine } = makePatternScreenState(2)
+    const patUi = { ...ui, patternParam: 3 } // second pattern (row index 3)
+    const r = dispatch(patUi, engine, { type: 'encoder-a-push' })
+    expect(r.ui.mode).toBe('pattern-load')
+    expect(r.ui.patternIndex).toBe(1) // second pattern
+    expect(r.ui.patternLoadTarget).toBe(ui.selectedTrack)
+  })
+
+  it('CLR double-press deletes selected pattern', () => {
+    const { ui, engine } = makePatternScreenState(2)
+    const patUi = { ...ui, patternParam: 2 } // first pattern row
+
+    // First press: pending
+    const r1 = dispatch(patUi, engine, { type: 'clr-press' })
+    expect(r1.ui.clrPending).toBe(true)
+
+    // Second press: execute delete
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1)
+    expect(r2.engine.savedPatterns[0].name).toBe('PAT2')
+    expect(r2.ui.flashMessage).toBe('DELETED')
+  })
+
+  it('CLR on save row is no-op', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    // patternParam = 0 = save row
+    const r1 = dispatch(ui, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1) // unchanged
+  })
+
+  it('CLR on header row is no-op', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const headerUi = { ...ui, patternParam: 1 } // header row
+    const r1 = dispatch(headerUi, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1) // unchanged
+  })
+
+  it('deleting last pattern clamps patternParam', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const patUi = { ...ui, patternParam: 2 } // the only pattern row
+
+    const r1 = dispatch(patUi, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(0)
+    // patternParam should be clamped to save row (only row left)
+    expect(r2.ui.patternParam).toBe(0)
+  })
+
+  it('step LEDs preview pattern gate when cursor is on pattern row', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const patUi = { ...ui, patternParam: 2 } // pattern row
+
+    const leds = getLEDState(patUi, engine)
+    const gateSteps = engine.savedPatterns[0].data.track.gate.steps
+    for (let i = 0; i < 16; i++) {
+      if (i >= engine.savedPatterns[0].data.track.gate.length) {
+        expect(leds.steps[i]).toBe('off')
+      } else {
+        const isOn = gateSteps[i].on || gateSteps[i].tie
+        expect(leds.steps[i]).toBe(isOn ? 'on' : 'dim')
+      }
+    }
   })
 })

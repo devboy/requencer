@@ -30,22 +30,12 @@ export function snapshotTrackSlot(state: SequencerState, trackIndex: number): Tr
   }
 }
 
-export function snapshotAllTracks(state: SequencerState, name: string): SavedPattern {
+export function createSavedPattern(state: SequencerState, trackIndex: number, name: string): SavedPattern {
   return {
     name,
-    slots: [
-      snapshotTrackSlot(state, 0),
-      snapshotTrackSlot(state, 1),
-      snapshotTrackSlot(state, 2),
-      snapshotTrackSlot(state, 3),
-    ],
+    data: snapshotTrackSlot(state, trackIndex),
+    sourceTrack: trackIndex,
   }
-}
-
-export function snapshotSingleTrack(state: SequencerState, trackIndex: number, name: string): SavedPattern {
-  const slots: SavedPattern['slots'] = [null, null, null, null]
-  slots[trackIndex] = snapshotTrackSlot(state, trackIndex)
-  return { name, slots }
 }
 
 export function restoreTrackSlot(
@@ -55,20 +45,23 @@ export function restoreTrackSlot(
   layers: LayerFlags,
 ): SequencerState {
   let result = state
+  const existing = result.tracks[targetTrack]
 
-  if (layers.subtracks) {
-    const existing = result.tracks[targetTrack]
+  // Per-subtrack restore: only replace the subtracks whose flags are on
+  const anySubtrack = layers.gate || layers.pitch || layers.velocity || layers.mod
+  if (anySubtrack) {
     result = {
       ...result,
       tracks: result.tracks.map((t, i) => {
         if (i !== targetTrack) return t
         return {
-          ...slot.track,
-          // Preserve runtime playback position
-          gate: { ...slot.track.gate, currentStep: existing.gate.currentStep },
-          pitch: { ...slot.track.pitch, currentStep: existing.pitch.currentStep },
-          velocity: { ...slot.track.velocity, currentStep: existing.velocity.currentStep },
-          mod: { ...slot.track.mod, currentStep: existing.mod.currentStep },
+          ...t,
+          gate: layers.gate ? { ...slot.track.gate, currentStep: existing.gate.currentStep } : t.gate,
+          pitch: layers.pitch ? { ...slot.track.pitch, currentStep: existing.pitch.currentStep } : t.pitch,
+          velocity: layers.velocity
+            ? { ...slot.track.velocity, currentStep: existing.velocity.currentStep }
+            : t.velocity,
+          mod: layers.mod ? { ...slot.track.mod, currentStep: existing.mod.currentStep } : t.mod,
         }
       }),
     }
@@ -99,25 +92,12 @@ export function restoreTrackSlot(
     }
   }
 
-  if (layers.lfo) {
-    result = {
-      ...result,
-      lfoConfigs: result.lfoConfigs.map((lc, i) => (i === targetTrack ? structuredClone(slot.lfoConfig) : lc)),
-    }
-  }
-
-  if (layers.random) {
-    result = {
-      ...result,
-      randomConfigs: result.randomConfigs.map((rc, i) => (i === targetTrack ? structuredClone(slot.randomConfig) : rc)),
-    }
-  }
-
-  if (layers.arp) {
-    result = {
-      ...result,
-      arpConfigs: result.arpConfigs.map((ac, i) => (i === targetTrack ? structuredClone(slot.arpConfig) : ac)),
-    }
+  // Always restore: lfo, random, arp configs
+  result = {
+    ...result,
+    lfoConfigs: result.lfoConfigs.map((lc, i) => (i === targetTrack ? structuredClone(slot.lfoConfig) : lc)),
+    randomConfigs: result.randomConfigs.map((rc, i) => (i === targetTrack ? structuredClone(slot.randomConfig) : rc)),
+    arpConfigs: result.arpConfigs.map((ac, i) => (i === targetTrack ? structuredClone(slot.arpConfig) : ac)),
   }
 
   return result
@@ -132,30 +112,14 @@ export function deletePattern(state: SequencerState, index: number): SequencerSt
   return { ...state, savedPatterns: state.savedPatterns.filter((_, i) => i !== index) }
 }
 
-export function loadPattern(
-  state: SequencerState,
-  pattern: SavedPattern,
-  slotMapping: [number, number, number, number],
-  layers: LayerFlags,
-): SequencerState {
-  let result = state
-  for (let slotIdx = 0; slotIdx < 4; slotIdx++) {
-    const slot = pattern.slots[slotIdx]
-    if (slot === null) continue
-    const targetTrack = slotMapping[slotIdx]
-    result = restoreTrackSlot(result, targetTrack, slot, layers)
-  }
-  return result
-}
-
 export function createDefaultLayerFlags(): LayerFlags {
   return {
-    subtracks: true,
+    gate: true,
+    pitch: true,
+    velocity: true,
+    mod: true,
     transpose: true,
     drift: true,
     variation: true,
-    lfo: true,
-    random: true,
-    arp: true,
   }
 }

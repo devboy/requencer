@@ -1,32 +1,21 @@
 /**
  * PATTERN screen row definitions — shared between renderer and mode-machine dispatch.
- * Dynamic layout: SAVE ALL, SAVE T{N}, then saved patterns + DELETE.
+ * Layout: SAVE action, then one row per saved pattern.
  */
 
 import type { SequencerState } from '../engine/types'
 
-export type PatternRowType = 'action' | 'header' | 'pattern-item'
-
-export interface PatternRow {
-  type: PatternRowType
-  paramId: string
-  label: string
-  getValue: (engine: SequencerState) => string
-}
+export type PatternRow =
+  | { type: 'action'; paramId: string; label: string }
+  | { type: 'header'; paramId: string; label: string }
+  | { type: 'pattern-item'; paramId: string; patternIndex: number; label: string }
 
 export function getPatternRows(engine: SequencerState): PatternRow[] {
   const rows: PatternRow[] = [
     {
       type: 'action',
-      paramId: 'save-all',
-      label: '[ SAVE ALL ]',
-      getValue: () => '',
-    },
-    {
-      type: 'action',
       paramId: 'save-track',
       label: '[ SAVE TRACK ]',
-      getValue: () => '',
     },
   ]
 
@@ -35,22 +24,16 @@ export function getPatternRows(engine: SequencerState): PatternRow[] {
       type: 'header',
       paramId: 'section.patterns',
       label: 'PATTERNS',
-      getValue: () => '',
     })
 
-    rows.push({
-      type: 'pattern-item',
-      paramId: 'pattern-slot',
-      label: 'PATTERN',
-      getValue: () => '',
-    })
-
-    rows.push({
-      type: 'action',
-      paramId: 'delete',
-      label: '[ DELETE ]',
-      getValue: () => '',
-    })
+    for (let i = 0; i < engine.savedPatterns.length; i++) {
+      rows.push({
+        type: 'pattern-item',
+        paramId: 'pattern-item',
+        patternIndex: i,
+        label: engine.savedPatterns[i].name || `Pattern ${i + 1}`,
+      })
+    }
   }
 
   return rows

@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   createDefaultLayerFlags,
+  createSavedPattern,
   deletePattern,
-  loadPattern,
   restoreTrackSlot,
   savePattern,
-  snapshotAllTracks,
-  snapshotSingleTrack,
   snapshotTrackSlot,
 } from '../patterns'
 import { createSequencer, randomizeTrackPattern } from '../sequencer'
@@ -100,30 +98,15 @@ describe('snapshotTrackSlot', () => {
   })
 })
 
-describe('snapshotAllTracks', () => {
-  it('fills all 4 slots', () => {
+describe('createSavedPattern', () => {
+  it('wraps snapshot with name and sourceTrack', () => {
     const state = seededState()
-    const pattern = snapshotAllTracks(state, 'ALL4')
+    const pattern = createSavedPattern(state, 2, 'T3PAT')
 
-    expect(pattern.name).toBe('ALL4')
-    expect(pattern.slots[0]).not.toBeNull()
-    expect(pattern.slots[1]).not.toBeNull()
-    expect(pattern.slots[2]).not.toBeNull()
-    expect(pattern.slots[3]).not.toBeNull()
-  })
-})
-
-describe('snapshotSingleTrack', () => {
-  it('fills only the target slot, others null', () => {
-    const state = seededState()
-    const pattern = snapshotSingleTrack(state, 2, 'T3ONLY')
-
-    expect(pattern.name).toBe('T3ONLY')
-    expect(pattern.slots[0]).toBeNull()
-    expect(pattern.slots[1]).toBeNull()
-    expect(pattern.slots[2]).not.toBeNull()
-    expect(pattern.slots[3]).toBeNull()
-    expect(pattern.slots[2]?.track.gate.steps).toEqual(state.tracks[2].gate.steps)
+    expect(pattern.name).toBe('T3PAT')
+    expect(pattern.sourceTrack).toBe(2)
+    expect(pattern.data.track.gate.steps).toEqual(state.tracks[2].gate.steps)
+    expect(pattern.data.track.gate.currentStep).toBe(0)
   })
 })
 
@@ -138,7 +121,6 @@ describe('restoreTrackSlot', () => {
 
     expect(result.tracks[2].gate.steps).toEqual(slot.track.gate.steps)
     expect(result.tracks[2].pitch.steps).toEqual(slot.track.pitch.steps)
-    expect(result.tracks[2].clockDivider).toEqual(slot.track.clockDivider)
     expect(result.transposeConfigs[2]).toEqual(slot.transposeConfig)
     expect(result.mutateConfigs[2]).toEqual(slot.mutateConfig)
     expect(result.lfoConfigs[2]).toEqual(slot.lfoConfig)
@@ -146,34 +128,84 @@ describe('restoreTrackSlot', () => {
     expect(result.arpConfigs[2]).toEqual(slot.arpConfig)
   })
 
-  it('only touches subtracks when only subtracks flag is true', () => {
+  it('restores only gate subtrack when only gate flag is true', () => {
     const state = seededState()
     const slot = snapshotTrackSlot(state, 0)
 
     const target = seededState()
     const flags: LayerFlags = {
-      subtracks: true,
+      gate: true,
+      pitch: false,
+      velocity: false,
+      mod: false,
       transpose: false,
       drift: false,
       variation: false,
-      lfo: false,
-      random: false,
-      arp: false,
     }
 
     const result = restoreTrackSlot(target, 2, slot, flags)
 
-    // Subtracks replaced
+    // Gate replaced
     expect(result.tracks[2].gate.steps).toEqual(slot.track.gate.steps)
-    expect(result.tracks[2].pitch.steps).toEqual(slot.track.pitch.steps)
+    // Other subtracks unchanged
+    expect(result.tracks[2].pitch.steps).toEqual(target.tracks[2].pitch.steps)
+    expect(result.tracks[2].velocity.steps).toEqual(target.tracks[2].velocity.steps)
+    expect(result.tracks[2].mod.steps).toEqual(target.tracks[2].mod.steps)
 
-    // Other overlays unchanged
+    // Overlay configs unchanged (except always-restored ones)
     expect(result.transposeConfigs[2]).toEqual(target.transposeConfigs[2])
     expect(result.mutateConfigs[2]).toEqual(target.mutateConfigs[2])
-    expect(result.lfoConfigs[2]).toEqual(target.lfoConfigs[2])
-    expect(result.randomConfigs[2]).toEqual(target.randomConfigs[2])
-    expect(result.arpConfigs[2]).toEqual(target.arpConfigs[2])
     expect(result.variationPatterns[2]).toEqual(target.variationPatterns[2])
+  })
+
+  it('restores only pitch subtrack independently', () => {
+    const state = seededState()
+    const slot = snapshotTrackSlot(state, 0)
+
+    const target = seededState()
+    const flags: LayerFlags = {
+      gate: false,
+      pitch: true,
+      velocity: false,
+      mod: false,
+      transpose: false,
+      drift: false,
+      variation: false,
+    }
+
+    const result = restoreTrackSlot(target, 1, slot, flags)
+
+    // Pitch replaced
+    expect(result.tracks[1].pitch.steps).toEqual(slot.track.pitch.steps)
+    // Gate unchanged
+    expect(result.tracks[1].gate.steps).toEqual(target.tracks[1].gate.steps)
+  })
+
+  it('always restores lfo, random, arp configs regardless of flags', () => {
+    const state = seededState()
+    const slot = snapshotTrackSlot(state, 0)
+
+    const target = seededState()
+    const flags: LayerFlags = {
+      gate: false,
+      pitch: false,
+      velocity: false,
+      mod: false,
+      transpose: false,
+      drift: false,
+      variation: false,
+    }
+
+    const result = restoreTrackSlot(target, 2, slot, flags)
+
+    // Always restored
+    expect(result.lfoConfigs[2]).toEqual(slot.lfoConfig)
+    expect(result.randomConfigs[2]).toEqual(slot.randomConfig)
+    expect(result.arpConfigs[2]).toEqual(slot.arpConfig)
+
+    // Not restored (flags off)
+    expect(result.transposeConfigs[2]).toEqual(target.transposeConfigs[2])
+    expect(result.mutateConfigs[2]).toEqual(target.mutateConfigs[2])
   })
 
   it('preserves target currentStep (playback state)', () => {
@@ -204,7 +236,7 @@ describe('restoreTrackSlot', () => {
 describe('savePattern', () => {
   it('appends to savedPatterns array', () => {
     const state = seededState()
-    const pattern = snapshotAllTracks(state, 'TEST')
+    const pattern = createSavedPattern(state, 0, 'TEST')
 
     const result = savePattern(state, pattern)
     expect(result.savedPatterns.length).toBe(state.savedPatterns.length + 1)
@@ -215,81 +247,13 @@ describe('savePattern', () => {
 describe('deletePattern', () => {
   it('removes by index', () => {
     let state = seededState()
-    state = savePattern(state, snapshotAllTracks(state, 'A'))
-    state = savePattern(state, snapshotAllTracks(state, 'B'))
-    state = savePattern(state, snapshotAllTracks(state, 'C'))
+    state = savePattern(state, createSavedPattern(state, 0, 'A'))
+    state = savePattern(state, createSavedPattern(state, 1, 'B'))
+    state = savePattern(state, createSavedPattern(state, 2, 'C'))
 
     const result = deletePattern(state, 1)
     expect(result.savedPatterns.length).toBe(2)
     expect(result.savedPatterns[0].name).toBe('A')
     expect(result.savedPatterns[1].name).toBe('C')
-  })
-})
-
-describe('loadPattern', () => {
-  it('applies with identity mapping', () => {
-    const state = seededState()
-    const pattern = snapshotAllTracks(state, 'FULL')
-
-    const target = createSequencer()
-    const mapping: [number, number, number, number] = [0, 1, 2, 3]
-    const result = loadPattern(target, pattern, mapping, createDefaultLayerFlags())
-
-    // All 4 tracks should have the snapshotted data
-    for (let i = 0; i < 4; i++) {
-      expect(result.tracks[i].gate.steps).toEqual(pattern.slots[i]?.track.gate.steps)
-      expect(result.transposeConfigs[i]).toEqual(pattern.slots[i]?.transposeConfig)
-    }
-  })
-
-  it('applies with remapped slots (slot 0 → track 3)', () => {
-    const state = seededState()
-    const pattern = snapshotAllTracks(state, 'REMAP')
-
-    const target = createSequencer()
-    const mapping: [number, number, number, number] = [3, 1, 2, 0]
-    const result = loadPattern(target, pattern, mapping, createDefaultLayerFlags())
-
-    // Slot 0 data should be on track 3
-    expect(result.tracks[3].gate.steps).toEqual(pattern.slots[0]?.track.gate.steps)
-    // Slot 3 data should be on track 0
-    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[3]?.track.gate.steps)
-  })
-
-  it('skips null slots', () => {
-    const state = seededState()
-    const pattern = snapshotSingleTrack(state, 1, 'SINGLE')
-
-    const target = seededState()
-    const mapping: [number, number, number, number] = [0, 1, 2, 3]
-    const result = loadPattern(target, pattern, mapping, createDefaultLayerFlags())
-
-    // Track 0 should be unchanged (slot 0 was null)
-    expect(result.tracks[0].gate.steps).toEqual(target.tracks[0].gate.steps)
-    // Track 1 should have the snapshotted data
-    expect(result.tracks[1].gate.steps).toEqual(pattern.slots[1]?.track.gate.steps)
-  })
-
-  it('applies with partial layer flags', () => {
-    const state = seededState()
-    const pattern = snapshotAllTracks(state, 'PARTIAL')
-
-    const target = seededState()
-    const flags: LayerFlags = {
-      subtracks: true,
-      transpose: false,
-      drift: false,
-      variation: false,
-      lfo: false,
-      random: false,
-      arp: false,
-    }
-    const mapping: [number, number, number, number] = [0, 1, 2, 3]
-    const result = loadPattern(target, pattern, mapping, flags)
-
-    // Subtracks replaced
-    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[0]?.track.gate.steps)
-    // But transpose should be unchanged
-    expect(result.transposeConfigs[0]).toEqual(target.transposeConfigs[0])
   })
 })

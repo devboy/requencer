@@ -15,6 +15,7 @@ import { createDebugMenu } from './ui/debug-menu'
 import type { ControlEvent, ScreenMode, UIState } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
 import { renderClrConfirmOverlay } from './ui/lcd/clr-confirm-overlay'
+import { renderFlashOverlay } from './ui/lcd/flash-overlay'
 import { renderGateEdit } from './ui/lcd/gate-edit'
 import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 
@@ -203,12 +204,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'mute-edit': (ui) => `T${ui.selectedTrack + 1} MUTE`,
   route: (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   rand: (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
-  'name-entry': (ui) =>
-    ui.nameEntryContext === 'preset'
-      ? 'SAVE PRESET'
-      : ui.nameEntryContext === 'pattern-all'
-        ? 'SAVE PATTERN'
-        : `SAVE T${ui.selectedTrack + 1} PATTERN`,
+  'name-entry': (ui) => (ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : `SAVE T${ui.selectedTrack + 1} PATTERN`),
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
@@ -234,7 +230,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
   settings: '↑↓: scroll   ←→: adjust   Esc: back',
   pattern: '↑↓: scroll   ←→: browse   Enter: act   J: pattern   Esc: back',
-  'pattern-load': '↑↓: scroll   ←→: adjust   Enter: next   Esc: back',
+  'pattern-load': 'Q/W/E/R: toggle layers   A/F/G: drift/trns/var   1-4: dest   Enter: apply   Esc: back',
 }
 
 const hintEl = document.createElement('div')
@@ -289,12 +285,19 @@ function render(): void {
   }
   panel.clrBtn.classList.toggle('clr-pending', uiState.clrPending)
 
+  // Flash message overlay (SAVED, LOADED, DELETED)
+  if (uiState.flashMessage && performance.now() < uiState.flashUntil) {
+    renderFlashOverlay(lcdCtx, uiState.flashMessage)
+  } else if (uiState.flashMessage) {
+    uiState = { ...uiState, flashMessage: '', flashUntil: 0 }
+  }
+
   // Update panel LEDs
   const ledState = getLEDState(uiState, engineState)
   updateLEDs(ledState)
 
   // Update mode indicators on subtrack/feature buttons
-  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState.mode)
+  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState)
 
   // Update shortcut hints
   hintEl.textContent = SHORTCUT_HINTS[uiState.mode]
