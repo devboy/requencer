@@ -99,6 +99,7 @@ export function createInitialUIState(): UIState {
     varParam: 0,
     varSelectedBar: -1,
     varCursor: 0,
+    varCatalogOpen: false,
     varEditSubtrack: null,
     modLfoView: false,
     modLfoParam: 0,
@@ -239,10 +240,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
   if (event.type === 'subtrack-select' && ui.mode === 'variation-edit') {
     if (ui.varEditSubtrack === event.subtrack) {
       // Already in this subtrack → return to track-level
-      return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
+      return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
     }
     // Enter subtrack sub-screen (works regardless of override state)
-    return { ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1, varCursor: 0 }, engine }
+    return { ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
   }
 
   // Subtrack buttons — enter edit screen (or re-enter same screen to reset cursor)
@@ -263,7 +264,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
 
   // Back — in variation-edit with subtrack editing: return to track-level first
   if (event.type === 'back' && ui.mode === 'variation-edit' && ui.varEditSubtrack) {
-    return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0 }, engine }
+    return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
   }
 
   // Back — pattern-load: return to pattern screen
@@ -294,6 +295,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
         currentPage: 0,
         varSelectedBar: -1,
         varCursor: 0,
+        varCatalogOpen: false,
         varEditSubtrack: null,
       },
       engine,
@@ -791,9 +793,9 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       // Steps 0 to phraseLength-1: select/deselect bar
       if (event.step >= vp.length) return { ui, engine }
       if (ui.varSelectedBar === event.step) {
-        return { ui: { ...ui, varSelectedBar: -1, varCursor: 0 }, engine }
+        return { ui: { ...ui, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
       }
-      return { ui: { ...ui, varSelectedBar: event.step, varCursor: 0 }, engine }
+      return { ui: { ...ui, varSelectedBar: event.step, varCursor: 0, varCatalogOpen: false }, engine }
     }
 
     case 'encoder-a-turn': {
@@ -804,7 +806,7 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       // Bar detail: move cursor through transform stack + "add" slot
       const maxCursor = vp.slots[ui.varSelectedBar].transforms.length // N items + "add" at index N
       const next = clamp(ui.varCursor + event.delta, 0, maxCursor)
-      return { ui: { ...ui, varCursor: next }, engine }
+      return { ui: { ...ui, varCursor: next, varCatalogOpen: false }, engine }
     }
 
     case 'encoder-a-push': {
@@ -827,7 +829,7 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
         // Cursor on "add" slot → browse catalog
         const maxIdx = TRANSFORM_CATALOG.length - 1
         const next = clamp(ui.varParam + event.delta, 0, maxIdx)
-        return { ui: { ...ui, varParam: next }, engine }
+        return { ui: { ...ui, varParam: next, varCatalogOpen: true }, engine }
       }
       // Cursor on existing transform → adjust param
       const t = slot.transforms[ui.varCursor]
@@ -849,7 +851,7 @@ function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: Contr
       const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: [...slot.transforms, newTransform] } : s))
       // Move cursor to the new transform (so user can tweak param)
       return {
-        ui: { ...ui, varCursor: slot.transforms.length },
+        ui: { ...ui, varCursor: slot.transforms.length, varCatalogOpen: false },
         engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
       }
     }
@@ -1768,13 +1770,13 @@ function dispatchClrVariation(ui: UIState, engine: SequencerState): DispatchResu
     const vp = getEditingVariationPattern(engine, ui)
     const newSlots = vp.slots.map((s, i) => (i === ui.varSelectedBar ? { transforms: [] } : s))
     return {
-      ui: { ...ui, varCursor: 0 },
+      ui: { ...ui, varCursor: 0, varCatalogOpen: false },
       engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
     }
   }
   // No bar selected: reset entire variation pattern to defaults
   return {
-    ui: { ...ui, varSelectedBar: -1, varCursor: 0 },
+    ui: { ...ui, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false },
     engine: updateEditingVariationPattern(engine, ui, createDefaultVariationPattern()),
   }
 }
@@ -1787,7 +1789,7 @@ function dispatchClrVariationTransform(ui: UIState, engine: SequencerState): Dis
   const newSlots = vp.slots.map((s, i) => (i === bar ? { transforms: newTransforms } : s))
   const newCursor = Math.min(ui.varCursor, newTransforms.length)
   return {
-    ui: { ...ui, varCursor: newCursor, clrPending: false, clrPendingAt: 0 },
+    ui: { ...ui, varCursor: newCursor, varCatalogOpen: false, clrPending: false, clrPendingAt: 0 },
     engine: updateEditingVariationPattern(engine, ui, { ...vp, slots: newSlots }),
   }
 }
@@ -2059,7 +2061,7 @@ function dispatchHoldCombo(
       // Clamp varSelectedBar if it exceeds new length
       const newVarSelectedBar = ui.varSelectedBar >= newLength ? -1 : ui.varSelectedBar
       return {
-        ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor },
+        ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor, varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen },
         engine: updateEditingVariationPattern(engine, ui, {
           ...vp,
           length: newLength,
@@ -2081,7 +2083,7 @@ function dispatchHoldCombo(
         const newSlots = Array.from({ length: gateLen }, (_, i) => vp.slots[i] ?? { transforms: [] })
         const newVarSelectedBar = ui.varSelectedBar >= gateLen ? -1 : ui.varSelectedBar
         return {
-          ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor },
+          ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor, varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen },
           engine: updateEditingVariationPattern(engine, ui, {
             ...vp,
             loopMode: true,

@@ -28,44 +28,16 @@ import { QUANTIZE_SCALE_NAMES } from '../../engine/variation'
 import { COLORS } from '../colors'
 import type { SubtrackId, UIState } from '../hw-types'
 import { getEditingVariationPattern, TRANSFORM_CATALOG } from '../mode-machine'
-import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30
 const ROW_H = 24
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
 
-/** Category boundaries in TRANSFORM_CATALOG */
-const CATALOG_CATEGORIES: Array<{ label: string; startIndex: number }> = [
-  { label: 'PLAYHEAD', startIndex: 0 },
-  { label: 'GATE', startIndex: 9 },
-  { label: 'PITCH', startIndex: 17 },
-  { label: 'VELOCITY', startIndex: 22 },
-]
-
-type CatalogDisplayRow = { kind: 'header'; label: string } | { kind: 'entry'; catalogIndex: number }
-
-/** Precomputed display rows: category headers interleaved with catalog entries */
-const CATALOG_DISPLAY_ROWS: CatalogDisplayRow[] = (() => {
-  const rows: CatalogDisplayRow[] = []
-  const catStarts = new Map(CATALOG_CATEGORIES.map((c) => [c.startIndex, c.label]))
-  for (let i = 0; i < TRANSFORM_CATALOG.length; i++) {
-    const label = catStarts.get(i)
-    if (label) rows.push({ kind: 'header', label })
-    rows.push({ kind: 'entry', catalogIndex: i })
-  }
-  return rows
-})()
-
-/** Reverse lookup: varParam (catalog index) → display row index */
-const CATALOG_INDEX_TO_DISPLAY: number[] = (() => {
-  const map: number[] = []
-  for (let di = 0; di < CATALOG_DISPLAY_ROWS.length; di++) {
-    const row = CATALOG_DISPLAY_ROWS[di]
-    if (row.kind === 'entry') map[row.catalogIndex] = di
-  }
-  return map
-})()
+const POPUP_VISIBLE_COUNT = 7
+const POPUP_W = 200
+const POPUP_BG = '#0c0c20'
 
 const SUBTRACK_LABELS: Record<SubtrackId, string> = {
   gate: 'GATE',
@@ -279,10 +251,10 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
     }
   }
 
-  // Dropdown overlay — drawn on top when cursor is on "add" slot
-  if (cursorOnAdd) {
+  // Popup overlay — drawn on top when cursor is on "add" slot and catalog is open
+  if (cursorOnAdd && ui.varCatalogOpen) {
     const addSlotY = stackTop + slot.transforms.length * ROW_H
-    renderCatalogDropdown(ctx, ui, trackColor, addSlotY)
+    renderCatalogPopup(ctx, ui, trackColor, addSlotY)
   }
 }
 
@@ -307,75 +279,48 @@ function renderAddSlot(
   drawText(ctx, catalogText, PAD + 40, y + ROW_H / 2 - 2, isCursor ? COLORS.text : COLORS.textDim, 16)
 }
 
-/** Draw a category separator line with label */
-function renderCategoryHeader(
+/** Compact 7-item popup catalog, centered on the selected item at addSlotY */
+function renderCatalogPopup(
   ctx: CanvasRenderingContext2D,
-  label: string,
-  y: number,
-  bgColor: string = COLORS.lcdBg,
-): void {
-  const lineY = y + ROW_H / 2
-  ctx.strokeStyle = COLORS.textDim
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(PAD, lineY)
-  ctx.lineTo(LCD_W - PAD, lineY)
-  ctx.stroke()
-  const labelW = label.length * 8 + 12
-  fillRect(ctx, { x: PAD, y: lineY - 8, w: labelW, h: 16 }, bgColor)
-  drawText(ctx, label, PAD + 4, lineY + 4, COLORS.textDim, 14)
-}
-
-/** Draw a single catalog entry row */
-function renderCatalogEntry(
-  ctx: CanvasRenderingContext2D,
-  catalogIndex: number,
-  y: number,
-  isSelected: boolean,
+  ui: UIState,
   trackColor: string,
+  addSlotY: number,
 ): void {
-  const entry = TRANSFORM_CATALOG[catalogIndex]
-  if (isSelected) {
-    fillRect(ctx, { x: 0, y: y - 2, w: LCD_W, h: ROW_H }, `${trackColor}22`)
-    drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
-  }
-  drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
-}
+  const totalItems = TRANSFORM_CATALOG.length
+  const selected = ui.varParam
+  const popupH = POPUP_VISIBLE_COUNT * ROW_H
+  const centerIdx = Math.floor(POPUP_VISIBLE_COUNT / 2)
 
-/** Dropdown catalog list drawn on top of the transform stack, anchored at the add slot row */
-function renderCatalogDropdown(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, anchorY: number): void {
-  const selectedDisplayIdx = CATALOG_INDEX_TO_DISPLAY[ui.varParam]
-  const totalRows = CATALOG_DISPLAY_ROWS.length
+  // Position popup so selected item aligns with addSlotY, clamped to LCD bounds
+  const lcdTop = LCD_CONTENT_Y
   const lcdBottom = LCD_CONTENT_Y + LCD_CONTENT_H
+  const idealTop = addSlotY - centerIdx * ROW_H
+  let popupTop = Math.max(lcdTop, Math.min(idealTop, lcdBottom - popupH))
 
-  // Use all space from the anchor row down to the LCD bottom
-  const dropdownTop = anchorY
-  const availableH = lcdBottom - dropdownTop
-  const maxVisible = Math.min(totalRows, Math.floor(availableH / ROW_H))
-  const dropdownH = maxVisible * ROW_H
+  // Scroll window centered on selection
+  let scrollStart = selected - centerIdx
+  scrollStart = Math.max(0, Math.min(scrollStart, totalItems - POPUP_VISIBLE_COUNT))
 
-  // Center selection in the visible window
-  const scrollOffset = Math.max(0, Math.min(selectedDisplayIdx - Math.floor(maxVisible / 2), totalRows - maxVisible))
+  // Background + border
+  const popupRect = { x: PAD - 4, y: popupTop - 2, w: POPUP_W + 8, h: popupH + 4 }
+  fillRect(ctx, popupRect, POPUP_BG)
+  strokeRect(ctx, popupRect, `${trackColor}66`, 1)
 
-  // Dropdown background — opaque with subtle border
-  fillRect(ctx, { x: 0, y: dropdownTop - 2, w: LCD_W, h: dropdownH + 4 }, '#0c0c20')
+  // Draw items
+  for (let vi = 0; vi < POPUP_VISIBLE_COUNT; vi++) {
+    const catalogIdx = scrollStart + vi
+    if (catalogIdx < 0 || catalogIdx >= totalItems) continue
 
-  for (let vi = 0; vi < maxVisible; vi++) {
-    const displayIdx = scrollOffset + vi
-    if (displayIdx >= totalRows) break
-    const row = CATALOG_DISPLAY_ROWS[displayIdx]
-    const y = dropdownTop + vi * ROW_H
-    if (row.kind === 'header') {
-      renderCategoryHeader(ctx, row.label, y, '#0c0c20')
+    const y = popupTop + vi * ROW_H
+    const entry = TRANSFORM_CATALOG[catalogIdx]
+    const isSelected = catalogIdx === selected
+
+    if (isSelected) {
+      fillRect(ctx, { x: PAD - 4, y, w: POPUP_W + 8, h: ROW_H }, `${trackColor}33`)
+      drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
+      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.text, 16)
     } else {
-      renderCatalogEntry(ctx, row.catalogIndex, y, row.catalogIndex === ui.varParam, trackColor)
+      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.textDim, 16)
     }
-  }
-
-  // Scroll thumb
-  if (totalRows > maxVisible) {
-    const thumbH = Math.max(12, (maxVisible / totalRows) * dropdownH)
-    const thumbY = dropdownTop + (scrollOffset / (totalRows - maxVisible)) * (dropdownH - thumbH)
-    fillRect(ctx, { x: LCD_W - 3, y: thumbY, w: 2, h: thumbH }, `${trackColor}44`)
   }
 }
