@@ -280,12 +280,7 @@ function renderAddSlot(
 }
 
 /** Compact 7-item popup catalog, centered on the selected item at addSlotY */
-function renderCatalogPopup(
-  ctx: CanvasRenderingContext2D,
-  ui: UIState,
-  trackColor: string,
-  addSlotY: number,
-): void {
+function renderCatalogPopup(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, addSlotY: number): void {
   const totalItems = TRANSFORM_CATALOG.length
   const selected = ui.varParam
   const popupH = POPUP_VISIBLE_COUNT * ROW_H
@@ -295,7 +290,7 @@ function renderCatalogPopup(
   const lcdTop = LCD_CONTENT_Y
   const lcdBottom = LCD_CONTENT_Y + LCD_CONTENT_H
   const idealTop = addSlotY - centerIdx * ROW_H
-  let popupTop = Math.max(lcdTop, Math.min(idealTop, lcdBottom - popupH))
+  const popupTop = Math.max(lcdTop, Math.min(idealTop, lcdBottom - popupH))
 
   // Scroll window centered on selection
   let scrollStart = selected - centerIdx

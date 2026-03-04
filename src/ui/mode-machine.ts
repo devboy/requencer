@@ -243,7 +243,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       return { ui: { ...ui, varEditSubtrack: null, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
     }
     // Enter subtrack sub-screen (works regardless of override state)
-    return { ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false }, engine }
+    return {
+      ui: { ...ui, varEditSubtrack: event.subtrack, varSelectedBar: -1, varCursor: 0, varCatalogOpen: false },
+      engine,
+    }
   }
 
   // Subtrack buttons — enter edit screen (or re-enter same screen to reset cursor)
@@ -2061,7 +2064,12 @@ function dispatchHoldCombo(
       // Clamp varSelectedBar if it exceeds new length
       const newVarSelectedBar = ui.varSelectedBar >= newLength ? -1 : ui.varSelectedBar
       return {
-        ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor, varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen },
+        ui: {
+          ...uiUsed,
+          varSelectedBar: newVarSelectedBar,
+          varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor,
+          varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen,
+        },
         engine: updateEditingVariationPattern(engine, ui, {
           ...vp,
           length: newLength,
@@ -2083,7 +2091,12 @@ function dispatchHoldCombo(
         const newSlots = Array.from({ length: gateLen }, (_, i) => vp.slots[i] ?? { transforms: [] })
         const newVarSelectedBar = ui.varSelectedBar >= gateLen ? -1 : ui.varSelectedBar
         return {
-          ui: { ...uiUsed, varSelectedBar: newVarSelectedBar, varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor, varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen },
+          ui: {
+            ...uiUsed,
+            varSelectedBar: newVarSelectedBar,
+            varCursor: newVarSelectedBar < 0 ? 0 : ui.varCursor,
+            varCatalogOpen: newVarSelectedBar < 0 ? false : ui.varCatalogOpen,
+          },
           engine: updateEditingVariationPattern(engine, ui, {
             ...vp,
             loopMode: true,
