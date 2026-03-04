@@ -5,6 +5,7 @@
  */
 
 import { PRESETS } from '../engine/presets'
+import { SCALES } from '../engine/scales'
 import type { RandomConfig, SequencerState } from '../engine/types'
 import { midiToNoteName } from './colors'
 import type { UIState } from './hw-types'
@@ -356,4 +357,57 @@ export const SECTION_PARAMS: Record<string, string[]> = {
   'section.tie': ['tie.probability', 'tie.maxLength'],
   'section.vel': ['velocity.low', 'velocity.high'],
   'section.mod': ['mod.low', 'mod.high', 'mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.slew', 'mod.slewProb'],
+}
+
+/** ParamIds that use dropdown popups instead of inline value cycling */
+export const DROPDOWN_PARAM_IDS = new Set(['preset', 'pitch.scale', 'gate.mode', 'mod.mode'])
+
+const SCALE_LIST = Object.values(SCALES)
+
+export interface DropdownInfo {
+  items: string[]
+  selectedIndex: number
+}
+
+/**
+ * Get dropdown items and current selection for a dropdown-eligible paramId.
+ * Returns null for non-dropdown params.
+ */
+export function getDropdownInfo(paramId: string, engine: SequencerState, ui: UIState): DropdownInfo | null {
+  const cfg = engine.randomConfigs[ui.selectedTrack]
+
+  switch (paramId) {
+    case 'preset': {
+      const allPresets = getAllPresets(engine)
+      return {
+        items: allPresets.map((p) => p.name),
+        selectedIndex: ui.randPresetIndex,
+      }
+    }
+    case 'pitch.scale': {
+      const curIdx = SCALE_LIST.findIndex((s) => s.name === cfg.pitch.scale.name)
+      return {
+        items: SCALE_LIST.map((s) => s.name),
+        selectedIndex: Math.max(0, curIdx),
+      }
+    }
+    case 'gate.mode': {
+      const modes = ['random', 'euclidean', 'sync', 'cluster']
+      const labels = ['RAND', 'EUCL', 'SYNC', 'CLST']
+      return {
+        items: labels,
+        selectedIndex: modes.indexOf(cfg.gate.mode),
+      }
+    }
+    case 'mod.mode': {
+      const modes = ['random', 'rise', 'fall', 'vee', 'hill', 'sync', 'walk']
+      const labels = ['RAND', 'RISE', 'FALL', 'VEE', 'HILL', 'SYNC', 'WALK']
+      return {
+        items: labels,
+        selectedIndex: modes.indexOf(cfg.mod.mode),
+      }
+    }
+    default:
+      return null
+  }
 }
