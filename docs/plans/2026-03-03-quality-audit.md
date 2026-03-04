@@ -37,7 +37,7 @@ Measured on Apple Silicon (M-series), Node 20, vitest 4.0.18.
 
 ## Refactoring Opportunities
 
-### mode-machine.ts (1,984 lines) — HIGH PRIORITY
+### mode-machine.ts (2,306 lines) — HIGH PRIORITY
 
 The largest file in the codebase. Currently a single function with a mode switch at the top and per-mode handlers inline. Mechanical extraction opportunity:
 

@@ -33,13 +33,13 @@ Requencer is a **generation-focused** module:
 ## Core Concepts
 
 ### Independent Subtracks
-Each sequence track has 3 subtracks (gate, pitch, velocity) that can have:
+Each sequence track has 4 subtracks (gate, pitch, velocity, mod) that can have:
 - **Different lengths** — enables polyrhythmic patterns (e.g., 16-step gate, 7-step pitch)
 - **Independent clock dividers** — subtracks can run at different speeds
 
 ### Constrained Randomization (Primary UX)
 - Per-track random config with pitch range, scale, gate fill, velocity range
-- Two gate modes: pure random fill, or euclidean distribution
+- Four gate modes: random, euclidean, sync (syncopated weighting), cluster (Markov chain)
 - 4×4 regen grid: row = track, column = subtype (gate/pitch/vel/all)
 - Press any button to regenerate that track's subtrack instantly
 
@@ -120,10 +120,21 @@ All V1 features are implemented:
 9. ✓ Transport controls + keyboard shortcuts
 10. ✓ Preset save/load
 
-**Known V1 gaps:**
-- MOD subtrack data structures exist but UI editing is not wired up
-- Presets are in-memory only (no persistence across page reloads)
+## Post-V1 Features ✓ (implemented as of 2026-03-04)
 
-## Future
+11. ✓ Gate length — per-step duration (0.05–1.0), randomizer, UI editing
+12. ✓ Ratchets — per-step subdivisions (1–4x), proportional gate length
+13. ✓ Slides — per-step portamento (0–0.50s), TB-303 style
+14. ✓ Ties — multi-step notes with sustain/retrigger
+15. ✓ Mutate — Turing machine drift per loop
+16. ✓ Pitch transposition — semitone offset + note window + scaling
+17. ✓ Arpeggiator — chord-tone walking (up/down/triangle/random)
+18. ✓ MOD subtrack — full UI with SEQ + LFO views, 6 waveforms
+19. ✓ Variations — 11 deterministic transforms, per-bar overlays
+20. ✓ MIDI output — per-output channel, ratchet support
+21. ✓ Persistence — localStorage save/load for presets and patterns
+22. ✓ 4 gate modes — random, euclidean, sync, cluster
 
-See the [feature roadmap](2026-03-01-feature-roadmap.md) for prioritized post-V1 features, and [feature ideas research](../research/feature-ideas.md) for detailed writeups and trade-offs.
+## Remaining
+
+See the [feature roadmap](2026-03-01-feature-roadmap.md) "Future — Unscheduled" section for remaining items: MIDI clock sync, clock divider gate scaling, full project snapshots, 24 PPQN clock.
