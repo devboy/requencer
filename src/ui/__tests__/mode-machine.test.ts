@@ -1153,6 +1153,64 @@ describe('rand screen dispatch', () => {
       expect(result.ui.randPresetIndex).toBe(6) // first user preset
     })
   })
+
+  describe('dropdown popup state', () => {
+    it('enc B turn on preset opens dropdown', () => {
+      const eng = makeState()
+      const ui = randUI('preset', eng)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(true)
+    })
+
+    it('enc B turn on pitch.scale opens dropdown', () => {
+      const eng = makeState()
+      const ui = randUI('pitch.scale', eng)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(true)
+    })
+
+    it('enc B turn on gate.mode opens dropdown', () => {
+      const eng = makeState()
+      const ui = randUI('gate.mode', eng)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(true)
+    })
+
+    it('enc B turn on mod.mode opens dropdown', () => {
+      const eng = makeState()
+      const ui = randUI('mod.mode', eng)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(true)
+    })
+
+    it('enc A turn closes open dropdown', () => {
+      const eng = makeState()
+      const ui = { ...randUI('preset', eng), randDropdownOpen: true }
+      const result = dispatch(ui, eng, { type: 'encoder-a-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(false)
+    })
+
+    it('enc B turn on non-dropdown param does not open dropdown', () => {
+      const eng = makeState()
+      const ui = randUI('pitch.root', eng)
+      const result = dispatch(ui, eng, { type: 'encoder-b-turn', delta: 1 })
+      expect(result.ui.randDropdownOpen).toBe(false)
+    })
+
+    it('back from rand closes dropdown', () => {
+      const eng = makeState()
+      const ui = { ...randUI('preset', eng), randDropdownOpen: true }
+      const result = dispatch(ui, eng, { type: 'back' })
+      expect(result.ui.randDropdownOpen).toBe(false)
+    })
+
+    it('track select closes dropdown', () => {
+      const eng = makeState()
+      const ui = { ...randUI('preset', eng), randDropdownOpen: true }
+      const result = dispatch(ui, eng, { type: 'track-select', track: 1 })
+      expect(result.ui.randDropdownOpen).toBe(false)
+    })
+  })
 })
 
 describe('name-entry dispatch', () => {

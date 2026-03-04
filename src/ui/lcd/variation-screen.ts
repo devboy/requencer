@@ -28,7 +28,8 @@ import { QUANTIZE_SCALE_NAMES } from '../../engine/variation'
 import { COLORS } from '../colors'
 import type { SubtrackId, UIState } from '../hw-types'
 import { getEditingVariationPattern, TRANSFORM_CATALOG } from '../mode-machine'
-import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { renderDropdownPopup } from './dropdown-popup'
 
 const PAD = 8
 const HEADER_H = 30
@@ -37,7 +38,6 @@ const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
 
 const POPUP_VISIBLE_COUNT = 7
 const POPUP_W = 200
-const POPUP_BG = '#0c0c20'
 
 const SUBTRACK_LABELS: Record<SubtrackId, string> = {
   gate: 'GATE',
@@ -281,41 +281,14 @@ function renderAddSlot(
 
 /** Compact 7-item popup catalog, centered on the selected item at addSlotY */
 function renderCatalogPopup(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, addSlotY: number): void {
-  const totalItems = TRANSFORM_CATALOG.length
-  const selected = ui.varParam
-  const popupH = POPUP_VISIBLE_COUNT * ROW_H
-  const centerIdx = Math.floor(POPUP_VISIBLE_COUNT / 2)
-
-  // Position popup so selected item aligns with addSlotY, clamped to LCD bounds
-  const lcdTop = LCD_CONTENT_Y
-  const lcdBottom = LCD_CONTENT_Y + LCD_CONTENT_H
-  const idealTop = addSlotY - centerIdx * ROW_H
-  const popupTop = Math.max(lcdTop, Math.min(idealTop, lcdBottom - popupH))
-
-  // Scroll window centered on selection
-  let scrollStart = selected - centerIdx
-  scrollStart = Math.max(0, Math.min(scrollStart, totalItems - POPUP_VISIBLE_COUNT))
-
-  // Background + border
-  const popupRect = { x: PAD - 4, y: popupTop - 2, w: POPUP_W + 8, h: popupH + 4 }
-  fillRect(ctx, popupRect, POPUP_BG)
-  strokeRect(ctx, popupRect, `${trackColor}66`, 1)
-
-  // Draw items
-  for (let vi = 0; vi < POPUP_VISIBLE_COUNT; vi++) {
-    const catalogIdx = scrollStart + vi
-    if (catalogIdx < 0 || catalogIdx >= totalItems) continue
-
-    const y = popupTop + vi * ROW_H
-    const entry = TRANSFORM_CATALOG[catalogIdx]
-    const isSelected = catalogIdx === selected
-
-    if (isSelected) {
-      fillRect(ctx, { x: PAD - 4, y, w: POPUP_W + 8, h: ROW_H }, `${trackColor}33`)
-      drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
-      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.text, 16)
-    } else {
-      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.textDim, 16)
-    }
-  }
+  const items = TRANSFORM_CATALOG.map((entry) => entry.label)
+  renderDropdownPopup(ctx, {
+    items,
+    selected: ui.varParam,
+    anchorY: addSlotY,
+    trackColor,
+    popupX: PAD,
+    popupW: POPUP_W,
+    maxVisible: POPUP_VISIBLE_COUNT,
+  })
 }

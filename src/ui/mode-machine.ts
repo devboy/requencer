@@ -91,6 +91,7 @@ export function createInitialUIState(): UIState {
     randParam: 0,
     xposeParam: 0,
     randPresetIndex: 0,
+    randDropdownOpen: false,
     nameChars: [],
     nameCursor: 0,
     mutateParam: 0,
@@ -235,7 +236,10 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
 
   // Track select — cross-modal
   if (event.type === 'track-select') {
-    return { ui: { ...ui, selectedTrack: event.track, currentPage: 0, selectedStep: 0 }, engine }
+    return {
+      ui: { ...ui, selectedTrack: event.track, currentPage: 0, selectedStep: 0, randDropdownOpen: false },
+      engine,
+    }
   }
 
   // Subtrack buttons — in variation-edit: enter/exit subtrack sub-screen
@@ -279,7 +283,7 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
 
   // Back — cross-modal navigation to home (name-entry handled above)
   if (event.type === 'back') {
-    return { ui: { ...ui, mode: 'home', currentPage: 0 }, engine }
+    return { ui: { ...ui, mode: 'home', currentPage: 0, randDropdownOpen: false }, engine }
   }
 
   // Feature buttons — enter feature screen
@@ -1069,7 +1073,7 @@ function dispatchRand(ui: UIState, engine: SequencerState, event: ControlEvent):
   switch (event.type) {
     case 'encoder-a-turn': {
       const next = clamp(ui.randParam + event.delta, 0, maxIdx)
-      return { ui: { ...ui, randParam: next }, engine }
+      return { ui: { ...ui, randParam: next, randDropdownOpen: false }, engine }
     }
     case 'encoder-a-push': {
       const row = visibleRows[ui.randParam]
@@ -1118,13 +1122,13 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
     case 'preset': {
       const total = getAllPresets(engine).length
       const next = clamp(ui.randPresetIndex + delta, 0, total - 1)
-      return { ui: { ...ui, randPresetIndex: next }, engine }
+      return { ui: { ...ui, randPresetIndex: next, randDropdownOpen: true }, engine }
     }
     case 'pitch.scale': {
       const curIdx = SCALE_LIST.findIndex((s) => s.name === config.pitch.scale.name)
       const nextIdx = clamp(curIdx + delta, 0, SCALE_LIST.length - 1)
       return {
-        ui,
+        ui: { ...ui, randDropdownOpen: true },
         engine: updateRandomConfig(engine, trackIdx, {
           ...config,
           pitch: { ...config.pitch, scale: SCALE_LIST[nextIdx] },
@@ -1221,7 +1225,7 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const curIdx = modes.indexOf(config.gate.mode)
       const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
       return {
-        ui,
+        ui: { ...ui, randDropdownOpen: true },
         engine: updateRandomConfig(engine, trackIdx, { ...config, gate: { ...config.gate, mode: modes[nextIdx] } }),
       }
     }
@@ -1329,7 +1333,7 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const curIdx = modes.indexOf(config.mod.mode)
       const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
       return {
-        ui,
+        ui: { ...ui, randDropdownOpen: true },
         engine: updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, mode: modes[nextIdx] } }),
       }
     }

@@ -10,8 +10,9 @@
 import type { SequencerState } from '../../engine/types'
 import { COLORS } from '../colors'
 import type { UIState } from '../hw-types'
-import { getVisibleRows } from '../rand-rows'
+import { DROPDOWN_PARAM_IDS, getDropdownInfo, getVisibleRows } from '../rand-rows'
 import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { renderDropdownPopup } from './dropdown-popup'
 
 const PAD = 8
 const HEADER_H = 30
@@ -91,5 +92,31 @@ export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState
     const thumbH = Math.max(12, (maxVisible / visibleRows.length) * barH)
     const thumbY = LIST_TOP + (scrollOffset / (visibleRows.length - maxVisible)) * (barH - thumbH)
     fillRect(ctx, { x: LCD_W - 3, y: thumbY, w: 2, h: thumbH }, `${trackColor}44`)
+  }
+
+  // Dropdown overlay — drawn on top when a dropdown-eligible param is active
+  if (ui.randDropdownOpen) {
+    const currentRow = visibleRows[ui.randParam]
+    if (currentRow && DROPDOWN_PARAM_IDS.has(currentRow.paramId)) {
+      const info = getDropdownInfo(currentRow.paramId, engine, ui)
+      if (info) {
+        const vi = ui.randParam - scrollOffset
+        const anchorY = LIST_TOP + vi * ROW_H
+
+        // Width from longest label, right-aligned near value column
+        const longestLabel = info.items.reduce((a, b) => (a.length > b.length ? a : b), '')
+        const popupW = Math.max(120, longestLabel.length * 10 + 24)
+        const popupX = VALUE_X - popupW
+
+        renderDropdownPopup(ctx, {
+          items: info.items,
+          selected: info.selectedIndex,
+          anchorY,
+          trackColor,
+          popupX,
+          popupW,
+        })
+      }
+    }
   }
 }
