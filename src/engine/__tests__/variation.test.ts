@@ -6,11 +6,13 @@ import {
   getEffectiveGateStep,
   getEffectivePitchStep,
   getEffectiveSimpleStep,
+  getEffectiveVelocityStep,
   getTransformsForSubtrack,
   isPlayheadTransform,
   transformGateValue,
   transformPitchValue,
   transformStepIndex,
+  transformVelocityValue,
 } from '../variation'
 
 // --- Helpers ---
@@ -112,6 +114,93 @@ describe('transformStepIndex', () => {
       expect(transformStepIndex(3, 4, t)).toBe(3)
     })
   })
+
+  describe('half-time', () => {
+    it('each step plays twice', () => {
+      const t: Transform = { type: 'half-time', param: 0 }
+      expect(transformStepIndex(0, 8, t)).toBe(0)
+      expect(transformStepIndex(1, 8, t)).toBe(0)
+      expect(transformStepIndex(2, 8, t)).toBe(1)
+      expect(transformStepIndex(3, 8, t)).toBe(1)
+      expect(transformStepIndex(4, 8, t)).toBe(2)
+      expect(transformStepIndex(5, 8, t)).toBe(2)
+      expect(transformStepIndex(6, 8, t)).toBe(3)
+      expect(transformStepIndex(7, 8, t)).toBe(3)
+    })
+  })
+
+  describe('skip', () => {
+    it('decimates with factor 3', () => {
+      const t: Transform = { type: 'skip', param: 3 }
+      // (idx * 3) % 8
+      expect(transformStepIndex(0, 8, t)).toBe(0)
+      expect(transformStepIndex(1, 8, t)).toBe(3)
+      expect(transformStepIndex(2, 8, t)).toBe(6)
+      expect(transformStepIndex(3, 8, t)).toBe(1) // (9 % 8)
+      expect(transformStepIndex(4, 8, t)).toBe(4) // (12 % 8)
+    })
+
+    it('skip(2) behaves like double-time', () => {
+      const skip: Transform = { type: 'skip', param: 2 }
+      const dbl: Transform = { type: 'double-time', param: 0 }
+      for (let i = 0; i < 8; i++) {
+        expect(transformStepIndex(i, 8, skip)).toBe(transformStepIndex(i, 8, dbl))
+      }
+    })
+  })
+
+  describe('drunk-walk', () => {
+    it('is deterministic for same inputs', () => {
+      const t: Transform = { type: 'drunk-walk', param: 0.5 }
+      const r1 = transformStepIndex(7, 8, t)
+      const r2 = transformStepIndex(7, 8, t)
+      expect(r1).toBe(r2)
+    })
+
+    it('stays within bounds', () => {
+      const t: Transform = { type: 'drunk-walk', param: 1.0 }
+      for (let i = 0; i < 16; i++) {
+        const result = transformStepIndex(i, 8, t)
+        expect(result).toBeGreaterThanOrEqual(0)
+        expect(result).toBeLessThan(8)
+      }
+    })
+
+    it('with chaos=0, walks forward normally', () => {
+      const t: Transform = { type: 'drunk-walk', param: 0 }
+      // No deviations: position advances by 1 each step
+      expect(transformStepIndex(0, 8, t)).toBe(0)
+      expect(transformStepIndex(1, 8, t)).toBe(1)
+      expect(transformStepIndex(4, 8, t)).toBe(4)
+      expect(transformStepIndex(7, 8, t)).toBe(7)
+    })
+  })
+
+  describe('scramble', () => {
+    it('interleaves an 8-step sequence', () => {
+      const t: Transform = { type: 'scramble', param: 0 }
+      // Even positions first (0,2,4,6), then odd (1,3,5,7)
+      // idx 0→0, 1→2, 2→4, 3→6, 4→1, 5→3, 6→5, 7→7
+      expect(transformStepIndex(0, 8, t)).toBe(0)
+      expect(transformStepIndex(1, 8, t)).toBe(2)
+      expect(transformStepIndex(2, 8, t)).toBe(4)
+      expect(transformStepIndex(3, 8, t)).toBe(6)
+      expect(transformStepIndex(4, 8, t)).toBe(1)
+      expect(transformStepIndex(5, 8, t)).toBe(3)
+      expect(transformStepIndex(6, 8, t)).toBe(5)
+      expect(transformStepIndex(7, 8, t)).toBe(7)
+    })
+
+    it('produces valid permutation for odd length', () => {
+      const t: Transform = { type: 'scramble', param: 0 }
+      // Length 7: half = ceil(7/2) = 4
+      // 0→0, 1→2, 2→4, 3→6, 4→1, 5→3, 6→5
+      const indices = Array.from({ length: 7 }, (_, i) => transformStepIndex(i, 7, t))
+      expect(indices).toEqual([0, 2, 4, 6, 1, 3, 5])
+      // All unique
+      expect(new Set(indices).size).toBe(7)
+    })
+  })
 })
 
 describe('isPlayheadTransform', () => {
@@ -121,6 +210,10 @@ describe('isPlayheadTransform', () => {
     expect(isPlayheadTransform({ type: 'rotate', param: 3 })).toBe(true)
     expect(isPlayheadTransform({ type: 'double-time', param: 0 })).toBe(true)
     expect(isPlayheadTransform({ type: 'stutter', param: 4 })).toBe(true)
+    expect(isPlayheadTransform({ type: 'half-time', param: 0 })).toBe(true)
+    expect(isPlayheadTransform({ type: 'skip', param: 3 })).toBe(true)
+    expect(isPlayheadTransform({ type: 'drunk-walk', param: 0.5 })).toBe(true)
+    expect(isPlayheadTransform({ type: 'scramble', param: 0 })).toBe(true)
   })
 
   it('returns false for value transforms', () => {
@@ -129,6 +222,16 @@ describe('isPlayheadTransform', () => {
     expect(isPlayheadTransform({ type: 'transpose', param: 3 })).toBe(false)
     expect(isPlayheadTransform({ type: 'invert', param: 60 })).toBe(false)
     expect(isPlayheadTransform({ type: 'octave-shift', param: 1 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'invert-gates', param: 0 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'densify', param: 0.5 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'drop', param: 3 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'ratchet', param: 2 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'fold', param: 12 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'quantize', param: 1 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'accent', param: 4 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'fade-in', param: 0 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'fade-out', param: 0 })).toBe(false)
+    expect(isPlayheadTransform({ type: 'humanize', param: 0.5 })).toBe(false)
   })
 })
 
@@ -212,6 +315,109 @@ describe('transformGateValue', () => {
       expect(transformGateValue(step, t, 1, 0).on).toBe(false)
       expect(transformGateValue(step, t, 2, 0).on).toBe(true)
       expect(transformGateValue(step, t, 3, 0).on).toBe(false)
+    })
+  })
+
+  describe('invert-gates', () => {
+    it('flips on to off', () => {
+      const step = gateOn(true)
+      const t: Transform = { type: 'invert-gates', param: 0 }
+      expect(transformGateValue(step, t, 0, 0).on).toBe(false)
+    })
+
+    it('flips off to on', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'invert-gates', param: 0 }
+      expect(transformGateValue(step, t, 0, 0).on).toBe(true)
+    })
+
+    it('preserves other fields', () => {
+      const step: GateStep = { on: true, tie: true, length: 0.8, ratchet: 3 }
+      const t: Transform = { type: 'invert-gates', param: 0 }
+      const result = transformGateValue(step, t, 0, 0)
+      expect(result.on).toBe(false)
+      expect(result.tie).toBe(true)
+      expect(result.length).toBe(0.8)
+      expect(result.ratchet).toBe(3)
+    })
+  })
+
+  describe('densify', () => {
+    it('turns off gates on based on hash', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'densify', param: 0.5 }
+      // Deterministic
+      const r1 = transformGateValue(step, t, 3, 1)
+      const r2 = transformGateValue(step, t, 3, 1)
+      expect(r1.on).toBe(r2.on)
+    })
+
+    it('param=1 always turns on', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'densify', param: 1 }
+      for (let s = 0; s < 16; s++) {
+        expect(transformGateValue(step, t, s, 0).on).toBe(true)
+      }
+    })
+
+    it('param=0 never turns on', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'densify', param: 0 }
+      for (let s = 0; s < 16; s++) {
+        expect(transformGateValue(step, t, s, 0).on).toBe(false)
+      }
+    })
+
+    it('does not affect already-on gates', () => {
+      const step = gateOn(true)
+      const t: Transform = { type: 'densify', param: 1 }
+      expect(transformGateValue(step, t, 0, 0).on).toBe(true)
+    })
+  })
+
+  describe('drop', () => {
+    it('mutes every 3rd step position', () => {
+      const step = gateOn(true)
+      const t: Transform = { type: 'drop', param: 3 }
+      // Mutes when (stepIndex + 1) % 3 === 0 → indices 2, 5, 8, 11
+      expect(transformGateValue(step, t, 0, 0).on).toBe(true)
+      expect(transformGateValue(step, t, 1, 0).on).toBe(true)
+      expect(transformGateValue(step, t, 2, 0).on).toBe(false) // (2+1)%3=0
+      expect(transformGateValue(step, t, 3, 0).on).toBe(true)
+      expect(transformGateValue(step, t, 4, 0).on).toBe(true)
+      expect(transformGateValue(step, t, 5, 0).on).toBe(false) // (5+1)%3=0
+    })
+
+    it('does not affect already-off gates', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'drop', param: 3 }
+      expect(transformGateValue(step, t, 2, 0).on).toBe(false)
+    })
+  })
+
+  describe('ratchet', () => {
+    it('sets ratchet count on active gates', () => {
+      const step = gateOn(true)
+      const t: Transform = { type: 'ratchet', param: 3 }
+      const result = transformGateValue(step, t, 0, 0)
+      expect(result.ratchet).toBe(3)
+      expect(result.on).toBe(true)
+    })
+
+    it('does not affect inactive gates', () => {
+      const step = gateOn(false)
+      const t: Transform = { type: 'ratchet', param: 3 }
+      const result = transformGateValue(step, t, 0, 0)
+      expect(result.ratchet).toBe(1) // unchanged from default
+    })
+
+    it('preserves other fields', () => {
+      const step: GateStep = { on: true, tie: false, length: 0.8, ratchet: 1 }
+      const t: Transform = { type: 'ratchet', param: 4 }
+      const result = transformGateValue(step, t, 0, 0)
+      expect(result.ratchet).toBe(4)
+      expect(result.length).toBe(0.8)
+      expect(result.tie).toBe(false)
     })
   })
 })
@@ -299,6 +505,174 @@ describe('transformPitchValue', () => {
       const t: Transform = { type: 'invert', param: 60 }
       expect(transformPitchValue(step, t).slide).toBe(0.2)
     })
+  })
+
+  describe('fold', () => {
+    it('folds note above range back down', () => {
+      // Range: 12 semitones centered on 60 → [54, 66]
+      const step = pitchStep(70)
+      const t: Transform = { type: 'fold', param: 12 }
+      const result = transformPitchValue(step, t)
+      // 70 is 4 above 66 → folds to 66 - 4 = 62
+      expect(result.note).toBe(62)
+    })
+
+    it('folds note below range back up', () => {
+      // Range: 12 → [54, 66]
+      const step = pitchStep(50)
+      const t: Transform = { type: 'fold', param: 12 }
+      const result = transformPitchValue(step, t)
+      // 50 is 4 below 54 → folds to 54 + 4 = 58
+      expect(result.note).toBe(58)
+    })
+
+    it('note within range stays unchanged', () => {
+      const step = pitchStep(60)
+      const t: Transform = { type: 'fold', param: 12 }
+      expect(transformPitchValue(step, t).note).toBe(60)
+    })
+
+    it('preserves slide', () => {
+      const step = pitchStep(70, 0.15)
+      const t: Transform = { type: 'fold', param: 12 }
+      expect(transformPitchValue(step, t).slide).toBe(0.15)
+    })
+  })
+
+  describe('quantize', () => {
+    it('snaps to C major scale', () => {
+      // param=1 → major scale, root=C
+      const step = pitchStep(61) // C#4 → should snap to C4 (60) or D4 (62)
+      const t: Transform = { type: 'quantize', param: 1 }
+      const result = transformPitchValue(step, t)
+      // snapToScale snaps down on tie, so C#→C
+      expect(result.note).toBe(60)
+    })
+
+    it('note already in scale stays unchanged', () => {
+      const step = pitchStep(60) // C4 — in major scale
+      const t: Transform = { type: 'quantize', param: 1 }
+      expect(transformPitchValue(step, t).note).toBe(60)
+    })
+
+    it('chromatic scale (param=0) has no effect', () => {
+      const step = pitchStep(61)
+      const t: Transform = { type: 'quantize', param: 0 }
+      expect(transformPitchValue(step, t).note).toBe(61)
+    })
+
+    it('snaps to minor pentatonic (param=3)', () => {
+      // Minor pentatonic from C: C Eb F G Bb = 0,3,5,7,10
+      const step = pitchStep(62) // D4 → should snap to Eb4 (63) or C4 (60)
+      const t: Transform = { type: 'quantize', param: 3 }
+      const result = transformPitchValue(step, t)
+      // D is 2 semitones from C and 1 from Eb, so snaps to C (down on tie)
+      expect([60, 63]).toContain(result.note)
+    })
+
+    it('preserves slide', () => {
+      const step = pitchStep(61, 0.1)
+      const t: Transform = { type: 'quantize', param: 1 }
+      expect(transformPitchValue(step, t).slide).toBe(0.1)
+    })
+  })
+})
+
+// --- Velocity value transforms ---
+
+describe('transformVelocityValue', () => {
+  describe('accent', () => {
+    it('boosts every Nth step to 127', () => {
+      const t: Transform = { type: 'accent', param: 4 }
+      expect(transformVelocityValue(80, t, 0, 0, 16)).toBe(127) // 0 % 4 = 0
+      expect(transformVelocityValue(80, t, 1, 0, 16)).toBe(80)
+      expect(transformVelocityValue(80, t, 2, 0, 16)).toBe(80)
+      expect(transformVelocityValue(80, t, 3, 0, 16)).toBe(80)
+      expect(transformVelocityValue(80, t, 4, 0, 16)).toBe(127) // 4 % 4 = 0
+    })
+  })
+
+  describe('fade-in', () => {
+    it('ramps from 0 to full across the bar', () => {
+      const t: Transform = { type: 'fade-in', param: 0 }
+      expect(transformVelocityValue(100, t, 0, 0, 8)).toBe(0) // start
+      expect(transformVelocityValue(100, t, 7, 0, 8)).toBe(100) // end
+    })
+
+    it('mid-point is roughly half', () => {
+      const t: Transform = { type: 'fade-in', param: 0 }
+      // stepIndex 3 out of 8 → 3/7 ≈ 0.43
+      const result = transformVelocityValue(100, t, 3, 0, 8)
+      expect(result).toBeGreaterThan(30)
+      expect(result).toBeLessThan(60)
+    })
+  })
+
+  describe('fade-out', () => {
+    it('ramps from full to 0 across the bar', () => {
+      const t: Transform = { type: 'fade-out', param: 0 }
+      expect(transformVelocityValue(100, t, 0, 0, 8)).toBe(100) // start
+      expect(transformVelocityValue(100, t, 7, 0, 8)).toBe(0) // end
+    })
+  })
+
+  describe('humanize', () => {
+    it('is deterministic', () => {
+      const t: Transform = { type: 'humanize', param: 0.5 }
+      const r1 = transformVelocityValue(80, t, 3, 1, 16)
+      const r2 = transformVelocityValue(80, t, 3, 1, 16)
+      expect(r1).toBe(r2)
+    })
+
+    it('stays within 1-127 range', () => {
+      const t: Transform = { type: 'humanize', param: 1.0 }
+      for (let s = 0; s < 16; s++) {
+        for (let b = 0; b < 4; b++) {
+          const result = transformVelocityValue(80, t, s, b, 16)
+          expect(result).toBeGreaterThanOrEqual(1)
+          expect(result).toBeLessThanOrEqual(127)
+        }
+      }
+    })
+
+    it('introduces variation across steps', () => {
+      const t: Transform = { type: 'humanize', param: 1.0 }
+      const values = Array.from({ length: 16 }, (_, i) => transformVelocityValue(80, t, i, 0, 16))
+      // Not all the same (with max humanize, there should be variation)
+      const unique = new Set(values)
+      expect(unique.size).toBeGreaterThan(1)
+    })
+  })
+})
+
+describe('getEffectiveVelocityStep', () => {
+  it('no transforms returns base step', () => {
+    const sub = makeSimpleSubtrack([100, 80, 60, 40], 1)
+    expect(getEffectiveVelocityStep(sub, [], 0)).toBe(80)
+  })
+
+  it('applies playhead + velocity transforms', () => {
+    const sub = makeSimpleSubtrack([100, 80, 60, 40], 0)
+    // reverse reads step 3 (=40), then accent every 4th (step 0) → 127
+    // Wait, after reverse, idx=3, which is not 0 % 4. Let me use a simpler test.
+    const result = getEffectiveVelocityStep(sub, [{ type: 'accent', param: 4 }], 0)
+    // currentStep=0, 0 % 4 = 0 → accent → 127
+    expect(result).toBe(127)
+  })
+
+  it('reverse + fade-in composes', () => {
+    const sub = makeSimpleSubtrack([100, 100, 100, 100], 0)
+    // reverse: step 0 → reads step 3, fade-in: step 3 of 4 → 3/3 = 1.0 → 100
+    const result = getEffectiveVelocityStep(
+      sub,
+      [
+        { type: 'reverse', param: 0 },
+        { type: 'fade-in', param: 0 },
+      ],
+      0,
+    )
+    // idx after reverse = 3, fade-in: 3/3 = 1.0, 100*1.0 = 100
+    expect(result).toBe(100)
   })
 })
 

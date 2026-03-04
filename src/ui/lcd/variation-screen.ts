@@ -24,15 +24,20 @@
  */
 
 import type { SequencerState, VariationPattern } from '../../engine/types'
+import { QUANTIZE_SCALE_NAMES } from '../../engine/variation'
 import { COLORS } from '../colors'
 import type { SubtrackId, UIState } from '../hw-types'
 import { getEditingVariationPattern, TRANSFORM_CATALOG } from '../mode-machine'
-import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W, strokeRect } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30
 const ROW_H = 24
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
+
+const POPUP_VISIBLE_COUNT = 7
+const POPUP_W = 200
+const POPUP_BG = '#0c0c20'
 
 const SUBTRACK_LABELS: Record<SubtrackId, string> = {
   gate: 'GATE',
@@ -45,8 +50,10 @@ const SUBTRACK_LABELS: Record<SubtrackId, string> = {
 function formatParam(type: string, param: number): string {
   switch (type) {
     case 'rotate':
+    case 'stutter':
       return `${param} step${param !== 1 ? 's' : ''}`
     case 'thin':
+    case 'densify':
       return `${Math.round(param * 100)}%`
     case 'transpose':
       return `${param > 0 ? '+' : ''}${param} st`
@@ -54,8 +61,19 @@ function formatParam(type: string, param: number): string {
       return `C${Math.floor(param / 12) - 1}`
     case 'octave-shift':
       return `${param > 0 ? '+' : ''}${param} oct`
-    case 'stutter':
-      return `${param} step${param !== 1 ? 's' : ''}`
+    case 'skip':
+    case 'drop':
+    case 'accent':
+      return `/${param}`
+    case 'drunk-walk':
+    case 'humanize':
+      return `${Math.round(param * 100)}%`
+    case 'ratchet':
+      return `×${param}`
+    case 'fold':
+      return `${param} st`
+    case 'quantize':
+      return QUANTIZE_SCALE_NAMES[Math.floor(param)] ?? 'CHROM'
     default:
       return ''
   }
@@ -202,42 +220,41 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
   // Bar header
   drawText(ctx, `Bar ${bar + 1} of ${vp.length}`, PAD, LIST_TOP + 8, COLORS.text, 16)
 
-  // Transform stack with cursor
+  // Transform stack — always rendered
   const stackTop = LIST_TOP + ROW_H + 4
   const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
+  const cursorOnAdd = cursor >= slot.transforms.length
 
-  if (slot.transforms.length === 0 && cursor === 0) {
-    // Empty bar — cursor is on "add" slot
-    renderAddSlot(ctx, ui, trackColor, stackTop, true)
-  } else {
-    for (let i = 0; i <= slot.transforms.length; i++) {
-      const rowIdx = i
-      if (rowIdx >= maxVisible) break
-      const y = stackTop + rowIdx * ROW_H
-      const isCursor = i === cursor
+  for (let i = 0; i <= slot.transforms.length; i++) {
+    if (i >= maxVisible) break
+    const y = stackTop + i * ROW_H
+    const isCursor = i === cursor
 
-      if (i < slot.transforms.length) {
-        // Existing transform
-        const t = slot.transforms[i]
-        const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
-        const label = entry?.label ?? t.type.toUpperCase()
-        const p = formatParam(t.type, t.param)
+    if (i < slot.transforms.length) {
+      const t = slot.transforms[i]
+      const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
+      const label = entry?.label ?? t.type.toUpperCase()
+      const p = formatParam(t.type, t.param)
 
-        const prefix = isCursor ? '\u25B8' : ' '
-        const textColor = isCursor ? COLORS.text : COLORS.textDim
-        const numColor = isCursor ? trackColor : COLORS.textDim
+      const prefix = isCursor ? '\u25B8' : ' '
+      const textColor = isCursor ? COLORS.text : COLORS.textDim
+      const numColor = isCursor ? trackColor : COLORS.textDim
 
-        drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
-        drawText(ctx, `${i + 1}.`, PAD + 16, y + ROW_H / 2 - 2, numColor, 16)
-        drawText(ctx, label, PAD + 40, y + ROW_H / 2 - 2, textColor, 16)
-        if (p) {
-          drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16, 'right')
-        }
-      } else {
-        // "Add" slot
-        renderAddSlot(ctx, ui, trackColor, y, isCursor)
+      drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
+      drawText(ctx, `${i + 1}.`, PAD + 16, y + ROW_H / 2 - 2, numColor, 16)
+      drawText(ctx, label, PAD + 40, y + ROW_H / 2 - 2, textColor, 16)
+      if (p) {
+        drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16, 'right')
       }
+    } else {
+      renderAddSlot(ctx, ui, trackColor, y, isCursor)
     }
+  }
+
+  // Popup overlay — drawn on top when cursor is on "add" slot and catalog is open
+  if (cursorOnAdd && ui.varCatalogOpen) {
+    const addSlotY = stackTop + slot.transforms.length * ROW_H
+    renderCatalogPopup(ctx, ui, trackColor, addSlotY)
   }
 }
 
@@ -260,4 +277,45 @@ function renderAddSlot(
   drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
   drawText(ctx, '+', PAD + 16, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16)
   drawText(ctx, catalogText, PAD + 40, y + ROW_H / 2 - 2, isCursor ? COLORS.text : COLORS.textDim, 16)
+}
+
+/** Compact 7-item popup catalog, centered on the selected item at addSlotY */
+function renderCatalogPopup(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, addSlotY: number): void {
+  const totalItems = TRANSFORM_CATALOG.length
+  const selected = ui.varParam
+  const popupH = POPUP_VISIBLE_COUNT * ROW_H
+  const centerIdx = Math.floor(POPUP_VISIBLE_COUNT / 2)
+
+  // Position popup so selected item aligns with addSlotY, clamped to LCD bounds
+  const lcdTop = LCD_CONTENT_Y
+  const lcdBottom = LCD_CONTENT_Y + LCD_CONTENT_H
+  const idealTop = addSlotY - centerIdx * ROW_H
+  const popupTop = Math.max(lcdTop, Math.min(idealTop, lcdBottom - popupH))
+
+  // Scroll window centered on selection
+  let scrollStart = selected - centerIdx
+  scrollStart = Math.max(0, Math.min(scrollStart, totalItems - POPUP_VISIBLE_COUNT))
+
+  // Background + border
+  const popupRect = { x: PAD - 4, y: popupTop - 2, w: POPUP_W + 8, h: popupH + 4 }
+  fillRect(ctx, popupRect, POPUP_BG)
+  strokeRect(ctx, popupRect, `${trackColor}66`, 1)
+
+  // Draw items
+  for (let vi = 0; vi < POPUP_VISIBLE_COUNT; vi++) {
+    const catalogIdx = scrollStart + vi
+    if (catalogIdx < 0 || catalogIdx >= totalItems) continue
+
+    const y = popupTop + vi * ROW_H
+    const entry = TRANSFORM_CATALOG[catalogIdx]
+    const isSelected = catalogIdx === selected
+
+    if (isSelected) {
+      fillRect(ctx, { x: PAD - 4, y, w: POPUP_W + 8, h: ROW_H }, `${trackColor}33`)
+      drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
+      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.text, 16)
+    } else {
+      drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, COLORS.textDim, 16)
+    }
+  }
 }
