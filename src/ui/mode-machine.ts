@@ -216,6 +216,15 @@ export function dispatch(ui: UIState, engine: SequencerState, event: ControlEven
       }
       return { ui, engine }
     }
+    // Block settings/clr/step/pattern presses — stay in load mode
+    if (
+      event.type === 'settings-press' ||
+      event.type === 'clr-press' ||
+      event.type === 'step-press' ||
+      event.type === 'pattern-press'
+    ) {
+      return { ui, engine }
+    }
   }
 
   // Track select — cross-modal
