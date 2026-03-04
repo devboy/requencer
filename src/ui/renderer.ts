@@ -54,7 +54,8 @@ export function setupCanvas(canvas: HTMLCanvasElement): CanvasRenderingContext2D
   const rect = canvas.getBoundingClientRect()
   canvas.width = rect.width * dpr
   canvas.height = rect.height * dpr
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Failed to get 2d context')
   ctx.scale(dpr, dpr)
   return ctx
 }
@@ -86,7 +87,8 @@ export function setupLCDCanvas(canvas: HTMLCanvasElement): CanvasRenderingContex
   canvas.height = LCD_H // always 320
   // CSS sizing handled by faceplate styles (73.44mm × 48.96mm active area)
   // image-rendering: pixelated set in panel CSS for authentic TFT look
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Failed to get 2d context')
   return ctx
 }
 
