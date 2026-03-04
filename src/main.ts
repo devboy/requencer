@@ -233,6 +233,31 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'pattern-load': 'Q/W/E/R: toggle layers   A/F/G: drift/trns/var   1-4: dest   Enter: apply   Esc: back',
 }
 
+// --- Hold-state hints (shown when a button is held, overriding mode hints) ---
+const HOLD_HINTS: Record<string, string> = {
+  track: '↑↓: all lengths   ←→: track divider   RST: reset   D: randomize',
+  'subtrack:gate': '↑↓: gate length   ←→: gate divider   RST: reset   D: randomize',
+  'subtrack:pitch': '↑↓: pitch length   ←→: pitch divider   RST: reset   D: randomize',
+  'subtrack:velocity': '↑↓: vel length   ←→: vel divider   RST: reset   D: randomize',
+  'subtrack:mod': '↑↓: mod length   ←→: mod divider   RST: reset   D: randomize',
+  'feature:mute': '↑↓: mute length   ←→: mute divider',
+  'feature:variation': '↑↓: phrase length   ←→: loop mode',
+  'step:gate-edit': '↑↓: gate length   ←→: ratchet   Z-M: tie range',
+}
+
+function getActiveHint(ui: UIState): string {
+  const held = ui.heldButton
+  if (held) {
+    let key: string | null = null
+    if (held.kind === 'track') key = 'track'
+    else if (held.kind === 'subtrack') key = `subtrack:${held.subtrack}`
+    else if (held.kind === 'feature') key = `feature:${held.feature}`
+    else if (held.kind === 'step' && ui.mode === 'gate-edit') key = 'step:gate-edit'
+    if (key && HOLD_HINTS[key]) return HOLD_HINTS[key]
+  }
+  return SHORTCUT_HINTS[ui.mode]
+}
+
 const hintEl = document.createElement('div')
 hintEl.id = 'shortcut-hints'
 hintEl.style.cssText = `
@@ -299,8 +324,8 @@ function render(): void {
   // Update mode indicators on subtrack/feature buttons
   updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState)
 
-  // Update shortcut hints
-  hintEl.textContent = SHORTCUT_HINTS[uiState.mode]
+  // Update shortcut hints (hold-state aware)
+  hintEl.textContent = getActiveHint(uiState)
 
   requestAnimationFrame(render)
 }

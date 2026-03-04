@@ -22,7 +22,6 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
 
   // Header
   drawText(ctx, `PATTERN — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(ctx, 'ENC A:\u25B2\u25BC  PUSH:act  CLR:del', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 11, 'right')
 
   const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)
   const scrollOffset = Math.max(0, Math.min(ui.patternParam - Math.floor(maxVisible / 2), rows.length - maxVisible))

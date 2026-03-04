@@ -37,7 +37,7 @@ export function renderMutateEdit(ctx: CanvasRenderingContext2D, engine: Sequence
     LCD_W - PAD,
     LCD_CONTENT_Y + 18,
     COLORS.textDim,
-    14,
+    16,
     'right',
   )
 
@@ -101,8 +101,4 @@ export function renderMutateEdit(ctx: CanvasRenderingContext2D, engine: Sequence
       drawText(ctx, valueText, VALUE_X, y + ROW_H / 2 - 2, isSelected ? '#ffaa00' : COLORS.textDim, 16, 'right')
     }
   }
-
-  // Bottom hint
-  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'ENC A:▲▼ PUSH:all off  ENC B:rate  1-4:trk', PAD, hintY, COLORS.textDim, 12)
 }

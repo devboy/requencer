@@ -24,7 +24,8 @@ const MUTE_COLOR = '#aa3344'
 
 export function renderMuteEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   // Title
-  drawText(ctx, 'MUTE', PAD, LCD_CONTENT_Y + 18, COLORS.textBright, 18)
+  const trackColor = COLORS.track[ui.selectedTrack]
+  drawText(ctx, `MUTE \u2014 T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
   // Render all 4 tracks
   for (let t = 0; t < 4; t++) {

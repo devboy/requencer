@@ -27,15 +27,6 @@ export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState
 
   // Header
   drawText(ctx, `RAND — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(
-    ctx,
-    'ENC A:\u25B2\u25BC  ENC B:val  PUSH:apply',
-    LCD_W - PAD,
-    LCD_CONTENT_Y + 18,
-    COLORS.textDim,
-    12,
-    'right',
-  )
 
   // Visible rows — fit as many as content area allows
   const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)

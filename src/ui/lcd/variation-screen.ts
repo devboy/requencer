@@ -31,8 +31,8 @@ import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../rend
 
 const PAD = 8
 const HEADER_H = 30
-const ROW_H = 22
-const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 4
+const ROW_H = 24
+const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
 
 const SUBTRACK_LABELS: Record<SubtrackId, string> = {
   gate: 'GATE',
@@ -91,7 +91,7 @@ export function renderVariationEdit(ctx: CanvasRenderingContext2D, engine: Seque
   const enabledText = vp.enabled ? 'ON' : 'OFF'
   const enabledColor = vp.enabled ? '#44ff66' : COLORS.textDim
   const lengthText = vp.loopMode ? `LOOP(${vp.length})` : `${vp.length} bars`
-  drawText(ctx, `${lengthText}  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 14, 'right')
+  drawText(ctx, `${lengthText}  [${enabledText}]`, LCD_W - PAD, LCD_CONTENT_Y + 18, enabledColor, 16, 'right')
 
   if (ui.varSelectedBar < 0) {
     renderBarOverview(ctx, vp, ui, trackColor)
@@ -127,15 +127,12 @@ function renderSubtrackStateScreen(
     const x = PAD + 12 + i * 130
     const isCurrent = s === state
     const color = isCurrent ? trackColor : COLORS.textDim
-    drawText(ctx, s, x, y, color, 12)
+    drawText(ctx, s, x, y, color, 14)
     if (i < states.length - 1) {
-      drawText(ctx, '\u2192', x + 90, y, COLORS.textDim, 12)
+      drawText(ctx, '\u2192', x + 95, y, COLORS.textDim, 14)
     }
   }
 
-  // Hint
-  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'PUSH A:cycle  BACK:track level', PAD, hintY, COLORS.textDim, 12)
 }
 
 /** Overview mode — bar grid and transform summaries */
@@ -147,7 +144,7 @@ function renderBarOverview(
 ): void {
   const barY = LIST_TOP
 
-  drawText(ctx, 'BARS', PAD, barY + 8, COLORS.textDim, 14)
+  drawText(ctx, 'BARS', PAD, barY + 8, COLORS.textDim, 16)
 
   for (let bar = 0; bar < vp.length; bar++) {
     const slot = vp.slots[bar]
@@ -157,15 +154,15 @@ function renderBarOverview(
     // Bar number
     const isCurrentPlayback = bar === vp.currentBar && vp.enabled
     const numColor = isCurrentPlayback ? '#44ff66' : COLORS.text
-    drawText(ctx, `${bar + 1}`, x + 20, y + 8, numColor, 14, 'center')
+    drawText(ctx, `${bar + 1}`, x + 20, y + 8, numColor, 16, 'center')
 
     // Transform count indicator
     const count = slot.transforms.length
     if (count > 0) {
       fillRect(ctx, { x: x + 4, y: y + 20, w: 32, h: 12 }, `${trackColor}44`)
-      drawText(ctx, `${count}`, x + 20, y + 26, trackColor, 12, 'center')
+      drawText(ctx, `${count}`, x + 20, y + 26, trackColor, 16, 'center')
     } else {
-      drawText(ctx, '\u2014', x + 20, y + 26, COLORS.textDim, 12, 'center')
+      drawText(ctx, '\u2014', x + 20, y + 26, COLORS.textDim, 16, 'center')
     }
   }
 
@@ -187,14 +184,11 @@ function renderBarOverview(
 
     const isCurrentPlayback = bar === vp.currentBar && vp.enabled
     const barColor = isCurrentPlayback ? '#44ff66' : trackColor
-    drawText(ctx, `${bar + 1}:`, PAD, listY + ROW_H / 2, barColor, 14)
-    drawText(ctx, names, PAD + 28, listY + ROW_H / 2, COLORS.text, 13)
+    drawText(ctx, `${bar + 1}:`, PAD, listY + ROW_H / 2, barColor, 16)
+    drawText(ctx, names, PAD + 30, listY + ROW_H / 2, COLORS.text, 16)
     listY += ROW_H
   }
 
-  // Bottom hint
-  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'STEP:bar  PUSH:on/off  hVAR:len/loop', PAD, hintY, COLORS.textDim, 12)
 }
 
 /** Bar detail mode — transform stack with cursor + catalog browser */
@@ -231,11 +225,11 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
         const textColor = isCursor ? COLORS.text : COLORS.textDim
         const numColor = isCursor ? trackColor : COLORS.textDim
 
-        drawText(ctx, prefix, PAD, y + 12, trackColor, 14)
-        drawText(ctx, `${i + 1}.`, PAD + 14, y + 12, numColor, 14)
-        drawText(ctx, label, PAD + 36, y + 12, textColor, 14)
+        drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
+        drawText(ctx, `${i + 1}.`, PAD + 16, y + ROW_H / 2 - 2, numColor, 16)
+        drawText(ctx, label, PAD + 40, y + ROW_H / 2 - 2, textColor, 16)
         if (p) {
-          drawText(ctx, p, LCD_W - PAD, y + 12, isCursor ? trackColor : COLORS.textDim, 14, 'right')
+          drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16, 'right')
         }
       } else {
         // "Add" slot
@@ -244,9 +238,6 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
     }
   }
 
-  // Bottom hint
-  const hintY = LCD_CONTENT_Y + LCD_CONTENT_H - 12
-  drawText(ctx, 'A:sel  B:value  ]push:add  ]hold:del', PAD, hintY, COLORS.textDim, 11)
 }
 
 /** Render the "add" slot at the bottom of the transform stack */
@@ -265,7 +256,7 @@ function renderAddSlot(
   if (isCursor) {
     fillRect(ctx, { x: 0, y: y - 2, w: LCD_W, h: ROW_H }, '#12122a')
   }
-  drawText(ctx, prefix, PAD, y + 12, trackColor, 14)
-  drawText(ctx, '+', PAD + 14, y + 12, isCursor ? trackColor : COLORS.textDim, 14)
-  drawText(ctx, catalogText, PAD + 36, y + 12, isCursor ? COLORS.text : COLORS.textDim, 14)
+  drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
+  drawText(ctx, '+', PAD + 16, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16)
+  drawText(ctx, catalogText, PAD + 40, y + ROW_H / 2 - 2, isCursor ? COLORS.text : COLORS.textDim, 16)
 }
