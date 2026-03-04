@@ -242,43 +242,43 @@ onControlEvent(async (event: ControlEvent) => {
     if (_playStopInProgress) return
     _playStopInProgress = true
     try {
-    const isPlaying = clock.playing || engineState.transport.playing
-    if (isPlaying) {
-      if (clock.playing) clock.stop()
-      output.releaseAll()
-      midi.panic()
-      midiClockOut.sendStop()
-      engineState = {
-        ...engineState,
-        transport: { ...engineState.transport, playing: false },
-      }
-    } else {
-      // Always start Tone.js audio context (needed for synths even in MIDI clock mode)
-      await Tone.start()
-      // Init MIDI on first play (user gesture requirement)
-      await midi.init()
-      shareMIDIAccess()
-      refreshMIDIDevices()
-
-      if (engineState.transport.clockSource === 'midi') {
-        // MIDI clock mode: don't start ToneClock, just wait for incoming clock
-        const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
-        if (inputDevice) {
-          midiClockIn.startListening(inputDevice.id)
-        }
+      const isPlaying = clock.playing || engineState.transport.playing
+      if (isPlaying) {
+        if (clock.playing) clock.stop()
+        output.releaseAll()
+        midi.panic()
+        midiClockOut.sendStop()
         engineState = {
           ...engineState,
-          transport: { ...engineState.transport, playing: true, masterTick: 0 },
+          transport: { ...engineState.transport, playing: false },
         }
       } else {
-        // Internal clock: use ToneClock as before
-        await clock.start()
-        engineState = {
-          ...engineState,
-          transport: { ...engineState.transport, playing: true },
+        // Always start Tone.js audio context (needed for synths even in MIDI clock mode)
+        await Tone.start()
+        // Init MIDI on first play (user gesture requirement)
+        await midi.init()
+        shareMIDIAccess()
+        refreshMIDIDevices()
+
+        if (engineState.transport.clockSource === 'midi') {
+          // MIDI clock mode: don't start ToneClock, just wait for incoming clock
+          const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
+          if (inputDevice) {
+            midiClockIn.startListening(inputDevice.id)
+          }
+          engineState = {
+            ...engineState,
+            transport: { ...engineState.transport, playing: true, masterTick: 0 },
+          }
+        } else {
+          // Internal clock: use ToneClock as before
+          await clock.start()
+          engineState = {
+            ...engineState,
+            transport: { ...engineState.transport, playing: true },
+          }
         }
       }
-    }
     } finally {
       _playStopInProgress = false
     }
@@ -489,7 +489,8 @@ function render(): void {
     lcdCtx.fillStyle = '#ffffff'
     const tBpm = Math.round(Tone.getTransport().bpm.value)
     const tPPQ = (Tone.getTransport() as unknown as { _ppq: number })._ppq
-    const nRep = ((Tone.getTransport() as unknown as { _repeatedEvents: { length: number } })._repeatedEvents?.length) ?? '?'
+    const nRep =
+      (Tone.getTransport() as unknown as { _repeatedEvents: { length: number } })._repeatedEvents?.length ?? '?'
     lcdCtx.fillText(`tick/s:${_dbgTicksPerSec} (exp ${expTick})  cb/s:${_dbgCbPerSec}`, 12, boxY + 44)
     lcdCtx.fillText(`T.bpm:${tBpm} PPQ:${tPPQ} repeats:${nRep}`, 12, boxY + 62)
     lcdCtx.restore()
