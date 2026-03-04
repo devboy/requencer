@@ -5,14 +5,12 @@
  * MIDI timing messages:
  *   0xF8 — Timing Clock (24 PPQN)
  *   0xFA — Start
- *   0xFB — Continue
  *   0xFC — Stop
  */
 
 // MIDI status bytes for clock/transport
 const TIMING_CLOCK = 0xf8
 const START = 0xfa
-const CONTINUE = 0xfb
 const STOP = 0xfc
 
 export class MIDIClockOut {
@@ -61,14 +59,6 @@ export class MIDIClockOut {
     if (!this.access) return
     this.access.outputs.forEach((port) => {
       port.send([START])
-    })
-  }
-
-  /** Send MIDI Continue (0xFB) to all output ports */
-  sendContinue(): void {
-    if (!this.access) return
-    this.access.outputs.forEach((port) => {
-      port.send([CONTINUE])
     })
   }
 

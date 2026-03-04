@@ -61,27 +61,9 @@ const midi = new MIDIOutput()
 const midiClockOut = new MIDIClockOut()
 const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
 
-// --- Timing Debug ---
-let _dbgTickCount = 0
-let _dbgLastSec = 0
-let _dbgTicksPerSec = 0
-let _dbgCbCount = 0
-let _dbgCbPerSec = 0
-
 /** Shared tick handler — called by both ToneClock and MIDIClockIn */
 function handleEngineTick(time: number, stepDuration: number) {
   const mt = engineState.transport.masterTick // capture BEFORE tick advances it
-
-  _dbgTickCount++
-  const now = performance.now()
-  if (now - _dbgLastSec >= 1000) {
-    _dbgTicksPerSec = _dbgTickCount
-    _dbgCbPerSec = _dbgCbCount
-    _dbgTickCount = 0
-    _dbgCbCount = 0
-    _dbgLastSec = now
-  }
-
   const result = tick(engineState)
   engineState = result.state
 
@@ -104,7 +86,6 @@ function handleEngineTick(time: number, stepDuration: number) {
 
 const clock = new ToneClock({
   onTick(time: number, stepDuration: number, _tickDuration: number) {
-    _dbgCbCount++
     handleEngineTick(time, stepDuration)
   },
 })
@@ -145,8 +126,9 @@ const midiClockIn = new MIDIClockIn({
   },
 })
 
-/** Track current clock source to detect changes */
+/** Track current clock source and MIDI input device to detect changes */
 let activeClockSource: ClockSource = engineState.transport.clockSource
+let prevMidiInputDeviceIndex = 0
 
 // --- Panel Setup ---
 injectPanelStyles()
@@ -245,6 +227,7 @@ onControlEvent(async (event: ControlEvent) => {
       const isPlaying = clock.playing || engineState.transport.playing
       if (isPlaying) {
         if (clock.playing) clock.stop()
+        midiClockIn.stopListening()
         output.releaseAll()
         midi.panic()
         midiClockOut.sendStop()
@@ -304,11 +287,14 @@ onControlEvent(async (event: ControlEvent) => {
   // Handle clock source changes
   syncClockSource()
 
-  // Handle MIDI input device changes — re-listen on new device
+  // Handle MIDI input device changes — re-listen on new device only if index changed
   if (engineState.transport.clockSource === 'midi' && midiClockIn.isListening) {
-    const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
-    if (inputDevice) {
-      midiClockIn.startListening(inputDevice.id)
+    if (uiState.midiInputDeviceIndex !== prevMidiInputDeviceIndex) {
+      prevMidiInputDeviceIndex = uiState.midiInputDeviceIndex
+      const inputDevice = uiState.midiInputDevices[uiState.midiInputDeviceIndex]
+      if (inputDevice) {
+        midiClockIn.startListening(inputDevice.id)
+      }
     }
   }
 })
@@ -467,34 +453,6 @@ function render(): void {
 
   // Update shortcut hints (hold-state aware)
   hintEl.textContent = getActiveHint(uiState)
-
-  // --- Timing debug overlay ---
-  if (isPlaying && _dbgTicksPerSec > 0) {
-    const expTick = Math.round((engineState.transport.bpm / 60) * 24)
-    const expCb = Math.round((engineState.transport.bpm / 60) * 4)
-    const ratio = (_dbgTicksPerSec / expTick).toFixed(2)
-    const ok = Math.abs(Number(ratio) - 1) < 0.08
-
-    lcdCtx.save()
-    const boxH = 70
-    const boxY = LCD_H - boxH
-    lcdCtx.fillStyle = 'rgba(0,0,0,0.92)'
-    lcdCtx.fillRect(0, boxY, LCD_W, boxH)
-
-    lcdCtx.font = 'bold 18px monospace'
-    lcdCtx.fillStyle = ok ? '#00ff00' : '#ffff00'
-    lcdCtx.fillText(`RATIO: ${ratio}  ${ok ? 'OK' : 'WRONG!'}`, 12, boxY + 22)
-
-    lcdCtx.font = '15px monospace'
-    lcdCtx.fillStyle = '#ffffff'
-    const tBpm = Math.round(Tone.getTransport().bpm.value)
-    const tPPQ = (Tone.getTransport() as unknown as { _ppq: number })._ppq
-    const nRep =
-      (Tone.getTransport() as unknown as { _repeatedEvents: { length: number } })._repeatedEvents?.length ?? '?'
-    lcdCtx.fillText(`tick/s:${_dbgTicksPerSec} (exp ${expTick})  cb/s:${_dbgCbPerSec}`, 12, boxY + 44)
-    lcdCtx.fillText(`T.bpm:${tBpm} PPQ:${tPPQ} repeats:${nRep}`, 12, boxY + 62)
-    lcdCtx.restore()
-  }
 
   requestAnimationFrame(render)
 }

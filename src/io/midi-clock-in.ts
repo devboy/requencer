@@ -99,10 +99,6 @@ export class MIDIClockIn {
     return this.listening
   }
 
-  get recoveredBpm(): number {
-    return this.clockState.bpm
-  }
-
   private handleMessage(e: MIDIMessageEvent): void {
     if (!e.data || e.data.length === 0) return
 
@@ -134,7 +130,7 @@ export class MIDIClockIn {
         break
 
       case CONTINUE:
-        // Continue is treated same as Start for our purposes
+        // Continue resumes without resetting clock recovery (unlike Start)
         this.callbacks.onStart()
         break
 

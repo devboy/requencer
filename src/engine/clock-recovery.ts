@@ -49,10 +49,8 @@ export function processClockTick(state: ClockRecoveryState, timeSeconds: number)
   }
 
   // Add to window, keep only WINDOW_SIZE recent intervals
-  const intervals = [...state.intervals, interval]
-  if (intervals.length > WINDOW_SIZE) {
-    intervals.splice(0, intervals.length - WINDOW_SIZE)
-  }
+  const all = [...state.intervals, interval]
+  const intervals = all.length > WINDOW_SIZE ? all.slice(all.length - WINDOW_SIZE) : all
 
   // Need at least 4 intervals for a reasonable BPM estimate
   let bpm = state.bpm
