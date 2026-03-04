@@ -517,8 +517,30 @@ export function updateModeIndicators(
   featureBtns: HTMLButtonElement[],
   randBtn: HTMLButtonElement,
   patBtn: HTMLButtonElement,
-  mode: string,
+  ui: import('../hw-types').UIState,
 ): void {
+  const mode = ui.mode
+
+  if (mode === 'pattern-load') {
+    // In pattern-load: subtrack/feature buttons reflect layer flags
+    const flags = ui.patternLayerFlags
+    subtrackBtns[0].classList.toggle('active', flags.gate)
+    subtrackBtns[1].classList.toggle('active', flags.pitch)
+    subtrackBtns[2].classList.toggle('active', flags.velocity)
+    subtrackBtns[3].classList.toggle('active', flags.mod)
+
+    // featureBtns: [mute, route, mutate/drift, transpose, variation]
+    featureBtns[0].classList.toggle('active', false) // mute — not applicable
+    featureBtns[1].classList.toggle('active', false) // route — not applicable
+    featureBtns[2].classList.toggle('active', flags.drift)
+    featureBtns[3].classList.toggle('active', flags.transpose)
+    featureBtns[4].classList.toggle('active', flags.variation)
+
+    randBtn.classList.toggle('active', false)
+    patBtn.classList.toggle('active', true)
+    return
+  }
+
   const subtrackModes = ['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit']
   const featureModes = ['mute-edit', 'route', 'mutate-edit', 'transpose-edit', 'variation-edit']
 
@@ -529,5 +551,5 @@ export function updateModeIndicators(
     featureBtns[i].classList.toggle('active', mode === featureModes[i])
   }
   randBtn.classList.toggle('active', mode === 'rand')
-  patBtn.classList.toggle('active', mode === 'pattern' || mode === 'pattern-load')
+  patBtn.classList.toggle('active', mode === 'pattern')
 }

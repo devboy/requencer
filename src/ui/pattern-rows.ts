@@ -18,12 +18,6 @@ export function getPatternRows(engine: SequencerState): PatternRow[] {
   const rows: PatternRow[] = [
     {
       type: 'action',
-      paramId: 'save-all',
-      label: '[ SAVE ALL ]',
-      getValue: () => '',
-    },
-    {
-      type: 'action',
       paramId: 'save-track',
       label: '[ SAVE TRACK ]',
       getValue: () => '',

@@ -259,18 +259,19 @@ export interface TrackSlotData {
 }
 
 export interface LayerFlags {
-  subtracks: boolean
+  gate: boolean
+  pitch: boolean
+  velocity: boolean
+  mod: boolean
   transpose: boolean
   drift: boolean
   variation: boolean
-  lfo: boolean
-  random: boolean
-  arp: boolean
 }
 
 export interface SavedPattern {
   name: string
-  slots: [TrackSlotData | null, TrackSlotData | null, TrackSlotData | null, TrackSlotData | null]
+  data: TrackSlotData
+  sourceTrack: number // 0-3, which track was saved from
 }
 
 // Top-level sequencer state

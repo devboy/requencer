@@ -87,11 +87,9 @@ export interface UIState {
   clrPendingAt: number // timestamp of first CLR press (for 2s timeout)
   patternParam: number // selected row in PATTERN screen
   patternIndex: number // highlighted saved pattern
-  patternLoadSlot: number // 0-3: which slot row is focused in load screen
-  patternSlotMapping: [number, number, number, number] // slot→target track
   patternLayerFlags: import('../engine/types').LayerFlags
-  patternLoadStep: 'mapping' | 'layers' | 'confirm'
-  nameEntryContext: 'preset' | 'pattern-all' | 'pattern-single'
+  patternLoadTarget: number // 0-3: destination track for pattern load
+  nameEntryContext: 'preset' | 'pattern'
 }
 
 export interface LEDState {

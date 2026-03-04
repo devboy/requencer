@@ -48,7 +48,7 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
         drawText(ctx, '\u25B8', PAD, lineY + 5, trackColor, 16)
       }
     } else if (row.paramId === 'pattern-slot') {
-      // Pattern browsing row — show current pattern name + slot count
+      // Pattern browsing row — show current pattern name + source track
       if (isSelected) {
         fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
       }
@@ -57,11 +57,10 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
 
       const pattern = engine.savedPatterns[ui.patternIndex]
       if (pattern) {
-        const filledSlots = pattern.slots.filter((s) => s !== null).length
         drawText(ctx, pattern.name, LABEL_X, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
         drawText(
           ctx,
-          `${filledSlots}/4`,
+          `T${pattern.sourceTrack + 1}`,
           VALUE_X,
           y + ROW_H / 2 - 2,
           isSelected ? '#ffffff' : COLORS.textDim,
@@ -70,7 +69,7 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
         )
       }
     } else {
-      // Action rows (save-all, save-track, delete)
+      // Action rows (save-track, delete)
       if (isSelected) {
         fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
       }

@@ -206,9 +206,7 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   'name-entry': (ui) =>
     ui.nameEntryContext === 'preset'
       ? 'SAVE PRESET'
-      : ui.nameEntryContext === 'pattern-all'
-        ? 'SAVE PATTERN'
-        : `SAVE T${ui.selectedTrack + 1} PATTERN`,
+      : `SAVE T${ui.selectedTrack + 1} PATTERN`,
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,
@@ -234,7 +232,7 @@ const SHORTCUT_HINTS: Record<ScreenMode, string> = {
   'variation-edit': 'Z-M: bar   ↑↓: browse   ←→: param   Enter: add/on   Hold ↑: remove   Hold H+↑: phrase   Esc: back',
   settings: '↑↓: scroll   ←→: adjust   Esc: back',
   pattern: '↑↓: scroll   ←→: browse   Enter: act   J: pattern   Esc: back',
-  'pattern-load': '↑↓: scroll   ←→: adjust   Enter: next   Esc: back',
+  'pattern-load': 'Q/W/E/R: toggle layers   A/F/G: drift/trns/var   1-4: dest   Enter: apply   Esc: back',
 }
 
 const hintEl = document.createElement('div')
@@ -294,7 +292,7 @@ function render(): void {
   updateLEDs(ledState)
 
   // Update mode indicators on subtrack/feature buttons
-  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState.mode)
+  updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, uiState)
 
   // Update shortcut hints
   hintEl.textContent = SHORTCUT_HINTS[uiState.mode]
