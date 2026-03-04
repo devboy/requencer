@@ -35,6 +35,38 @@ const HEADER_H = 30
 const ROW_H = 24
 const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
 
+/** Category boundaries in TRANSFORM_CATALOG */
+const CATALOG_CATEGORIES: Array<{ label: string; startIndex: number }> = [
+  { label: 'PLAYHEAD', startIndex: 0 },
+  { label: 'GATE', startIndex: 9 },
+  { label: 'PITCH', startIndex: 17 },
+  { label: 'VELOCITY', startIndex: 22 },
+]
+
+type CatalogDisplayRow = { kind: 'header'; label: string } | { kind: 'entry'; catalogIndex: number }
+
+/** Precomputed display rows: category headers interleaved with catalog entries */
+const CATALOG_DISPLAY_ROWS: CatalogDisplayRow[] = (() => {
+  const rows: CatalogDisplayRow[] = []
+  const catStarts = new Map(CATALOG_CATEGORIES.map((c) => [c.startIndex, c.label]))
+  for (let i = 0; i < TRANSFORM_CATALOG.length; i++) {
+    const label = catStarts.get(i)
+    if (label) rows.push({ kind: 'header', label })
+    rows.push({ kind: 'entry', catalogIndex: i })
+  }
+  return rows
+})()
+
+/** Reverse lookup: varParam (catalog index) → display row index */
+const CATALOG_INDEX_TO_DISPLAY: number[] = (() => {
+  const map: number[] = []
+  for (let di = 0; di < CATALOG_DISPLAY_ROWS.length; di++) {
+    const row = CATALOG_DISPLAY_ROWS[di]
+    if (row.kind === 'entry') map[row.catalogIndex] = di
+  }
+  return map
+})()
+
 const SUBTRACK_LABELS: Record<SubtrackId, string> = {
   gate: 'GATE',
   pitch: 'PITCH',
@@ -218,16 +250,16 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
 
   // Transform stack with cursor
   const stackTop = LIST_TOP + ROW_H + 4
-  const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
+  const cursorOnAdd = cursor >= slot.transforms.length
 
-  if (slot.transforms.length === 0 && cursor === 0) {
-    // Empty bar — cursor is on "add" slot
-    renderAddSlot(ctx, ui, trackColor, stackTop, true)
+  if (cursorOnAdd) {
+    // Catalog picker overlay — fills available space
+    renderCatalogPicker(ctx, ui, trackColor, stackTop)
   } else {
+    const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
     for (let i = 0; i <= slot.transforms.length; i++) {
-      const rowIdx = i
-      if (rowIdx >= maxVisible) break
-      const y = stackTop + rowIdx * ROW_H
+      if (i >= maxVisible) break
+      const y = stackTop + i * ROW_H
       const isCursor = i === cursor
 
       if (i < slot.transforms.length) {
@@ -274,4 +306,72 @@ function renderAddSlot(
   drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
   drawText(ctx, '+', PAD + 16, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16)
   drawText(ctx, catalogText, PAD + 40, y + ROW_H / 2 - 2, isCursor ? COLORS.text : COLORS.textDim, 16)
+}
+
+/** Draw a category separator line with label */
+function renderCategoryHeader(ctx: CanvasRenderingContext2D, label: string, y: number): void {
+  const lineY = y + ROW_H / 2
+  ctx.strokeStyle = COLORS.textDim
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(PAD, lineY)
+  ctx.lineTo(LCD_W - PAD, lineY)
+  ctx.stroke()
+  const labelW = label.length * 8 + 12
+  fillRect(ctx, { x: PAD, y: lineY - 8, w: labelW, h: 16 }, COLORS.lcdBg)
+  drawText(ctx, label, PAD + 4, lineY + 4, COLORS.textDim, 14)
+}
+
+/** Draw a single catalog entry row */
+function renderCatalogEntry(
+  ctx: CanvasRenderingContext2D,
+  catalogIndex: number,
+  y: number,
+  isSelected: boolean,
+  trackColor: string,
+): void {
+  const entry = TRANSFORM_CATALOG[catalogIndex]
+  if (isSelected) {
+    fillRect(ctx, { x: 0, y: y - 2, w: LCD_W, h: ROW_H }, `${trackColor}22`)
+    drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
+  }
+  drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
+  const p = formatParam(entry.type, entry.defaultParam)
+  if (p) {
+    drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isSelected ? trackColor : COLORS.textDim, 16, 'right')
+  }
+}
+
+/** Scrollable catalog picker list overlay — shown when cursor is on "add" slot */
+function renderCatalogPicker(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, overlayTop: number): void {
+  const selectedDisplayIdx = CATALOG_INDEX_TO_DISPLAY[ui.varParam]
+  const totalRows = CATALOG_DISPLAY_ROWS.length
+  const availableH = LCD_CONTENT_Y + LCD_CONTENT_H - overlayTop
+  const maxVisible = Math.min(totalRows, Math.floor(availableH / ROW_H))
+
+  // Center selection in the visible window
+  const scrollOffset = Math.max(0, Math.min(selectedDisplayIdx - Math.floor(maxVisible / 2), totalRows - maxVisible))
+
+  // Opaque background covering the overlay area
+  fillRect(ctx, { x: 0, y: overlayTop, w: LCD_W, h: availableH }, COLORS.lcdBg)
+
+  for (let vi = 0; vi < maxVisible; vi++) {
+    const displayIdx = scrollOffset + vi
+    if (displayIdx >= totalRows) break
+    const row = CATALOG_DISPLAY_ROWS[displayIdx]
+    const y = overlayTop + vi * ROW_H
+    if (row.kind === 'header') {
+      renderCategoryHeader(ctx, row.label, y)
+    } else {
+      renderCatalogEntry(ctx, row.catalogIndex, y, row.catalogIndex === ui.varParam, trackColor)
+    }
+  }
+
+  // Scroll thumb
+  if (totalRows > maxVisible) {
+    const barH = availableH - 4
+    const thumbH = Math.max(12, (maxVisible / totalRows) * barH)
+    const thumbY = overlayTop + 2 + (scrollOffset / (totalRows - maxVisible)) * (barH - thumbH)
+    fillRect(ctx, { x: LCD_W - 3, y: thumbY, w: 2, h: thumbH }, `${trackColor}44`)
+  }
 }
