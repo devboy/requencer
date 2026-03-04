@@ -62,6 +62,7 @@ import type {
   LayerFlags,
   ModMode,
   RandomConfig,
+  SavedPattern,
   SequencerState,
   Transform,
   TransformType,
@@ -1694,7 +1695,7 @@ function executeClr(ui: UIState, engine: SequencerState): DispatchResult {
     case 'pattern': {
       const rows = getPatternRows(engine)
       const row = rows[ui.patternParam]
-      if (row?.paramId === 'pattern-item' && row.patternIndex != null) {
+      if (row?.type === 'pattern-item') {
         const newEngine = deletePattern(engine, row.patternIndex)
         const newRows = getPatternRows(newEngine)
         const newParam = clamp(ui.patternParam, 0, Math.max(0, newRows.length - 1))
@@ -1857,37 +1858,15 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
       break
     }
     case 'pattern': {
-      // Preview selected pattern's gate data on step LEDs
       const patRows = getPatternRows(engine)
       const patRow = patRows[ui.patternParam]
-      if (patRow?.paramId === 'pattern-item' && patRow.patternIndex != null) {
-        const pat = engine.savedPatterns[patRow.patternIndex]
-        if (pat) {
-          const gateData = pat.data.track.gate
-          for (let i = 0; i < 16; i++) {
-            if (i >= gateData.length) {
-              leds[i] = 'off'
-            } else {
-              leds[i] = gateData.steps[i].on || gateData.steps[i].tie ? 'on' : 'dim'
-            }
-          }
-        }
+      if (patRow?.type === 'pattern-item') {
+        fillGatePreviewLEDs(leds, engine.savedPatterns[patRow.patternIndex])
       }
       break
     }
     case 'pattern-load': {
-      // Preview saved pattern's gate data
-      const pattern = engine.savedPatterns[ui.patternIndex]
-      if (pattern) {
-        const gateData = pattern.data.track.gate
-        for (let i = 0; i < 16; i++) {
-          if (i >= gateData.length) {
-            leds[i] = 'off'
-          } else {
-            leds[i] = gateData.steps[i].on || gateData.steps[i].tie ? 'on' : 'dim'
-          }
-        }
-      }
+      fillGatePreviewLEDs(leds, engine.savedPatterns[ui.patternIndex])
       break
     }
     default: {
@@ -1906,6 +1885,18 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
   }
 
   return leds
+}
+
+function fillGatePreviewLEDs(leds: LEDState['steps'], pattern: SavedPattern | undefined): void {
+  if (!pattern) return
+  const gateData = pattern.data.track.gate
+  for (let i = 0; i < 16; i++) {
+    if (i >= gateData.length) {
+      leds[i] = 'off'
+    } else {
+      leds[i] = gateData.steps[i].on || gateData.steps[i].tie ? 'on' : 'dim'
+    }
+  }
 }
 
 // --- Hold Combo Dispatch ---
@@ -2161,7 +2152,7 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
           engine,
         }
       }
-      if (row.paramId === 'pattern-item' && row.patternIndex != null) {
+      if (row.type === 'pattern-item') {
         const pattern = engine.savedPatterns[row.patternIndex]
         if (!pattern) return { ui, engine }
         return {

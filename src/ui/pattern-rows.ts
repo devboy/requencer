@@ -5,15 +5,10 @@
 
 import type { SequencerState } from '../engine/types'
 
-export type PatternRowType = 'action' | 'header' | 'pattern-item'
-
-export interface PatternRow {
-  type: PatternRowType
-  paramId: string
-  /** For pattern-item rows, index into engine.savedPatterns */
-  patternIndex?: number
-  label: string
-}
+export type PatternRow =
+  | { type: 'action'; paramId: string; label: string }
+  | { type: 'header'; paramId: string; label: string }
+  | { type: 'pattern-item'; paramId: string; patternIndex: number; label: string }
 
 export function getPatternRows(engine: SequencerState): PatternRow[] {
   const rows: PatternRow[] = [

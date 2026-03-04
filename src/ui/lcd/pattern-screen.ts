@@ -44,7 +44,7 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
       const labelW = row.label.length * 10 + 16
       fillRect(ctx, { x: PAD, y: lineY - 10, w: labelW, h: 20 }, COLORS.bg)
       drawText(ctx, ` ${row.label} `, PAD + 4, lineY + 5, COLORS.textDim, 16)
-    } else if (row.paramId === 'pattern-item') {
+    } else if (row.type === 'pattern-item') {
       // Individual saved pattern row
       if (isSelected) {
         fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
@@ -52,18 +52,7 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
       const cursorColor = isSelected ? trackColor : 'transparent'
       drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, cursorColor, 16)
       drawText(ctx, row.label, LABEL_X, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
-      // Show index on right
-      if (row.patternIndex != null) {
-        drawText(
-          ctx,
-          `${row.patternIndex + 1}`,
-          VALUE_X,
-          y + ROW_H / 2 - 2,
-          isSelected ? COLORS.textDim : COLORS.textDim,
-          12,
-          'right',
-        )
-      }
+      drawText(ctx, `${row.patternIndex + 1}`, VALUE_X, y + ROW_H / 2 - 2, COLORS.textDim, 12, 'right')
     } else {
       // Action rows (save-track)
       if (isSelected) {
