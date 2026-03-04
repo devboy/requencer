@@ -51,6 +51,23 @@ function buildRowDefs(): RandRow[] {
     },
     {
       type: 'param',
+      paramId: 'pitch.mode',
+      label: 'MODE',
+      getValue: (e, ui) => {
+        const map: Record<string, string> = { random: 'RAND', arp: 'ARP', walk: 'WALK', rise: 'RISE', fall: 'FALL' }
+        return map[cfg(e, ui).pitch.mode] ?? cfg(e, ui).pitch.mode.toUpperCase()
+      },
+      visible: always,
+    },
+    {
+      type: 'subparam',
+      paramId: 'pitch.arpDirection',
+      label: 'DIR',
+      getValue: (e, ui) => cfg(e, ui).pitch.arpDirection.toUpperCase(),
+      visible: (e, ui) => cfg(e, ui).pitch.mode === 'arp',
+    },
+    {
+      type: 'param',
       paramId: 'pitch.scale',
       label: 'SCALE',
       getValue: (e, ui) => cfg(e, ui).pitch.scale.name,
@@ -233,6 +250,23 @@ function buildRowDefs(): RandRow[] {
     },
     {
       type: 'param',
+      paramId: 'velocity.mode',
+      label: 'MODE',
+      getValue: (e, ui) => {
+        const map: Record<string, string> = {
+          random: 'RAND',
+          accent: 'ACNT',
+          sync: 'SYNC',
+          rise: 'RISE',
+          fall: 'FALL',
+          walk: 'WALK',
+        }
+        return map[cfg(e, ui).velocity.mode] ?? cfg(e, ui).velocity.mode.toUpperCase()
+      },
+      visible: always,
+    },
+    {
+      type: 'param',
       paramId: 'velocity.low',
       label: 'VEL LO',
       getValue: (e, ui) => String(cfg(e, ui).velocity.low),
@@ -341,7 +375,16 @@ export function getVisibleRows(engine: SequencerState, ui: UIState): RandRow[] {
  * Maps section header paramId to list of param paramIds in that section.
  */
 export const SECTION_PARAMS: Record<string, string[]> = {
-  'section.pitch': ['pitch.scale', 'pitch.root', 'pitch.low', 'pitch.high', 'pitch.maxNotes', 'slide.probability'],
+  'section.pitch': [
+    'pitch.mode',
+    'pitch.arpDirection',
+    'pitch.scale',
+    'pitch.root',
+    'pitch.low',
+    'pitch.high',
+    'pitch.maxNotes',
+    'slide.probability',
+  ],
   'section.arp': ['arp.enabled', 'arp.direction', 'arp.octaveRange'],
   'section.gate': [
     'gate.fillMin',
@@ -355,12 +398,19 @@ export const SECTION_PARAMS: Record<string, string[]> = {
     'ratchet.probability',
   ],
   'section.tie': ['tie.probability', 'tie.maxLength'],
-  'section.vel': ['velocity.low', 'velocity.high'],
+  'section.vel': ['velocity.mode', 'velocity.low', 'velocity.high'],
   'section.mod': ['mod.low', 'mod.high', 'mod.mode', 'mod.walkStepSize', 'mod.syncBias', 'mod.slew', 'mod.slewProb'],
 }
 
 /** ParamIds that use dropdown popups instead of inline value cycling */
-export const DROPDOWN_PARAM_IDS = new Set(['preset', 'pitch.scale', 'gate.mode', 'mod.mode'])
+export const DROPDOWN_PARAM_IDS = new Set([
+  'preset',
+  'pitch.scale',
+  'pitch.mode',
+  'gate.mode',
+  'velocity.mode',
+  'mod.mode',
+])
 
 const SCALE_LIST = Object.values(SCALES)
 
@@ -391,12 +441,28 @@ export function getDropdownInfo(paramId: string, engine: SequencerState, ui: UIS
         selectedIndex: Math.max(0, curIdx),
       }
     }
+    case 'pitch.mode': {
+      const modes = ['random', 'arp', 'walk', 'rise', 'fall']
+      const labels = ['RAND', 'ARP', 'WALK', 'RISE', 'FALL']
+      return {
+        items: labels,
+        selectedIndex: modes.indexOf(cfg.pitch.mode),
+      }
+    }
     case 'gate.mode': {
       const modes = ['random', 'euclidean', 'sync', 'cluster']
       const labels = ['RAND', 'EUCL', 'SYNC', 'CLST']
       return {
         items: labels,
         selectedIndex: modes.indexOf(cfg.gate.mode),
+      }
+    }
+    case 'velocity.mode': {
+      const modes = ['random', 'accent', 'sync', 'rise', 'fall', 'walk']
+      const labels = ['RAND', 'ACNT', 'SYNC', 'RISE', 'FALL', 'WALK']
+      return {
+        items: labels,
+        selectedIndex: modes.indexOf(cfg.velocity.mode),
       }
     }
     case 'mod.mode': {

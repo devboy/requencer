@@ -13,7 +13,15 @@ import {
 import { SCALES } from '../scales'
 
 const defaultConfig = {
-  pitch: { low: 36, high: 72, scale: SCALES.major, root: 48, maxNotes: 6 },
+  pitch: {
+    low: 36,
+    high: 72,
+    scale: SCALES.major,
+    root: 48,
+    maxNotes: 6,
+    mode: 'random' as const,
+    arpDirection: 'up' as const,
+  },
   gate: {
     fillMin: 0.3,
     fillMax: 0.7,
@@ -21,7 +29,7 @@ const defaultConfig = {
     randomOffset: false,
     clusterContinuation: 0.5,
   },
-  velocity: { low: 40, high: 127 },
+  velocity: { low: 40, high: 127, mode: 'random' as const },
   gateLength: { min: 0.25, max: 0.75 },
   ratchet: { maxRatchet: 3, probability: 0.2 },
   slide: { probability: 0.15 },

@@ -1,7 +1,19 @@
 import { euclidean } from './euclidean'
 import { createRng } from './rng'
 import { getScaleNotes } from './scales'
-import type { GateLength, ModMode, ModStep, Note, RandomConfig, RatchetCount, Scale, Velocity } from './types'
+import type {
+  GateLength,
+  ModMode,
+  ModStep,
+  Note,
+  PitchArpDirection,
+  PitchMode,
+  RandomConfig,
+  RatchetCount,
+  Scale,
+  Velocity,
+  VelocityMode,
+} from './types'
 
 interface GateConfig {
   fillMin: number
@@ -17,11 +29,14 @@ interface PitchConfig {
   scale: Scale
   root: Note
   maxNotes?: number // 0 or undefined = unlimited distinct pitches
+  mode?: PitchMode
+  arpDirection?: PitchArpDirection
 }
 
 interface VelocityConfig {
   low: Velocity
   high: Velocity
+  mode?: VelocityMode
 }
 
 /**
@@ -135,7 +150,7 @@ export function randomizeGates(config: GateConfig, length: number, seed: number 
 }
 
 /**
- * Generate random pitch values constrained to a scale and range.
+ * Generate pitch values constrained to a scale and range, using the selected mode.
  */
 export function randomizePitch(config: PitchConfig, length: number, seed: number = Date.now()): Note[] {
   const rng = createRng(seed)
@@ -158,27 +173,169 @@ export function randomizePitch(config: PitchConfig, length: number, seed: number
     scaleNotes = shuffled.slice(0, config.maxNotes).sort((a, b) => a - b)
   }
 
+  const mode = config.mode ?? 'random'
+
+  switch (mode) {
+    case 'arp':
+      return randomizePitchArp(scaleNotes, config.arpDirection ?? 'up', length, rng)
+    case 'walk':
+      return randomizePitchWalk(scaleNotes, length, rng)
+    case 'rise':
+      return randomizePitchRamp(scaleNotes, length, false)
+    case 'fall':
+      return randomizePitchRamp(scaleNotes, length, true)
+    default: {
+      // random mode
+      const notes: Note[] = []
+      for (let i = 0; i < length; i++) {
+        const idx = Math.floor(rng() * scaleNotes.length)
+        notes.push(scaleNotes[idx])
+      }
+      return notes
+    }
+  }
+}
+
+function randomizePitchArp(
+  scaleNotes: Note[],
+  direction: PitchArpDirection,
+  length: number,
+  rng: () => number,
+): Note[] {
+  const n = scaleNotes.length
   const notes: Note[] = []
-  for (let i = 0; i < length; i++) {
-    const idx = Math.floor(rng() * scaleNotes.length)
-    notes.push(scaleNotes[idx])
+
+  if (direction === 'up') {
+    for (let i = 0; i < length; i++) notes.push(scaleNotes[i % n])
+  } else if (direction === 'down') {
+    const reversed = [...scaleNotes].reverse()
+    for (let i = 0; i < length; i++) notes.push(reversed[i % n])
+  } else if (direction === 'updown') {
+    // Bounce: 0,1,2,...,n-1,n-2,...,1,0,1,... (cycle length = 2*(n-1) or 1 if n=1)
+    const cycle = n > 1 ? 2 * (n - 1) : 1
+    for (let i = 0; i < length; i++) {
+      const pos = i % cycle
+      const idx = pos < n ? pos : cycle - pos
+      notes.push(scaleNotes[idx])
+    }
+  } else {
+    // random direction per step
+    let idx = Math.floor(rng() * n)
+    for (let i = 0; i < length; i++) {
+      notes.push(scaleNotes[idx])
+      const dir = rng() < 0.5 ? 1 : -1
+      idx = Math.max(0, Math.min(n - 1, idx + dir))
+    }
   }
 
   return notes
 }
 
+function randomizePitchWalk(scaleNotes: Note[], length: number, rng: () => number): Note[] {
+  const n = scaleNotes.length
+  let idx = Math.floor(n / 2) // start at middle
+  const notes: Note[] = []
+  for (let i = 0; i < length; i++) {
+    notes.push(scaleNotes[idx])
+    const dir = rng() < 0.5 ? 1 : -1
+    idx = Math.max(0, Math.min(n - 1, idx + dir))
+  }
+  return notes
+}
+
+function randomizePitchRamp(scaleNotes: Note[], length: number, reverse: boolean): Note[] {
+  const n = scaleNotes.length
+  const notes: Note[] = []
+  for (let i = 0; i < length; i++) {
+    const t = length > 1 ? i / (length - 1) : 0
+    const degreeIdx = reverse ? Math.round((1 - t) * (n - 1)) : Math.round(t * (n - 1))
+    notes.push(scaleNotes[degreeIdx])
+  }
+  return notes
+}
+
 /**
- * Generate random velocity values within a range.
+ * Generate velocity values within a range, using the selected mode.
  */
 export function randomizeVelocity(config: VelocityConfig, length: number, seed: number = Date.now()): Velocity[] {
+  const mode = config.mode ?? 'random'
   const rng = createRng(seed)
   const range = config.high - config.low
 
+  switch (mode) {
+    case 'accent':
+      return randomizeVelocityAccent(config, length, rng, false)
+    case 'sync':
+      return randomizeVelocityAccent(config, length, rng, true)
+    case 'rise':
+      return randomizeVelocityRamp(config, length, false)
+    case 'fall':
+      return randomizeVelocityRamp(config, length, true)
+    case 'walk':
+      return randomizeVelocityWalk(config, length, rng)
+    default: {
+      // random mode
+      const velocities: Velocity[] = []
+      for (let i = 0; i < length; i++) {
+        velocities.push(Math.floor(config.low + rng() * (range + 1)))
+      }
+      return velocities
+    }
+  }
+}
+
+function randomizeVelocityAccent(
+  config: VelocityConfig,
+  length: number,
+  rng: () => number,
+  inverted: boolean,
+): Velocity[] {
+  const range = config.high - config.low
   const velocities: Velocity[] = []
   for (let i = 0; i < length; i++) {
-    velocities.push(Math.floor(config.low + rng() * (range + 1)))
-  }
+    const pos = i % 4
+    // Strong beats: positions 0 (downbeat). Medium: position 2 (halfway).
+    const isStrong = pos === 0
+    const isMedium = pos === 2
+    let strong = isStrong || isMedium
+    if (inverted) strong = !strong
 
+    if (strong) {
+      // Upper 80-100% of range with randomness
+      const lo = config.low + range * 0.8
+      const v = Math.floor(lo + rng() * (config.high - lo + 1))
+      velocities.push(Math.min(127, Math.max(0, v)))
+    } else {
+      // Lower 0-40% of range with randomness
+      const hi = config.low + range * 0.4
+      const v = Math.floor(config.low + rng() * (hi - config.low + 1))
+      velocities.push(Math.min(127, Math.max(0, v)))
+    }
+  }
+  return velocities
+}
+
+function randomizeVelocityRamp(config: VelocityConfig, length: number, reverse: boolean): Velocity[] {
+  const range = config.high - config.low
+  const velocities: Velocity[] = []
+  for (let i = 0; i < length; i++) {
+    const t = length > 1 ? i / (length - 1) : 0
+    const v = reverse ? Math.round(config.high - t * range) : Math.round(config.low + t * range)
+    velocities.push(Math.min(127, Math.max(0, v)))
+  }
+  return velocities
+}
+
+function randomizeVelocityWalk(config: VelocityConfig, length: number, rng: () => number): Velocity[] {
+  const range = config.high - config.low
+  const stepSize = Math.max(1, Math.round(range * 0.15))
+  let current = Math.round((config.low + config.high) / 2)
+  const velocities: Velocity[] = []
+  for (let i = 0; i < length; i++) {
+    velocities.push(current)
+    const delta = Math.round((rng() * 2 - 1) * stepSize)
+    current = Math.max(config.low, Math.min(config.high, current + delta))
+  }
   return velocities
 }
 

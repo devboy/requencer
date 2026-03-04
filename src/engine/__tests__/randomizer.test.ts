@@ -265,6 +265,187 @@ describe('randomizeVelocity', () => {
   })
 })
 
+describe('randomizePitch modes', () => {
+  const baseConfig = { low: 60, high: 72, scale: SCALES.major, root: 60, maxNotes: 0 }
+
+  it('ARP UP mode: cycles through scale notes ascending', () => {
+    const notes = randomizePitch({ ...baseConfig, mode: 'arp', arpDirection: 'up' }, 16, 42)
+    expect(notes.length).toBe(16)
+    // Should cycle — notes[0] should equal notes[scaleNotes.length]
+    // Major scale from 60-72: C4,D4,E4,F4,G4,A4,B4,C5 = 8 notes
+    expect(notes[0]).toBe(notes[8]) // wraps around
+    // First few should be ascending
+    for (let i = 1; i < 8; i++) {
+      expect(notes[i]).toBeGreaterThanOrEqual(notes[i - 1])
+    }
+  })
+
+  it('ARP DOWN mode: cycles through scale notes descending', () => {
+    const notes = randomizePitch({ ...baseConfig, mode: 'arp', arpDirection: 'down' }, 8, 42)
+    for (let i = 1; i < notes.length; i++) {
+      expect(notes[i]).toBeLessThanOrEqual(notes[i - 1])
+    }
+  })
+
+  it('ARP UPDOWN mode: bounces through scale', () => {
+    const notes = randomizePitch({ ...baseConfig, mode: 'arp', arpDirection: 'updown' }, 16, 42)
+    expect(notes.length).toBe(16)
+    // First half-ish ascending, then descending
+    expect(notes[0]).toBeLessThan(notes[7])
+  })
+
+  it('WALK mode: adjacent steps differ by at most 1 scale degree', () => {
+    const scaleNotes = [60, 62, 64, 65, 67, 69, 71, 72] // C major 60-72
+    const notes = randomizePitch({ ...baseConfig, mode: 'walk' }, 32, 42)
+    for (let i = 1; i < notes.length; i++) {
+      const prevIdx = scaleNotes.indexOf(notes[i - 1])
+      const curIdx = scaleNotes.indexOf(notes[i])
+      expect(prevIdx).toBeGreaterThanOrEqual(0)
+      expect(curIdx).toBeGreaterThanOrEqual(0)
+      expect(Math.abs(curIdx - prevIdx)).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('RISE mode: produces non-decreasing sequence', () => {
+    const notes = randomizePitch({ ...baseConfig, mode: 'rise' }, 16, 42)
+    for (let i = 1; i < notes.length; i++) {
+      expect(notes[i]).toBeGreaterThanOrEqual(notes[i - 1])
+    }
+    expect(notes[0]).toBe(60) // starts at low
+    expect(notes[15]).toBe(72) // ends at high
+  })
+
+  it('FALL mode: produces non-increasing sequence', () => {
+    const notes = randomizePitch({ ...baseConfig, mode: 'fall' }, 16, 42)
+    for (let i = 1; i < notes.length; i++) {
+      expect(notes[i]).toBeLessThanOrEqual(notes[i - 1])
+    }
+    expect(notes[0]).toBe(72) // starts at high
+    expect(notes[15]).toBe(60) // ends at low
+  })
+
+  it('all pitch modes respect scale constraints', () => {
+    const modes = ['random', 'arp', 'walk', 'rise', 'fall'] as const
+    for (const mode of modes) {
+      const notes = randomizePitch({ ...baseConfig, mode, arpDirection: 'up' }, 16, 42)
+      for (const note of notes) {
+        expect(note).toBeGreaterThanOrEqual(60)
+        expect(note).toBeLessThanOrEqual(72)
+        const interval = (((note - 60) % 12) + 12) % 12
+        expect(SCALES.major.intervals).toContain(interval)
+      }
+    }
+  })
+
+  it('all pitch modes respect maxNotes', () => {
+    const modes = ['random', 'arp', 'walk', 'rise', 'fall'] as const
+    for (const mode of modes) {
+      const notes = randomizePitch({ ...baseConfig, maxNotes: 3, mode, arpDirection: 'up' }, 32, 42)
+      const distinct = new Set(notes)
+      expect(distinct.size).toBeLessThanOrEqual(3)
+    }
+  })
+})
+
+describe('randomizeVelocity modes', () => {
+  const baseConfig = { low: 40, high: 120 }
+
+  it('ACCENT mode: downbeat positions have higher average velocity', () => {
+    let downbeatSum = 0,
+      offbeatSum = 0,
+      downbeatN = 0,
+      offbeatN = 0
+    for (let seed = 0; seed < 50; seed++) {
+      const vels = randomizeVelocity({ ...baseConfig, mode: 'accent' }, 16, seed)
+      for (let i = 0; i < vels.length; i++) {
+        if (i % 4 === 0 || i % 4 === 2) {
+          downbeatSum += vels[i]
+          downbeatN++
+        } else {
+          offbeatSum += vels[i]
+          offbeatN++
+        }
+      }
+    }
+    expect(downbeatSum / downbeatN).toBeGreaterThan(offbeatSum / offbeatN)
+  })
+
+  it('SYNC mode: offbeat positions have higher average velocity', () => {
+    let downbeatSum = 0,
+      offbeatSum = 0,
+      downbeatN = 0,
+      offbeatN = 0
+    for (let seed = 0; seed < 50; seed++) {
+      const vels = randomizeVelocity({ ...baseConfig, mode: 'sync' }, 16, seed)
+      for (let i = 0; i < vels.length; i++) {
+        if (i % 4 === 0 || i % 4 === 2) {
+          downbeatSum += vels[i]
+          downbeatN++
+        } else {
+          offbeatSum += vels[i]
+          offbeatN++
+        }
+      }
+    }
+    expect(offbeatSum / offbeatN).toBeGreaterThan(downbeatSum / downbeatN)
+  })
+
+  it('RISE mode: produces non-decreasing sequence', () => {
+    const vels = randomizeVelocity({ ...baseConfig, mode: 'rise' }, 16, 42)
+    expect(vels[0]).toBe(40)
+    expect(vels[15]).toBe(120)
+    for (let i = 1; i < vels.length; i++) {
+      expect(vels[i]).toBeGreaterThanOrEqual(vels[i - 1])
+    }
+  })
+
+  it('FALL mode: produces non-increasing sequence', () => {
+    const vels = randomizeVelocity({ ...baseConfig, mode: 'fall' }, 16, 42)
+    expect(vels[0]).toBe(120)
+    expect(vels[15]).toBe(40)
+    for (let i = 1; i < vels.length; i++) {
+      expect(vels[i]).toBeLessThanOrEqual(vels[i - 1])
+    }
+  })
+
+  it('WALK mode: adjacent values differ by bounded amount', () => {
+    const vels = randomizeVelocity({ ...baseConfig, mode: 'walk' }, 32, 42)
+    const range = 120 - 40
+    const maxStep = Math.max(1, Math.round(range * 0.15))
+    for (let i = 1; i < vels.length; i++) {
+      expect(Math.abs(vels[i] - vels[i - 1])).toBeLessThanOrEqual(maxStep + 1)
+    }
+  })
+
+  it('WALK mode: values stay within range', () => {
+    const vels = randomizeVelocity({ ...baseConfig, mode: 'walk' }, 64, 42)
+    for (const v of vels) {
+      expect(v).toBeGreaterThanOrEqual(40)
+      expect(v).toBeLessThanOrEqual(120)
+    }
+  })
+
+  it('all velocity modes produce correct length', () => {
+    const modes = ['random', 'accent', 'sync', 'rise', 'fall', 'walk'] as const
+    for (const mode of modes) {
+      const vels = randomizeVelocity({ ...baseConfig, mode }, 16, 42)
+      expect(vels).toHaveLength(16)
+    }
+  })
+
+  it('all velocity modes produce integer values within range', () => {
+    const modes = ['random', 'accent', 'sync', 'rise', 'fall', 'walk'] as const
+    for (const mode of modes) {
+      const vels = randomizeVelocity({ ...baseConfig, mode }, 16, 42)
+      for (const v of vels) {
+        expect(v).toBe(Math.floor(v))
+        expect(v).toBeGreaterThanOrEqual(0)
+        expect(v).toBeLessThanOrEqual(127)
+      }
+    }
+  })
+})
+
 describe('randomizeTies', () => {
   it('returns all false when probability is 0', () => {
     const gatePattern = [true, false, true, true, false, true, false, true]
@@ -328,9 +509,17 @@ describe('randomizeTies', () => {
 describe('randomizeTrack', () => {
   it('generates all subtracks with independent lengths', () => {
     const config = {
-      pitch: { low: 60, high: 72, scale: SCALES.major, root: 60, maxNotes: 0 },
+      pitch: {
+        low: 60,
+        high: 72,
+        scale: SCALES.major,
+        root: 60,
+        maxNotes: 0,
+        mode: 'random' as const,
+        arpDirection: 'up' as const,
+      },
       gate: { fillMin: 0.25, fillMax: 0.75, mode: 'random' as const, randomOffset: false, clusterContinuation: 0.7 },
-      velocity: { low: 64, high: 127 },
+      velocity: { low: 64, high: 127, mode: 'random' as const },
       gateLength: { min: 0.25, max: 0.75 },
       ratchet: { maxRatchet: 3, probability: 0.2 },
       slide: { probability: 0.15 },

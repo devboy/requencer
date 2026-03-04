@@ -76,9 +76,17 @@ function createDefaultRandomConfig(index: number): RandomConfig {
 
   // Fallback (should not happen)
   return {
-    pitch: { low: 48, high: 72, scale: SCALES.minorPentatonic, root: 60, maxNotes: 4 },
+    pitch: {
+      low: 48,
+      high: 72,
+      scale: SCALES.minorPentatonic,
+      root: 60,
+      maxNotes: 4,
+      mode: 'random',
+      arpDirection: 'up',
+    },
     gate: { fillMin: 0.25, fillMax: 0.75, mode: 'euclidean', randomOffset: true, clusterContinuation: 0.7 },
-    velocity: { low: 64, high: 120 },
+    velocity: { low: 64, high: 120, mode: 'random' },
     gateLength: { min: 0.5, max: 0.5 },
     ratchet: { maxRatchet: 1, probability: 0 },
     slide: { probability: 0 },
