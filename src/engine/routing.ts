@@ -11,7 +11,6 @@ import {
   getEffectiveCompoundStep,
   getEffectiveGateStep,
   getEffectivePitchStep,
-  getEffectiveSimpleStep,
   getEffectiveVelocityStep,
   getTransformsForSubtrack,
 } from './variation'

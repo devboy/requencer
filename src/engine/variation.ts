@@ -15,23 +15,31 @@ import type { GateStep, PitchStep, Subtrack, Transform, TransformType, Variation
 // --- Transform categorization ---
 
 const PLAYHEAD_TRANSFORMS: Set<TransformType> = new Set([
-  'reverse', 'ping-pong', 'rotate', 'double-time', 'stutter',
-  'half-time', 'skip', 'drunk-walk', 'scramble',
+  'reverse',
+  'ping-pong',
+  'rotate',
+  'double-time',
+  'stutter',
+  'half-time',
+  'skip',
+  'drunk-walk',
+  'scramble',
 ])
 
 const GATE_VALUE_TRANSFORMS: Set<TransformType> = new Set([
-  'thin', 'fill', 'skip-even', 'skip-odd',
-  'invert-gates', 'densify', 'drop', 'ratchet',
+  'thin',
+  'fill',
+  'skip-even',
+  'skip-odd',
+  'invert-gates',
+  'densify',
+  'drop',
+  'ratchet',
 ])
 
-const PITCH_VALUE_TRANSFORMS: Set<TransformType> = new Set([
-  'transpose', 'invert', 'octave-shift',
-  'fold', 'quantize',
-])
+const PITCH_VALUE_TRANSFORMS: Set<TransformType> = new Set(['transpose', 'invert', 'octave-shift', 'fold', 'quantize'])
 
-const VELOCITY_VALUE_TRANSFORMS: Set<TransformType> = new Set([
-  'accent', 'fade-in', 'fade-out', 'humanize',
-])
+const VELOCITY_VALUE_TRANSFORMS: Set<TransformType> = new Set(['accent', 'fade-in', 'fade-out', 'humanize'])
 
 /**
  * Returns true if the transform modifies the playhead index.
@@ -85,7 +93,7 @@ export function transformStepIndex(idx: number, length: number, transform: Trans
         if (h < chaos) {
           // Deviate: step backward or stay
           const dir = deterministicHash(i, 1) > 0.5 ? -1 : 0
-          pos = ((pos + dir) % length + length) % length
+          pos = (((pos + dir) % length) + length) % length
         } else {
           pos = (pos + 1) % length
         }
@@ -119,9 +127,31 @@ function deterministicHash(stepIndex: number, barPosition: number): number {
   return (h >>> 0) / 4294967296
 }
 
+/** Resolve the gate on/off state for a gate value transform. */
+function resolveGateOn(on: boolean, transform: Transform, stepIndex: number, barPosition: number): boolean {
+  switch (transform.type) {
+    case 'thin':
+      return on && deterministicHash(stepIndex, barPosition) >= transform.param
+    case 'fill':
+      return true
+    case 'skip-even':
+      return on && stepIndex % 2 !== 0
+    case 'skip-odd':
+      return on && stepIndex % 2 !== 1
+    case 'invert-gates':
+      return !on
+    case 'densify':
+      return on || deterministicHash(stepIndex, barPosition) < transform.param
+    case 'drop':
+      return on && (stepIndex + 1) % transform.param !== 0
+    default:
+      return on
+  }
+}
+
 /**
  * Apply a gate value transform to a GateStep.
- * Returns a new GateStep (immutable). Only modifies .on.
+ * Returns a new GateStep (immutable).
  */
 export function transformGateValue(
   step: GateStep,
@@ -129,42 +159,11 @@ export function transformGateValue(
   stepIndex: number,
   barPosition: number,
 ): GateStep {
-  switch (transform.type) {
-    case 'thin': {
-      const hash = deterministicHash(stepIndex, barPosition)
-      return hash < transform.param ? { ...step, on: false } : step
-    }
-
-    case 'fill':
-      return step.on ? step : { ...step, on: true }
-
-    case 'skip-even':
-      return stepIndex % 2 === 0 ? { ...step, on: false } : step
-
-    case 'skip-odd':
-      return stepIndex % 2 === 1 ? { ...step, on: false } : step
-
-    case 'invert-gates':
-      return { ...step, on: !step.on }
-
-    case 'densify': {
-      // Opposite of thin: deterministically turn OFF gates ON.
-      if (step.on) return step
-      const hash = deterministicHash(stepIndex, barPosition)
-      return hash < transform.param ? { ...step, on: true } : step
-    }
-
-    case 'drop':
-      // Mute every Nth step position (param = N, e.g. 3 → mute steps 2,5,8,11...)
-      return step.on && (stepIndex + 1) % transform.param === 0 ? { ...step, on: false } : step
-
-    case 'ratchet':
-      // Set ratchet subdivision count on active gates
-      return step.on ? { ...step, ratchet: transform.param } : step
-
-    default:
-      return step
+  if (transform.type === 'ratchet') {
+    return step.on ? { ...step, ratchet: transform.param } : step
   }
+  const on = resolveGateOn(step.on, transform, stepIndex, barPosition)
+  return on === step.on ? step : { ...step, on }
 }
 
 // --- TASK 4: Pitch value transforms ---
@@ -215,14 +214,14 @@ export function transformPitchValue(step: PitchStep, transform: Transform): Pitc
 // --- Quantize scale table ---
 
 const QUANTIZE_SCALES = [
-  SCALES.chromatic,        // 0 — no effect
-  SCALES.major,            // 1
-  SCALES.minor,            // 2
-  SCALES.minorPentatonic,  // 3
-  SCALES.majorPentatonic,  // 4
-  SCALES.blues,            // 5
-  SCALES.dorian,           // 6
-  SCALES.wholeNote,        // 7
+  SCALES.chromatic, // 0 — no effect
+  SCALES.major, // 1
+  SCALES.minor, // 2
+  SCALES.minorPentatonic, // 3
+  SCALES.majorPentatonic, // 4
+  SCALES.blues, // 5
+  SCALES.dorian, // 6
+  SCALES.wholeNote, // 7
 ]
 
 export const QUANTIZE_SCALE_NAMES = ['CHROM', 'MAJOR', 'MINOR', 'mPENT', 'MPENT', 'BLUES', 'DORIAN', 'WHOLE']
