@@ -15,9 +15,10 @@ Comparison of Requencer against seven leading eurorack/desktop sequencers, with 
 | **Clock** | Per-track divider (1–32) × per-subtrack divider (1–32) = native polyrhythm |
 | **Scales** | 10 built-in (major, minor, dorian, phrygian, mixolydian, minor/major pentatonic, blues, chromatic, whole tone) |
 | **Randomizer** | Seeded PRNG (mulberry32). Per-subtrack: gate (random/euclidean), pitch (scale-constrained, maxNotes), velocity, gateLength, ratchet (probability), slide (probability), mod |
-| **Smart Gate** | Multi-bar phrase generation (1/2/4/8/16 bars). Density modes: build, decay, build-drop, variation |
+| **Gate Modes** | 4 modes: random, euclidean, sync (syncopated weighting), cluster (Markov chain) |
+| **Variations** | Deterministic transform overlays per bar (2/4/8/16 bar phrases). 11 transforms, per-subtrack overrides |
 | **Arpeggiator** | Chord-tone extraction from scale. Modes: up, down, triangle, random. Octave range 1–4 |
-| **LFO** | Mod subtrack generator. Waveforms: sine, triangle, saw, slew-random. Rate 1–64 steps, depth/offset |
+| **LFO** | Mod subtrack generator. 6 waveforms (sine, triangle, saw, square, slew-random, S+H). Width parameter, synced or free-running |
 | **Mutator** | Turing Machine drift engine. Per-subtrack rate (0–100%). Triggers: per-loop or every N bars |
 | **Routing** | 4 outputs, each with independent source selection for gate/pitch/velocity/mod from any track |
 | **Mute** | Per-output mute patterns (1–64 steps, own clock divider) |
@@ -215,7 +216,7 @@ Comparison of Requencer against seven leading eurorack/desktop sequencers, with 
 | Mod lanes | 1 (mod sub) | 8 | MOD col | — | Curve trk | 64 | — | — |
 | Internal mod routing | No | Yes | Yes | — | Yes | Yes | — | — |
 | Mutator/drift | Yes | — | Via map | — | — | — | — | — |
-| Smart gate / phrases | Yes | — | — | — | — | — | — | — |
+| Variations / Cycles | Yes | — | — | — | — | — | Cycles | — |
 | **Probability** | | | | | | | | |
 | Gate probability | No | Yes | Yes | Yes | Yes | Yes | Yes | — |
 | Pitch variation prob | No | — | — | Yes | Yes | — | — | — |
@@ -266,14 +267,6 @@ Features reviewed against our project goals: **random generation + live performa
 
 ---
 
-#### Ratchet Acceleration — LOW PRIORITY
-**Who has it:** T-1
-**What:** Extends our existing ratchets with timing acceleration/deceleration ("bouncing ball" — each sub-trigger faster or slower) and velocity ramp (fade in/out).
-
-**Architectural fit:** Adds `ratchetAccel` and `ratchetVelRamp` to existing ratchet system. Applied in `tone-output.ts` during ratchet scheduling. Low complexity, builds on what we have.
-
----
-
 ### Needs More Research
 
 #### Loop Evolution: Step Conditions + Accumulator
@@ -289,17 +282,6 @@ Features reviewed against our project goals: **random generation + live performa
 
 ---
 
-#### Cycles / Macro Patterns — HIGH POTENTIAL, needs careful design
-**Who has it:** T-1 (16 cycles per track)
-**What:** Per-track parameter snapshots that play sequentially across loop repetitions. Independent cycle counts per track create emergent evolution. Deterministic counterpart to our mutator.
-
-**Open questions:**
-- How does this interact with the mutator? One drifts randomly, the other evolves through designed stages — could be very powerful together.
-- What's the right cycle count? How are cycles created — manually, via randomizer, via mutator snapshots?
-- UI for cycle management on our constrained panel.
-
----
-
 #### Internal Mod Routing — NEEDS MORE THINKING, depends on CV input design
 **Who has it:** Metropolix (mod lanes → 30+ internal params), PER|FORMER (curve tracks → any param), NerdSEQ (automator), OXI One
 **What:** Route LFO/mod subtrack to internal sequencer parameters (gate length, transpose, clock division) instead of only CV output.
@@ -310,6 +292,12 @@ Features reviewed against our project goals: **random generation + live performa
 
 ---
 
+### Covered by Existing Features
+
+| Feature | Covered by |
+|---|---|
+| Cycles / Macro Patterns (T-1) | **Variations** — deterministic transform overlays per bar (2/4/8/16 bars), per-subtrack overrides. Different mechanism (transforms vs. snapshots) but same musical goal: deterministic evolution across loop repetitions |
+
 ### Rejected Features
 
 | Feature | Reason |
@@ -319,6 +307,7 @@ Features reviewed against our project goals: **random generation + live performa
 | Pattern chaining / Song mode | We focus on random generation and live performance, not song creation |
 | Pulse count / Stage expansion | Metropolix-specific paradigm — people can get the Metropolix for that |
 | Logic track operations | Our mute patterns already provide per-output gate control |
+| Ratchet acceleration (T-1) | "Bouncing ball" timing curves — not needed for our use case |
 
 ### Lower Priority / Future Consideration (unchanged)
 
@@ -335,17 +324,14 @@ Features reviewed against our project goals: **random generation + live performa
 ### Engine Layer (`src/engine/`)
 - **Snapshot** — deep clone of `SequencerState`. Trivially immutable.
 - **Step conditions / Accumulator** — loop iteration counter per subtrack, evaluated in `tick()`. Pure math.
-- **Cycles** — `Cycle[]` per track, cycle-advance on loop boundary.
 
 ### I/O Layer (`src/io/`)
 - **Swing/groove** — timing offsets applied to Tone.js scheduling in `tone-output.ts`. Engine stays on-grid.
-- **Ratchet acceleration** — extends ratchet scheduling math in `tone-output.ts`.
 
 ### UI Layer (`src/ui/`)
 - **Snapshot** — needs UX design for trigger mechanism (button combo or overlay).
 - **Swing** — per-track parameter, editable in hold-overlay or new section.
 - **Step conditions / Accumulator** — may need new screen section or subtrack editing mode.
-- **Cycles** — would need dedicated management UI.
 
 ### Priority Summary
 
@@ -353,7 +339,5 @@ Features reviewed against our project goals: **random generation + live performa
 |---|---|---|---|
 | Snapshot / Undo | High | Very low | Needs UX design |
 | Swing / Groove | Useful | Low (I/O only) | Ready to implement |
-| Ratchet acceleration | Low | Low | Ready to implement |
 | Step conditions + Accumulator | TBD | Medium | Needs more research |
-| Cycles / Macro patterns | High potential | Medium-high | Needs careful design |
 | Internal mod routing | TBD | Medium | Depends on CV input design |

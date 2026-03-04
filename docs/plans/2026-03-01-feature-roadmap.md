@@ -85,6 +85,19 @@ localStorage save/load for user presets and track patterns across page reloads.
 
 ## Future — Unscheduled
 
+### Snapshot / Undo — HIGH PRIORITY
+Save a temporary copy of the current state before destructive edits (randomize, mutate, manual edits). Revert instantly. Single anchor point, not full undo history.
+- **Inspiration:** PER|FORMER (snapshot), Eloquencer (freeze/revert), Mimetic Digitalis (single-level undo)
+- **Architectural fit:** Deep copy of `SequencerState`. "Take snapshot" = clone, "Revert" = replace, "Commit" = discard. Pure state operation.
+- **Open question:** UX — how to trigger snapshot/revert during live performance (button combo? dedicated button? hold gesture?)
+- **Complexity:** S (engine) — needs UX design
+
+### Swing / Groove
+Per-track timing offset that delays even/odd steps by a percentage of the clock interval for rhythmic feel.
+- **Inspiration:** Metropolix (50–78%), PER|FORMER (50–75%), OXI One (per-step 1ms), T-1 (8 groove templates)
+- **Architectural fit:** Applied in I/O layer (`tone-output.ts`), not the engine — engine ticks on-grid, I/O offsets the Tone.js `time` parameter. Keeps engine purity.
+- **Complexity:** S-M (I/O only)
+
 ### MIDI Clock Input/Sync
 Settings UI shows clock source options (INT/MIDI/EXT) but only internal clock is functional. Needs a MIDI input handler to receive and process incoming MIDI clock messages.
 - **Complexity:** M — MIDI input listener, clock recovery, jitter compensation
@@ -107,3 +120,15 @@ The engine currently ticks at 1 tick per 16th note (effectively 4 PPQN). A highe
 - **Benefits:** Precise ratchet timing without float rounding, natural swing/groove (shift steps by ±ticks), accurate MIDI clock output, sub-step gate resolution.
 - **Trade-offs:** Engine runs 6× more ticks per beat, step-based UI/routing needs to map between tick position and step index, all existing clock divider logic needs updating, significant refactor across engine/I/O/UI.
 - **Complexity:** XL — architectural change touching every layer. Worth doing before hardware port.
+
+### Step Conditions + Accumulator — NEEDS RESEARCH
+Deterministic pattern evolution across loop iterations. Steps trigger based on loop count (e.g., "play every 4th loop on 2nd pass"). Accumulator adds cumulative pitch transposition per cycle with hold/wrap/ping-pong boundaries.
+- **Inspiration:** PER|FORMER, NerdSEQ, Eloquencer (step conditions); Metropolix, OXI One (accumulator)
+- **Open questions:** editing UX, random generation of conditions, interaction with mutator
+- **Complexity:** M — loop iteration counter per subtrack, evaluated in `tick()`
+
+### Internal Mod Routing — NEEDS RESEARCH
+Route LFO/mod subtrack to internal sequencer parameters (gate length, transpose, clock division) instead of only CV output.
+- **Inspiration:** Metropolix (30+ internal targets), PER|FORMER (curve tracks), OXI One
+- **Open questions:** which internal targets make musical sense, overlap with future CV input
+- **Complexity:** M — depends on CV input design
