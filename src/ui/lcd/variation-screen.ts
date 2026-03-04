@@ -248,42 +248,41 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
   // Bar header
   drawText(ctx, `Bar ${bar + 1} of ${vp.length}`, PAD, LIST_TOP + 8, COLORS.text, 16)
 
-  // Transform stack with cursor
+  // Transform stack — always rendered
   const stackTop = LIST_TOP + ROW_H + 4
+  const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
   const cursorOnAdd = cursor >= slot.transforms.length
 
-  if (cursorOnAdd) {
-    // Catalog picker overlay — fills available space
-    renderCatalogPicker(ctx, ui, trackColor, stackTop)
-  } else {
-    const maxVisible = Math.floor((LCD_CONTENT_Y + LCD_CONTENT_H - stackTop - 16) / ROW_H)
-    for (let i = 0; i <= slot.transforms.length; i++) {
-      if (i >= maxVisible) break
-      const y = stackTop + i * ROW_H
-      const isCursor = i === cursor
+  for (let i = 0; i <= slot.transforms.length; i++) {
+    if (i >= maxVisible) break
+    const y = stackTop + i * ROW_H
+    const isCursor = i === cursor
 
-      if (i < slot.transforms.length) {
-        // Existing transform
-        const t = slot.transforms[i]
-        const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
-        const label = entry?.label ?? t.type.toUpperCase()
-        const p = formatParam(t.type, t.param)
+    if (i < slot.transforms.length) {
+      const t = slot.transforms[i]
+      const entry = TRANSFORM_CATALOG.find((c) => c.type === t.type)
+      const label = entry?.label ?? t.type.toUpperCase()
+      const p = formatParam(t.type, t.param)
 
-        const prefix = isCursor ? '\u25B8' : ' '
-        const textColor = isCursor ? COLORS.text : COLORS.textDim
-        const numColor = isCursor ? trackColor : COLORS.textDim
+      const prefix = isCursor ? '\u25B8' : ' '
+      const textColor = isCursor ? COLORS.text : COLORS.textDim
+      const numColor = isCursor ? trackColor : COLORS.textDim
 
-        drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
-        drawText(ctx, `${i + 1}.`, PAD + 16, y + ROW_H / 2 - 2, numColor, 16)
-        drawText(ctx, label, PAD + 40, y + ROW_H / 2 - 2, textColor, 16)
-        if (p) {
-          drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16, 'right')
-        }
-      } else {
-        // "Add" slot
-        renderAddSlot(ctx, ui, trackColor, y, isCursor)
+      drawText(ctx, prefix, PAD, y + ROW_H / 2 - 2, trackColor, 16)
+      drawText(ctx, `${i + 1}.`, PAD + 16, y + ROW_H / 2 - 2, numColor, 16)
+      drawText(ctx, label, PAD + 40, y + ROW_H / 2 - 2, textColor, 16)
+      if (p) {
+        drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isCursor ? trackColor : COLORS.textDim, 16, 'right')
       }
+    } else {
+      renderAddSlot(ctx, ui, trackColor, y, isCursor)
     }
+  }
+
+  // Dropdown overlay — drawn on top when cursor is on "add" slot
+  if (cursorOnAdd) {
+    const addSlotY = stackTop + slot.transforms.length * ROW_H
+    renderCatalogDropdown(ctx, ui, trackColor, addSlotY)
   }
 }
 
@@ -309,7 +308,12 @@ function renderAddSlot(
 }
 
 /** Draw a category separator line with label */
-function renderCategoryHeader(ctx: CanvasRenderingContext2D, label: string, y: number): void {
+function renderCategoryHeader(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  y: number,
+  bgColor: string = COLORS.lcdBg,
+): void {
   const lineY = y + ROW_H / 2
   ctx.strokeStyle = COLORS.textDim
   ctx.lineWidth = 1
@@ -318,7 +322,7 @@ function renderCategoryHeader(ctx: CanvasRenderingContext2D, label: string, y: n
   ctx.lineTo(LCD_W - PAD, lineY)
   ctx.stroke()
   const labelW = label.length * 8 + 12
-  fillRect(ctx, { x: PAD, y: lineY - 8, w: labelW, h: 16 }, COLORS.lcdBg)
+  fillRect(ctx, { x: PAD, y: lineY - 8, w: labelW, h: 16 }, bgColor)
   drawText(ctx, label, PAD + 4, lineY + 4, COLORS.textDim, 14)
 }
 
@@ -342,26 +346,31 @@ function renderCatalogEntry(
   }
 }
 
-/** Scrollable catalog picker list overlay — shown when cursor is on "add" slot */
-function renderCatalogPicker(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, overlayTop: number): void {
+/** Dropdown catalog list drawn on top of the transform stack, anchored at the add slot row */
+function renderCatalogDropdown(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: string, anchorY: number): void {
   const selectedDisplayIdx = CATALOG_INDEX_TO_DISPLAY[ui.varParam]
   const totalRows = CATALOG_DISPLAY_ROWS.length
-  const availableH = LCD_CONTENT_Y + LCD_CONTENT_H - overlayTop
+  const lcdBottom = LCD_CONTENT_Y + LCD_CONTENT_H
+
+  // Use all space from the anchor row down to the LCD bottom
+  const dropdownTop = anchorY
+  const availableH = lcdBottom - dropdownTop
   const maxVisible = Math.min(totalRows, Math.floor(availableH / ROW_H))
+  const dropdownH = maxVisible * ROW_H
 
   // Center selection in the visible window
   const scrollOffset = Math.max(0, Math.min(selectedDisplayIdx - Math.floor(maxVisible / 2), totalRows - maxVisible))
 
-  // Opaque background covering the overlay area
-  fillRect(ctx, { x: 0, y: overlayTop, w: LCD_W, h: availableH }, COLORS.lcdBg)
+  // Dropdown background — opaque with subtle border
+  fillRect(ctx, { x: 0, y: dropdownTop - 2, w: LCD_W, h: dropdownH + 4 }, '#0c0c20')
 
   for (let vi = 0; vi < maxVisible; vi++) {
     const displayIdx = scrollOffset + vi
     if (displayIdx >= totalRows) break
     const row = CATALOG_DISPLAY_ROWS[displayIdx]
-    const y = overlayTop + vi * ROW_H
+    const y = dropdownTop + vi * ROW_H
     if (row.kind === 'header') {
-      renderCategoryHeader(ctx, row.label, y)
+      renderCategoryHeader(ctx, row.label, y, '#0c0c20')
     } else {
       renderCatalogEntry(ctx, row.catalogIndex, y, row.catalogIndex === ui.varParam, trackColor)
     }
@@ -369,9 +378,8 @@ function renderCatalogPicker(ctx: CanvasRenderingContext2D, ui: UIState, trackCo
 
   // Scroll thumb
   if (totalRows > maxVisible) {
-    const barH = availableH - 4
-    const thumbH = Math.max(12, (maxVisible / totalRows) * barH)
-    const thumbY = overlayTop + 2 + (scrollOffset / (totalRows - maxVisible)) * (barH - thumbH)
+    const thumbH = Math.max(12, (maxVisible / totalRows) * dropdownH)
+    const thumbY = dropdownTop + (scrollOffset / (totalRows - maxVisible)) * (dropdownH - thumbH)
     fillRect(ctx, { x: LCD_W - 3, y: thumbY, w: 2, h: thumbH }, `${trackColor}44`)
   }
 }
