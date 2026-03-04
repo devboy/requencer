@@ -139,7 +139,9 @@ function holdablePointerDown(e: PointerEvent, button: HeldButtonTarget, tapEvent
 
   // Check for true multitouch combo: another pointer is already down on a different holdable button
   if (activePointers.size > 0) {
-    const existing = activePointers.values().next().value!
+    const first = activePointers.values().next()
+    if (first.done) return
+    const existing = first.value
     if (!sameButton(existing.button, button)) {
       // First pointer's button becomes the hold, second is the tap (combo)
       if (!holdActive && !stickyHold) {

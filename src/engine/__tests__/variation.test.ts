@@ -557,9 +557,10 @@ import { createSequencer, randomizeTrackPattern, tick } from '../sequencer'
 import type { NoteEvent } from '../types'
 
 /** Advance one full bar (16 steps), collecting pitch events for output 0 at step boundaries */
-function collectBarPitches(
-  initialState: ReturnType<typeof createSequencer>,
-): { pitches: number[]; state: ReturnType<typeof createSequencer> } {
+function collectBarPitches(initialState: ReturnType<typeof createSequencer>): {
+  pitches: number[]
+  state: ReturnType<typeof createSequencer>
+} {
   let state = initialState
   const pitches: number[] = []
   for (let step = 0; step < 16; step++) {

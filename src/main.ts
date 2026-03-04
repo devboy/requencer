@@ -14,8 +14,8 @@ import { COLORS } from './ui/colors'
 import { createDebugMenu } from './ui/debug-menu'
 import type { ControlEvent, ScreenMode, UIState } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
-import { renderGateEdit } from './ui/lcd/gate-edit'
 import { renderClrConfirmOverlay } from './ui/lcd/clr-confirm-overlay'
+import { renderGateEdit } from './ui/lcd/gate-edit'
 import { renderHoldOverlay } from './ui/lcd/hold-overlay'
 
 // LCD screen renderers
@@ -204,7 +204,11 @@ const MODE_STATUS: Record<ScreenMode, (ui: UIState) => string> = {
   route: (ui) => `ROUTE — O${ui.selectedTrack + 1}`,
   rand: (ui) => `T${ui.selectedTrack + 1} RANDOMIZER`,
   'name-entry': (ui) =>
-    ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : ui.nameEntryContext === 'pattern-all' ? 'SAVE PATTERN' : `SAVE T${ui.selectedTrack + 1} PATTERN`,
+    ui.nameEntryContext === 'preset'
+      ? 'SAVE PRESET'
+      : ui.nameEntryContext === 'pattern-all'
+        ? 'SAVE PATTERN'
+        : `SAVE T${ui.selectedTrack + 1} PATTERN`,
   'mutate-edit': (ui) => `DRIFT — T${ui.selectedTrack + 1}`,
   'transpose-edit': (ui) => `TRANSPOSE — T${ui.selectedTrack + 1}`,
   'variation-edit': (ui) => `VAR — T${ui.selectedTrack + 1}`,

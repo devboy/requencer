@@ -18,6 +18,7 @@ import {
   saveUserPreset,
   setGateOn,
   setGateTie,
+  setModStep,
   setMuteClockDivider,
   setMuteLength,
   setMutePattern,
@@ -31,7 +32,6 @@ import {
   setTrackClockDivider,
   tick,
 } from '../sequencer'
-import { setModStep } from '../sequencer'
 import type { MuteTrack, NoteEvent, PitchStep } from '../types'
 
 /** Advance state by N steps (N * TICKS_PER_STEP ticks) */

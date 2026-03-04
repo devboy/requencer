@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { createSequencer, randomizeTrackPattern } from '../sequencer'
 import {
   createDefaultLayerFlags,
   deletePattern,
@@ -10,7 +9,8 @@ import {
   snapshotSingleTrack,
   snapshotTrackSlot,
 } from '../patterns'
-import type { LayerFlags, SavedPattern, VariationPattern } from '../types'
+import { createSequencer, randomizeTrackPattern } from '../sequencer'
+import type { LayerFlags, VariationPattern } from '../types'
 
 function seededState() {
   let state = createSequencer()
@@ -123,7 +123,7 @@ describe('snapshotSingleTrack', () => {
     expect(pattern.slots[1]).toBeNull()
     expect(pattern.slots[2]).not.toBeNull()
     expect(pattern.slots[3]).toBeNull()
-    expect(pattern.slots[2]!.track.gate.steps).toEqual(state.tracks[2].gate.steps)
+    expect(pattern.slots[2]?.track.gate.steps).toEqual(state.tracks[2].gate.steps)
   })
 })
 
@@ -237,8 +237,8 @@ describe('loadPattern', () => {
 
     // All 4 tracks should have the snapshotted data
     for (let i = 0; i < 4; i++) {
-      expect(result.tracks[i].gate.steps).toEqual(pattern.slots[i]!.track.gate.steps)
-      expect(result.transposeConfigs[i]).toEqual(pattern.slots[i]!.transposeConfig)
+      expect(result.tracks[i].gate.steps).toEqual(pattern.slots[i]?.track.gate.steps)
+      expect(result.transposeConfigs[i]).toEqual(pattern.slots[i]?.transposeConfig)
     }
   })
 
@@ -251,9 +251,9 @@ describe('loadPattern', () => {
     const result = loadPattern(target, pattern, mapping, createDefaultLayerFlags())
 
     // Slot 0 data should be on track 3
-    expect(result.tracks[3].gate.steps).toEqual(pattern.slots[0]!.track.gate.steps)
+    expect(result.tracks[3].gate.steps).toEqual(pattern.slots[0]?.track.gate.steps)
     // Slot 3 data should be on track 0
-    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[3]!.track.gate.steps)
+    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[3]?.track.gate.steps)
   })
 
   it('skips null slots', () => {
@@ -267,7 +267,7 @@ describe('loadPattern', () => {
     // Track 0 should be unchanged (slot 0 was null)
     expect(result.tracks[0].gate.steps).toEqual(target.tracks[0].gate.steps)
     // Track 1 should have the snapshotted data
-    expect(result.tracks[1].gate.steps).toEqual(pattern.slots[1]!.track.gate.steps)
+    expect(result.tracks[1].gate.steps).toEqual(pattern.slots[1]?.track.gate.steps)
   })
 
   it('applies with partial layer flags', () => {
@@ -288,7 +288,7 @@ describe('loadPattern', () => {
     const result = loadPattern(target, pattern, mapping, flags)
 
     // Subtracks replaced
-    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[0]!.track.gate.steps)
+    expect(result.tracks[0].gate.steps).toEqual(pattern.slots[0]?.track.gate.steps)
     // But transpose should be unchanged
     expect(result.transposeConfigs[0]).toEqual(target.transposeConfigs[0])
   })

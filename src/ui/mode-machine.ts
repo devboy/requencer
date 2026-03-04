@@ -23,6 +23,7 @@ import {
   snapshotSingleTrack,
 } from '../engine/patterns'
 import { PRESETS } from '../engine/presets'
+import { createDefaultRouting } from '../engine/routing'
 import { SCALES } from '../engine/scales'
 import {
   clearGateStepsOnPage,
@@ -67,7 +68,6 @@ import type {
   TransformType,
   VariationPattern,
 } from '../engine/types'
-import { createDefaultRouting } from '../engine/routing'
 import { createDefaultVariationPattern } from '../engine/variation'
 import type { ControlEvent, LEDState, ScreenMode, SubtrackId, UIState } from './hw-types'
 import { getPatternRows } from './pattern-rows'
@@ -1889,7 +1889,8 @@ function dispatchHoldCombo(
   engine: SequencerState,
   event: { type: 'encoder-a-turn'; delta: number } | { type: 'encoder-b-turn'; delta: number },
 ): DispatchResult {
-  const held = ui.heldButton!
+  if (!ui.heldButton) return { ui, engine }
+  const held = ui.heldButton
   const trackIdx = held.kind === 'track' ? held.track : ui.selectedTrack
   const uiUsed = { ...ui, holdEncoderUsed: true }
 
@@ -2000,7 +2001,8 @@ function dispatchHoldCombo(
 
 // Hold + RESET → targeted playhead reset
 function dispatchHoldReset(ui: UIState, engine: SequencerState): DispatchResult {
-  const held = ui.heldButton!
+  if (!ui.heldButton) return { ui, engine }
+  const held = ui.heldButton
   const trackIdx = ui.selectedTrack
 
   if (held.kind === 'track') {
@@ -2019,7 +2021,8 @@ function dispatchHoldReset(ui: UIState, engine: SequencerState): DispatchResult 
 
 // Hold + RAND → targeted randomization
 function dispatchHoldRand(ui: UIState, engine: SequencerState): DispatchResult {
-  const held = ui.heldButton!
+  if (!ui.heldButton) return { ui, engine }
+  const held = ui.heldButton
   const trackIdx = held.kind === 'track' ? held.track : ui.selectedTrack
 
   if (held.kind === 'track') {

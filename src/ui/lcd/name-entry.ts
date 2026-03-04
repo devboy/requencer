@@ -21,7 +21,11 @@ export function renderNameEntry(ctx: CanvasRenderingContext2D, _engine: Sequence
 
   // Header — context-aware title
   const headerText =
-    ui.nameEntryContext === 'preset' ? 'SAVE PRESET' : ui.nameEntryContext === 'pattern-all' ? 'SAVE PATTERN' : `SAVE T${ui.selectedTrack + 1} PATTERN`
+    ui.nameEntryContext === 'preset'
+      ? 'SAVE PRESET'
+      : ui.nameEntryContext === 'pattern-all'
+        ? 'SAVE PATTERN'
+        : `SAVE T${ui.selectedTrack + 1} PATTERN`
   drawText(ctx, headerText, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   drawText(ctx, 'ENC A:char  ENC B:cursor  PUSH:save', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 

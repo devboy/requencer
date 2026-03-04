@@ -1,10 +1,4 @@
-import type {
-  LayerFlags,
-  SavedPattern,
-  SequencerState,
-  TrackSlotData,
-  VariationPattern,
-} from './types'
+import type { LayerFlags, SavedPattern, SequencerState, TrackSlotData, VariationPattern } from './types'
 
 function zeroVariationBar(vp: VariationPattern): VariationPattern {
   const overrides = { ...vp.subtrackOverrides }
@@ -92,9 +86,7 @@ export function restoreTrackSlot(
   if (layers.drift) {
     result = {
       ...result,
-      mutateConfigs: result.mutateConfigs.map((mc, i) =>
-        i === targetTrack ? structuredClone(slot.mutateConfig) : mc,
-      ),
+      mutateConfigs: result.mutateConfigs.map((mc, i) => (i === targetTrack ? structuredClone(slot.mutateConfig) : mc)),
     }
   }
 
@@ -110,27 +102,21 @@ export function restoreTrackSlot(
   if (layers.lfo) {
     result = {
       ...result,
-      lfoConfigs: result.lfoConfigs.map((lc, i) =>
-        i === targetTrack ? structuredClone(slot.lfoConfig) : lc,
-      ),
+      lfoConfigs: result.lfoConfigs.map((lc, i) => (i === targetTrack ? structuredClone(slot.lfoConfig) : lc)),
     }
   }
 
   if (layers.random) {
     result = {
       ...result,
-      randomConfigs: result.randomConfigs.map((rc, i) =>
-        i === targetTrack ? structuredClone(slot.randomConfig) : rc,
-      ),
+      randomConfigs: result.randomConfigs.map((rc, i) => (i === targetTrack ? structuredClone(slot.randomConfig) : rc)),
     }
   }
 
   if (layers.arp) {
     result = {
       ...result,
-      arpConfigs: result.arpConfigs.map((ac, i) =>
-        i === targetTrack ? structuredClone(slot.arpConfig) : ac,
-      ),
+      arpConfigs: result.arpConfigs.map((ac, i) => (i === targetTrack ? structuredClone(slot.arpConfig) : ac)),
     }
   }
 

@@ -695,13 +695,6 @@ function resizeSteps<T>(steps: T[], newLength: number, defaultValue: T): T[] {
   return [...steps, ...Array.from({ length: newLength - steps.length }, padValue)]
 }
 
-const SUBTRACK_DEFAULTS: Record<'gate' | 'pitch' | 'velocity' | 'mod', GateStep | PitchStep | ModStep | number> = {
-  gate: DEFAULT_GATE_STEP,
-  pitch: DEFAULT_PITCH_STEP,
-  velocity: 100,
-  mod: DEFAULT_MOD_STEP,
-}
-
 /**
  * Set the length of a subtrack. Truncates or pads steps as needed. Returns new state.
  */
@@ -716,15 +709,25 @@ export function setSubtrackLength(
     ...state,
     tracks: state.tracks.map((track, i) => {
       if (i !== trackIndex) return track
-      const sub = track[subtrack]
-      return {
-        ...track,
-        [subtrack]: {
-          ...sub,
-          length,
-          steps: resizeSteps(sub.steps, length, SUBTRACK_DEFAULTS[subtrack] as any),
-        },
+      if (subtrack === 'gate') {
+        return {
+          ...track,
+          gate: { ...track.gate, length, steps: resizeSteps(track.gate.steps, length, DEFAULT_GATE_STEP) },
+        }
       }
+      if (subtrack === 'pitch') {
+        return {
+          ...track,
+          pitch: { ...track.pitch, length, steps: resizeSteps(track.pitch.steps, length, DEFAULT_PITCH_STEP) },
+        }
+      }
+      if (subtrack === 'velocity') {
+        return {
+          ...track,
+          velocity: { ...track.velocity, length, steps: resizeSteps(track.velocity.steps, length, 100) },
+        }
+      }
+      return { ...track, mod: { ...track.mod, length, steps: resizeSteps(track.mod.steps, length, DEFAULT_MOD_STEP) } }
     }),
   }
 }

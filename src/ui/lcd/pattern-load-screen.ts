@@ -32,13 +32,9 @@ export function renderPatternLoad(ctx: CanvasRenderingContext2D, engine: Sequenc
   }
 }
 
-function renderMapping(
-  ctx: CanvasRenderingContext2D,
-  engine: SequencerState,
-  ui: UIState,
-  trackColor: string,
-): void {
-  const pattern = engine.savedPatterns[ui.patternIndex]!
+function renderMapping(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState, trackColor: string): void {
+  const pattern = engine.savedPatterns[ui.patternIndex]
+  if (!pattern) return
   drawText(ctx, `LOAD: ${pattern.name}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
   drawText(ctx, 'SLOT MAPPING', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
 
@@ -95,16 +91,20 @@ function renderLayers(ctx: CanvasRenderingContext2D, ui: UIState, trackColor: st
     drawText(ctx, isOn ? 'ON' : 'OFF', VALUE_X, y + ROW_H / 2 - 2, isOn ? '#ffffff' : COLORS.textDim, 16, 'right')
   }
 
-  drawText(ctx, 'PUSH: next \u2192 confirm', LCD_W / 2, LCD_CONTENT_Y + LCD_CONTENT_H - 12, COLORS.textDim, 12, 'center')
+  drawText(
+    ctx,
+    'PUSH: next \u2192 confirm',
+    LCD_W / 2,
+    LCD_CONTENT_Y + LCD_CONTENT_H - 12,
+    COLORS.textDim,
+    12,
+    'center',
+  )
 }
 
-function renderConfirm(
-  ctx: CanvasRenderingContext2D,
-  engine: SequencerState,
-  ui: UIState,
-  trackColor: string,
-): void {
-  const pattern = engine.savedPatterns[ui.patternIndex]!
+function renderConfirm(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState, trackColor: string): void {
+  const pattern = engine.savedPatterns[ui.patternIndex]
+  if (!pattern) return
   drawText(ctx, `APPLY: ${pattern.name}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
 
   let y = LIST_TOP
@@ -119,9 +119,7 @@ function renderConfirm(
 
   // Show active layers
   y += 4
-  const activeKeys = (Object.keys(LAYER_LABELS) as (keyof typeof LAYER_LABELS)[]).filter(
-    (k) => ui.patternLayerFlags[k],
-  )
+  const activeKeys = (Object.keys(LAYER_LABELS) as (keyof typeof LAYER_LABELS)[]).filter((k) => ui.patternLayerFlags[k])
   const layerStr = activeKeys.map((k) => LAYER_LABELS[k]).join(' ')
   drawText(ctx, layerStr, LABEL_X, y + ROW_H / 2 - 2, COLORS.textDim, 14)
 

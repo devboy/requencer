@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { createSequencer, randomizeTrackPattern, setGateOn } from '../../engine/sequencer'
-import type { SequencerState } from '../../engine/types'
+import type { SequencerState, VariationPattern } from '../../engine/types'
 import type { UIState } from '../hw-types'
 import { createInitialUIState, dispatch, getLEDState } from '../mode-machine'
 import { getVisibleRows } from '../rand-rows'
 
 function makeState(): SequencerState {
   return createSequencer()
+}
+
+function asVariation(v: VariationPattern | 'bypass' | null): VariationPattern {
+  if (v === null || v === 'bypass') throw new Error(`Expected VariationPattern, got ${v}`)
+  return v
 }
 
 describe('createInitialUIState', () => {
@@ -368,10 +373,10 @@ describe('dispatch', () => {
       const down = dispatch(ui, eng, { type: 'encoder-b-turn', delta: -1 })
       expect(down.engine.tracks[0].pitch.steps[0].slide).toBe(0)
       // Set to max and test upper clamp
-      let e = eng
-      for (let i = 0; i < 12; i++) e = dispatch(ui, e, { type: 'encoder-b-turn', delta: 1 }).engine as any
+      let e: SequencerState = eng
+      for (let i = 0; i < 12; i++) e = dispatch(ui, e, { type: 'encoder-b-turn', delta: 1 }).engine
       // After 12 increments of 0.05 = 0.60, should clamp to 0.50
-      expect((e as any).tracks[0].pitch.steps[0].slide).toBeLessThanOrEqual(0.5)
+      expect(e.tracks[0].pitch.steps[0].slide).toBeLessThanOrEqual(0.5)
     })
 
     it('encoder-a-push cycles page', () => {
@@ -1858,9 +1863,10 @@ describe('route screen dispatch', () => {
         const override = result.engine.variationPatterns[0].subtrackOverrides.gate
         expect(override).not.toBe(null)
         expect(override).not.toBe('bypass')
-        expect((override as any).enabled).toBe(false)
-        expect((override as any).length).toBe(4)
-        expect((override as any).slots).toHaveLength(4)
+        const vp = asVariation(override)
+        expect(vp.enabled).toBe(false)
+        expect(vp.length).toBe(4)
+        expect(vp.slots).toHaveLength(4)
       })
 
       it('enc A push cycles override: override pattern → null (in sub-screen with no bar)', () => {
@@ -1921,7 +1927,7 @@ describe('route screen dispatch', () => {
         // Select bar 1, cursor on "add" slot, add REVERSE
         const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 1, varCursor: 0, varParam: 0 })
         const result = dispatch(ui, engine, { type: 'encoder-b-push' })
-        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        const override = asVariation(result.engine.variationPatterns[0].subtrackOverrides.gate)
         expect(override.slots[1].transforms.length).toBe(1)
         expect(override.slots[1].transforms[0].type).toBe('reverse')
         // Track-level should be unchanged
@@ -1959,7 +1965,7 @@ describe('route screen dispatch', () => {
           heldButton: { kind: 'feature' as const, feature: 'variation' as const },
         })
         const result = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
-        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        const override = asVariation(result.engine.variationPatterns[0].subtrackOverrides.gate)
         expect(override.length).toBe(5)
         expect(override.slots.length).toBe(5)
         expect(result.engine.variationPatterns[0].length).toBe(4)
@@ -2004,7 +2010,7 @@ describe('route screen dispatch', () => {
         }
         const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0, varCursor: 0 })
         const result = dispatch(ui, engine, { type: 'clr-press' })
-        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        const override = asVariation(result.engine.variationPatterns[0].subtrackOverrides.gate)
         expect(override.slots[0].transforms.length).toBe(1)
         expect(override.slots[0].transforms[0].type).toBe('transpose') // first deleted
       })
@@ -2026,7 +2032,7 @@ describe('route screen dispatch', () => {
         }
         const ui = varUI({ varEditSubtrack: 'gate', varSelectedBar: 0, varCursor: 0 })
         const result = dispatch(ui, engine, { type: 'encoder-b-turn', delta: 1 })
-        const override = result.engine.variationPatterns[0].subtrackOverrides.gate as any
+        const override = asVariation(result.engine.variationPatterns[0].subtrackOverrides.gate)
         expect(override.slots[0].transforms[0].param).toBe(8)
       })
     })
@@ -2106,7 +2112,10 @@ describe('CLR dispatch', () => {
       ...eng,
       variationPatterns: eng.variationPatterns.map((vp, i) =>
         i === 0
-          ? { ...vp, slots: vp.slots.map((s, j) => (j === 0 ? { transforms: [{ type: 'rotate' as const, param: 4 }] } : s)) }
+          ? {
+              ...vp,
+              slots: vp.slots.map((s, j) => (j === 0 ? { transforms: [{ type: 'rotate' as const, param: 4 }] } : s)),
+            }
           : vp,
       ),
     }

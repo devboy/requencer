@@ -107,7 +107,8 @@ function renderSubtrackStateScreen(
   ui: UIState,
   trackColor: string,
 ): void {
-  const sub = ui.varEditSubtrack!
+  if (!ui.varEditSubtrack) return
+  const sub = ui.varEditSubtrack
   const label = SUBTRACK_LABELS[sub]
   const state = overrideLabel(trackVP, sub)
 
