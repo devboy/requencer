@@ -132,7 +132,6 @@ function renderSubtrackStateScreen(
       drawText(ctx, '\u2192', x + 95, y, COLORS.textDim, 14)
     }
   }
-
 }
 
 /** Overview mode — bar grid and transform summaries */
@@ -188,7 +187,6 @@ function renderBarOverview(
     drawText(ctx, names, PAD + 30, listY + ROW_H / 2, COLORS.text, 16)
     listY += ROW_H
   }
-
 }
 
 /** Bar detail mode — transform stack with cursor + catalog browser */
@@ -237,7 +235,6 @@ function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui
       }
     }
   }
-
 }
 
 /** Render the "add" slot at the bottom of the transform stack */

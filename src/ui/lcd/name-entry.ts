@@ -52,5 +52,4 @@ export function renderNameEntry(ctx: CanvasRenderingContext2D, _engine: Sequence
   // Preview of full name below
   const name = ui.nameChars.map((ci) => NAME_CHARSET[ci] ?? ' ').join('')
   drawText(ctx, name.trim() || '(empty)', LCD_W / 2, centerY + CHAR_H / 2 + 24, COLORS.textDim, 16, 'center')
-
 }

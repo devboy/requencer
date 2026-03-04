@@ -12,7 +12,7 @@
 import type { SequencerState } from '../../engine/types'
 import { COLORS } from '../colors'
 import type { UIState } from '../hw-types'
-import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { drawText, fillRect, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 const HEADER_H = 30

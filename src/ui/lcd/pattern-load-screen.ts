@@ -7,7 +7,7 @@ import type { SequencerState } from '../../engine/types'
 import { COLORS } from '../colors'
 import type { UIState } from '../hw-types'
 import { LAYER_LABELS } from '../mode-machine'
-import { drawText, fillRect, LCD_CONTENT_H, LCD_CONTENT_Y, LCD_W } from '../renderer'
+import { drawText, fillRect, LCD_CONTENT_Y, LCD_W } from '../renderer'
 
 const PAD = 8
 
@@ -40,5 +40,4 @@ export function renderPatternLoad(ctx: CanvasRenderingContext2D, engine: Sequenc
     }
     drawText(ctx, LAYER_LABELS[key], x, y + 5, isOn ? COLORS.text : COLORS.textDim, 16, 'center')
   }
-
 }
