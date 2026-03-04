@@ -2328,3 +2328,108 @@ describe('pattern-load mode', () => {
     }
   })
 })
+
+// --- Pattern Screen (list mode) ---
+
+function makePatternScreenState(patternCount: number): { ui: UIState; engine: SequencerState } {
+  let engine = createSequencer()
+  for (let i = 0; i < patternCount; i++) {
+    engine = randomizeTrackPattern(engine, 0, 42 + i)
+    engine = savePattern(engine, createSavedPattern(engine, 0, `PAT${i + 1}`))
+  }
+  const ui: UIState = {
+    ...createInitialUIState(),
+    mode: 'pattern',
+    patternParam: 0,
+  }
+  return { ui, engine }
+}
+
+describe('pattern screen (list)', () => {
+  it('enc A scrolls through save row + pattern rows', () => {
+    const { ui, engine } = makePatternScreenState(3)
+    // Row 0: save, Row 1: header, Rows 2-4: patterns
+    const r1 = dispatch(ui, engine, { type: 'encoder-a-turn', delta: 1 })
+    expect(r1.ui.patternParam).toBe(1)
+
+    const r2 = dispatch(r1.ui, engine, { type: 'encoder-a-turn', delta: 1 })
+    expect(r2.ui.patternParam).toBe(2) // first pattern row
+
+    const r3 = dispatch(r2.ui, engine, { type: 'encoder-a-turn', delta: 2 })
+    expect(r3.ui.patternParam).toBe(4) // third pattern row
+  })
+
+  it('enc A push on save row enters name-entry', () => {
+    const { ui, engine } = makePatternScreenState(0)
+    const r = dispatch(ui, engine, { type: 'encoder-a-push' })
+    expect(r.ui.mode).toBe('name-entry')
+    expect(r.ui.nameEntryContext).toBe('pattern')
+  })
+
+  it('enc A push on pattern row enters pattern-load', () => {
+    const { ui, engine } = makePatternScreenState(2)
+    const patUi = { ...ui, patternParam: 3 } // second pattern (row index 3)
+    const r = dispatch(patUi, engine, { type: 'encoder-a-push' })
+    expect(r.ui.mode).toBe('pattern-load')
+    expect(r.ui.patternIndex).toBe(1) // second pattern
+    expect(r.ui.patternLoadTarget).toBe(ui.selectedTrack)
+  })
+
+  it('CLR double-press deletes selected pattern', () => {
+    const { ui, engine } = makePatternScreenState(2)
+    const patUi = { ...ui, patternParam: 2 } // first pattern row
+
+    // First press: pending
+    const r1 = dispatch(patUi, engine, { type: 'clr-press' })
+    expect(r1.ui.clrPending).toBe(true)
+
+    // Second press: execute delete
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1)
+    expect(r2.engine.savedPatterns[0].name).toBe('PAT2')
+    expect(r2.ui.flashMessage).toBe('DELETED')
+  })
+
+  it('CLR on save row is no-op', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    // patternParam = 0 = save row
+    const r1 = dispatch(ui, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1) // unchanged
+  })
+
+  it('CLR on header row is no-op', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const headerUi = { ...ui, patternParam: 1 } // header row
+    const r1 = dispatch(headerUi, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(1) // unchanged
+  })
+
+  it('deleting last pattern clamps patternParam', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const patUi = { ...ui, patternParam: 2 } // the only pattern row
+
+    const r1 = dispatch(patUi, engine, { type: 'clr-press' })
+    const r2 = dispatch(r1.ui, engine, { type: 'clr-press' })
+    expect(r2.engine.savedPatterns.length).toBe(0)
+    // patternParam should be clamped to save row (only row left)
+    expect(r2.ui.patternParam).toBe(0)
+  })
+
+  it('step LEDs preview pattern gate when cursor is on pattern row', () => {
+    const { ui, engine } = makePatternScreenState(1)
+    const patUi = { ...ui, patternParam: 2 } // pattern row
+
+    const leds = getLEDState(patUi, engine)
+    const gateSteps = engine.savedPatterns[0].data.track.gate.steps
+    for (let i = 0; i < 16; i++) {
+      if (i >= engine.savedPatterns[0].data.track.gate.length) {
+        expect(leds.steps[i]).toBe('off')
+      } else {
+        const isOn = gateSteps[i].on || gateSteps[i].tie
+        expect(leds.steps[i]).toBe(isOn ? 'on' : 'dim')
+      }
+    }
+  })
+})

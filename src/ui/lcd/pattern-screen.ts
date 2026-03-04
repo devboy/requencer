@@ -1,6 +1,6 @@
 /**
- * LCD Pattern screen — list of save actions + saved patterns.
- * Enc A scrolls rows, Enc B browses patterns on pattern row, Enc A push acts.
+ * LCD Pattern screen — scrollable list: SAVE action + individual saved patterns.
+ * Enc A scrolls, Enc A push to save or load, CLR to delete.
  */
 
 import type { SequencerState } from '../../engine/types'
@@ -22,7 +22,7 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
 
   // Header
   drawText(ctx, `PATTERN — T${ui.selectedTrack + 1}`, PAD, LCD_CONTENT_Y + 18, trackColor, 18)
-  drawText(ctx, 'ENC A:\u25B2\u25BC  PUSH:act', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 12, 'right')
+  drawText(ctx, 'ENC A:\u25B2\u25BC  PUSH:act  CLR:del', LCD_W - PAD, LCD_CONTENT_Y + 18, COLORS.textDim, 11, 'right')
 
   const maxVisible = Math.floor((LCD_CONTENT_H - HEADER_H - 4) / ROW_H)
   const scrollOffset = Math.max(0, Math.min(ui.patternParam - Math.floor(maxVisible / 2), rows.length - maxVisible))
@@ -43,33 +43,29 @@ export function renderPattern(ctx: CanvasRenderingContext2D, engine: SequencerSt
       ctx.stroke()
       const labelW = row.label.length * 10 + 16
       fillRect(ctx, { x: PAD, y: lineY - 10, w: labelW, h: 20 }, COLORS.bg)
-      drawText(ctx, ` ${row.label} `, PAD + 4, lineY + 5, isSelected ? trackColor : COLORS.textDim, 16)
-      if (isSelected) {
-        drawText(ctx, '\u25B8', PAD, lineY + 5, trackColor, 16)
-      }
-    } else if (row.paramId === 'pattern-slot') {
-      // Pattern browsing row — show current pattern name + source track
+      drawText(ctx, ` ${row.label} `, PAD + 4, lineY + 5, COLORS.textDim, 16)
+    } else if (row.paramId === 'pattern-item') {
+      // Individual saved pattern row
       if (isSelected) {
         fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
       }
       const cursorColor = isSelected ? trackColor : 'transparent'
       drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, cursorColor, 16)
-
-      const pattern = engine.savedPatterns[ui.patternIndex]
-      if (pattern) {
-        drawText(ctx, pattern.name, LABEL_X, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
+      drawText(ctx, row.label, LABEL_X, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
+      // Show index on right
+      if (row.patternIndex != null) {
         drawText(
           ctx,
-          `${ui.patternIndex + 1}/${engine.savedPatterns.length}`,
+          `${row.patternIndex + 1}`,
           VALUE_X,
           y + ROW_H / 2 - 2,
-          isSelected ? '#ffffff' : COLORS.textDim,
-          14,
+          isSelected ? COLORS.textDim : COLORS.textDim,
+          12,
           'right',
         )
       }
     } else {
-      // Action rows (save-track, delete)
+      // Action rows (save-track)
       if (isSelected) {
         fillRect(ctx, { x: PAD, y: y - 2, w: LCD_W - PAD * 2, h: ROW_H - 2 }, `${trackColor}22`)
       }

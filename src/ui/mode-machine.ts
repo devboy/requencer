@@ -1691,8 +1691,26 @@ function executeClr(ui: UIState, engine: SequencerState): DispatchResult {
       return dispatchSettingsReset(ui, engine)
     case 'route':
       return dispatchClrRoute(ui, engine)
+    case 'pattern': {
+      const rows = getPatternRows(engine)
+      const row = rows[ui.patternParam]
+      if (row?.paramId === 'pattern-item' && row.patternIndex != null) {
+        const newEngine = deletePattern(engine, row.patternIndex)
+        const newRows = getPatternRows(newEngine)
+        const newParam = clamp(ui.patternParam, 0, Math.max(0, newRows.length - 1))
+        return {
+          ui: {
+            ...ui,
+            patternParam: newParam,
+            flashMessage: 'DELETED',
+            flashUntil: performance.now() + 1200,
+          },
+          engine: newEngine,
+        }
+      }
+      return { ui, engine }
+    }
     case 'name-entry':
-    case 'pattern':
     case 'pattern-load':
       return { ui, engine }
   }
@@ -1834,6 +1852,25 @@ function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
           leds[i] = 'on' // bar has transforms
         } else {
           leds[i] = 'dim' // empty bar
+        }
+      }
+      break
+    }
+    case 'pattern': {
+      // Preview selected pattern's gate data on step LEDs
+      const patRows = getPatternRows(engine)
+      const patRow = patRows[ui.patternParam]
+      if (patRow?.paramId === 'pattern-item' && patRow.patternIndex != null) {
+        const pat = engine.savedPatterns[patRow.patternIndex]
+        if (pat) {
+          const gateData = pat.data.track.gate
+          for (let i = 0; i < 16; i++) {
+            if (i >= gateData.length) {
+              leds[i] = 'off'
+            } else {
+              leds[i] = gateData.steps[i].on || gateData.steps[i].tie ? 'on' : 'dim'
+            }
+          }
         }
       }
       break
@@ -2096,9 +2133,9 @@ function dispatchHoldRand(ui: UIState, engine: SequencerState): DispatchResult {
 export const NAME_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789-'
 
 // --- PATTERN Screen ---
-// Enc A: scroll rows
-// Enc B: on pattern rows, browse patterns
-// Enc A push: action (save, load, delete)
+// Enc A: scroll rows (save action + individual pattern rows)
+// Enc A push: save (on save row) or enter load mode (on pattern row)
+// CLR: delete selected pattern
 
 function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const rows = getPatternRows(engine)
@@ -2108,17 +2145,6 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
     case 'encoder-a-turn': {
       const next = clamp(ui.patternParam + event.delta, 0, maxIdx)
       return { ui: { ...ui, patternParam: next }, engine }
-    }
-    case 'encoder-b-turn': {
-      const row = rows[ui.patternParam]
-      if (!row) return { ui, engine }
-      if (row.paramId === 'pattern-slot') {
-        const patCount = engine.savedPatterns.length
-        if (patCount === 0) return { ui, engine }
-        const next = clamp(ui.patternIndex + event.delta, 0, patCount - 1)
-        return { ui: { ...ui, patternIndex: next }, engine }
-      }
-      return { ui, engine }
     }
     case 'encoder-a-push': {
       const row = rows[ui.patternParam]
@@ -2135,31 +2161,18 @@ function dispatchPattern(ui: UIState, engine: SequencerState, event: ControlEven
           engine,
         }
       }
-      if (row.paramId === 'pattern-slot') {
-        const pattern = engine.savedPatterns[ui.patternIndex]
+      if (row.paramId === 'pattern-item' && row.patternIndex != null) {
+        const pattern = engine.savedPatterns[row.patternIndex]
         if (!pattern) return { ui, engine }
         return {
           ui: {
             ...ui,
             mode: 'pattern-load',
+            patternIndex: row.patternIndex,
             patternLayerFlags: createDefaultLayerFlags(),
             patternLoadTarget: ui.selectedTrack,
           },
           engine,
-        }
-      }
-      if (row.paramId === 'delete') {
-        if (engine.savedPatterns.length === 0) return { ui, engine }
-        const newEngine = deletePattern(engine, ui.patternIndex)
-        const newIdx = clamp(ui.patternIndex, 0, Math.max(0, newEngine.savedPatterns.length - 1))
-        return {
-          ui: {
-            ...ui,
-            patternIndex: newIdx,
-            flashMessage: 'DELETED',
-            flashUntil: performance.now() + 1200,
-          },
-          engine: newEngine,
         }
       }
       return { ui, engine }
@@ -2238,11 +2251,13 @@ function dispatchNameEntry(ui: UIState, engine: SequencerState, event: ControlEv
       }
       if (ui.nameEntryContext === 'pattern') {
         const newEngine = savePattern(engine, createSavedPattern(engine, ui.selectedTrack, name))
+        // Point to the newly saved pattern's row (save + header + patterns)
+        const newPatternRow = 1 + newEngine.savedPatterns.length
         return {
           ui: {
             ...ui,
             mode: 'pattern',
-            patternIndex: newEngine.savedPatterns.length - 1,
+            patternParam: newPatternRow,
             flashMessage: 'SAVED',
             flashUntil: performance.now() + 1200,
           },
