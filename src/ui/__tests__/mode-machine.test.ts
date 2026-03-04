@@ -1038,28 +1038,6 @@ describe('rand screen dispatch', () => {
   })
 
   describe('conditional visibility', () => {
-    it('ARP sub-params hidden when ARP is off', () => {
-      const eng = makeState()
-      const ui = randUIRaw(0)
-
-      const rows = getVisibleRows(eng, ui)
-      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
-      expect(paramIds).toContain('arp.enabled')
-      expect(paramIds).not.toContain('arp.direction')
-      expect(paramIds).not.toContain('arp.octaveRange')
-    })
-
-    it('ARP sub-params shown when ARP is on', () => {
-      let eng = makeState()
-      eng = { ...eng, arpConfigs: eng.arpConfigs.map((c, i) => (i === 0 ? { ...c, enabled: true } : c)) }
-      const ui = randUIRaw(0)
-
-      const rows = getVisibleRows(eng, ui)
-      const paramIds = rows.map((r: { paramId: string }) => r.paramId)
-      expect(paramIds).toContain('arp.direction')
-      expect(paramIds).toContain('arp.octaveRange')
-    })
-
     it('OFFSET hidden when gate mode is random', () => {
       let eng = makeState()
       eng = {
@@ -1132,7 +1110,6 @@ describe('rand screen dispatch', () => {
       const headers = rows.filter((r: { type: string }) => r.type === 'header')
       const headerIds = headers.map((r: { paramId: string }) => r.paramId)
       expect(headerIds).toContain('section.pitch')
-      expect(headerIds).toContain('section.arp')
       expect(headerIds).toContain('section.gate')
       expect(headerIds).toContain('section.vel')
       expect(headerIds).toContain('section.mod')

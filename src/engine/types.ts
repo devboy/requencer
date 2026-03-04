@@ -38,7 +38,10 @@ export interface ModStep {
   slew: number // 0.0 = instant, 0.01-1.0 = interpolation time as fraction of step
 }
 
-// MOD generation algorithm
+// Generation algorithm types
+export type PitchMode = 'random' | 'arp' | 'walk' | 'rise' | 'fall'
+export type PitchArpDirection = 'up' | 'down' | 'updown' | 'random'
+export type VelocityMode = 'random' | 'accent' | 'sync' | 'rise' | 'fall' | 'walk'
 export type ModMode = 'random' | 'rise' | 'fall' | 'vee' | 'hill' | 'sync' | 'walk'
 
 // A sequence track containing gate, pitch, velocity, mod subtracks
@@ -60,6 +63,8 @@ export interface RandomConfig {
     scale: Scale
     root: Note // root note of the scale
     maxNotes: number // 0 = unlimited, else limit distinct pitches from scale
+    mode: PitchMode // generation algorithm
+    arpDirection: PitchArpDirection // direction for arp mode
   }
   gate: {
     fillMin: number // 0.0 - 1.0
@@ -71,6 +76,7 @@ export interface RandomConfig {
   velocity: {
     low: Velocity
     high: Velocity
+    mode: VelocityMode // generation algorithm
   }
   gateLength: {
     min: GateLength

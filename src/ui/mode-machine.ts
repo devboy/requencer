@@ -61,12 +61,15 @@ import type {
   ClockSource,
   LayerFlags,
   ModMode,
+  PitchArpDirection,
+  PitchMode,
   RandomConfig,
   SavedPattern,
   SequencerState,
   Transform,
   TransformType,
   VariationPattern,
+  VelocityMode,
 } from '../engine/types'
 import { createDefaultVariationPattern } from '../engine/variation'
 import type { ControlEvent, LEDState, ScreenMode, SubtrackId, UIState } from './hw-types'
@@ -1106,6 +1109,13 @@ function dispatchRand(ui: UIState, engine: SequencerState, event: ControlEvent):
     case 'encoder-b-turn': {
       return dispatchRandParamAdjust(ui, engine, event.delta)
     }
+    case 'encoder-b-push': {
+      // Close dropdown if open
+      if (ui.randDropdownOpen) {
+        return { ui: { ...ui, randDropdownOpen: false }, engine }
+      }
+      return { ui, engine }
+    }
     default:
       return { ui, engine }
   }
@@ -1173,6 +1183,27 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
           pitch: { ...config.pitch, maxNotes: clamp(config.pitch.maxNotes + delta, 0, 12) },
         }),
       }
+    case 'pitch.mode': {
+      const modes: PitchMode[] = ['random', 'arp', 'walk', 'rise', 'fall']
+      const curIdx = modes.indexOf(config.pitch.mode)
+      const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
+      return {
+        ui: { ...ui, randDropdownOpen: true },
+        engine: updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, mode: modes[nextIdx] } }),
+      }
+    }
+    case 'pitch.arpDirection': {
+      const dirs: PitchArpDirection[] = ['up', 'down', 'updown', 'random']
+      const curIdx = dirs.indexOf(config.pitch.arpDirection)
+      const nextIdx = (((curIdx + delta) % dirs.length) + dirs.length) % dirs.length
+      return {
+        ui,
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          pitch: { ...config.pitch, arpDirection: dirs[nextIdx] },
+        }),
+      }
+    }
     case 'slide.probability': {
       const newVal = Math.round(clamp(config.slide.probability + delta * 0.05, 0, 1) * 100) / 100
       return {
@@ -1301,7 +1332,10 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const newHigh = Math.max(newLow, config.velocity.high)
       return {
         ui,
-        engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }),
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          velocity: { ...config.velocity, low: newLow, high: newHigh },
+        }),
       }
     }
     case 'velocity.high': {
@@ -1309,7 +1343,22 @@ function dispatchRandParamAdjust(ui: UIState, engine: SequencerState, delta: num
       const newLow = Math.min(config.velocity.low, newHigh)
       return {
         ui,
-        engine: updateRandomConfig(engine, trackIdx, { ...config, velocity: { low: newLow, high: newHigh } }),
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          velocity: { ...config.velocity, low: newLow, high: newHigh },
+        }),
+      }
+    }
+    case 'velocity.mode': {
+      const modes: VelocityMode[] = ['random', 'accent', 'sync', 'rise', 'fall', 'walk']
+      const curIdx = modes.indexOf(config.velocity.mode)
+      const nextIdx = (((curIdx + delta) % modes.length) + modes.length) % modes.length
+      return {
+        ui: { ...ui, randDropdownOpen: true },
+        engine: updateRandomConfig(engine, trackIdx, {
+          ...config,
+          velocity: { ...config.velocity, mode: modes[nextIdx] },
+        }),
       }
     }
     case 'mod.low': {
@@ -1401,9 +1450,17 @@ function getDefaultRandomConfig(trackIdx: number): RandomConfig {
   if (preset) return structuredClone(preset.config)
 
   return {
-    pitch: { low: 48, high: 72, scale: SCALES.minorPentatonic, root: 60, maxNotes: 4 },
+    pitch: {
+      low: 48,
+      high: 72,
+      scale: SCALES.minorPentatonic,
+      root: 60,
+      maxNotes: 4,
+      mode: 'random',
+      arpDirection: 'up',
+    },
     gate: { fillMin: 0.25, fillMax: 0.75, mode: 'euclidean', randomOffset: true, clusterContinuation: 0.7 },
-    velocity: { low: 64, high: 120 },
+    velocity: { low: 64, high: 120, mode: 'random' },
     gateLength: { min: 0.5, max: 0.5 },
     ratchet: { maxRatchet: 1, probability: 0 },
     slide: { probability: 0 },
@@ -1434,6 +1491,13 @@ function resetSingleParam(
       return updateRandomConfig(engine, trackIdx, {
         ...config,
         pitch: { ...config.pitch, maxNotes: dc.pitch.maxNotes },
+      })
+    case 'pitch.mode':
+      return updateRandomConfig(engine, trackIdx, { ...config, pitch: { ...config.pitch, mode: dc.pitch.mode } })
+    case 'pitch.arpDirection':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        pitch: { ...config.pitch, arpDirection: dc.pitch.arpDirection },
       })
     case 'slide.probability':
       return updateRandomConfig(engine, trackIdx, { ...config, slide: dc.slide })
@@ -1492,6 +1556,11 @@ function resetSingleParam(
       return updateRandomConfig(engine, trackIdx, {
         ...config,
         velocity: { ...config.velocity, high: dc.velocity.high },
+      })
+    case 'velocity.mode':
+      return updateRandomConfig(engine, trackIdx, {
+        ...config,
+        velocity: { ...config.velocity, mode: dc.velocity.mode },
       })
     case 'mod.low':
       return updateRandomConfig(engine, trackIdx, { ...config, mod: { ...config.mod, low: dc.mod.low } })

@@ -418,12 +418,10 @@ function render(): void {
   const renderer = RENDERERS[uiState.mode]
   if (renderer) renderer(lcdCtx, engineState, uiState)
 
-  // Hold overlay (semi-transparent over content when a button is held)
+  // Hold overlay — always thin (42px strip) for compact display
   // Step holds stay in the normal screen (gate-edit shows GL/ratchet inline)
   if (uiState.heldButton && uiState.heldButton.kind !== 'step') {
-    const editScreens: Set<string> = new Set(['gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit'])
-    const thin = editScreens.has(uiState.mode)
-    renderHoldOverlay(lcdCtx, engineState, uiState, thin)
+    renderHoldOverlay(lcdCtx, engineState, uiState, true)
   }
 
   // CLR confirm overlay + auto-expire
