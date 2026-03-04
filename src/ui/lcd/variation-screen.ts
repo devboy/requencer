@@ -340,10 +340,6 @@ function renderCatalogEntry(
     drawText(ctx, '\u25B8', PAD, y + ROW_H / 2 - 2, trackColor, 16)
   }
   drawText(ctx, entry.label, PAD + 20, y + ROW_H / 2 - 2, isSelected ? COLORS.text : COLORS.textDim, 16)
-  const p = formatParam(entry.type, entry.defaultParam)
-  if (p) {
-    drawText(ctx, p, LCD_W - PAD, y + ROW_H / 2 - 2, isSelected ? trackColor : COLORS.textDim, 16, 'right')
-  }
 }
 
 /** Dropdown catalog list drawn on top of the transform stack, anchored at the add slot row */
