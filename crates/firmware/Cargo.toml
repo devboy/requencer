@@ -1,0 +1,12 @@
+[package]
+name = "requencer-firmware"
+version = "0.1.0"
+edition = "2021"
+
+# Firmware won't build without the ARM target toolchain installed.
+# Install with: rustup target add thumbv8m.main-none-eabihf
+# Build with: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf
+
+[dependencies]
+requencer-engine = { path = "../engine", default-features = false }
+requencer-renderer = { path = "../renderer", default-features = false }
