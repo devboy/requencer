@@ -161,11 +161,14 @@ function renderPitchRow(
 
   for (let i = 0; i < DISPLAY_STEPS; i++) {
     const x = stepX(i)
-    const normalized = Math.max(0, Math.min(1, (steps[i].note - minNote) / range))
-    const barH = Math.max(2, normalized * (h - 2))
-    const barY = y + h - barH
-    const barColor = i < length ? color : INACTIVE_BG
-    fillRect(ctx, { x, y: barY, w: STEP_W, h: barH }, barColor)
+    if (i < length) {
+      const normalized = Math.max(0, Math.min(1, (steps[i].note - minNote) / range))
+      const barH = Math.max(2, normalized * (h - 2))
+      const barY = y + h - barH
+      fillRect(ctx, { x, y: barY, w: STEP_W, h: barH }, color)
+    } else {
+      fillRect(ctx, { x, y: y + h - 2, w: STEP_W, h: 2 }, INACTIVE_BG)
+    }
   }
 
   if (currentStep < DISPLAY_STEPS) {
