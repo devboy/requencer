@@ -2,7 +2,7 @@
 # 16 analog outputs, 2 clock/reset inputs, 1 clock output,
 # 4 CV inputs (future), 2 MIDI (handled in midi.ato), 1 USB (on Pico)
 
-from "generics/resistors.ato" import Resistor
+import Resistor
 
 from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
 from "../../parts/2N3904/2N3904.ato" import _2N3904

@@ -1,9 +1,9 @@
 # Display Connector — ILI9488 3.5" SPI TFT (480×320)
 # Pin header for LCD module, backlight MOSFET control
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
-from "generics/mosfets.ato" import NFET
+import Resistor
+import Capacitor
+import NFET
 
 module DisplayConnector:
     # SPI bus (from MCU)

@@ -13,8 +13,8 @@ from "midi.ato" import MIDIInterface
 
 from "../../parts/EC11E/EC11E.ato" import EC11E
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
+import Resistor
+import Capacitor
 
 module Requencer:
     # --- Sub-module instances ---

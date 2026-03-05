@@ -7,8 +7,8 @@
 # TLC3 (ch 48-71): Track T1-T4 (12ch) + Subtrack GATE/PITCH/VEL/MOD (12ch)
 # TLC4 (ch 72-95): PAT/MUTE/ROUTE/DRIFT/XPOSE/VAR/PLAY/RESET (8 × 3ch)
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
+import Resistor
+import Capacitor
 
 from "../../parts/TLC5947DAP/TLC5947DAP.ato" import TLC5947DAP
 

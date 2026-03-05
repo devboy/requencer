@@ -11,8 +11,8 @@
 #              BAT54S clamp (to 3.3V and GND)
 #              100nF filter cap
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
+import Resistor
+import Capacitor
 
 from "../../parts/BAT54S/BAT54S.ato" import BAT54S
 

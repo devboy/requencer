@@ -2,9 +2,9 @@
 # Eurorack ±12V → regulated +5V and +3.3V
 # Reverse polarity protection, bypass capacitors
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
-from "generics/diodes.ato" import SchottkyDiode
+import Resistor
+import Capacitor
+import SchottkyDiode
 
 from "../../parts/AMS1117-3.3/AMS1117-3.3.ato" import AMS1117_3V3
 from "../../parts/AZ1117IH-5.0/AZ1117IH-5.0.ato" import AZ1117_5V0

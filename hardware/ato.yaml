@@ -5,5 +5,4 @@ paths:
 builds:
   default:
     entry: requencer.ato:Requencer
-dependencies:
-  - "git://github.com/atopile/generics.git#v4.1.0"
+dependencies: []

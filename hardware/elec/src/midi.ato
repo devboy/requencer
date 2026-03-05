@@ -2,9 +2,9 @@
 # MIDI OUT: Pico UART TX → resistors → TRS jack
 # MIDI IN: TRS jack → optocoupler (6N138) → Pico UART RX
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
-from "generics/diodes.ato" import Diode
+import Resistor
+import Capacitor
+import Diode
 
 from "../../parts/6N138/6N138.ato" import _6N138
 from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM

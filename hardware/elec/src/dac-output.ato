@@ -7,8 +7,8 @@
 #   DAC2 channels A-D: VEL 1-4 (gain≈1.6, 0–8V)
 #   DAC2 channels E-H: MOD 1-4 (gain=2, offset=-5V → -5V to +5V)
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
+import Resistor
+import Capacitor
 
 from "../../parts/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
 from "../../parts/OPA4172ID/OPA4172ID.ato" import OPA4172ID

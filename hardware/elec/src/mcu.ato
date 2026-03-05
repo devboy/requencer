@@ -1,7 +1,7 @@
 # MCU Block — Raspberry Pi Pico (RP2040)
 # Castellated pad module with all GPIO assignments
 
-from "generics/capacitors.ato" import Capacitor
+import Capacitor
 
 from "../../parts/RaspberryPiPico/RaspberryPiPico.ato" import RaspberryPiPico
 

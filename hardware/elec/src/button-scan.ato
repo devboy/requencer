@@ -6,8 +6,8 @@
 # SR3 (bits 16-23): Track T1-T4, Subtrack GATE/PITCH/VEL/MOD
 # SR4 (bits 24-31): PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET
 
-from "generics/resistors.ato" import Resistor
-from "generics/capacitors.ato" import Capacitor
+import Resistor
+import Capacitor
 
 from "../../parts/74HC165D/74HC165D.ato" import _74HC165D
 from "../../parts/TC002-RGB/TC002-RGB.ato" import TC002_RGB
