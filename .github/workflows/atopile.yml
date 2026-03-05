@@ -15,17 +15,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/atopile/atopile-kicad:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      # --- Main PCB ---
+      - name: Setup atopile
+        uses: atopile/setup-atopile@v1
+        with:
+          ato-config: hardware/ato.yaml
 
-      - name: Install atopile dependencies
-        working-directory: hardware
-        run: ato install
+      # --- Main PCB ---
 
       - name: Build schematic
         working-directory: hardware
