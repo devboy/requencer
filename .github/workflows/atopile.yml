@@ -2,6 +2,7 @@ name: Atopile Hardware Build
 
 on:
   push:
+    branches: [main]
     paths:
       - 'hardware/**'
       - 'hardware-faceplate/**'
