@@ -4,11 +4,12 @@
 #pragma experiment("TRAITS")
 import is_atomic_part
 import has_designator_prefix
+import has_part_picked
 
 component PJ398SM:
     trait is_atomic_part<manufacturer="Thonkiconn", partnumber="PJ398SM", footprint="PJ398SM.kicad_mod", symbol="PJ398SM.kicad_sym">
     trait has_designator_prefix<prefix="J">
-    designator_prefix = "J"
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2907129", manufacturer="Thonkiconn", partno="PJ398SM">
 
     signal TIP ~ pin 1
     signal SLEEVE ~ pin 2

@@ -4,11 +4,12 @@
 #pragma experiment("TRAITS")
 import is_atomic_part
 import has_designator_prefix
+import has_part_picked
 
 component EC11E:
     trait is_atomic_part<manufacturer="Alps", partnumber="EC11E", footprint="EC11E.kicad_mod", symbol="EC11E.kicad_sym">
     trait has_designator_prefix<prefix="ENC">
-    designator_prefix = "ENC"
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C470069", manufacturer="Alps", partno="EC11E">
 
     signal A ~ pin 1
     signal GND_ENC ~ pin 2
