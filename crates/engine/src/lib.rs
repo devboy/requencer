@@ -5,9 +5,11 @@
 //! Zero dependencies on DOM, audio, or any platform-specific APIs.
 //! Targets both WASM (browser) and RP2350 (embedded).
 
+pub mod arpeggiator;
 pub mod clock_divider;
 pub mod euclidean;
 pub mod math;
+pub mod randomizer;
 pub mod rng;
 pub mod scales;
 pub mod types;

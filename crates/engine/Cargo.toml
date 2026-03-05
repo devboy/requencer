@@ -9,3 +9,4 @@ std = []
 
 [dependencies]
 heapless = { workspace = true }
+libm = "0.2"
