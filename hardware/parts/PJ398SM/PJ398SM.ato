@@ -8,6 +8,7 @@ import has_designator_prefix
 component PJ398SM:
     trait is_atomic_part<manufacturer="Thonkiconn", partnumber="PJ398SM", footprint="PJ398SM.kicad_mod", symbol="PJ398SM.kicad_sym">
     trait has_designator_prefix<prefix="J">
+    designator_prefix = "J"
 
     signal TIP ~ pin 1
     signal SLEEVE ~ pin 2
