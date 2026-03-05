@@ -1,5 +1,5 @@
 # 6N138 — High-Speed Optocoupler, DIP-8
-# LCSC: C14010
+# LCSC: C571211
 # Used for MIDI input isolation
 
 component _6N138:

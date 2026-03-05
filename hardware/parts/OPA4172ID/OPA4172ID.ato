@@ -1,5 +1,5 @@
 # OPA4172ID — TI Quad Rail-to-Rail Op-Amp, SOIC-14
-# LCSC: C482288
+# LCSC: C1849436 (OPA4172IPWR, TSSOP-14 — SOIC-14 variant not stocked on LCSC)
 # ±18V max supply, rail-to-rail output, no phase reversal
 
 component OPA4172ID:

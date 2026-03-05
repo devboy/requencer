@@ -1,5 +1,5 @@
 # TLC5947DAP — TI 24-Channel Constant-Current LED Driver, HTSSOP-32
-# LCSC: C147565
+# LCSC: C1554203
 # 12-bit PWM per channel, daisy-chainable SPI-like interface
 
 component TLC5947DAP:

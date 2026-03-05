@@ -361,6 +361,22 @@ Spacing:
 - **Mouser/DigiKey**: DAC8568, OPA4172, TLC5947, Well Buying TC002 buttons
 - **AliExpress**: Thonkiconn jacks (or Thonk UK for genuine PJ398SM)
 
+### Verified LCSC Part Numbers (March 2026)
+
+| Component | LCSC # | Verified | Notes |
+|-----------|--------|----------|-------|
+| DAC8568 | C524819 | Yes | DAC8568ICPWR (TSSOP-16), ~$21 ea |
+| OPA4172 | C1849436 | Yes | OPA4172IPWR (TSSOP-14, not SOIC-14 — SOIC variant not stocked) |
+| TLC5947DAP | C1554203 | Yes | HTSSOP-32, ~$7 ea (only 7 in stock — check availability) |
+| 74HC165D | C5613 | Yes | Nexperia, SOIC-16 |
+| 6N138 | C571211 | Yes | Lite-On 6N138-L, DIP-8, ~$0.44 ea |
+| AMS1117-3.3 | C6186 | Yes | SOT-223 |
+| AZ1117IH-5.0 | C108496 | Yes | SOT-223, 5.0V output |
+| BAT54S | C83935 | Yes | ST/Semtech, SOT-23 |
+| 2N3904 | C18536 | Yes | KEC, SOT-23 |
+
+**Caution:** OPA4172 is only available in TSSOP-14 on LCSC (not SOIC-14). If SOIC-14 footprint is needed, source OPA4172ID from Mouser/DigiKey, or update the PCB footprint to TSSOP-14.
+
 ---
 
 ## PCB Design Tool: Atopile → EasyEDA Pro

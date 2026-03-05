@@ -1,5 +1,5 @@
 # DAC8568SPMR — TI 16-bit 8-channel DAC, TSSOP-16
-# LCSC: C133572
+# LCSC: C524819
 # Internal 2.5V reference, SPI interface, gain=2 mode → 0–5V output
 
 component DAC8568SPMR:

@@ -1,5 +1,5 @@
 # AZ1117IH-5.0 — 5.0V LDO Regulator, SOT-223
-# LCSC: C108494
+# LCSC: C108496
 # Input: up to 15V, Output: 5.0V, 1A max
 
 component AZ1117_5V0:
