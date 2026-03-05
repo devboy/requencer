@@ -4,7 +4,7 @@
 
 import Resistor
 import Capacitor
-import SchottkyDiode
+import Diode
 
 from "../../parts/AMS1117-3.3/AMS1117-3.3.ato" import AMS1117_3V3
 from "../../parts/AZ1117IH-5.0/AZ1117IH-5.0.ato" import AZ1117_5V0
@@ -32,8 +32,8 @@ module PowerSupply:
 
     # --- Reverse polarity protection ---
     # Schottky diodes on +12V and -12V rails
-    d_pos = new SchottkyDiode
-    d_neg = new SchottkyDiode
+    d_pos = new Diode
+    d_neg = new Diode
 
     # +12V: header → diode anode → cathode = protected +12V
     header.POS12V_1 ~ d_pos.anode
@@ -103,6 +103,6 @@ module PowerSupply:
 
     # --- Pico VSYS via Schottky ---
     # Schottky diode allows USB power to coexist with eurorack power
-    d_vsys = new SchottkyDiode
+    d_vsys = new Diode
     d_vsys.anode ~ v3v3
     d_vsys.cathode ~ pico_vsys
