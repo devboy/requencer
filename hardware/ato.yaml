@@ -8,4 +8,4 @@ builds:
 dependencies:
   - type: registry
     identifier: atopile/generics
-    release: "0.2.0"
+    release: "v4.4.0"
