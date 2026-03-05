@@ -28,10 +28,34 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     draw::text(
         display,
         layout::PAD as i32,
-        layout::CONTENT_Y as i32 + 9,
+        layout::CONTENT_Y as i32 + 4,
         "PITCH",
         color,
     );
+
+    // Selected step info: note name + MIDI number + slide
+    let sel = ui.selected_step as usize;
+    if sel < track.pitch.steps.len() {
+        let step = &track.pitch.steps[sel];
+        let (name, oct) = colors::midi_note_name(step.note);
+        let mut info_buf = [0u8; 16];
+        let info = if step.slide > 0.0 {
+            let slide_ms = (step.slide * 1000.0) as u16;
+            draw::fmt_buf(
+                &mut info_buf,
+                format_args!("{}{} ({}) S:{}ms", name, oct, step.note, slide_ms),
+            )
+        } else {
+            draw::fmt_buf(&mut info_buf, format_args!("{}{} ({})", name, oct, step.note))
+        };
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 9,
+            info,
+            colors::TEXT_DIM,
+        );
+    }
 
     // Step grid
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
@@ -59,7 +83,13 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 
             // Note bar (height proportional to MIDI note)
-            let bar_color = if gate_on { color } else { dim };
+            let bar_color = if is_selected {
+                colors::TEXT_BRIGHT
+            } else if gate_on {
+                color
+            } else {
+                dim
+            };
             let bar_h = ((step.note as u32) * (cell_h - 16)) / 127;
             let bar_y = y + (cell_h as i32 - bar_h as i32 - 4);
             draw::fill_rect(display, x + 2, bar_y, cell_w - 4, bar_h.max(1), bar_color);
@@ -78,14 +108,12 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
 
             // Slide indicator
             if step.slide > 0.0 {
-                draw::fill_rect(
-                    display,
-                    x + 2,
-                    y + cell_h as i32 - 3,
-                    cell_w - 4,
-                    2,
-                    colors::ACCENT,
-                );
+                draw::fill_rect(display, x + 2, y + cell_h as i32 - 3, cell_w - 4, 2, colors::ACCENT);
+            }
+
+            // Playhead indicator
+            if is_playhead {
+                draw::playhead_bar(display, x, y, cell_w, cell_h);
             }
 
             if is_selected {

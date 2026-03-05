@@ -56,6 +56,10 @@ pub struct UiState {
     pub mod_lfo_view: bool,     // false = MOD, true = LFO
     pub mod_lfo_param: u8,      // 0-6: LFO param row
     pub flash_message: Option<&'static str>,
+    pub name_chars: [u8; 16],   // ASCII chars for name entry (0 = empty)
+    pub name_cursor: u8,        // cursor position in name (0-15)
+    pub name_len: u8,           // number of chars entered
+    pub pattern_context: bool,  // true = pattern save, false = preset save
 }
 
 impl Default for UiState {
@@ -76,6 +80,10 @@ impl Default for UiState {
             mod_lfo_view: false,
             mod_lfo_param: 0,
             flash_message: None,
+            name_chars: [0u8; 16],
+            name_cursor: 0,
+            name_len: 0,
+            pattern_context: false,
         }
     }
 }

@@ -22,7 +22,6 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         layout::EDIT_HEADER_H,
         colors::STATUS_BAR,
     );
-
     let mut hdr_buf = [0u8; 16];
     let hdr_str = draw::fmt_buf(&mut hdr_buf, format_args!("ROUTE O{}", output_idx + 1));
     draw::text(
@@ -34,6 +33,8 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     );
 
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
+    let avail_h = layout::CONTENT_H - layout::EDIT_HEADER_H - layout::EDIT_FOOTER_H;
+    let row_h = avail_h / 4;
 
     let rows: [(&str, u8, Option<&str>); 4] = [
         ("GATE", routing.gate, None),
@@ -43,44 +44,37 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             "MOD",
             routing.modulation,
             Some(match routing.mod_source {
-                ModSource::Seq => "SEQ",
+                ModSource::Seq => "MOD",
                 ModSource::Lfo => "LFO",
             }),
         ),
     ];
 
     for (i, (label, source, suffix)) in rows.iter().enumerate() {
-        let y = grid_y + i as i32 * layout::ROW_H as i32 * 2;
+        let y = grid_y + i as i32 * row_h as i32;
         let is_sel = ui.route_param as usize == i;
         let source_color = colors::TRACK[*source as usize];
 
         if is_sel {
-            draw::fill_rect(
-                display,
-                0,
-                y,
-                layout::LCD_W,
-                layout::ROW_H * 2,
-                colors::SELECTED_ROW,
-            );
+            draw::fill_rect(display, 0, y, layout::LCD_W, row_h, colors::SELECTED_ROW);
         }
 
-        // Cursor
-        if is_sel {
-            draw::text(display, layout::PAD as i32, y + 12, ">", colors::TEXT_BRIGHT);
-        }
+        // Cursor (unicode-style arrow)
+        let cursor_color = if is_sel { colors::TEXT_BRIGHT } else { colors::LCD_BG };
+        draw::text(display, layout::PAD as i32, y + row_h as i32 / 2 - 5, ">", cursor_color);
 
         // Label
-        draw::text(
-            display,
-            layout::PAD as i32 + 14,
-            y + 12,
-            label,
-            colors::TEXT_DIM,
-        );
+        let label_color = if is_sel { colors::TEXT } else { colors::TEXT_DIM };
+        draw::text(display, layout::PAD as i32 + 14, y + row_h as i32 / 2 - 5, label, label_color);
 
         // Arrow
-        draw::text_center(display, layout::LCD_W as i32 / 2, y + 12, "<-", colors::TEXT_DIM);
+        draw::text_center(
+            display,
+            layout::LCD_W as i32 / 2,
+            y + row_h as i32 / 2 - 5,
+            "<-",
+            colors::TEXT_DIM,
+        );
 
         // Source track
         let mut src_buf = [0u8; 16];
@@ -91,7 +85,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         draw::text_right(
             display,
             layout::LCD_W as i32 - layout::PAD as i32,
-            y + 12,
+            y + row_h as i32 / 2 - 5,
             src_str,
             source_color,
         );

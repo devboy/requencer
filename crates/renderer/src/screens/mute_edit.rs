@@ -3,7 +3,7 @@ use requencer_engine::types::SequencerState;
 
 use crate::{colors, draw, layout, types::UiState};
 
-/// Render the mute edit screen: 4 rows × 16 columns showing all mute patterns.
+/// Render the mute edit screen: 4 rows x 16 columns showing all mute patterns.
 pub fn render<D: DrawTarget<Color = Rgb565>>(
     display: &mut D,
     state: &SequencerState,
@@ -29,7 +29,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
     let avail_h = layout::CONTENT_H - layout::EDIT_HEADER_H - layout::EDIT_FOOTER_H;
     let row_h = avail_h / 4;
-    let step_w = (layout::LCD_W - 28) / 16; // 28 = label area
+    let step_w = (layout::LCD_W - 28) / 16;
 
     for track_idx in 0..4usize {
         let mute = &state.mute_patterns[track_idx];
@@ -37,6 +37,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         let dim = colors::TRACK_DIM[track_idx];
         let is_selected_track = ui.selected_track as usize == track_idx;
         let y = grid_y + track_idx as i32 * row_h as i32;
+
+        // Selected track row highlight
+        if is_selected_track {
+            draw::fill_rect(display, 0, y, layout::LCD_W, row_h, dim);
+        }
 
         // Track label
         let label = match track_idx {
@@ -61,9 +66,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let cell_h = row_h - 4;
             let cy = y + 2;
 
-            let c = if is_playhead {
-                colors::PLAYHEAD
-            } else if muted {
+            let c = if muted {
                 colors::STEP_MUTED
             } else if is_selected_track {
                 color
@@ -71,6 +74,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                 dim
             };
             draw::fill_rect(display, x + 1, cy, step_w - 2, cell_h, c);
+
+            // Playhead outline stroke
+            if is_playhead {
+                draw::stroke_rect(display, x, cy - 1, step_w, cell_h + 2, colors::PLAYHEAD);
+            }
         }
 
         // Separator

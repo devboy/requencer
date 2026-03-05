@@ -176,6 +176,35 @@ pub fn fmt_buf<'a>(buf: &'a mut [u8; 16], args: core::fmt::Arguments<'_>) -> &'a
     core::str::from_utf8(&buf[..len]).unwrap_or("")
 }
 
+/// Draw a vertical scroll bar on the right edge.
+pub fn scroll_bar<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    y: i32,
+    height: u32,
+    scroll: usize,
+    total: usize,
+    visible: usize,
+    color: Rgb565,
+) {
+    if total <= visible {
+        return;
+    }
+    let thumb_h = (height * visible as u32 / total as u32).max(8);
+    let thumb_y = y + (scroll as u32 * height / total as u32) as i32;
+    fill_rect(display, layout::LCD_W as i32 - 3, thumb_y, 2, thumb_h, color);
+}
+
+/// Draw a playhead indicator bar (2px wide white bar at bottom of cell).
+pub fn playhead_bar<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+) {
+    fill_rect(display, x + 1, y + h as i32 - 2, w - 2, 2, crate::colors::PLAYHEAD);
+}
+
 /// Small no_std write cursor for formatting into a fixed buffer.
 pub struct WriteCursor<'a> {
     buf: &'a mut [u8],

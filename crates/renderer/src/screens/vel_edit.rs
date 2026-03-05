@@ -33,6 +33,21 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         color,
     );
 
+    // Selected step velocity value
+    let sel = ui.selected_step as usize;
+    if sel < track.velocity.steps.len() {
+        let vel = track.velocity.steps[sel];
+        let mut info_buf = [0u8; 16];
+        let info = draw::format_u16(vel as u16, &mut info_buf);
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 9,
+            info,
+            colors::TEXT_BRIGHT,
+        );
+    }
+
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
 
     for row in 0..2u32 {
@@ -57,7 +72,13 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 
             // Velocity bar
-            let bar_color = if gate_on { color } else { dim };
+            let bar_color = if is_selected {
+                colors::TEXT_BRIGHT
+            } else if gate_on {
+                color
+            } else {
+                dim
+            };
             let bar_h = ((vel as u32) * (cell_h - 16)) / 127;
             let bar_y = y + (cell_h as i32 - bar_h as i32 - 4);
             draw::fill_rect(display, x + 2, bar_y, cell_w - 4, bar_h.max(1), bar_color);
@@ -72,6 +93,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                 vel_str,
                 if gate_on { colors::TEXT } else { colors::TEXT_DIM },
             );
+
+            // Playhead indicator
+            if is_playhead {
+                draw::playhead_bar(display, x, y, cell_w, cell_h);
+            }
 
             if is_selected {
                 draw::stroke_rect(display, x, y, cell_w, cell_h, colors::TEXT_BRIGHT);

@@ -26,25 +26,37 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     // Clear display
     draw::fill_screen(display, colors::BG);
 
-    // Status bar
+    // Status bar — include track indicator for per-track screens
+    let t = ui.selected_track + 1;
+    let mut hdr_buf = [0u8; 16];
     let status_left = match ui.mode {
         ScreenMode::Home => "HOME",
-        ScreenMode::GateEdit => "GATE",
-        ScreenMode::PitchEdit => "PITCH",
-        ScreenMode::VelEdit => "VEL",
+        ScreenMode::GateEdit => draw::fmt_buf(&mut hdr_buf, format_args!("GATE \u{2014} T{}", t)),
+        ScreenMode::PitchEdit => draw::fmt_buf(&mut hdr_buf, format_args!("PITCH \u{2014} T{}", t)),
+        ScreenMode::VelEdit => draw::fmt_buf(&mut hdr_buf, format_args!("VEL \u{2014} T{}", t)),
         ScreenMode::ModEdit => {
-            if ui.mod_lfo_view { "LFO" } else { "MOD" }
+            if ui.mod_lfo_view {
+                draw::fmt_buf(&mut hdr_buf, format_args!("MOD LFO \u{2014} T{}", t))
+            } else {
+                draw::fmt_buf(&mut hdr_buf, format_args!("MOD \u{2014} T{}", t))
+            }
         }
-        ScreenMode::MuteEdit => "MUTE",
-        ScreenMode::Route => "ROUTE",
-        ScreenMode::Rand => "RAND",
-        ScreenMode::MutateEdit => "DRIFT",
-        ScreenMode::TransposeEdit => "XPOSE",
-        ScreenMode::VariationEdit => "VAR",
+        ScreenMode::MuteEdit => draw::fmt_buf(&mut hdr_buf, format_args!("MUTE \u{2014} T{}", t)),
+        ScreenMode::Route => draw::fmt_buf(&mut hdr_buf, format_args!("ROUTE \u{2014} O{}", t)),
+        ScreenMode::Rand => draw::fmt_buf(&mut hdr_buf, format_args!("RAND \u{2014} T{}", t)),
+        ScreenMode::MutateEdit => draw::fmt_buf(&mut hdr_buf, format_args!("DRIFT \u{2014} T{}", t)),
+        ScreenMode::TransposeEdit => draw::fmt_buf(&mut hdr_buf, format_args!("XPOSE \u{2014} T{}", t)),
+        ScreenMode::VariationEdit => draw::fmt_buf(&mut hdr_buf, format_args!("VAR \u{2014} T{}", t)),
         ScreenMode::Settings => "SETTINGS",
-        ScreenMode::Pattern => "PATTERN",
+        ScreenMode::Pattern => draw::fmt_buf(&mut hdr_buf, format_args!("PATTERN T{}", t)),
         ScreenMode::PatternLoad => "LOAD",
-        ScreenMode::NameEntry => "NAME",
+        ScreenMode::NameEntry => {
+            if ui.pattern_context {
+                draw::fmt_buf(&mut hdr_buf, format_args!("SAVE T{} PAT", t))
+            } else {
+                "SAVE PRESET"
+            }
+        }
     };
     draw::status_bar(display, status_left, state.transport.bpm, state.transport.playing);
 

@@ -23,18 +23,36 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         colors::STATUS_BAR,
     );
 
+    // Left: VAR ON/OFF
     let enabled_str = if var.enabled { "VAR ON" } else { "VAR OFF" };
     draw::text(
         display,
         layout::PAD as i32,
-        layout::CONTENT_Y as i32 + 9,
+        layout::CONTENT_Y as i32 + 4,
         enabled_str,
-        if var.enabled { color } else { colors::TEXT_DIM },
+        if var.enabled { colors::PLAY_GREEN } else { colors::TEXT_DIM },
     );
+
+    // Right: loop/bars info
+    {
+        let mut buf = [0u8; 16];
+        let info = if var.length <= 1 {
+            "1 bar"
+        } else {
+            draw::fmt_buf(&mut buf, format_args!("{} bars", var.length))
+        };
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 9,
+            info,
+            colors::TEXT_DIM,
+        );
+    }
 
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
 
-    // Bar grid: 2 rows × 8 cols
+    // Bar grid: 2 rows x 8 cols
     let cell_w = (layout::LCD_W - layout::PAD * 2) / 8;
     let cell_h: u32 = 28;
 
@@ -47,7 +65,8 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let x = layout::PAD as i32 + col as i32 * cell_w as i32;
             let y = grid_y + row as i32 * cell_h as i32;
             let is_current = var.current_bar as usize == bar_idx;
-            let is_selected = ui.var_selected_bar >= 0 && ui.var_selected_bar as usize == bar_idx;
+            let is_selected =
+                ui.var_selected_bar >= 0 && ui.var_selected_bar as usize == bar_idx;
             let slot = &var.slots[bar_idx];
             let has_transforms = !slot.transforms.is_empty();
 
@@ -58,27 +77,28 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             };
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 
-            // Bar number
+            // Bar number — green when playing
             let mut buf = [0u8; 16];
             let bar_str = draw::format_u16(bar_idx as u16 + 1, &mut buf);
-            draw::text_center(
-                display,
-                x + cell_w as i32 / 2,
-                y + 4,
-                bar_str,
-                if has_transforms { color } else { colors::TEXT_DIM },
-            );
+            let num_color = if is_current && var.enabled {
+                colors::PLAY_GREEN
+            } else if has_transforms {
+                color
+            } else {
+                colors::TEXT_DIM
+            };
+            draw::text_center(display, x + cell_w as i32 / 2, y + 3, bar_str, num_color);
 
-            // Transform count dot
+            // Transform count indicator
             if has_transforms {
                 let count = slot.transforms.len() as u32;
-                let dot_w = (count * 4).min(cell_w - 6);
-                draw::fill_rect(
+                let mut cnt_buf = [0u8; 16];
+                let cnt_str = draw::format_u16(count as u16, &mut cnt_buf);
+                draw::text_center(
                     display,
-                    x + (cell_w as i32 - dot_w as i32) / 2,
-                    y + cell_h as i32 - 5,
-                    dot_w,
-                    2,
+                    x + cell_w as i32 / 2,
+                    y + cell_h as i32 - 12,
+                    cnt_str,
                     color,
                 );
             }
@@ -89,31 +109,48 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         }
     }
 
-    // Transform stack (below grid, if a bar is selected)
+    // Transform list (below grid — shows all non-empty bars as summary)
     let stack_y = grid_y + 2 * cell_h as i32 + 4;
 
     if ui.var_selected_bar >= 0 {
+        // Selected bar detail mode
         let bar_idx = ui.var_selected_bar as usize;
         if bar_idx < var.slots.len() {
             let slot = &var.slots[bar_idx];
 
             for (i, t) in slot.transforms.iter().enumerate() {
                 let y = stack_y + i as i32 * layout::ROW_H as i32;
+                if y + layout::ROW_H as i32
+                    > layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32
+                {
+                    break;
+                }
                 let is_cursor = ui.var_cursor as usize == i;
 
                 if is_cursor {
-                    draw::fill_rect(display, 0, y, layout::LCD_W, layout::ROW_H, colors::SELECTED_ROW);
+                    draw::fill_rect(
+                        display,
+                        0,
+                        y,
+                        layout::LCD_W,
+                        layout::ROW_H,
+                        colors::SELECTED_ROW,
+                    );
+                    draw::text(display, layout::PAD as i32, y + 7, ">", colors::TEXT_BRIGHT);
                 }
 
                 // Transform number + name
                 let mut t_buf = [0u8; 16];
-                let t_str = draw::fmt_buf(&mut t_buf, format_args!("{}. {}", i + 1, transform_name(t.transform_type)));
-                draw::text(display, layout::PAD as i32 + 4, y + 7, t_str, colors::TEXT);
+                let t_str = draw::fmt_buf(
+                    &mut t_buf,
+                    format_args!("{}. {}", i + 1, transform_name(t.transform_type)),
+                );
+                draw::text(display, layout::PAD as i32 + 14, y + 7, t_str, colors::TEXT);
 
-                // Parameter
+                // Parameter with context
                 if t.param != 0 {
                     let mut p_buf = [0u8; 16];
-                    let p_str = draw::format_i32(t.param, &mut p_buf);
+                    let p_str = format_transform_param(t.transform_type, t.param, &mut p_buf);
                     draw::text_right(
                         display,
                         layout::LCD_W as i32 - layout::PAD as i32,
@@ -123,6 +160,79 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                     );
                 }
             }
+
+            // "Add" slot if room
+            let add_y = stack_y + slot.transforms.len() as i32 * layout::ROW_H as i32;
+            if add_y + layout::ROW_H as i32
+                <= layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32
+            {
+                let is_add_cursor = ui.var_cursor as usize == slot.transforms.len();
+                if is_add_cursor {
+                    draw::fill_rect(
+                        display,
+                        0,
+                        add_y,
+                        layout::LCD_W,
+                        layout::ROW_H,
+                        colors::SELECTED_ROW,
+                    );
+                }
+                draw::text_center(
+                    display,
+                    layout::LCD_W as i32 / 2,
+                    add_y + 7,
+                    "+ ADD",
+                    colors::TEXT_DIM,
+                );
+            }
+        }
+    } else {
+        // Overview: show summary for bars that have transforms
+        let mut line = 0i32;
+        for bar_idx in 0..var.length as usize {
+            if bar_idx >= var.slots.len() {
+                break;
+            }
+            let slot = &var.slots[bar_idx];
+            if slot.transforms.is_empty() {
+                continue;
+            }
+            let y = stack_y + line * layout::ROW_H as i32;
+            if y + layout::ROW_H as i32 > layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32 {
+                break;
+            }
+
+            let is_current = var.current_bar as usize == bar_idx && var.enabled;
+
+            // Bar number
+            let mut num_buf = [0u8; 16];
+            let num_str = draw::fmt_buf(&mut num_buf, format_args!("{}:", bar_idx + 1));
+            draw::text(
+                display,
+                layout::PAD as i32,
+                y + 7,
+                num_str,
+                if is_current { colors::PLAY_GREEN } else { colors::TEXT_DIM },
+            );
+
+            // Transform names joined
+            let mut names_buf = [0u8; 16];
+            let mut pos = 0usize;
+            for (ti, t) in slot.transforms.iter().enumerate() {
+                if ti > 0 && pos + 1 < names_buf.len() {
+                    names_buf[pos] = b'+';
+                    pos += 1;
+                }
+                let tname = transform_name(t.transform_type);
+                let bytes = tname.as_bytes();
+                let copylen = bytes.len().min(names_buf.len() - pos);
+                names_buf[pos..pos + copylen].copy_from_slice(&bytes[..copylen]);
+                pos += copylen;
+            }
+            let names_str = core::str::from_utf8(&names_buf[..pos]).unwrap_or("");
+            draw::text(display, layout::PAD as i32 + 24, y + 7, names_str, color);
+
+            line += 1;
         }
     }
 
@@ -166,5 +276,20 @@ fn transform_name(t: TransformType) -> &'static str {
         TransformType::FadeIn => "FD>",
         TransformType::FadeOut => "FD<",
         TransformType::Humanize => "HUMN",
+    }
+}
+
+fn format_transform_param(t: TransformType, param: i32, buf: &mut [u8; 16]) -> &str {
+    match t {
+        TransformType::Rotate | TransformType::Skip => {
+            draw::fmt_buf(buf, format_args!("{} steps", param))
+        }
+        TransformType::Transpose | TransformType::OctaveShift => {
+            draw::fmt_buf(buf, format_args!("{} st", param))
+        }
+        TransformType::Thin | TransformType::Densify | TransformType::FadeIn | TransformType::FadeOut | TransformType::Humanize => {
+            draw::fmt_buf(buf, format_args!("{}%", param))
+        }
+        _ => draw::format_i32(param, buf),
     }
 }

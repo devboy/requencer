@@ -13,7 +13,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     let cfg = &state.mutate_configs[track_idx];
     let color = colors::TRACK[track_idx];
 
-    // Header
+    // Header with trigger/bars info
     draw::fill_rect(
         display,
         0,
@@ -29,6 +29,24 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         "DRIFT",
         color,
     );
+
+    // Header right: trigger mode + bars
+    {
+        let mut buf = [0u8; 16];
+        let info = match cfg.trigger {
+            MutateTrigger::Loop => "LOOP",
+            MutateTrigger::Bars => {
+                draw::fmt_buf(&mut buf, format_args!("{} bars", cfg.bars))
+            }
+        };
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 9,
+            info,
+            colors::TEXT_DIM,
+        );
+    }
 
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
     let row_h = 36i32;
@@ -53,20 +71,18 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
 
         draw::text(display, layout::PAD as i32 + 14, y + 13, label, colors::TEXT);
 
-        // Rate bar background
+        // Rate bar
         let bar_x = layout::PAD as i32 + 70;
-        draw::fill_rect(display, bar_x, y + 8, bar_w, 16, colors::BUTTON_BG);
-
-        // Rate bar fill
+        draw::fill_rect(display, bar_x, y + 10, bar_w, 16, colors::BUTTON_BG);
         if *rate > 0.0 {
             let fill_w = (*rate * bar_w as f32) as u32;
-            draw::fill_rect(display, bar_x, y + 8, fill_w.max(1), 16, color);
+            draw::fill_rect(display, bar_x, y + 10, fill_w.max(1), 16, color);
         }
 
         // Percentage text
         let mut buf = [0u8; 16];
         if *rate > 0.0 {
-            let pct_str = draw::format_f32_1(*rate * 100.0, &mut buf);
+            let pct_str = draw::fmt_buf(&mut buf, format_args!("{}%", (*rate * 100.0) as u16));
             draw::text_right(
                 display,
                 layout::LCD_W as i32 - layout::PAD as i32,
@@ -105,7 +121,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         color,
     );
 
-    // Bars/loops count row
+    // Bars/loops count row with semantic units
     let bars_y = grid_y + 5 * row_h;
     let is_bars_sel = ui.mutate_param == 5;
     if is_bars_sel {
@@ -114,7 +130,17 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     }
     draw::text(display, layout::PAD as i32 + 14, bars_y + 13, "EVERY", colors::TEXT);
     let mut bars_buf = [0u8; 16];
-    let bars_str = draw::format_u16(cfg.bars as u16, &mut bars_buf);
+    let bars_str = if cfg.bars == 1 {
+        match cfg.trigger {
+            MutateTrigger::Loop => "1 loop",
+            MutateTrigger::Bars => "1 bar",
+        }
+    } else {
+        match cfg.trigger {
+            MutateTrigger::Loop => draw::fmt_buf(&mut bars_buf, format_args!("{} loops", cfg.bars)),
+            MutateTrigger::Bars => draw::fmt_buf(&mut bars_buf, format_args!("{} bars", cfg.bars)),
+        }
+    };
     draw::text_right(
         display,
         layout::LCD_W as i32 - layout::PAD as i32,

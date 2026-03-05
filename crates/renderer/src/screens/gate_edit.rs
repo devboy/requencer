@@ -28,21 +28,56 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     draw::text(
         display,
         layout::PAD as i32,
-        layout::CONTENT_Y as i32 + 9,
+        layout::CONTENT_Y as i32 + 4,
         "GATE",
         color,
     );
 
-    // Length / divider info
-    let mut buf = [0u8; 16];
-    let len_str = draw::format_u16(track.gate.length as u16, &mut buf);
-    draw::text_right(
-        display,
-        layout::LCD_W as i32 - layout::PAD as i32,
-        layout::CONTENT_Y as i32 + 9,
-        len_str,
-        colors::TEXT_DIM,
-    );
+    // Selected step info line (GL%, R:x, page)
+    let sel = ui.selected_step as usize;
+    if sel < track.gate.steps.len() {
+        let step = &track.gate.steps[sel];
+        let mut info_buf = [0u8; 16];
+        let gl_pct = (step.length * 100.0) as u16;
+        let info = draw::fmt_buf(&mut info_buf, format_args!("GL:{}% R:{}", gl_pct, step.ratchet));
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 4,
+            info,
+            colors::TEXT_DIM,
+        );
+    }
+
+    // Length + divider + page
+    {
+        let mut buf = [0u8; 16];
+        let total_pages = (track.gate.length as u16).div_ceil(16);
+        let s = if track.gate.clock_divider > 1 {
+            draw::fmt_buf(
+                &mut buf,
+                format_args!(
+                    "L{} /{} P{}/{}",
+                    track.gate.length,
+                    track.gate.clock_divider,
+                    ui.current_page + 1,
+                    total_pages
+                ),
+            )
+        } else {
+            draw::fmt_buf(
+                &mut buf,
+                format_args!("L{} P{}/{}", track.gate.length, ui.current_page + 1, total_pages),
+            )
+        };
+        draw::text_right(
+            display,
+            layout::LCD_W as i32 - layout::PAD as i32,
+            layout::CONTENT_Y as i32 + 14,
+            s,
+            colors::TEXT_DIM,
+        );
+    }
 
     // Step grid: 2 rows x 8 cols
     let grid_y = layout::CONTENT_Y as i32 + layout::EDIT_HEADER_H as i32;
@@ -74,23 +109,21 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                 let fill_y = y + (cell_h as i32 - fill_h as i32 - 2);
                 draw::fill_rect(display, x + 2, fill_y, cell_w - 4, fill_h, color);
 
-                // Ratchet indicator (dots at top)
+                // Ratchet tick marks (horizontal dividing lines across the bar)
                 if step.ratchet > 1 {
-                    for r in 0..step.ratchet.min(4) {
-                        let dot_x = x + 3 + r as i32 * 4;
-                        draw::fill_rect(display, dot_x, y + 2, 2, 2, colors::TEXT_BRIGHT);
+                    for r in 1..step.ratchet.min(4) {
+                        let tick_y = fill_y + (fill_h as i32 * r as i32) / step.ratchet as i32;
+                        draw::fill_rect(display, x + 2, tick_y, cell_w - 4, 1, colors::LCD_BG);
                     }
                 }
             } else if step.tie {
-                // Tie: horizontal bridge
-                draw::fill_rect(
-                    display,
-                    x,
-                    y + cell_h as i32 / 2 - 2,
-                    cell_w,
-                    4,
-                    dim,
-                );
+                // Tie: horizontal bar
+                draw::fill_rect(display, x, y + cell_h as i32 / 2 - 2, cell_w, 4, dim);
+            }
+
+            // Playhead indicator
+            if is_playhead {
+                draw::playhead_bar(display, x, y, cell_w, cell_h);
             }
 
             // Selection outline
@@ -100,7 +133,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         }
     }
 
-    // Footer: page info
+    // Footer
     let footer_y = layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32;
     draw::fill_rect(
         display,
@@ -109,14 +142,5 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         layout::LCD_W,
         layout::EDIT_FOOTER_H,
         colors::STATUS_BAR,
-    );
-    let mut page_buf = [0u8; 16];
-    let page_str = draw::format_u16(ui.current_page as u16 + 1, &mut page_buf);
-    draw::text_center(
-        display,
-        layout::LCD_W as i32 / 2,
-        footer_y + 6,
-        page_str,
-        colors::TEXT_DIM,
     );
 }
