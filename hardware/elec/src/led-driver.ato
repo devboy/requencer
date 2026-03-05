@@ -47,24 +47,24 @@ module LEDDriverChain:
 
     # Bypass caps
     c1 = new Capacitor
-    c1.value = 100nF +/- 20%
-    c1.p1 ~ vcc
-    c1.p2 ~ gnd
+    c1.capacitance = 100nF +/- 20%
+    c1.unnamed[0] ~ vcc
+    c1.unnamed[1] ~ gnd
 
     c2 = new Capacitor
-    c2.value = 100nF +/- 20%
-    c2.p1 ~ vcc
-    c2.p2 ~ gnd
+    c2.capacitance = 100nF +/- 20%
+    c2.unnamed[0] ~ vcc
+    c2.unnamed[1] ~ gnd
 
     c3 = new Capacitor
-    c3.value = 100nF +/- 20%
-    c3.p1 ~ vcc
-    c3.p2 ~ gnd
+    c3.capacitance = 100nF +/- 20%
+    c3.unnamed[0] ~ vcc
+    c3.unnamed[1] ~ gnd
 
     c4 = new Capacitor
-    c4.value = 100nF +/- 20%
-    c4.p1 ~ vcc
-    c4.p2 ~ gnd
+    c4.capacitance = 100nF +/- 20%
+    c4.unnamed[0] ~ vcc
+    c4.unnamed[1] ~ gnd
 
     # Shared control lines
     tlc1.XLAT ~ xlat
@@ -93,24 +93,24 @@ module LEDDriverChain:
     # For 20mA: R_iref = 39.06 / 0.020 = 1953Ω ≈ 2kΩ (standard value → ~19.5mA)
     # Using 1.96kΩ (closest 1%) for ~20mA
     r_iref1 = new Resistor
-    r_iref1.value = 2kohm +/- 1%
-    r_iref1.p1 ~ tlc1.IREF
-    r_iref1.p2 ~ gnd
+    r_iref1.resistance = 2kohm +/- 1%
+    r_iref1.unnamed[0] ~ tlc1.IREF
+    r_iref1.unnamed[1] ~ gnd
 
     r_iref2 = new Resistor
-    r_iref2.value = 2kohm +/- 1%
-    r_iref2.p1 ~ tlc2.IREF
-    r_iref2.p2 ~ gnd
+    r_iref2.resistance = 2kohm +/- 1%
+    r_iref2.unnamed[0] ~ tlc2.IREF
+    r_iref2.unnamed[1] ~ gnd
 
     r_iref3 = new Resistor
-    r_iref3.value = 2kohm +/- 1%
-    r_iref3.p1 ~ tlc3.IREF
-    r_iref3.p2 ~ gnd
+    r_iref3.resistance = 2kohm +/- 1%
+    r_iref3.unnamed[0] ~ tlc3.IREF
+    r_iref3.unnamed[1] ~ gnd
 
     r_iref4 = new Resistor
-    r_iref4.value = 2kohm +/- 1%
-    r_iref4.p1 ~ tlc4.IREF
-    r_iref4.p2 ~ gnd
+    r_iref4.resistance = 2kohm +/- 1%
+    r_iref4.unnamed[0] ~ tlc4.IREF
+    r_iref4.unnamed[1] ~ gnd
 
     # Note: LED cathode connections (TLC output pins → button LED cathodes)
     # are wired in the top-level requencer.ato since they cross between

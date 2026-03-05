@@ -23,16 +23,16 @@ module MIDIInterface:
     jack_out = new PJ398SM
 
     r_out_tip = new Resistor
-    r_out_tip.value = 220ohm +/- 5%
+    r_out_tip.resistance = 220ohm +/- 5%
 
     r_out_ring = new Resistor
-    r_out_ring.value = 220ohm +/- 5%
+    r_out_ring.resistance = 220ohm +/- 5%
 
     uart_tx ~ r_out_tip.p1
-    r_out_tip.p2 ~ jack_out.TIP
+    r_out_tip.unnamed[1] ~ jack_out.TIP
 
     vcc ~ r_out_ring.p1
-    r_out_ring.p2 ~ jack_out.SLEEVE  # Note: TRS Type A ring=pin2
+    r_out_ring.unnamed[1] ~ jack_out.SLEEVE  # Note: TRS Type A ring=pin2
 
     jack_out.SWITCH ~ gnd  # Sleeve to GND (unused switch contact)
 
@@ -46,19 +46,19 @@ module MIDIInterface:
     d_protect = new Diode
 
     r_in = new Resistor
-    r_in.value = 220ohm +/- 5%
+    r_in.resistance = 220ohm +/- 5%
 
     # Optocoupler output pull-up
     r_pullup = new Resistor
-    r_pullup.value = 470ohm +/- 5%
+    r_pullup.resistance = 470ohm +/- 5%
 
     # Optocoupler base resistor
     r_base = new Resistor
-    r_base.value = 4.7kohm +/- 5%
+    r_base.resistance = 4.7kohm +/- 5%
 
     # Input circuit: TRS tip → 220Ω → diode → opto LED
     jack_in.TIP ~ r_in.p1
-    r_in.p2 ~ opto.ANODE
+    r_in.unnamed[1] ~ opto.ANODE
     opto.CATHODE ~ jack_in.SLEEVE  # Ring carries return current
 
     # Protection diode across opto LED (reverse biased in normal operation)
@@ -73,15 +73,15 @@ module MIDIInterface:
 
     # VE (base) to GND via resistor for proper biasing
     opto.VE ~ r_base.p1
-    r_base.p2 ~ gnd
+    r_base.unnamed[1] ~ gnd
 
     # VO (collector) pulled up to VCC, output to UART RX
-    r_pullup.p1 ~ vcc
-    r_pullup.p2 ~ opto.VO
+    r_pullup.unnamed[0] ~ vcc
+    r_pullup.unnamed[1] ~ opto.VO
     opto.VO ~ uart_rx
 
     # Bypass cap on opto power
     c_opto = new Capacitor
-    c_opto.value = 100nF +/- 20%
-    c_opto.p1 ~ vcc
-    c_opto.p2 ~ gnd
+    c_opto.capacitance = 100nF +/- 20%
+    c_opto.unnamed[0] ~ vcc
+    c_opto.unnamed[1] ~ gnd

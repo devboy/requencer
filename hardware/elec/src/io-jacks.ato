@@ -123,19 +123,19 @@ module IOJacks:
     q_clk = new _2N3904
 
     r_base = new Resistor
-    r_base.value = 1kohm +/- 5%
+    r_base.resistance = 1kohm +/- 5%
 
     r_collector = new Resistor
-    r_collector.value = 1kohm +/- 5%
+    r_collector.resistance = 1kohm +/- 5%
 
     # NPN common-emitter: GPIO high → transistor ON → output pulled to GND
     # Inverted logic (firmware accounts for inversion), or use as open-collector
     # with pull-up to 5V
     clk_out_gpio ~ r_base.p1
-    r_base.p2 ~ q_clk.BASE
+    r_base.unnamed[1] ~ q_clk.BASE
     q_clk.EMITTER ~ gnd
     v5v ~ r_collector.p1
-    r_collector.p2 ~ q_clk.COLLECTOR
+    r_collector.unnamed[1] ~ q_clk.COLLECTOR
     q_clk.COLLECTOR ~ j_clk_out.TIP
     j_clk_out.SLEEVE ~ gnd
 

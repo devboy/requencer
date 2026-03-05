@@ -29,22 +29,22 @@ module DisplayConnector:
 
     # Gate resistor (limits inrush)
     r_gate = new Resistor
-    r_gate.value = 100ohm +/- 5%
+    r_gate.resistance = 100ohm +/- 5%
 
     # Gate pull-down (ensure backlight off when MCU pin is floating)
     r_pulldown = new Resistor
-    r_pulldown.value = 100kohm +/- 5%
+    r_pulldown.resistance = 100kohm +/- 5%
 
     bl_ctrl ~ r_gate.p1
-    r_gate.p2 ~ q_bl.gate
-    r_pulldown.p1 ~ q_bl.gate
-    r_pulldown.p2 ~ gnd
+    r_gate.unnamed[1] ~ q_bl.gate
+    r_pulldown.unnamed[0] ~ q_bl.gate
+    r_pulldown.unnamed[1] ~ gnd
 
     q_bl.source ~ gnd
     # q_bl.drain connects to LCD backlight cathode pin on the header
 
     # Bypass cap for LCD power
     c_lcd = new Capacitor
-    c_lcd.value = 100nF +/- 20%
-    c_lcd.p1 ~ vcc
-    c_lcd.p2 ~ gnd
+    c_lcd.capacitance = 100nF +/- 20%
+    c_lcd.unnamed[0] ~ vcc
+    c_lcd.unnamed[1] ~ gnd

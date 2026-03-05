@@ -48,14 +48,14 @@ module PowerSupply:
 
     # --- Bulk decoupling on raw rails ---
     c_bulk_12p = new Capacitor
-    c_bulk_12p.value = 10uF +/- 20%
-    c_bulk_12p.p1 ~ v12p
-    c_bulk_12p.p2 ~ gnd
+    c_bulk_12p.capacitance = 10uF +/- 20%
+    c_bulk_12p.unnamed[0] ~ v12p
+    c_bulk_12p.unnamed[1] ~ gnd
 
     c_bulk_12n = new Capacitor
-    c_bulk_12n.value = 10uF +/- 20%
-    c_bulk_12n.p1 ~ gnd
-    c_bulk_12n.p2 ~ v12n
+    c_bulk_12n.capacitance = 10uF +/- 20%
+    c_bulk_12n.unnamed[0] ~ gnd
+    c_bulk_12n.unnamed[1] ~ v12n
 
     # --- +5V Regulator (AZ1117-5.0) ---
     reg_5v = new AZ1117_5V0
@@ -65,19 +65,19 @@ module PowerSupply:
     reg_5v.VOUT ~ v5v
 
     c_5v_in = new Capacitor
-    c_5v_in.value = 100nF +/- 20%
-    c_5v_in.p1 ~ v12p
-    c_5v_in.p2 ~ gnd
+    c_5v_in.capacitance = 100nF +/- 20%
+    c_5v_in.unnamed[0] ~ v12p
+    c_5v_in.unnamed[1] ~ gnd
 
     c_5v_out = new Capacitor
-    c_5v_out.value = 10uF +/- 20%
-    c_5v_out.p1 ~ v5v
-    c_5v_out.p2 ~ gnd
+    c_5v_out.capacitance = 10uF +/- 20%
+    c_5v_out.unnamed[0] ~ v5v
+    c_5v_out.unnamed[1] ~ gnd
 
     c_5v_out_hf = new Capacitor
-    c_5v_out_hf.value = 100nF +/- 20%
-    c_5v_out_hf.p1 ~ v5v
-    c_5v_out_hf.p2 ~ gnd
+    c_5v_out_hf.capacitance = 100nF +/- 20%
+    c_5v_out_hf.unnamed[0] ~ v5v
+    c_5v_out_hf.unnamed[1] ~ gnd
 
     # --- +3.3V Regulator (AMS1117-3.3) ---
     reg_3v3 = new AMS1117_3V3
@@ -87,19 +87,19 @@ module PowerSupply:
     reg_3v3.VOUT ~ v3v3
 
     c_3v3_in = new Capacitor
-    c_3v3_in.value = 100nF +/- 20%
-    c_3v3_in.p1 ~ v12p
-    c_3v3_in.p2 ~ gnd
+    c_3v3_in.capacitance = 100nF +/- 20%
+    c_3v3_in.unnamed[0] ~ v12p
+    c_3v3_in.unnamed[1] ~ gnd
 
     c_3v3_out = new Capacitor
-    c_3v3_out.value = 10uF +/- 20%
-    c_3v3_out.p1 ~ v3v3
-    c_3v3_out.p2 ~ gnd
+    c_3v3_out.capacitance = 10uF +/- 20%
+    c_3v3_out.unnamed[0] ~ v3v3
+    c_3v3_out.unnamed[1] ~ gnd
 
     c_3v3_out_hf = new Capacitor
-    c_3v3_out_hf.value = 100nF +/- 20%
-    c_3v3_out_hf.p1 ~ v3v3
-    c_3v3_out_hf.p2 ~ gnd
+    c_3v3_out_hf.capacitance = 100nF +/- 20%
+    c_3v3_out_hf.unnamed[0] ~ v3v3
+    c_3v3_out_hf.unnamed[1] ~ gnd
 
     # --- Pico VSYS via Schottky ---
     # Schottky diode allows USB power to coexist with eurorack power

@@ -40,24 +40,24 @@ module ButtonScanner:
 
     # Bypass caps
     c1 = new Capacitor
-    c1.value = 100nF +/- 20%
-    c1.p1 ~ vcc
-    c1.p2 ~ gnd
+    c1.capacitance = 100nF +/- 20%
+    c1.unnamed[0] ~ vcc
+    c1.unnamed[1] ~ gnd
 
     c2 = new Capacitor
-    c2.value = 100nF +/- 20%
-    c2.p1 ~ vcc
-    c2.p2 ~ gnd
+    c2.capacitance = 100nF +/- 20%
+    c2.unnamed[0] ~ vcc
+    c2.unnamed[1] ~ gnd
 
     c3 = new Capacitor
-    c3.value = 100nF +/- 20%
-    c3.p1 ~ vcc
-    c3.p2 ~ gnd
+    c3.capacitance = 100nF +/- 20%
+    c3.unnamed[0] ~ vcc
+    c3.unnamed[1] ~ gnd
 
     c4 = new Capacitor
-    c4.value = 100nF +/- 20%
-    c4.p1 ~ vcc
-    c4.p2 ~ gnd
+    c4.capacitance = 100nF +/- 20%
+    c4.unnamed[0] ~ vcc
+    c4.unnamed[1] ~ gnd
 
     # Shared clock and latch
     sr1.CLK ~ clk
@@ -204,161 +204,161 @@ module ButtonScanner:
     # Pull-up resistors (10kΩ) on all 32 shift register inputs
     # Using resistor arrays would be better for PCB, but specifying individually
     r_pu1 = new Resistor
-    r_pu1.value = 10kohm +/- 5%
-    r_pu1.p1 ~ vcc
-    r_pu1.p2 ~ sr1.D0
+    r_pu1.resistance = 10kohm +/- 5%
+    r_pu1.unnamed[0] ~ vcc
+    r_pu1.unnamed[1] ~ sr1.D0
 
     r_pu2 = new Resistor
-    r_pu2.value = 10kohm +/- 5%
-    r_pu2.p1 ~ vcc
-    r_pu2.p2 ~ sr1.D1
+    r_pu2.resistance = 10kohm +/- 5%
+    r_pu2.unnamed[0] ~ vcc
+    r_pu2.unnamed[1] ~ sr1.D1
 
     r_pu3 = new Resistor
-    r_pu3.value = 10kohm +/- 5%
-    r_pu3.p1 ~ vcc
-    r_pu3.p2 ~ sr1.D2
+    r_pu3.resistance = 10kohm +/- 5%
+    r_pu3.unnamed[0] ~ vcc
+    r_pu3.unnamed[1] ~ sr1.D2
 
     r_pu4 = new Resistor
-    r_pu4.value = 10kohm +/- 5%
-    r_pu4.p1 ~ vcc
-    r_pu4.p2 ~ sr1.D3
+    r_pu4.resistance = 10kohm +/- 5%
+    r_pu4.unnamed[0] ~ vcc
+    r_pu4.unnamed[1] ~ sr1.D3
 
     r_pu5 = new Resistor
-    r_pu5.value = 10kohm +/- 5%
-    r_pu5.p1 ~ vcc
-    r_pu5.p2 ~ sr1.D4
+    r_pu5.resistance = 10kohm +/- 5%
+    r_pu5.unnamed[0] ~ vcc
+    r_pu5.unnamed[1] ~ sr1.D4
 
     r_pu6 = new Resistor
-    r_pu6.value = 10kohm +/- 5%
-    r_pu6.p1 ~ vcc
-    r_pu6.p2 ~ sr1.D5
+    r_pu6.resistance = 10kohm +/- 5%
+    r_pu6.unnamed[0] ~ vcc
+    r_pu6.unnamed[1] ~ sr1.D5
 
     r_pu7 = new Resistor
-    r_pu7.value = 10kohm +/- 5%
-    r_pu7.p1 ~ vcc
-    r_pu7.p2 ~ sr1.D6
+    r_pu7.resistance = 10kohm +/- 5%
+    r_pu7.unnamed[0] ~ vcc
+    r_pu7.unnamed[1] ~ sr1.D6
 
     r_pu8 = new Resistor
-    r_pu8.value = 10kohm +/- 5%
-    r_pu8.p1 ~ vcc
-    r_pu8.p2 ~ sr1.D7
+    r_pu8.resistance = 10kohm +/- 5%
+    r_pu8.unnamed[0] ~ vcc
+    r_pu8.unnamed[1] ~ sr1.D7
 
     r_pu9 = new Resistor
-    r_pu9.value = 10kohm +/- 5%
-    r_pu9.p1 ~ vcc
-    r_pu9.p2 ~ sr2.D0
+    r_pu9.resistance = 10kohm +/- 5%
+    r_pu9.unnamed[0] ~ vcc
+    r_pu9.unnamed[1] ~ sr2.D0
 
     r_pu10 = new Resistor
-    r_pu10.value = 10kohm +/- 5%
-    r_pu10.p1 ~ vcc
-    r_pu10.p2 ~ sr2.D1
+    r_pu10.resistance = 10kohm +/- 5%
+    r_pu10.unnamed[0] ~ vcc
+    r_pu10.unnamed[1] ~ sr2.D1
 
     r_pu11 = new Resistor
-    r_pu11.value = 10kohm +/- 5%
-    r_pu11.p1 ~ vcc
-    r_pu11.p2 ~ sr2.D2
+    r_pu11.resistance = 10kohm +/- 5%
+    r_pu11.unnamed[0] ~ vcc
+    r_pu11.unnamed[1] ~ sr2.D2
 
     r_pu12 = new Resistor
-    r_pu12.value = 10kohm +/- 5%
-    r_pu12.p1 ~ vcc
-    r_pu12.p2 ~ sr2.D3
+    r_pu12.resistance = 10kohm +/- 5%
+    r_pu12.unnamed[0] ~ vcc
+    r_pu12.unnamed[1] ~ sr2.D3
 
     r_pu13 = new Resistor
-    r_pu13.value = 10kohm +/- 5%
-    r_pu13.p1 ~ vcc
-    r_pu13.p2 ~ sr2.D4
+    r_pu13.resistance = 10kohm +/- 5%
+    r_pu13.unnamed[0] ~ vcc
+    r_pu13.unnamed[1] ~ sr2.D4
 
     r_pu14 = new Resistor
-    r_pu14.value = 10kohm +/- 5%
-    r_pu14.p1 ~ vcc
-    r_pu14.p2 ~ sr2.D5
+    r_pu14.resistance = 10kohm +/- 5%
+    r_pu14.unnamed[0] ~ vcc
+    r_pu14.unnamed[1] ~ sr2.D5
 
     r_pu15 = new Resistor
-    r_pu15.value = 10kohm +/- 5%
-    r_pu15.p1 ~ vcc
-    r_pu15.p2 ~ sr2.D6
+    r_pu15.resistance = 10kohm +/- 5%
+    r_pu15.unnamed[0] ~ vcc
+    r_pu15.unnamed[1] ~ sr2.D6
 
     r_pu16 = new Resistor
-    r_pu16.value = 10kohm +/- 5%
-    r_pu16.p1 ~ vcc
-    r_pu16.p2 ~ sr2.D7
+    r_pu16.resistance = 10kohm +/- 5%
+    r_pu16.unnamed[0] ~ vcc
+    r_pu16.unnamed[1] ~ sr2.D7
 
     r_pu17 = new Resistor
-    r_pu17.value = 10kohm +/- 5%
-    r_pu17.p1 ~ vcc
-    r_pu17.p2 ~ sr3.D0
+    r_pu17.resistance = 10kohm +/- 5%
+    r_pu17.unnamed[0] ~ vcc
+    r_pu17.unnamed[1] ~ sr3.D0
 
     r_pu18 = new Resistor
-    r_pu18.value = 10kohm +/- 5%
-    r_pu18.p1 ~ vcc
-    r_pu18.p2 ~ sr3.D1
+    r_pu18.resistance = 10kohm +/- 5%
+    r_pu18.unnamed[0] ~ vcc
+    r_pu18.unnamed[1] ~ sr3.D1
 
     r_pu19 = new Resistor
-    r_pu19.value = 10kohm +/- 5%
-    r_pu19.p1 ~ vcc
-    r_pu19.p2 ~ sr3.D2
+    r_pu19.resistance = 10kohm +/- 5%
+    r_pu19.unnamed[0] ~ vcc
+    r_pu19.unnamed[1] ~ sr3.D2
 
     r_pu20 = new Resistor
-    r_pu20.value = 10kohm +/- 5%
-    r_pu20.p1 ~ vcc
-    r_pu20.p2 ~ sr3.D3
+    r_pu20.resistance = 10kohm +/- 5%
+    r_pu20.unnamed[0] ~ vcc
+    r_pu20.unnamed[1] ~ sr3.D3
 
     r_pu21 = new Resistor
-    r_pu21.value = 10kohm +/- 5%
-    r_pu21.p1 ~ vcc
-    r_pu21.p2 ~ sr3.D4
+    r_pu21.resistance = 10kohm +/- 5%
+    r_pu21.unnamed[0] ~ vcc
+    r_pu21.unnamed[1] ~ sr3.D4
 
     r_pu22 = new Resistor
-    r_pu22.value = 10kohm +/- 5%
-    r_pu22.p1 ~ vcc
-    r_pu22.p2 ~ sr3.D5
+    r_pu22.resistance = 10kohm +/- 5%
+    r_pu22.unnamed[0] ~ vcc
+    r_pu22.unnamed[1] ~ sr3.D5
 
     r_pu23 = new Resistor
-    r_pu23.value = 10kohm +/- 5%
-    r_pu23.p1 ~ vcc
-    r_pu23.p2 ~ sr3.D6
+    r_pu23.resistance = 10kohm +/- 5%
+    r_pu23.unnamed[0] ~ vcc
+    r_pu23.unnamed[1] ~ sr3.D6
 
     r_pu24 = new Resistor
-    r_pu24.value = 10kohm +/- 5%
-    r_pu24.p1 ~ vcc
-    r_pu24.p2 ~ sr3.D7
+    r_pu24.resistance = 10kohm +/- 5%
+    r_pu24.unnamed[0] ~ vcc
+    r_pu24.unnamed[1] ~ sr3.D7
 
     r_pu25 = new Resistor
-    r_pu25.value = 10kohm +/- 5%
-    r_pu25.p1 ~ vcc
-    r_pu25.p2 ~ sr4.D0
+    r_pu25.resistance = 10kohm +/- 5%
+    r_pu25.unnamed[0] ~ vcc
+    r_pu25.unnamed[1] ~ sr4.D0
 
     r_pu26 = new Resistor
-    r_pu26.value = 10kohm +/- 5%
-    r_pu26.p1 ~ vcc
-    r_pu26.p2 ~ sr4.D1
+    r_pu26.resistance = 10kohm +/- 5%
+    r_pu26.unnamed[0] ~ vcc
+    r_pu26.unnamed[1] ~ sr4.D1
 
     r_pu27 = new Resistor
-    r_pu27.value = 10kohm +/- 5%
-    r_pu27.p1 ~ vcc
-    r_pu27.p2 ~ sr4.D2
+    r_pu27.resistance = 10kohm +/- 5%
+    r_pu27.unnamed[0] ~ vcc
+    r_pu27.unnamed[1] ~ sr4.D2
 
     r_pu28 = new Resistor
-    r_pu28.value = 10kohm +/- 5%
-    r_pu28.p1 ~ vcc
-    r_pu28.p2 ~ sr4.D3
+    r_pu28.resistance = 10kohm +/- 5%
+    r_pu28.unnamed[0] ~ vcc
+    r_pu28.unnamed[1] ~ sr4.D3
 
     r_pu29 = new Resistor
-    r_pu29.value = 10kohm +/- 5%
-    r_pu29.p1 ~ vcc
-    r_pu29.p2 ~ sr4.D4
+    r_pu29.resistance = 10kohm +/- 5%
+    r_pu29.unnamed[0] ~ vcc
+    r_pu29.unnamed[1] ~ sr4.D4
 
     r_pu30 = new Resistor
-    r_pu30.value = 10kohm +/- 5%
-    r_pu30.p1 ~ vcc
-    r_pu30.p2 ~ sr4.D5
+    r_pu30.resistance = 10kohm +/- 5%
+    r_pu30.unnamed[0] ~ vcc
+    r_pu30.unnamed[1] ~ sr4.D5
 
     r_pu31 = new Resistor
-    r_pu31.value = 10kohm +/- 5%
-    r_pu31.p1 ~ vcc
-    r_pu31.p2 ~ sr4.D6
+    r_pu31.resistance = 10kohm +/- 5%
+    r_pu31.unnamed[0] ~ vcc
+    r_pu31.unnamed[1] ~ sr4.D6
 
     r_pu32 = new Resistor
-    r_pu32.value = 10kohm +/- 5%
-    r_pu32.p1 ~ vcc
-    r_pu32.p2 ~ sr4.D7
+    r_pu32.resistance = 10kohm +/- 5%
+    r_pu32.unnamed[0] ~ vcc
+    r_pu32.unnamed[1] ~ sr4.D7

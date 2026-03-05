@@ -72,9 +72,9 @@ module PicoMCU:
 
     # Bypass cap on VSYS
     c_vsys = new Capacitor
-    c_vsys.value = 100nF +/- 20%
-    c_vsys.p1 ~ vsys
-    c_vsys.p2 ~ gnd
+    c_vsys.capacitance = 100nF +/- 20%
+    c_vsys.unnamed[0] ~ vsys
+    c_vsys.unnamed[1] ~ gnd
 
     # GPIO assignments
     pico.GP0 ~ spi_mosi

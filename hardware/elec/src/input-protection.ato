@@ -24,21 +24,21 @@ module InputProtection:
 
     # Voltage divider: 10k/(10k+22k) = 0.31× → 10V → 3.1V
     r_top = new Resistor
-    r_top.value = 22kohm +/- 5%
+    r_top.resistance = 22kohm +/- 5%
 
     r_bottom = new Resistor
-    r_bottom.value = 10kohm +/- 5%
+    r_bottom.resistance = 10kohm +/- 5%
 
     input ~ r_top.p1
-    r_top.p2 ~ output
-    r_bottom.p1 ~ output
-    r_bottom.p2 ~ gnd
+    r_top.unnamed[1] ~ output
+    r_bottom.unnamed[0] ~ output
+    r_bottom.unnamed[1] ~ gnd
 
     # Filter cap (noise rejection)
     c_filter = new Capacitor
-    c_filter.value = 100nF +/- 20%
-    c_filter.p1 ~ output
-    c_filter.p2 ~ gnd
+    c_filter.capacitance = 100nF +/- 20%
+    c_filter.unnamed[0] ~ output
+    c_filter.unnamed[1] ~ gnd
 
     # Schottky clamp diode (BAT54S dual series)
     # Clamps output between GND-0.3V and VCC+0.3V

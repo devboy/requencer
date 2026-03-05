@@ -256,55 +256,55 @@ module Requencer:
     # Encoder pull-up resistors (internal Pico pull-ups may suffice,
     # but external 10kΩ pull-ups are more reliable for encoders)
     r_enc_a_a = new Resistor
-    r_enc_a_a.value = 10kohm +/- 5%
-    r_enc_a_a.p1 ~ power.v3v3
-    r_enc_a_a.p2 ~ mcu.enc_a_a
+    r_enc_a_a.resistance = 10kohm +/- 5%
+    r_enc_a_a.unnamed[0] ~ power.v3v3
+    r_enc_a_a.unnamed[1] ~ mcu.enc_a_a
 
     r_enc_a_b = new Resistor
-    r_enc_a_b.value = 10kohm +/- 5%
-    r_enc_a_b.p1 ~ power.v3v3
-    r_enc_a_b.p2 ~ mcu.enc_a_b
+    r_enc_a_b.resistance = 10kohm +/- 5%
+    r_enc_a_b.unnamed[0] ~ power.v3v3
+    r_enc_a_b.unnamed[1] ~ mcu.enc_a_b
 
     r_enc_a_sw = new Resistor
-    r_enc_a_sw.value = 10kohm +/- 5%
-    r_enc_a_sw.p1 ~ power.v3v3
-    r_enc_a_sw.p2 ~ mcu.enc_a_sw
+    r_enc_a_sw.resistance = 10kohm +/- 5%
+    r_enc_a_sw.unnamed[0] ~ power.v3v3
+    r_enc_a_sw.unnamed[1] ~ mcu.enc_a_sw
 
     r_enc_b_a = new Resistor
-    r_enc_b_a.value = 10kohm +/- 5%
-    r_enc_b_a.p1 ~ power.v3v3
-    r_enc_b_a.p2 ~ mcu.enc_b_a
+    r_enc_b_a.resistance = 10kohm +/- 5%
+    r_enc_b_a.unnamed[0] ~ power.v3v3
+    r_enc_b_a.unnamed[1] ~ mcu.enc_b_a
 
     r_enc_b_b = new Resistor
-    r_enc_b_b.value = 10kohm +/- 5%
-    r_enc_b_b.p1 ~ power.v3v3
-    r_enc_b_b.p2 ~ mcu.enc_b_b
+    r_enc_b_b.resistance = 10kohm +/- 5%
+    r_enc_b_b.unnamed[0] ~ power.v3v3
+    r_enc_b_b.unnamed[1] ~ mcu.enc_b_b
 
     r_enc_b_sw = new Resistor
-    r_enc_b_sw.value = 10kohm +/- 5%
-    r_enc_b_sw.p1 ~ power.v3v3
-    r_enc_b_sw.p2 ~ mcu.enc_b_sw
+    r_enc_b_sw.resistance = 10kohm +/- 5%
+    r_enc_b_sw.unnamed[0] ~ power.v3v3
+    r_enc_b_sw.unnamed[1] ~ mcu.enc_b_sw
 
     # Encoder debounce caps
     c_enc_a_a = new Capacitor
-    c_enc_a_a.value = 100nF +/- 20%
-    c_enc_a_a.p1 ~ mcu.enc_a_a
-    c_enc_a_a.p2 ~ gnd
+    c_enc_a_a.capacitance = 100nF +/- 20%
+    c_enc_a_a.unnamed[0] ~ mcu.enc_a_a
+    c_enc_a_a.unnamed[1] ~ gnd
 
     c_enc_a_b = new Capacitor
-    c_enc_a_b.value = 100nF +/- 20%
-    c_enc_a_b.p1 ~ mcu.enc_a_b
-    c_enc_a_b.p2 ~ gnd
+    c_enc_a_b.capacitance = 100nF +/- 20%
+    c_enc_a_b.unnamed[0] ~ mcu.enc_a_b
+    c_enc_a_b.unnamed[1] ~ gnd
 
     c_enc_b_a = new Capacitor
-    c_enc_b_a.value = 100nF +/- 20%
-    c_enc_b_a.p1 ~ mcu.enc_b_a
-    c_enc_b_a.p2 ~ gnd
+    c_enc_b_a.capacitance = 100nF +/- 20%
+    c_enc_b_a.unnamed[0] ~ mcu.enc_b_a
+    c_enc_b_a.unnamed[1] ~ gnd
 
     c_enc_b_b = new Capacitor
-    c_enc_b_b.value = 100nF +/- 20%
-    c_enc_b_b.p1 ~ mcu.enc_b_b
-    c_enc_b_b.p2 ~ gnd
+    c_enc_b_b.capacitance = 100nF +/- 20%
+    c_enc_b_b.unnamed[0] ~ mcu.enc_b_b
+    c_enc_b_b.unnamed[1] ~ gnd
 
     # === MIDI ===
     mcu.midi_tx ~ midi.uart_tx
