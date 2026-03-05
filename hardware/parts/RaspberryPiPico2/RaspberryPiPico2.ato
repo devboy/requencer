@@ -8,9 +8,9 @@ import has_designator_prefix
 import has_part_picked
 
 component RaspberryPiPico2:
-    trait is_atomic_part<manufacturer="Raspberry Pi", partnumber="SC0918", footprint="RaspberryPiPico2.kicad_mod", symbol="RaspberryPiPico2.kicad_sym">
+    trait is_atomic_part<manufacturer="Raspberry Pi", partnumber="SC1631", footprint="RaspberryPiPico2.kicad_mod", symbol="RaspberryPiPico2.kicad_sym">
     trait has_designator_prefix<prefix="U">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="TBD", manufacturer="Raspberry Pi", partno="SC0918">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="TBD", manufacturer="Raspberry Pi", partno="SC1631">
     # Left side (pin 1 at top-left, USB port facing up)
     signal GP0 ~ pin 1
     signal GP1 ~ pin 2
