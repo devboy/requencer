@@ -1,4 +1,4 @@
-# Display Connector — ILI9488 3.5" SPI TFT (480×320)
+# Display Connector — ST7796 3.5" SPI TFT (480×320)
 # Pin header for LCD module, backlight MOSFET control
 
 import Resistor
@@ -21,7 +21,7 @@ module DisplayConnector:
     signal gnd
 
     # LCD pin header (directly exposes signals for LCD module connection)
-    # Typical ILI9488 SPI module pinout:
+    # Typical ST7796 SPI module pinout:
     # VCC, GND, CS, RESET, DC, MOSI, SCK, LED (backlight), MISO (unused)
 
     # Backlight MOSFET — N-channel switches backlight cathode to GND
