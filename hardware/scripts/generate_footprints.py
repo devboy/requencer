@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate KiCad footprints (.kicad_mod) for through-hole components.
 
-Uses KicadModTree to create parametric footprints from datasheet dimensions.
+Writes KiCad S-expression format directly — no external dependencies.
 Output: hardware/elec/footprints/*.kicad_mod
 
 Components:
@@ -15,278 +15,260 @@ Components:
 import os
 import sys
 
-try:
-    from KicadModTree import (
-        Footprint, Pad, Circle, Line, RectLine, Text,
-        Model, ExposedPad
-    )
-except ImportError:
-    print("KicadModTree not installed. Run: pip install KicadModTree")
-    sys.exit(1)
 
 FOOTPRINT_DIR = os.path.join(os.path.dirname(__file__), "..", "elec", "footprints")
+
+
+def mm(v):
+    """Format mm value for S-expression."""
+    return f"{v:.3f}"
+
+
+def tht_pad(number, x, y, size, drill, shape="circle", layers='"*.Cu" "*.Mask"'):
+    """Generate a through-hole pad S-expression."""
+    return (
+        f'  (pad "{number}" thru_hole {shape} (at {mm(x)} {mm(y)}) '
+        f'(size {mm(size)} {mm(size)}) (drill {mm(drill)}) (layers {layers}))'
+    )
+
+
+def npth_pad(x, y, drill):
+    """Generate a non-plated through-hole pad."""
+    return (
+        f'  (pad "" np_thru_hole circle (at {mm(x)} {mm(y)}) '
+        f'(size {mm(drill)} {mm(drill)}) (drill {mm(drill)}) (layers "*.Cu" "*.Mask"))'
+    )
+
+
+def smt_pad(number, x, y, w, h, layers='"F.Cu" "F.Paste" "F.Mask"'):
+    """Generate an SMT pad S-expression."""
+    return (
+        f'  (pad "{number}" smd rect (at {mm(x)} {mm(y)}) '
+        f'(size {mm(w)} {mm(h)}) (layers {layers}))'
+    )
+
+
+def fp_text(text_type, text, x, y, layer, size=1.0, thickness=0.15):
+    """Generate footprint text."""
+    return (
+        f'  (fp_text {text_type} "{text}" (at {mm(x)} {mm(y)}) (layer "{layer}") '
+        f'(effects (font (size {size} {size}) (thickness {thickness}))))'
+    )
+
+
+def fp_circle(cx, cy, radius, layer, width=0.12):
+    """Generate a circle on a layer."""
+    ex = cx + radius
+    return (
+        f'  (fp_circle (center {mm(cx)} {mm(cy)}) (end {mm(ex)} {mm(cy)}) '
+        f'(layer "{layer}") (width {width}))'
+    )
+
+
+def fp_rect(x1, y1, x2, y2, layer, width=0.12):
+    """Generate a rectangle as 4 lines."""
+    lines = []
+    corners = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+    for i in range(4):
+        sx, sy = corners[i]
+        ex, ey = corners[(i + 1) % 4]
+        lines.append(
+            f'  (fp_line (start {mm(sx)} {mm(sy)}) (end {mm(ex)} {mm(ey)}) '
+            f'(layer "{layer}") (width {width}))'
+        )
+    return "\n".join(lines)
+
+
+def write_footprint(name, description, tags, items):
+    """Write a complete .kicad_mod file."""
+    header = (
+        f'(footprint "{name}" (version 20221018) (generator "generate_footprints.py")\n'
+        f'  (layer "F.Cu")\n'
+        f'  (descr "{description}")\n'
+        f'  (tags "{tags}")\n'
+        f'  (attr through_hole)\n'
+    )
+    return header + "\n".join(items) + "\n)\n"
 
 
 def make_pj398sm():
     """Thonkiconn PJ398SM 3.5mm mono jack.
 
-    Datasheet dimensions:
-    - 3 pins: tip, sleeve (GND), switch (NC)
-    - Mounting: 6mm panel drill hole
-    - Pin spacing from datasheet
+    3 pins: tip, sleeve (GND), switch (NC)
+    Mounting: 6mm panel drill hole
     """
-    fp = Footprint("PJ398SM")
-    fp.setDescription("Thonkiconn PJ398SM 3.5mm mono jack, through-hole")
-    fp.setTags("jack audio 3.5mm thonkiconn eurorack")
-
-    # Reference and value text
-    fp.append(Text(type="reference", text="REF**", at=[0, -7], layer="F.SilkS",
-                   size=[1, 1], thickness=0.15))
-    fp.append(Text(type="value", text="PJ398SM", at=[0, 7], layer="F.Fab",
-                   size=[1, 1], thickness=0.15))
-
-    # Pin 1: Tip (signal) — center pin
-    fp.append(Pad(number=1, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[0, 0], size=[2.0, 2.0], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # Pin 2: Sleeve (GND) — offset
-    fp.append(Pad(number=2, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[0, -4.7], size=[2.0, 2.0], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # Pin 3: Switch (NC when plugged) — offset
-    fp.append(Pad(number=3, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[4.7, -2.35], size=[2.0, 2.0], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # Mounting/alignment pins (NPTH)
-    fp.append(Pad(type=Pad.TYPE_NPTH, shape=Pad.SHAPE_CIRCLE,
-                  at=[-2.35, -4.7], size=[1.5, 1.5], drill=1.5,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # Courtyard
-    fp.append(RectLine(start=[-4, -7], end=[7, 3], layer="F.CrtYd", width=0.05))
-
-    # Panel drill hole outline (6mm)
-    fp.append(Circle(center=[0, 0], radius=3.0, layer="F.SilkS", width=0.12))
-
-    # Hex nut outline (10mm across flats)
-    hex_r = 5.0  # radius to vertex
-    fp.append(Circle(center=[0, 0], radius=hex_r, layer="F.Fab", width=0.1))
-
-    return fp
+    items = [
+        fp_text("reference", "REF**", 0, -7, "F.SilkS"),
+        fp_text("value", "PJ398SM", 0, 7, "F.Fab"),
+        # Pin 1: Tip (signal)
+        tht_pad(1, 0, 0, 2.0, 1.0),
+        # Pin 2: Sleeve (GND)
+        tht_pad(2, 0, -4.7, 2.0, 1.0),
+        # Pin 3: Switch (NC when plugged)
+        tht_pad(3, 4.7, -2.35, 2.0, 1.0),
+        # Mounting pin (NPTH)
+        npth_pad(-2.35, -4.7, 1.5),
+        # Courtyard
+        fp_rect(-4, -7, 7, 3, "F.CrtYd", 0.05),
+        # Panel drill hole outline (6mm)
+        fp_circle(0, 0, 3.0, "F.SilkS"),
+        # Hex nut outline (10mm)
+        fp_circle(0, 0, 5.0, "F.Fab", 0.1),
+    ]
+    return write_footprint(
+        "PJ398SM",
+        "Thonkiconn PJ398SM 3.5mm mono jack, through-hole",
+        "jack audio 3.5mm thonkiconn eurorack",
+        items,
+    )
 
 
 def make_tc002_rgb():
-    """Well Buying TC002-N11AS1XT-RGB tactile switch with integrated RGB LED.
+    """Well Buying TC002-N11AS1XT-RGB tactile switch with RGB LED.
 
-    Approximate dimensions from datasheet:
-    - 2 switch pins (SPST momentary)
-    - 4 LED pins (common anode + R/G/B cathodes)
-    - ~6x6mm body
+    2 switch pins (SPST momentary) + 4 LED pins (anode + R/G/B)
+    ~6x6mm body
     """
-    fp = Footprint("TC002-N11AS1XT-RGB")
-    fp.setDescription("RGB tactile switch, through-hole, integrated LED")
-    fp.setTags("switch tactile RGB LED button illuminated")
-
-    fp.append(Text(type="reference", text="REF**", at=[0, -6], layer="F.SilkS",
-                   size=[1, 1], thickness=0.15))
-    fp.append(Text(type="value", text="TC002-RGB", at=[0, 6], layer="F.Fab",
-                   size=[1, 1], thickness=0.15))
-
-    # Switch pins (2.54mm pitch)
-    fp.append(Pad(number=1, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[-3.25, -2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))
-    fp.append(Pad(number=2, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[3.25, -2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # LED pins (common anode + R/G/B)
-    fp.append(Pad(number=3, type=Pad.TYPE_THT, shape=Pad.SHAPE_RECT,
-                  at=[-2.0, 2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))  # Anode (square pad = pin 1 marker)
-    fp.append(Pad(number=4, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[-0.5, 2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))  # Red
-    fp.append(Pad(number=5, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[1.0, 2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))  # Green
-    fp.append(Pad(number=6, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[2.5, 2.25], size=[1.6, 1.6], drill=0.9,
-                  layers=["*.Cu", "*.Mask"]))  # Blue
-
-    # Body outline
-    fp.append(RectLine(start=[-3.5, -3.5], end=[3.5, 3.5],
-                       layer="F.SilkS", width=0.12))
-
-    # Courtyard
-    fp.append(RectLine(start=[-4.5, -4.5], end=[4.5, 4.5],
-                       layer="F.CrtYd", width=0.05))
-
-    # Button cap circle (5mm diameter in panel)
-    fp.append(Circle(center=[0, 0], radius=2.5, layer="F.Fab", width=0.1))
-
-    return fp
+    items = [
+        fp_text("reference", "REF**", 0, -6, "F.SilkS"),
+        fp_text("value", "TC002-RGB", 0, 6, "F.Fab"),
+        # Switch pins
+        tht_pad(1, -3.25, -2.25, 1.6, 0.9),
+        tht_pad(2, 3.25, -2.25, 1.6, 0.9),
+        # LED pins: Anode (square pad = pin 1 marker), R, G, B
+        tht_pad(3, -2.0, 2.25, 1.6, 0.9, shape="rect"),
+        tht_pad(4, -0.5, 2.25, 1.6, 0.9),
+        tht_pad(5, 1.0, 2.25, 1.6, 0.9),
+        tht_pad(6, 2.5, 2.25, 1.6, 0.9),
+        # Body outline
+        fp_rect(-3.5, -3.5, 3.5, 3.5, "F.SilkS"),
+        # Courtyard
+        fp_rect(-4.5, -4.5, 4.5, 4.5, "F.CrtYd", 0.05),
+        # Button cap (5mm)
+        fp_circle(0, 0, 2.5, "F.Fab", 0.1),
+    ]
+    return write_footprint(
+        "TC002-N11AS1XT-RGB",
+        "RGB tactile switch, through-hole, integrated LED",
+        "switch tactile RGB LED button illuminated",
+        items,
+    )
 
 
 def make_ec11e():
     """Alps EC11E rotary encoder with push switch.
 
-    Standard footprint:
-    - 5 electrical pins (A, GND, B, SW1, SW2)
-    - 2 mounting tabs
-    - 7mm shaft drill in panel
+    5 electrical pins (A, GND, B, SW1, SW2) + 2 mounting tabs
+    7mm shaft drill in panel
     """
-    fp = Footprint("EC11E")
-    fp.setDescription("Alps EC11E rotary encoder with push switch, through-hole")
-    fp.setTags("encoder rotary alps EC11 push switch")
-
-    fp.append(Text(type="reference", text="REF**", at=[0, -10], layer="F.SilkS",
-                   size=[1, 1], thickness=0.15))
-    fp.append(Text(type="value", text="EC11E", at=[0, 10], layer="F.Fab",
-                   size=[1, 1], thickness=0.15))
-
-    # Encoder pins (A, GND, B) — 2.5mm pitch
-    fp.append(Pad(number=1, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[-2.5, 7.0], size=[1.8, 1.8], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))  # A
-    fp.append(Pad(number=2, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[0, 7.0], size=[1.8, 1.8], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))  # GND
-    fp.append(Pad(number=3, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[2.5, 7.0], size=[1.8, 1.8], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))  # B
-
-    # Switch pins (SW1, SW2) — offset
-    fp.append(Pad(number=4, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[-2.5, -7.0], size=[1.8, 1.8], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))  # SW1
-    fp.append(Pad(number=5, type=Pad.TYPE_THT, shape=Pad.SHAPE_CIRCLE,
-                  at=[2.5, -7.0], size=[1.8, 1.8], drill=1.0,
-                  layers=["*.Cu", "*.Mask"]))  # SW2
-
-    # Mounting tabs (larger holes, no electrical connection)
-    fp.append(Pad(type=Pad.TYPE_NPTH, shape=Pad.SHAPE_CIRCLE,
-                  at=[-5.5, 0], size=[2.0, 2.0], drill=2.0,
-                  layers=["*.Cu", "*.Mask"]))
-    fp.append(Pad(type=Pad.TYPE_NPTH, shape=Pad.SHAPE_CIRCLE,
-                  at=[5.5, 0], size=[2.0, 2.0], drill=2.0,
-                  layers=["*.Cu", "*.Mask"]))
-
-    # Body outline
-    fp.append(RectLine(start=[-6.5, -6.5], end=[6.5, 6.5],
-                       layer="F.SilkS", width=0.12))
-
-    # Shaft hole (7mm)
-    fp.append(Circle(center=[0, 0], radius=3.5, layer="F.Fab", width=0.1))
-
-    # Courtyard
-    fp.append(RectLine(start=[-8, -9], end=[8, 9], layer="F.CrtYd", width=0.05))
-
-    return fp
+    items = [
+        fp_text("reference", "REF**", 0, -10, "F.SilkS"),
+        fp_text("value", "EC11E", 0, 10, "F.Fab"),
+        # Encoder pins: A, GND, B (2.5mm pitch)
+        tht_pad(1, -2.5, 7.0, 1.8, 1.0),
+        tht_pad(2, 0, 7.0, 1.8, 1.0),
+        tht_pad(3, 2.5, 7.0, 1.8, 1.0),
+        # Switch pins: SW1, SW2
+        tht_pad(4, -2.5, -7.0, 1.8, 1.0),
+        tht_pad(5, 2.5, -7.0, 1.8, 1.0),
+        # Mounting tabs (NPTH)
+        npth_pad(-5.5, 0, 2.0),
+        npth_pad(5.5, 0, 2.0),
+        # Body outline
+        fp_rect(-6.5, -6.5, 6.5, 6.5, "F.SilkS"),
+        # Shaft hole (7mm)
+        fp_circle(0, 0, 3.5, "F.Fab", 0.1),
+        # Courtyard
+        fp_rect(-8, -9, 8, 9, "F.CrtYd", 0.05),
+    ]
+    return write_footprint(
+        "EC11E",
+        "Alps EC11E rotary encoder with push switch, through-hole",
+        "encoder rotary alps EC11 push switch",
+        items,
+    )
 
 
 def make_rpi_pico():
     """Raspberry Pi Pico castellated pad module.
 
-    40 pins in 2x20 grid, 2.54mm pitch.
-    Module dimensions: ~51mm x 21mm
+    40 pins in 2x20 grid, 2.54mm pitch. Module: ~51mm x 21mm
     """
-    fp = Footprint("RaspberryPiPico")
-    fp.setDescription("Raspberry Pi Pico RP2040 module, castellated pads")
-    fp.setTags("RPi Pico RP2040 castellated module")
-
-    fp.append(Text(type="reference", text="REF**", at=[0, -13], layer="F.SilkS",
-                   size=[1, 1], thickness=0.15))
-    fp.append(Text(type="value", text="RPi_Pico", at=[0, 13], layer="F.Fab",
-                   size=[1, 1], thickness=0.15))
-
     pitch = 2.54
     rows = 20
-    col_offset = 7.62  # half of 15.24mm (distance between pin columns)
+    col_offset = 7.62  # half of 15.24mm pin column distance
+
+    items = [
+        fp_text("reference", "REF**", 0, -13, "F.SilkS"),
+        fp_text("value", "RPi_Pico", 0, 13, "F.Fab"),
+    ]
 
     # Left column (pins 1-20, top to bottom)
     for i in range(rows):
         pin_num = i + 1
         y = (i - (rows - 1) / 2) * pitch
-        fp.append(Pad(number=pin_num, type=Pad.TYPE_SMT, shape=Pad.SHAPE_RECT,
-                      at=[-col_offset, y], size=[2.0, 1.5],
-                      layers=["F.Cu", "F.Paste", "F.Mask"]))
+        items.append(smt_pad(pin_num, -col_offset, y, 2.0, 1.5))
 
     # Right column (pins 21-40, bottom to top)
     for i in range(rows):
         pin_num = 21 + i
         y = ((rows - 1) / 2 - i) * pitch
-        fp.append(Pad(number=pin_num, type=Pad.TYPE_SMT, shape=Pad.SHAPE_RECT,
-                      at=[col_offset, y], size=[2.0, 1.5],
-                      layers=["F.Cu", "F.Paste", "F.Mask"]))
+        items.append(smt_pad(pin_num, col_offset, y, 2.0, 1.5))
 
-    # Module body outline
-    fp.append(RectLine(start=[-10.5, -25.5], end=[10.5, 25.5],
-                       layer="F.SilkS", width=0.12))
+    items.extend([
+        # Module body outline
+        fp_rect(-10.5, -25.5, 10.5, 25.5, "F.SilkS"),
+        # USB connector end marker
+        fp_rect(-4, -25.5, 4, -23, "F.SilkS"),
+        # Pin 1 marker
+        fp_circle(-col_offset, -(rows - 1) / 2 * pitch - 1.5, 0.3, "F.SilkS"),
+        # Courtyard
+        fp_rect(-11.5, -26.5, 11.5, 26.5, "F.CrtYd", 0.05),
+    ])
 
-    # USB connector end marker
-    fp.append(RectLine(start=[-4, -25.5], end=[4, -23],
-                       layer="F.SilkS", width=0.12))
-
-    # Pin 1 marker
-    fp.append(Circle(center=[-col_offset, -(rows - 1) / 2 * pitch - 1.5],
-                     radius=0.3, layer="F.SilkS", width=0.12))
-
-    # Courtyard
-    fp.append(RectLine(start=[-11.5, -26.5], end=[11.5, 26.5],
-                       layer="F.CrtYd", width=0.05))
-
-    return fp
+    return write_footprint(
+        "RaspberryPiPico",
+        "Raspberry Pi Pico RP2040 module, castellated pads",
+        "RPi Pico RP2040 castellated module",
+        items,
+    )
 
 
 def make_eurorack_header():
-    """2x5 shrouded pin header for eurorack power (2.54mm pitch).
-
-    Standard eurorack power connector with key notch.
-    """
-    fp = Footprint("EurorackPowerHeader_2x5")
-    fp.setDescription("Shrouded 2x5 pin header, 2.54mm pitch, eurorack power")
-    fp.setTags("header shrouded 2x5 eurorack power IDC")
-
-    fp.append(Text(type="reference", text="REF**", at=[0, -8], layer="F.SilkS",
-                   size=[1, 1], thickness=0.15))
-    fp.append(Text(type="value", text="Eurorack_2x5", at=[0, 8], layer="F.Fab",
-                   size=[1, 1], thickness=0.15))
-
+    """2x5 shrouded pin header for eurorack power (2.54mm pitch)."""
     pitch = 2.54
     rows = 5
-    cols = 2
 
-    for col in range(cols):
+    items = [
+        fp_text("reference", "REF**", 0, -8, "F.SilkS"),
+        fp_text("value", "Eurorack_2x5", 0, 8, "F.Fab"),
+    ]
+
+    for col in range(2):
         for row in range(rows):
             pin_num = col * rows + row + 1
             x = (col - 0.5) * pitch
             y = (row - 2) * pitch
-            shape = Pad.SHAPE_RECT if pin_num == 1 else Pad.SHAPE_CIRCLE
-            fp.append(Pad(number=pin_num, type=Pad.TYPE_THT, shape=shape,
-                          at=[x, y], size=[1.7, 1.7], drill=1.0,
-                          layers=["*.Cu", "*.Mask"]))
+            shape = "rect" if pin_num == 1 else "circle"
+            items.append(tht_pad(pin_num, x, y, 1.7, 1.0, shape=shape))
 
-    # Shroud outline
-    fp.append(RectLine(start=[-4.5, -6.5], end=[4.5, 6.5],
-                       layer="F.SilkS", width=0.12))
+    items.extend([
+        # Shroud outline
+        fp_rect(-4.5, -6.5, 4.5, 6.5, "F.SilkS"),
+        # Key notch
+        fp_rect(-1.5, -6.5, 1.5, -5.5, "F.SilkS"),
+        # Pin 1 marker
+        fp_circle(-pitch / 2, -2 * pitch - 1.5, 0.3, "F.SilkS"),
+        # Courtyard
+        fp_rect(-5.5, -7.5, 5.5, 7.5, "F.CrtYd", 0.05),
+    ])
 
-    # Key notch
-    fp.append(RectLine(start=[-1.5, -6.5], end=[1.5, -5.5],
-                       layer="F.SilkS", width=0.12))
-
-    # Pin 1 marker
-    fp.append(Circle(center=[-pitch / 2, -2 * pitch - 1.5],
-                     radius=0.3, layer="F.SilkS", width=0.12))
-
-    # Courtyard
-    fp.append(RectLine(start=[-5.5, -7.5], end=[5.5, 7.5],
-                       layer="F.CrtYd", width=0.05))
-
-    return fp
+    return write_footprint(
+        "EurorackPowerHeader_2x5",
+        "Shrouded 2x5 pin header, 2.54mm pitch, eurorack power",
+        "header shrouded 2x5 eurorack power IDC",
+        items,
+    )
 
 
 def main():
@@ -301,10 +283,10 @@ def main():
     ]
 
     for name, factory in footprints:
-        fp = factory()
+        content = factory()
         path = os.path.join(FOOTPRINT_DIR, f"{name}.kicad_mod")
         with open(path, "w") as f:
-            f.write(str(fp))
+            f.write(content)
         print(f"  Generated {path}")
 
     print(f"\n{len(footprints)} footprints generated in {FOOTPRINT_DIR}")

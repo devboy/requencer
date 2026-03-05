@@ -21,9 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Python dependencies
-        run: pip install KicadModTree
-
       # --- Main PCB ---
 
       - name: Install atopile dependencies
@@ -35,7 +32,7 @@ jobs:
         run: ato build
 
       - name: Generate through-hole footprints
-        run: python hardware/scripts/generate_footprints.py
+        run: python3 hardware/scripts/generate_footprints.py
 
       - name: Run DRC (verification)
         working-directory: hardware
@@ -60,13 +57,19 @@ jobs:
       # --- Faceplate ---
 
       - name: Generate faceplate PCB
-        run: python hardware-faceplate/scripts/generate_faceplate.py
+        run: python3 hardware-faceplate/scripts/generate_faceplate.py
 
       # --- Full pipeline (main branch only) ---
 
       - name: Place components
         if: github.ref == 'refs/heads/main'
-        run: python hardware/scripts/place_components.py
+        run: |
+          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          if [ -f "$PCB" ]; then
+            python3 hardware/scripts/place_components.py "$PCB"
+          else
+            echo "PCB not found, skipping placement"
+          fi
 
       - name: Autoroute
         if: github.ref == 'refs/heads/main'
@@ -84,7 +87,7 @@ jobs:
         run: |
           PCB="hardware/elec/layout/default/requencer.kicad_pcb"
           if [ -f "$PCB" ]; then
-            python hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
+            python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
           else
             echo "PCB not found, skipping manufacturing export"
           fi
