@@ -131,10 +131,10 @@ module IOJacks:
     # NPN common-emitter: GPIO high → transistor ON → output pulled to GND
     # Inverted logic (firmware accounts for inversion), or use as open-collector
     # with pull-up to 5V
-    clk_out_gpio ~ r_base.p1
+    clk_out_gpio ~ r_base.unnamed[0]
     r_base.unnamed[1] ~ q_clk.BASE
     q_clk.EMITTER ~ gnd
-    v5v ~ r_collector.p1
+    v5v ~ r_collector.unnamed[0]
     r_collector.unnamed[1] ~ q_clk.COLLECTOR
     q_clk.COLLECTOR ~ j_clk_out.TIP
     j_clk_out.SLEEVE ~ gnd

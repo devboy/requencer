@@ -29,7 +29,7 @@ module InputProtection:
     r_bottom = new Resistor
     r_bottom.resistance = 10kohm +/- 5%
 
-    input ~ r_top.p1
+    input ~ r_top.unnamed[0]
     r_top.unnamed[1] ~ output
     r_bottom.unnamed[0] ~ output
     r_bottom.unnamed[1] ~ gnd

@@ -35,7 +35,7 @@ module DisplayConnector:
     r_pulldown = new Resistor
     r_pulldown.resistance = 100kohm +/- 5%
 
-    bl_ctrl ~ r_gate.p1
+    bl_ctrl ~ r_gate.unnamed[0]
     r_gate.unnamed[1] ~ q_bl.gate
     r_pulldown.unnamed[0] ~ q_bl.gate
     r_pulldown.unnamed[1] ~ gnd

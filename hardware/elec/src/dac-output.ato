@@ -66,15 +66,15 @@ module PitchOutput:
 
     # Non-inverting amplifier with offset
     # Input through R_in to non-inverting input
-    input ~ r_in.p1
+    input ~ r_in.unnamed[0]
     r_in.unnamed[1] ~ op_inp
 
     # Offset voltage through R_offset to inverting input
-    v_offset ~ r_offset.p1
+    v_offset ~ r_offset.unnamed[0]
     r_offset.unnamed[1] ~ op_inn
 
     # Feedback from output to inverting input
-    op_out ~ r_fb.p1
+    op_out ~ r_fb.unnamed[0]
     r_fb.unnamed[1] ~ op_inn
 
     op_out ~ output
@@ -100,7 +100,7 @@ module VelocityOutput:
     r_gnd.resistance = 10kohm +/- 1%
 
     input ~ op_inp
-    op_out ~ r_fb.p1
+    op_out ~ r_fb.unnamed[0]
     r_fb.unnamed[1] ~ op_inn
     r_gnd.unnamed[0] ~ op_inn
     r_gnd.unnamed[1] ~ gnd
@@ -131,13 +131,13 @@ module ModOutput:
     r_offset = new Resistor
     r_offset.resistance = 10kohm +/- 1%
 
-    input ~ r_in.p1
+    input ~ r_in.unnamed[0]
     r_in.unnamed[1] ~ op_inp
 
-    v_offset ~ r_offset.p1
+    v_offset ~ r_offset.unnamed[0]
     r_offset.unnamed[1] ~ op_inn
 
-    op_out ~ r_fb.p1
+    op_out ~ r_fb.unnamed[0]
     r_fb.unnamed[1] ~ op_inn
 
     op_out ~ output
@@ -318,11 +318,11 @@ module DACOutputStage:
     r_pitch1_off = new Resistor
     r_pitch1_off.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTE ~ r_pitch1_in.p1
+    dac1.VOUTE ~ r_pitch1_in.unnamed[0]
     r_pitch1_in.unnamed[1] ~ opamp2.IN1_N
-    opamp2.OUT1 ~ r_pitch1_fb.p1
+    opamp2.OUT1 ~ r_pitch1_fb.unnamed[0]
     r_pitch1_fb.unnamed[1] ~ opamp2.IN1_N
-    v_ref_2v ~ r_pitch1_off.p1
+    v_ref_2v ~ r_pitch1_off.unnamed[0]
     r_pitch1_off.unnamed[1] ~ opamp2.IN1_N
     opamp2.IN1_P ~ gnd
 
@@ -333,11 +333,11 @@ module DACOutputStage:
     r_pitch2_off = new Resistor
     r_pitch2_off.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTF ~ r_pitch2_in.p1
+    dac1.VOUTF ~ r_pitch2_in.unnamed[0]
     r_pitch2_in.unnamed[1] ~ opamp2.IN2_N
-    opamp2.OUT2 ~ r_pitch2_fb.p1
+    opamp2.OUT2 ~ r_pitch2_fb.unnamed[0]
     r_pitch2_fb.unnamed[1] ~ opamp2.IN2_N
-    v_ref_2v ~ r_pitch2_off.p1
+    v_ref_2v ~ r_pitch2_off.unnamed[0]
     r_pitch2_off.unnamed[1] ~ opamp2.IN2_N
     opamp2.IN2_P ~ gnd
 
@@ -348,11 +348,11 @@ module DACOutputStage:
     r_pitch3_off = new Resistor
     r_pitch3_off.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTG ~ r_pitch3_in.p1
+    dac1.VOUTG ~ r_pitch3_in.unnamed[0]
     r_pitch3_in.unnamed[1] ~ opamp2.IN3_N
-    opamp2.OUT3 ~ r_pitch3_fb.p1
+    opamp2.OUT3 ~ r_pitch3_fb.unnamed[0]
     r_pitch3_fb.unnamed[1] ~ opamp2.IN3_N
-    v_ref_2v ~ r_pitch3_off.p1
+    v_ref_2v ~ r_pitch3_off.unnamed[0]
     r_pitch3_off.unnamed[1] ~ opamp2.IN3_N
     opamp2.IN3_P ~ gnd
 
@@ -363,11 +363,11 @@ module DACOutputStage:
     r_pitch4_off = new Resistor
     r_pitch4_off.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTH ~ r_pitch4_in.p1
+    dac1.VOUTH ~ r_pitch4_in.unnamed[0]
     r_pitch4_in.unnamed[1] ~ opamp2.IN4_N
-    opamp2.OUT4 ~ r_pitch4_fb.p1
+    opamp2.OUT4 ~ r_pitch4_fb.unnamed[0]
     r_pitch4_fb.unnamed[1] ~ opamp2.IN4_N
-    v_ref_2v ~ r_pitch4_off.p1
+    v_ref_2v ~ r_pitch4_off.unnamed[0]
     r_pitch4_off.unnamed[1] ~ opamp2.IN4_N
     opamp2.IN4_P ~ gnd
 
@@ -381,7 +381,7 @@ module DACOutputStage:
     r_vel1_gnd.resistance = 10kohm +/- 1%
 
     dac2.VOUTA ~ opamp3.IN1_P
-    opamp3.OUT1 ~ r_vel1_fb.p1
+    opamp3.OUT1 ~ r_vel1_fb.unnamed[0]
     r_vel1_fb.unnamed[1] ~ opamp3.IN1_N
     r_vel1_gnd.unnamed[0] ~ opamp3.IN1_N
     r_vel1_gnd.unnamed[1] ~ gnd
@@ -392,7 +392,7 @@ module DACOutputStage:
     r_vel2_gnd.resistance = 10kohm +/- 1%
 
     dac2.VOUTB ~ opamp3.IN2_P
-    opamp3.OUT2 ~ r_vel2_fb.p1
+    opamp3.OUT2 ~ r_vel2_fb.unnamed[0]
     r_vel2_fb.unnamed[1] ~ opamp3.IN2_N
     r_vel2_gnd.unnamed[0] ~ opamp3.IN2_N
     r_vel2_gnd.unnamed[1] ~ gnd
@@ -403,7 +403,7 @@ module DACOutputStage:
     r_vel3_gnd.resistance = 10kohm +/- 1%
 
     dac2.VOUTC ~ opamp3.IN3_P
-    opamp3.OUT3 ~ r_vel3_fb.p1
+    opamp3.OUT3 ~ r_vel3_fb.unnamed[0]
     r_vel3_fb.unnamed[1] ~ opamp3.IN3_N
     r_vel3_gnd.unnamed[0] ~ opamp3.IN3_N
     r_vel3_gnd.unnamed[1] ~ gnd
@@ -414,7 +414,7 @@ module DACOutputStage:
     r_vel4_gnd.resistance = 10kohm +/- 1%
 
     dac2.VOUTD ~ opamp3.IN4_P
-    opamp3.OUT4 ~ r_vel4_fb.p1
+    opamp3.OUT4 ~ r_vel4_fb.unnamed[0]
     r_vel4_fb.unnamed[1] ~ opamp3.IN4_N
     r_vel4_gnd.unnamed[0] ~ opamp3.IN4_N
     r_vel4_gnd.unnamed[1] ~ gnd
@@ -442,9 +442,9 @@ module DACOutputStage:
     r_mod1_fb = new Resistor
     r_mod1_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTE ~ r_mod1_in.p1
+    dac2.VOUTE ~ r_mod1_in.unnamed[0]
     r_mod1_in.unnamed[1] ~ opamp4.IN1_N
-    opamp4.OUT1 ~ r_mod1_fb.p1
+    opamp4.OUT1 ~ r_mod1_fb.unnamed[0]
     r_mod1_fb.unnamed[1] ~ opamp4.IN1_N
     v_ref_5v ~ opamp4.IN1_P  # needs voltage divider externally
 
@@ -453,9 +453,9 @@ module DACOutputStage:
     r_mod2_fb = new Resistor
     r_mod2_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTF ~ r_mod2_in.p1
+    dac2.VOUTF ~ r_mod2_in.unnamed[0]
     r_mod2_in.unnamed[1] ~ opamp4.IN2_N
-    opamp4.OUT2 ~ r_mod2_fb.p1
+    opamp4.OUT2 ~ r_mod2_fb.unnamed[0]
     r_mod2_fb.unnamed[1] ~ opamp4.IN2_N
     v_ref_5v ~ opamp4.IN2_P
 
@@ -464,9 +464,9 @@ module DACOutputStage:
     r_mod3_fb = new Resistor
     r_mod3_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTG ~ r_mod3_in.p1
+    dac2.VOUTG ~ r_mod3_in.unnamed[0]
     r_mod3_in.unnamed[1] ~ opamp4.IN3_N
-    opamp4.OUT3 ~ r_mod3_fb.p1
+    opamp4.OUT3 ~ r_mod3_fb.unnamed[0]
     r_mod3_fb.unnamed[1] ~ opamp4.IN3_N
     v_ref_5v ~ opamp4.IN3_P
 
@@ -475,9 +475,9 @@ module DACOutputStage:
     r_mod4_fb = new Resistor
     r_mod4_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTH ~ r_mod4_in.p1
+    dac2.VOUTH ~ r_mod4_in.unnamed[0]
     r_mod4_in.unnamed[1] ~ opamp4.IN4_N
-    opamp4.OUT4 ~ r_mod4_fb.p1
+    opamp4.OUT4 ~ r_mod4_fb.unnamed[0]
     r_mod4_fb.unnamed[1] ~ opamp4.IN4_N
     v_ref_5v ~ opamp4.IN4_P
 
@@ -492,7 +492,7 @@ module DACOutputStage:
     c_ref_filt = new Capacitor
     c_ref_filt.capacitance = 100nF +/- 20%
 
-    avdd ~ r_ref_top.p1
+    avdd ~ r_ref_top.unnamed[0]
     r_ref_top.unnamed[1] ~ v_ref_5v
     r_ref_bot.unnamed[0] ~ v_ref_5v
     r_ref_bot.unnamed[1] ~ gnd
@@ -510,7 +510,7 @@ module DACOutputStage:
     c_pitch_ref = new Capacitor
     c_pitch_ref.capacitance = 1uF +/- 20%
 
-    avdd ~ r_pitch_ref_top.p1
+    avdd ~ r_pitch_ref_top.unnamed[0]
     r_pitch_ref_top.unnamed[1] ~ v_ref_2v
     r_pitch_ref_bot.unnamed[0] ~ v_ref_2v
     r_pitch_ref_bot.unnamed[1] ~ gnd
@@ -520,80 +520,80 @@ module DACOutputStage:
     # --- Output protection resistors (1kΩ each) ---
     r_gate1 = new Resistor
     r_gate1.resistance = 1kohm +/- 5%
-    opamp1.OUT1 ~ r_gate1.p1
+    opamp1.OUT1 ~ r_gate1.unnamed[0]
     r_gate1.unnamed[1] ~ gate1
 
     r_gate2 = new Resistor
     r_gate2.resistance = 1kohm +/- 5%
-    opamp1.OUT2 ~ r_gate2.p1
+    opamp1.OUT2 ~ r_gate2.unnamed[0]
     r_gate2.unnamed[1] ~ gate2
 
     r_gate3 = new Resistor
     r_gate3.resistance = 1kohm +/- 5%
-    opamp1.OUT3 ~ r_gate3.p1
+    opamp1.OUT3 ~ r_gate3.unnamed[0]
     r_gate3.unnamed[1] ~ gate3
 
     r_gate4 = new Resistor
     r_gate4.resistance = 1kohm +/- 5%
-    opamp1.OUT4 ~ r_gate4.p1
+    opamp1.OUT4 ~ r_gate4.unnamed[0]
     r_gate4.unnamed[1] ~ gate4
 
     r_pitch1 = new Resistor
     r_pitch1.resistance = 1kohm +/- 5%
-    opamp2.OUT1 ~ r_pitch1.p1
+    opamp2.OUT1 ~ r_pitch1.unnamed[0]
     r_pitch1.unnamed[1] ~ pitch1
 
     r_pitch2 = new Resistor
     r_pitch2.resistance = 1kohm +/- 5%
-    opamp2.OUT2 ~ r_pitch2.p1
+    opamp2.OUT2 ~ r_pitch2.unnamed[0]
     r_pitch2.unnamed[1] ~ pitch2
 
     r_pitch3 = new Resistor
     r_pitch3.resistance = 1kohm +/- 5%
-    opamp2.OUT3 ~ r_pitch3.p1
+    opamp2.OUT3 ~ r_pitch3.unnamed[0]
     r_pitch3.unnamed[1] ~ pitch3
 
     r_pitch4 = new Resistor
     r_pitch4.resistance = 1kohm +/- 5%
-    opamp2.OUT4 ~ r_pitch4.p1
+    opamp2.OUT4 ~ r_pitch4.unnamed[0]
     r_pitch4.unnamed[1] ~ pitch4
 
     r_vel1 = new Resistor
     r_vel1.resistance = 1kohm +/- 5%
-    opamp3.OUT1 ~ r_vel1.p1
+    opamp3.OUT1 ~ r_vel1.unnamed[0]
     r_vel1.unnamed[1] ~ vel1
 
     r_vel2 = new Resistor
     r_vel2.resistance = 1kohm +/- 5%
-    opamp3.OUT2 ~ r_vel2.p1
+    opamp3.OUT2 ~ r_vel2.unnamed[0]
     r_vel2.unnamed[1] ~ vel2
 
     r_vel3 = new Resistor
     r_vel3.resistance = 1kohm +/- 5%
-    opamp3.OUT3 ~ r_vel3.p1
+    opamp3.OUT3 ~ r_vel3.unnamed[0]
     r_vel3.unnamed[1] ~ vel3
 
     r_vel4 = new Resistor
     r_vel4.resistance = 1kohm +/- 5%
-    opamp3.OUT4 ~ r_vel4.p1
+    opamp3.OUT4 ~ r_vel4.unnamed[0]
     r_vel4.unnamed[1] ~ vel4
 
     r_mod1 = new Resistor
     r_mod1.resistance = 1kohm +/- 5%
-    opamp4.OUT1 ~ r_mod1.p1
+    opamp4.OUT1 ~ r_mod1.unnamed[0]
     r_mod1.unnamed[1] ~ mod1
 
     r_mod2 = new Resistor
     r_mod2.resistance = 1kohm +/- 5%
-    opamp4.OUT2 ~ r_mod2.p1
+    opamp4.OUT2 ~ r_mod2.unnamed[0]
     r_mod2.unnamed[1] ~ mod2
 
     r_mod3 = new Resistor
     r_mod3.resistance = 1kohm +/- 5%
-    opamp4.OUT3 ~ r_mod3.p1
+    opamp4.OUT3 ~ r_mod3.unnamed[0]
     r_mod3.unnamed[1] ~ mod3
 
     r_mod4 = new Resistor
     r_mod4.resistance = 1kohm +/- 5%
-    opamp4.OUT4 ~ r_mod4.p1
+    opamp4.OUT4 ~ r_mod4.unnamed[0]
     r_mod4.unnamed[1] ~ mod4
