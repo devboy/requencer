@@ -558,10 +558,10 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
   const generated = randomizeTrack(
     config,
     {
-      gate: track.gate.length,
-      pitch: track.pitch.length,
-      velocity: track.velocity.length,
-      mod: track.mod.length,
+      gate: MAX_LENGTH,
+      pitch: MAX_LENGTH,
+      velocity: MAX_LENGTH,
+      mod: MAX_LENGTH,
     },
     seed,
   )
@@ -604,13 +604,13 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
   const config = state.randomConfigs[trackIndex]
   const s = seed ?? Date.now()
 
-  const newGateBools = randomizeGates(config.gate, track.gate.length, s)
+  const newGateBools = randomizeGates(config.gate, MAX_LENGTH, s)
 
   // Also regenerate gateLength and ratchet for the new gate pattern
-  const newGateLengths = randomizeGateLength(config.gateLength, newGateBools.length, s + 3)
-  const newRatchets = randomizeRatchets(config.ratchet, newGateBools.length, s + 4)
+  const newGateLengths = randomizeGateLength(config.gateLength, MAX_LENGTH, s + 3)
+  const newRatchets = randomizeRatchets(config.ratchet, MAX_LENGTH, s + 4)
 
-  const newTies = randomizeTies(config.tie.probability, config.tie.maxLength, newGateBools, newGateBools.length, s + 7)
+  const newTies = randomizeTies(config.tie.probability, config.tie.maxLength, newGateBools, MAX_LENGTH, s + 7)
   const gateSteps: GateStep[] = newGateBools.map((on, i) => ({
     on: on && !newTies[i],
     tie: newTies[i],
@@ -622,7 +622,7 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
     ...state,
     tracks: state.tracks.map((t, i) => {
       if (i !== trackIndex) return t
-      return { ...t, gate: { ...t.gate, steps: gateSteps, length: gateSteps.length } }
+      return { ...t, gate: { ...t.gate, steps: gateSteps } }
     }),
   }
 }
@@ -642,12 +642,12 @@ export function randomizePitchPattern(state: SequencerState, trackIndex: number,
         config.pitch.scale,
         arpConfig.direction,
         arpConfig.octaveRange,
-        track.pitch.length,
+        MAX_LENGTH,
         s,
       )
-    : randomizePitch(config.pitch, track.pitch.length, s)
+    : randomizePitch(config.pitch, MAX_LENGTH, s)
 
-  const newSlides = randomizeSlides(config.slide.probability, track.pitch.length, s + 5)
+  const newSlides = randomizeSlides(config.slide.probability, MAX_LENGTH, s + 5)
 
   const pitchSteps: PitchStep[] = newNotes.map((note, i) => ({
     note,
@@ -669,7 +669,7 @@ export function randomizePitchPattern(state: SequencerState, trackIndex: number,
 export function randomizeVelocityPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
   const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
-  const newVel = randomizeVelocity(config.velocity, track.velocity.length, seed)
+  const newVel = randomizeVelocity(config.velocity, MAX_LENGTH, seed)
 
   return {
     ...state,
@@ -686,7 +686,7 @@ export function randomizeVelocityPattern(state: SequencerState, trackIndex: numb
 export function randomizeModPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
   const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
-  const newMod = randomizeMod(config.mod, track.mod.length, seed)
+  const newMod = randomizeMod(config.mod, MAX_LENGTH, seed)
 
   return {
     ...state,
