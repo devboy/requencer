@@ -1,8 +1,13 @@
 # Raspberry Pi Pico — RP2040 Module with Castellated Pads
 # 40-pin castellated edge footprint, solders flush to PCB
-# Footprint: source from RPi Foundation hardware design files
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
 
 component RaspberryPiPico:
+    trait is_atomic_part<manufacturer="Raspberry Pi", partnumber="SC0915", footprint="RaspberryPiPico.kicad_mod">
+    trait has_designator_prefix<prefix="U">
     # Left side (pin 1 at top-left, USB port facing up)
     signal GP0 ~ pin 1
     signal GP1 ~ pin 2
@@ -47,4 +52,3 @@ component RaspberryPiPico:
     signal VSYS ~ pin 39
     signal VBUS ~ pin 40
 
-    designator_prefix = "U"

@@ -1,12 +1,16 @@
 # EC11E — Alps Rotary Encoder with Push Switch, Through-Hole
 # Quadrature output (A/B) + momentary push switch
-# Footprint: standard KiCad library EC11E
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
 
 component EC11E:
+    trait is_atomic_part<manufacturer="Alps", partnumber="EC11E", footprint="EC11E.kicad_mod">
+    trait has_designator_prefix<prefix="ENC">
+
     signal A ~ pin 1
     signal GND_ENC ~ pin 2
     signal B ~ pin 3
     signal SW1 ~ pin 4
     signal SW2 ~ pin 5
-
-    designator_prefix = "ENC"

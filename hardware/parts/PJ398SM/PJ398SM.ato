@@ -1,10 +1,14 @@
 # PJ398SM — Thonkiconn 3.5mm Mono Jack, Through-Hole
 # Standard eurorack jack. Tip + sleeve + switch contact (NC when plugged).
-# Footprint: source from SnapEDA or Thonk KiCad library
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
 
 component PJ398SM:
+    trait is_atomic_part<manufacturer="Thonkiconn", partnumber="PJ398SM", footprint="PJ398SM.kicad_mod">
+    trait has_designator_prefix<prefix="J">
+
     signal TIP ~ pin 1
     signal SLEEVE ~ pin 2
     signal SWITCH ~ pin 3
-
-    designator_prefix = "J"
