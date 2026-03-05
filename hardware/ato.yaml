@@ -6,6 +6,4 @@ builds:
   default:
     entry: requencer.ato:Requencer
 dependencies:
-  - type: registry
-    identifier: atopile/generics
-    release: "v4.4.0"
+  - "atopile/generics@v4.4.0"
