@@ -6,9 +6,14 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["std"]
+std = ["requencer-engine/std", "requencer-renderer/std"]
+
 [dependencies]
 requencer-engine = { path = "../engine" }
 requencer-renderer = { path = "../renderer" }
+embedded-graphics-core = { workspace = true }
 wasm-bindgen = "0.2"
 
 [dependencies.web-sys]

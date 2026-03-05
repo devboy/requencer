@@ -161,6 +161,7 @@ dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "heapless",
+ "libm",
  "requencer-engine",
 ]
 
@@ -168,6 +169,7 @@ dependencies = [
 name = "requencer-web"
 version = "0.1.0"
 dependencies = [
+ "embedded-graphics-core",
  "requencer-engine",
  "requencer-renderer",
  "wasm-bindgen",

@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 //! Requencer engine — pure sequencer logic.
 //!
@@ -7,6 +7,7 @@
 
 pub mod arpeggiator;
 pub mod clock_divider;
+pub mod clock_recovery;
 pub mod euclidean;
 pub mod lfo;
 pub mod math;

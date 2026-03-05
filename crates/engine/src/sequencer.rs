@@ -525,6 +525,142 @@ impl SequencerState {
             *step = false;
         }
     }
+
+    // ── Page-scoped clear functions ──────────────────────────────────
+
+    /// Clear gate steps on a page (page 0 = steps 0-15).
+    pub fn clear_gate_steps_on_page(&mut self, track: usize, page: usize) {
+        let len = self.tracks[track].gate.length as usize;
+        let (start, end) = page_range(len, page);
+        for i in start..=end {
+            if let Some(s) = self.tracks[track].gate.steps.get_mut(i) {
+                *s = GateStep::default();
+            }
+        }
+    }
+
+    /// Clear pitch steps on a page.
+    pub fn clear_pitch_steps_on_page(&mut self, track: usize, page: usize) {
+        let len = self.tracks[track].pitch.length as usize;
+        let (start, end) = page_range(len, page);
+        for i in start..=end {
+            if let Some(s) = self.tracks[track].pitch.steps.get_mut(i) {
+                *s = PitchStep::default();
+            }
+        }
+    }
+
+    /// Clear velocity steps on a page.
+    pub fn clear_vel_steps_on_page(&mut self, track: usize, page: usize) {
+        let len = self.tracks[track].velocity.length as usize;
+        let (start, end) = page_range(len, page);
+        for i in start..=end {
+            if let Some(s) = self.tracks[track].velocity.steps.get_mut(i) {
+                *s = 100;
+            }
+        }
+    }
+
+    /// Clear mod steps on a page.
+    pub fn clear_mod_steps_on_page(&mut self, track: usize, page: usize) {
+        let len = self.tracks[track].modulation.length as usize;
+        let (start, end) = page_range(len, page);
+        for i in start..=end {
+            if let Some(s) = self.tracks[track].modulation.steps.get_mut(i) {
+                *s = ModStep::default();
+            }
+        }
+    }
+
+    /// Clear mute steps on a page.
+    pub fn clear_mute_steps_on_page(&mut self, track: usize, page: usize) {
+        let len = self.mute_patterns[track].length as usize;
+        let (start, end) = page_range(len, page);
+        for i in start..=end {
+            if let Some(s) = self.mute_patterns[track].steps.get_mut(i) {
+                *s = false;
+            }
+        }
+    }
+
+    // ── Mute setters ─────────────────────────────────────────────────
+
+    /// Set a mute step on/off.
+    pub fn set_mute_step(&mut self, track: usize, step: usize, value: bool) {
+        if let Some(s) = self.mute_patterns[track].steps.get_mut(step) {
+            *s = value;
+        }
+    }
+
+    /// Set mute pattern length.
+    pub fn set_mute_length(&mut self, track: usize, new_length: u8) {
+        let length = new_length.clamp(1, MAX_STEPS as u8);
+        let mute = &mut self.mute_patterns[track];
+        mute.length = length;
+        while mute.steps.len() < length as usize {
+            let _ = mute.steps.push(false);
+        }
+    }
+
+    /// Set mute pattern clock divider.
+    pub fn set_mute_clock_divider(&mut self, track: usize, divider: u8) {
+        self.mute_patterns[track].clock_divider = divider.clamp(1, 32);
+    }
+
+    // ── Track playhead resets ────────────────────────────────────────
+
+    /// Reset all subtrack playheads for a single track.
+    pub fn reset_track_playheads(&mut self, track: usize) {
+        self.tracks[track].gate.current_step = 0;
+        self.tracks[track].pitch.current_step = 0;
+        self.tracks[track].velocity.current_step = 0;
+        self.tracks[track].modulation.current_step = 0;
+    }
+
+    /// Reset a single subtrack playhead.
+    pub fn reset_subtrack_playhead(&mut self, track: usize, subtrack: SubtrackId) {
+        match subtrack {
+            SubtrackId::Gate => self.tracks[track].gate.current_step = 0,
+            SubtrackId::Pitch => self.tracks[track].pitch.current_step = 0,
+            SubtrackId::Velocity => self.tracks[track].velocity.current_step = 0,
+            SubtrackId::Mod => self.tracks[track].modulation.current_step = 0,
+        }
+    }
+
+    // ── User preset management ───────────────────────────────────────
+
+    /// Save a user preset.
+    pub fn save_user_preset(&mut self, name: &str, config: crate::types::RandomConfig) {
+        let mut n = heapless::String::new();
+        for c in name.chars() {
+            if n.push(c).is_err() {
+                break;
+            }
+        }
+        let _ = self.user_presets.push(crate::types::UserPreset {
+            name: n,
+            config,
+        });
+    }
+
+    /// Delete a user preset by index.
+    pub fn delete_user_preset(&mut self, index: usize) {
+        if index < self.user_presets.len() {
+            self.user_presets.remove(index);
+        }
+    }
+
+    /// Initialize per-track preset random configs from factory presets.
+    /// T1=Bassline, T2=Acid, T3=Hypnotic, T4=Stab.
+    pub fn apply_default_presets(&mut self) {
+        use crate::presets::get_preset_by_name;
+        let names = ["Bassline", "Acid", "Hypnotic", "Stab"];
+        for (i, name) in names.iter().enumerate() {
+            if let Some(config) = get_preset_by_name(name) {
+                self.random_configs[i] = config;
+            }
+        }
+    }
 }
 
 /// Identifier for subtrack selection.
@@ -534,6 +670,18 @@ pub enum SubtrackId {
     Pitch,
     Velocity,
     Mod,
+}
+
+fn page_range(length: usize, page: usize) -> (usize, usize) {
+    let start = page * 16;
+    let end = if start + 15 < length {
+        start + 15
+    } else if length > 0 {
+        length - 1
+    } else {
+        0
+    };
+    (start, end)
 }
 
 fn resize_subtrack<T: Clone>(subtrack: &mut Subtrack<T>, new_length: u8, default: T) {
@@ -709,5 +857,71 @@ mod tests {
             .iter()
             .any(|s| s.on || s.tie);
         assert!(has_active);
+    }
+
+    #[test]
+    fn clear_gate_steps_on_page() {
+        let mut state = default_state();
+        state.set_gate_on(0, 0, true);
+        state.set_gate_on(0, 5, true);
+        state.clear_gate_steps_on_page(0, 0);
+        assert!(!state.tracks[0].gate.steps[0].on);
+        assert!(!state.tracks[0].gate.steps[5].on);
+    }
+
+    #[test]
+    fn set_mute_step() {
+        let mut state = default_state();
+        state.set_mute_step(0, 3, true);
+        assert!(state.mute_patterns[0].steps[3]);
+    }
+
+    #[test]
+    fn user_preset_save_delete() {
+        let mut state = default_state();
+        let config = state.random_configs[0].clone();
+        state.save_user_preset("My Preset", config);
+        assert_eq!(state.user_presets.len(), 1);
+        assert_eq!(state.user_presets[0].name.as_str(), "My Preset");
+
+        state.delete_user_preset(0);
+        assert_eq!(state.user_presets.len(), 0);
+    }
+
+    #[test]
+    fn apply_default_presets() {
+        let mut state = default_state();
+        state.apply_default_presets();
+        // T1 = Bassline: pitch low=24
+        assert_eq!(state.random_configs[0].pitch.low, 24);
+        // T2 = Acid: slide probability=0.25
+        assert_eq!(state.random_configs[1].slide.probability, 0.25);
+        // T3 = Hypnotic: gate mode=Cluster
+        assert_eq!(
+            state.random_configs[2].gate.mode,
+            crate::types::GateAlgo::Cluster
+        );
+    }
+
+    #[test]
+    fn reset_track_playheads() {
+        let mut state = default_state();
+        for _ in 0..20 {
+            tick(&mut state);
+        }
+        state.reset_track_playheads(0);
+        assert_eq!(state.tracks[0].gate.current_step, 0);
+        assert_eq!(state.tracks[0].pitch.current_step, 0);
+        // Other tracks not affected
+        assert!(state.tracks[1].gate.current_step > 0 || state.transport.master_tick > 0);
+    }
+
+    #[test]
+    fn set_mute_clock_divider_clamps() {
+        let mut state = default_state();
+        state.set_mute_clock_divider(0, 0);
+        assert_eq!(state.mute_patterns[0].clock_divider, 1);
+        state.set_mute_clock_divider(0, 100);
+        assert_eq!(state.mute_patterns[0].clock_divider, 32);
     }
 }

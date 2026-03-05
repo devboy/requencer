@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["std"]
+default = []
 std = []
 
 [dependencies]
@@ -12,3 +12,4 @@ requencer-engine = { path = "../engine", default-features = false }
 embedded-graphics-core = { workspace = true }
 embedded-graphics = { workspace = true }
 heapless = { workspace = true }
+libm = "0.2"
