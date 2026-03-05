@@ -6,7 +6,7 @@ import is_atomic_part
 import has_designator_prefix
 
 component EC11E:
-    trait is_atomic_part<manufacturer="Alps", partnumber="EC11E", footprint="EC11E.kicad_mod">
+    trait is_atomic_part<manufacturer="Alps", partnumber="EC11E", footprint="EC11E.kicad_mod", symbol="EC11E.kicad_sym">
     trait has_designator_prefix<prefix="ENC">
 
     signal A ~ pin 1

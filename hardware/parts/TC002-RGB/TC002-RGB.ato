@@ -6,7 +6,7 @@ import is_atomic_part
 import has_designator_prefix
 
 component TC002_RGB:
-    trait is_atomic_part<manufacturer="Well Buying", partnumber="TC002-N11AS1XT-RGB", footprint="TC002-N11AS1XT-RGB.kicad_mod">
+    trait is_atomic_part<manufacturer="Well Buying", partnumber="TC002-N11AS1XT-RGB", footprint="TC002-N11AS1XT-RGB.kicad_mod", symbol="TC002-N11AS1XT-RGB.kicad_sym">
     trait has_designator_prefix<prefix="SW">
 
     # Switch contacts
