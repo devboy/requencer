@@ -1,0 +1,135 @@
+{
+  "panel": {
+    "height_mm": 128.5,
+    "width_hp": 36,
+    "width_mm": 182.88
+  },
+
+  "constants": {
+    "rail_zone_mm": 10.0,
+    "component_gap_mm": 5.33,
+    "btn_diameter_mm": 5.0,
+    "btn_cc_mm": 10.7,
+    "step_btn_diameter_mm": 4.5,
+    "step_btn_cc_mm": 10.2,
+    "jack_diameter_mm": 10.0,
+    "jack_hole_mm": 3.5,
+    "jack_spacing_mm": 14.0,
+    "output_jack_spacing_mm": 12.4,
+    "encoder_diameter_mm": 14.5,
+    "rect_btn_height_mm": 10.0,
+    "mount_slot_w_mm": 7.0,
+    "mount_slot_h_mm": 3.5,
+    "mount_offset_x_mm": 7.2,
+    "mount_offset_y_mm": 3.4,
+    "lcd_canvas_w_mm": 73.44,
+    "lcd_canvas_h_mm": 48.96,
+    "lcd_padding_mm": 2.0,
+    "silk_text_mm": 2.2
+  },
+
+  "lcd_cutout": {
+    "center_x_mm": 54.78,
+    "center_y_mm": 36.89,
+    "width_mm": 73.44,
+    "height_mm": 48.96
+  },
+
+  "mounting_slots": [
+    { "id": "tl", "x_mm": 7.2, "y_mm": 3.4 },
+    { "id": "tr", "x_mm": 175.68, "y_mm": 3.4 },
+    { "id": "bl", "x_mm": 7.2, "y_mm": 125.1 },
+    { "id": "br", "x_mm": 175.68, "y_mm": 125.1 }
+  ],
+
+  "buttons": {
+    "track": [
+      { "id": "t1", "label": "1", "x_mm": 7.83, "y_mm": 12.50 },
+      { "id": "t2", "label": "2", "x_mm": 7.83, "y_mm": 23.20 },
+      { "id": "t3", "label": "3", "x_mm": 7.83, "y_mm": 33.90 },
+      { "id": "t4", "label": "4", "x_mm": 7.83, "y_mm": 44.60 }
+    ],
+    "subtrack": [
+      { "id": "gate",  "label": "GATE",  "x_mm": 101.72, "y_mm": 12.50 },
+      { "id": "pitch", "label": "PITCH", "x_mm": 101.72, "y_mm": 23.20 },
+      { "id": "vel",   "label": "VEL",   "x_mm": 101.72, "y_mm": 33.90 },
+      { "id": "mod",   "label": "MOD",   "x_mm": 101.72, "y_mm": 44.60 }
+    ],
+    "pat": { "id": "pat", "label": "PAT", "x_mm": 101.72, "y_mm": 55.30 },
+    "feature": [
+      { "id": "mute",  "label": "MUTE",  "x_mm": 112.05, "y_mm": 12.50 },
+      { "id": "route", "label": "ROUTE", "x_mm": 112.05, "y_mm": 23.20 },
+      { "id": "drift", "label": "DRIFT", "x_mm": 112.05, "y_mm": 33.90 },
+      { "id": "trns",  "label": "TRNS",  "x_mm": 112.05, "y_mm": 44.60 },
+      { "id": "var",   "label": "VAR",   "x_mm": 112.05, "y_mm": 55.30 }
+    ],
+    "step": [
+      { "id": "step1",  "x_mm": 19.07, "y_mm": 91.19 },
+      { "id": "step2",  "x_mm": 29.27, "y_mm": 91.19 },
+      { "id": "step3",  "x_mm": 39.47, "y_mm": 91.19 },
+      { "id": "step4",  "x_mm": 49.67, "y_mm": 91.19 },
+      { "id": "step5",  "x_mm": 59.87, "y_mm": 91.19 },
+      { "id": "step6",  "x_mm": 70.07, "y_mm": 91.19 },
+      { "id": "step7",  "x_mm": 80.27, "y_mm": 91.19 },
+      { "id": "step8",  "x_mm": 90.47, "y_mm": 91.19 },
+      { "id": "step9",  "x_mm": 19.07, "y_mm": 101.39 },
+      { "id": "step10", "x_mm": 29.27, "y_mm": 101.39 },
+      { "id": "step11", "x_mm": 39.47, "y_mm": 101.39 },
+      { "id": "step12", "x_mm": 49.67, "y_mm": 101.39 },
+      { "id": "step13", "x_mm": 59.87, "y_mm": 101.39 },
+      { "id": "step14", "x_mm": 70.07, "y_mm": 101.39 },
+      { "id": "step15", "x_mm": 80.27, "y_mm": 101.39 },
+      { "id": "step16", "x_mm": 90.47, "y_mm": 101.39 }
+    ],
+    "transport": [
+      { "id": "play",     "label": "PLAY",  "x_mm": 135.55, "y_mm": 15.00 },
+      { "id": "reset",    "label": "RESET", "x_mm": 135.55, "y_mm": 29.00 },
+      { "id": "settings", "label": "SET",   "x_mm": 135.55, "y_mm": 43.00 }
+    ],
+    "control_strip": [
+      { "id": "back", "label": "BACK" },
+      { "id": "rand", "label": "RAND" },
+      { "id": "clr",  "label": "CLR" }
+    ]
+  },
+
+  "encoders": [
+    { "id": "enc_a", "label": "A", "x_mm": 12.58, "y_mm": 76.36 },
+    { "id": "enc_b", "label": "B", "x_mm": 107.30, "y_mm": 76.36 }
+  ],
+
+  "jacks": {
+    "utility": [
+      { "id": "clk_in",  "label": "CLK IN",  "x_mm": 156.55, "y_mm": 15.00 },
+      { "id": "clk_out", "label": "CLK OUT", "x_mm": 170.55, "y_mm": 15.00 },
+      { "id": "rst_in",  "label": "RST IN",  "x_mm": 156.55, "y_mm": 29.00 },
+      { "id": "rst_out", "label": "RST OUT", "x_mm": 170.55, "y_mm": 29.00 },
+      { "id": "midi_in", "label": "MIDI IN", "x_mm": 156.55, "y_mm": 43.00 },
+      { "id": "midi_out","label": "MIDI OUT","x_mm": 170.55, "y_mm": 43.00 }
+    ],
+    "output": [
+      { "id": "gate1",  "label": "G1", "x_mm": 128.55, "y_mm": 57.00, "row": "gate",  "track": 1 },
+      { "id": "gate2",  "label": "G2", "x_mm": 142.55, "y_mm": 57.00, "row": "gate",  "track": 2 },
+      { "id": "gate3",  "label": "G3", "x_mm": 156.55, "y_mm": 57.00, "row": "gate",  "track": 3 },
+      { "id": "gate4",  "label": "G4", "x_mm": 170.55, "y_mm": 57.00, "row": "gate",  "track": 4 },
+      { "id": "pitch1", "label": "P1", "x_mm": 128.55, "y_mm": 69.40, "row": "pitch", "track": 1 },
+      { "id": "pitch2", "label": "P2", "x_mm": 142.55, "y_mm": 69.40, "row": "pitch", "track": 2 },
+      { "id": "pitch3", "label": "P3", "x_mm": 156.55, "y_mm": 69.40, "row": "pitch", "track": 3 },
+      { "id": "pitch4", "label": "P4", "x_mm": 170.55, "y_mm": 69.40, "row": "pitch", "track": 4 },
+      { "id": "vel1",   "label": "V1", "x_mm": 128.55, "y_mm": 81.80, "row": "vel",   "track": 1 },
+      { "id": "vel2",   "label": "V2", "x_mm": 142.55, "y_mm": 81.80, "row": "vel",   "track": 2 },
+      { "id": "vel3",   "label": "V3", "x_mm": 156.55, "y_mm": 81.80, "row": "vel",   "track": 3 },
+      { "id": "vel4",   "label": "V4", "x_mm": 170.55, "y_mm": 81.80, "row": "vel",   "track": 4 },
+      { "id": "mod1",   "label": "M1", "x_mm": 128.55, "y_mm": 94.20, "row": "mod",   "track": 1 },
+      { "id": "mod2",   "label": "M2", "x_mm": 142.55, "y_mm": 94.20, "row": "mod",   "track": 2 },
+      { "id": "mod3",   "label": "M3", "x_mm": 156.55, "y_mm": 94.20, "row": "mod",   "track": 3 },
+      { "id": "mod4",   "label": "M4", "x_mm": 170.55, "y_mm": 94.20, "row": "mod",   "track": 4 }
+    ],
+    "cv_input": [
+      { "id": "cv_a", "label": "A", "x_mm": 128.55, "y_mm": 106.60 },
+      { "id": "cv_b", "label": "B", "x_mm": 142.55, "y_mm": 106.60 },
+      { "id": "cv_c", "label": "C", "x_mm": 156.55, "y_mm": 106.60 },
+      { "id": "cv_d", "label": "D", "x_mm": 170.55, "y_mm": 106.60 }
+    ]
+  }
+}

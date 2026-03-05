@@ -4,9 +4,13 @@ on:
   push:
     paths:
       - 'hardware/**'
+      - 'hardware-faceplate/**'
+      - 'panel-layout.json'
   pull_request:
     paths:
       - 'hardware/**'
+      - 'hardware-faceplate/**'
+      - 'panel-layout.json'
 
 jobs:
   build:
@@ -14,18 +18,76 @@ jobs:
     container:
       image: ghcr.io/atopile/atopile-kicad:latest
 
-    defaults:
-      run:
-        working-directory: hardware
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Python dependencies
+        run: pip install KicadModTree
+
+      # --- Main PCB ---
+
+      - name: Install atopile dependencies
+        working-directory: hardware
         run: ato install
 
       - name: Build schematic
+        working-directory: hardware
         run: ato build
+
+      - name: Generate through-hole footprints
+        run: python hardware/scripts/generate_footprints.py
+
+      - name: Run DRC (verification)
+        working-directory: hardware
+        run: |
+          PCB="elec/layout/default/requencer.kicad_pcb"
+          if [ -f "$PCB" ]; then
+            kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
+            if [ -f drc-report.json ]; then
+              python3 -c "
+          import json
+          with open('drc-report.json') as f:
+              r = json.load(f)
+          v = len(r.get('violations', []))
+          u = len(r.get('unconnected', []))
+          print(f'DRC: {v} violations, {u} unconnected')
+          "
+            fi
+          else
+            echo "PCB file not found, skipping DRC"
+          fi
+
+      # --- Faceplate ---
+
+      - name: Generate faceplate PCB
+        run: python hardware-faceplate/scripts/generate_faceplate.py
+
+      # --- Full pipeline (main branch only) ---
+
+      - name: Place components
+        if: github.ref == 'refs/heads/main'
+        run: python hardware/scripts/place_components.py
+
+      - name: Autoroute
+        if: github.ref == 'refs/heads/main'
+        run: |
+          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          if [ -f "$PCB" ]; then
+            chmod +x hardware/scripts/autoroute.sh
+            hardware/scripts/autoroute.sh "$PCB"
+          else
+            echo "PCB not found, skipping autoroute"
+          fi
+
+      - name: Export manufacturing files
+        if: github.ref == 'refs/heads/main'
+        run: |
+          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          if [ -f "$PCB" ]; then
+            python hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
+          else
+            echo "PCB not found, skipping manufacturing export"
+          fi
 
       - name: Upload KiCad output
         if: github.ref == 'refs/heads/main'
@@ -33,4 +95,14 @@ jobs:
         with:
           name: kicad-output-${{ github.sha }}
           path: hardware/elec/layout/default/
+          retention-days: 90
+
+      - name: Upload manufacturing files
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: manufacturing-${{ github.sha }}
+          path: |
+            hardware/manufacturing/
+            hardware-faceplate/elec/layout/
           retention-days: 90
