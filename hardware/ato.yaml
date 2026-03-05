@@ -4,5 +4,5 @@ paths:
   layout: elec/layout
 builds:
   default:
-    entry: requencer.ato:Requencer
+    entry: elec/src/requencer.ato:Requencer
 dependencies: []
