@@ -6,4 +6,4 @@ builds:
   default:
     entry: requencer.ato:Requencer
 dependencies:
-  - "atopile/generics@4.1.0"
+  - "git://github.com/atopile/generics.git#v4.1.0"
