@@ -1,6 +1,6 @@
 # Ordering Requencer PCBs from China
 
-Full eurorack module: panel + PCB with jacks, RGB LED buttons, DACs, op-amp output buffers, and all analog circuitry. Plug in a Pico + LCD, flash firmware, drop into rack.
+Full eurorack module: panel + PCB with jacks, RGB LED buttons, DACs, op-amp output buffers, and all analog circuitry. Plug in a Pico 2 + LCD, flash firmware, drop into rack.
 
 ## Strategy: Two-Board Sandwich
 
@@ -55,8 +55,8 @@ Panel screws to front. PCB sits behind. Through-hole components (jacks, buttons,
 
 | Component | Price | Notes |
 |-----------|-------|-------|
-| Raspberry Pi Pico (RP2040) | $4 | Castellated pads — solder flush onto PCB footprint |
-| 3.5" ILI9488 LCD (480×320 SPI) | $8 | Connects via FPC or pin header on PCB |
+| Raspberry Pi Pico 2 (RP2350) | $5 | Castellated pads — solder flush onto PCB footprint |
+| 3.5" ST7796 LCD (480×320 SPI) | $8 | Connects via FPC or pin header on PCB |
 | Encoder knobs (14.5mm, D-shaft) | $2 | Press-fit onto Alps EC11 shafts |
 
 ---
@@ -235,7 +235,7 @@ Pin 9: +12V     Pin 10: +12V
 
 ---
 
-## GPIO Pin Budget (RP2040 Pico — 26 GPIO)
+## GPIO Pin Budget (RP2350 Pico 2 — 26 GPIO)
 
 | Function | Pins | GPIO Assignment |
 |----------|------|-----------------|
@@ -327,10 +327,10 @@ Spacing:
 | Through-hole parts: 26 jacks ($8), 32 RGB buttons ($32), 2 encoders ($1), power header ($0.30) | $42 |
 | Shipping (DHL, 5-7 days) | $25 |
 | **Subtotal: PCBs + assembly for 1 unit** | **~$147** |
-| Raspberry Pi Pico | $4 |
-| 3.5" ILI9488 LCD | $8 |
+| Raspberry Pi Pico 2 | $5 |
+| 3.5" ST7796 LCD | $8 |
 | Encoder knobs × 2 | $3 |
-| **Total for 1 working module** | **~$162** |
+| **Total for 1 working module** | **~$163** |
 
 ### Per-Unit at Higher Quantities
 
@@ -413,4 +413,4 @@ Spacing:
 5. **PCB layout in EasyEDA Pro** — component placement and routing
 6. **Order test panel** — just the faceplate first ($5), verify fit with TC002 buttons and Thonkiconn jacks
 7. **Order full PCB** — once panel verified
-8. **Port engine to Rust** — embassy-rs on RP2040
+8. **Port engine to Rust** — embassy-rs on RP2350

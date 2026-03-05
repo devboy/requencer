@@ -1,9 +1,9 @@
-# MCU Block — Raspberry Pi Pico (RP2040)
+# MCU Block — Raspberry Pi Pico 2 (RP2350)
 # Castellated pad module with all GPIO assignments
 
 import Capacitor
 
-from "../../parts/RaspberryPiPico/RaspberryPiPico.ato" import RaspberryPiPico
+from "../../parts/RaspberryPiPico2/RaspberryPiPico2.ato" import RaspberryPiPico2
 
 module PicoMCU:
     # Power
@@ -55,8 +55,8 @@ module PicoMCU:
     signal rst_in     # GP27
     signal clk_out    # GP28
 
-    # --- Pico module ---
-    pico = new RaspberryPiPico
+    # --- Pico 2 module ---
+    pico = new RaspberryPiPico2
 
     # Power connections
     pico.VSYS ~ vsys
