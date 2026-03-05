@@ -1,0 +1,11 @@
+# AMS1117-3.3 — 3.3V LDO Regulator, SOT-223
+# LCSC: C6186
+# Input: up to 18V, Output: 3.3V, 1A max
+
+component AMS1117_3V3:
+    signal GND ~ pin 1
+    signal VOUT ~ pin 2
+    signal VIN ~ pin 3
+    signal TAB ~ pin 4
+
+    designator_prefix = "U"

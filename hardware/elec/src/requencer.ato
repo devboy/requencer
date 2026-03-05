@@ -1,0 +1,334 @@
+# Requencer — Top-Level Module
+# 4-track eurorack step sequencer
+# Wires all sub-modules together: power, MCU, DAC, buttons, LEDs, display, I/O
+
+from "power.ato" import PowerSupply
+from "mcu.ato" import PicoMCU
+from "dac-output.ato" import DACOutputStage
+from "button-scan.ato" import ButtonScanner
+from "led-driver.ato" import LEDDriverChain
+from "display.ato" import DisplayConnector
+from "io-jacks.ato" import IOJacks
+from "midi.ato" import MIDIInterface
+
+from "../../parts/EC11E/EC11E.ato" import EC11E
+
+from "generics/resistors.ato" import Resistor
+from "generics/capacitors.ato" import Capacitor
+
+module Requencer:
+    # --- Sub-module instances ---
+    power = new PowerSupply
+    mcu = new PicoMCU
+    dac = new DACOutputStage
+    buttons = new ButtonScanner
+    leds = new LEDDriverChain
+    display = new DisplayConnector
+    jacks = new IOJacks
+    midi = new MIDIInterface
+
+    # --- Encoders ---
+    enc_a = new EC11E
+    enc_b = new EC11E
+
+    # Common ground net
+    signal gnd
+
+    # === POWER DISTRIBUTION ===
+
+    # Ground bus
+    power.gnd ~ gnd
+    mcu.gnd ~ gnd
+    dac.gnd ~ gnd
+    buttons.gnd ~ gnd
+    leds.gnd ~ gnd
+    display.gnd ~ gnd
+    jacks.gnd ~ gnd
+    midi.gnd ~ gnd
+
+    # Pico VSYS from power supply (3.3V via Schottky)
+    power.pico_vsys ~ mcu.vsys
+
+    # +3.3V rail
+    power.v3v3 ~ buttons.vcc       # Shift registers
+    power.v3v3 ~ display.vcc       # LCD logic
+    power.v3v3 ~ midi.vcc          # MIDI interface
+    power.v3v3 ~ jacks.v3v3        # Input protection clamp rail
+
+    # +5V rail
+    power.v5v ~ leds.vcc           # LED drivers
+    power.v5v ~ dac.avdd           # DAC analog supply
+    power.v5v ~ jacks.v5v          # Clock output transistor pull-up
+
+    # ±12V rails (op-amp supply)
+    power.v12p ~ dac.v12p
+    power.v12n ~ dac.v12n
+
+    # DAC digital supply (3.3V — note: DAC8568 AVDD also serves as DVDD)
+    # The DAC8568 has a single AVDD pin; digital interface is 1.8V–5.5V compatible
+
+    # === SPI BUS ===
+    # Shared MOSI and SCK from MCU to LCD, DAC1, DAC2
+    mcu.spi_mosi ~ display.mosi
+    mcu.spi_mosi ~ dac.spi_mosi
+    mcu.spi_sck ~ display.sck
+    mcu.spi_sck ~ dac.spi_sck
+
+    # Separate chip select lines
+    mcu.lcd_cs ~ display.cs
+    mcu.dac1_cs ~ dac.dac1_cs
+    mcu.dac2_cs ~ dac.dac2_cs
+
+    # LCD control lines
+    mcu.lcd_dc ~ display.dc
+    mcu.lcd_rst ~ display.rst
+    mcu.lcd_bl ~ display.bl_ctrl
+
+    # === BUTTON SCANNING ===
+    mcu.btn_clk ~ buttons.clk
+    mcu.btn_latch ~ buttons.latch
+    mcu.btn_data ~ buttons.data_out
+
+    # === LED DRIVERS ===
+    mcu.led_sin ~ leds.sin
+    mcu.led_sclk ~ leds.sclk
+    mcu.led_xlat ~ leds.xlat
+    mcu.led_blank ~ leds.blank
+
+    # === LED ↔ BUTTON WIRING ===
+    # All button LED anodes connect to +5V (LED driver sinks current)
+    # LED cathodes connect to TLC5947 outputs
+    # Buttons are instantiated in button-scan module; LED connections:
+
+    # All button LED anodes to LED VCC (+5V)
+    buttons.btn_step1.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step2.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step3.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step4.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step5.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step6.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step7.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step8.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step9.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step10.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step11.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step12.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step13.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step14.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step15.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step16.LED_ANODE ~ leds.led_vcc
+    buttons.btn_t1.LED_ANODE ~ leds.led_vcc
+    buttons.btn_t2.LED_ANODE ~ leds.led_vcc
+    buttons.btn_t3.LED_ANODE ~ leds.led_vcc
+    buttons.btn_t4.LED_ANODE ~ leds.led_vcc
+    buttons.btn_gate.LED_ANODE ~ leds.led_vcc
+    buttons.btn_pitch.LED_ANODE ~ leds.led_vcc
+    buttons.btn_vel.LED_ANODE ~ leds.led_vcc
+    buttons.btn_mod.LED_ANODE ~ leds.led_vcc
+    buttons.btn_pat.LED_ANODE ~ leds.led_vcc
+    buttons.btn_mute.LED_ANODE ~ leds.led_vcc
+    buttons.btn_route.LED_ANODE ~ leds.led_vcc
+    buttons.btn_drift.LED_ANODE ~ leds.led_vcc
+    buttons.btn_xpose.LED_ANODE ~ leds.led_vcc
+    buttons.btn_var.LED_ANODE ~ leds.led_vcc
+    buttons.btn_play.LED_ANODE ~ leds.led_vcc
+    buttons.btn_reset.LED_ANODE ~ leds.led_vcc
+
+    # TLC1 (ch 0-23): Step buttons 1-8 (R, G, B per button)
+    buttons.btn_step1.LED_RED ~ leds.tlc1.OUT0
+    buttons.btn_step1.LED_GREEN ~ leds.tlc1.OUT1
+    buttons.btn_step1.LED_BLUE ~ leds.tlc1.OUT2
+    buttons.btn_step2.LED_RED ~ leds.tlc1.OUT3
+    buttons.btn_step2.LED_GREEN ~ leds.tlc1.OUT4
+    buttons.btn_step2.LED_BLUE ~ leds.tlc1.OUT5
+    buttons.btn_step3.LED_RED ~ leds.tlc1.OUT6
+    buttons.btn_step3.LED_GREEN ~ leds.tlc1.OUT7
+    buttons.btn_step3.LED_BLUE ~ leds.tlc1.OUT8
+    buttons.btn_step4.LED_RED ~ leds.tlc1.OUT9
+    buttons.btn_step4.LED_GREEN ~ leds.tlc1.OUT10
+    buttons.btn_step4.LED_BLUE ~ leds.tlc1.OUT11
+    buttons.btn_step5.LED_RED ~ leds.tlc1.OUT12
+    buttons.btn_step5.LED_GREEN ~ leds.tlc1.OUT13
+    buttons.btn_step5.LED_BLUE ~ leds.tlc1.OUT14
+    buttons.btn_step6.LED_RED ~ leds.tlc1.OUT15
+    buttons.btn_step6.LED_GREEN ~ leds.tlc1.OUT16
+    buttons.btn_step6.LED_BLUE ~ leds.tlc1.OUT17
+    buttons.btn_step7.LED_RED ~ leds.tlc1.OUT18
+    buttons.btn_step7.LED_GREEN ~ leds.tlc1.OUT19
+    buttons.btn_step7.LED_BLUE ~ leds.tlc1.OUT20
+    buttons.btn_step8.LED_RED ~ leds.tlc1.OUT21
+    buttons.btn_step8.LED_GREEN ~ leds.tlc1.OUT22
+    buttons.btn_step8.LED_BLUE ~ leds.tlc1.OUT23
+
+    # TLC2 (ch 24-47): Step buttons 9-16
+    buttons.btn_step9.LED_RED ~ leds.tlc2.OUT0
+    buttons.btn_step9.LED_GREEN ~ leds.tlc2.OUT1
+    buttons.btn_step9.LED_BLUE ~ leds.tlc2.OUT2
+    buttons.btn_step10.LED_RED ~ leds.tlc2.OUT3
+    buttons.btn_step10.LED_GREEN ~ leds.tlc2.OUT4
+    buttons.btn_step10.LED_BLUE ~ leds.tlc2.OUT5
+    buttons.btn_step11.LED_RED ~ leds.tlc2.OUT6
+    buttons.btn_step11.LED_GREEN ~ leds.tlc2.OUT7
+    buttons.btn_step11.LED_BLUE ~ leds.tlc2.OUT8
+    buttons.btn_step12.LED_RED ~ leds.tlc2.OUT9
+    buttons.btn_step12.LED_GREEN ~ leds.tlc2.OUT10
+    buttons.btn_step12.LED_BLUE ~ leds.tlc2.OUT11
+    buttons.btn_step13.LED_RED ~ leds.tlc2.OUT12
+    buttons.btn_step13.LED_GREEN ~ leds.tlc2.OUT13
+    buttons.btn_step13.LED_BLUE ~ leds.tlc2.OUT14
+    buttons.btn_step14.LED_RED ~ leds.tlc2.OUT15
+    buttons.btn_step14.LED_GREEN ~ leds.tlc2.OUT16
+    buttons.btn_step14.LED_BLUE ~ leds.tlc2.OUT17
+    buttons.btn_step15.LED_RED ~ leds.tlc2.OUT18
+    buttons.btn_step15.LED_GREEN ~ leds.tlc2.OUT19
+    buttons.btn_step15.LED_BLUE ~ leds.tlc2.OUT20
+    buttons.btn_step16.LED_RED ~ leds.tlc2.OUT21
+    buttons.btn_step16.LED_GREEN ~ leds.tlc2.OUT22
+    buttons.btn_step16.LED_BLUE ~ leds.tlc2.OUT23
+
+    # TLC3 (ch 48-71): Track T1-T4 + Subtrack GATE/PITCH/VEL/MOD
+    buttons.btn_t1.LED_RED ~ leds.tlc3.OUT0
+    buttons.btn_t1.LED_GREEN ~ leds.tlc3.OUT1
+    buttons.btn_t1.LED_BLUE ~ leds.tlc3.OUT2
+    buttons.btn_t2.LED_RED ~ leds.tlc3.OUT3
+    buttons.btn_t2.LED_GREEN ~ leds.tlc3.OUT4
+    buttons.btn_t2.LED_BLUE ~ leds.tlc3.OUT5
+    buttons.btn_t3.LED_RED ~ leds.tlc3.OUT6
+    buttons.btn_t3.LED_GREEN ~ leds.tlc3.OUT7
+    buttons.btn_t3.LED_BLUE ~ leds.tlc3.OUT8
+    buttons.btn_t4.LED_RED ~ leds.tlc3.OUT9
+    buttons.btn_t4.LED_GREEN ~ leds.tlc3.OUT10
+    buttons.btn_t4.LED_BLUE ~ leds.tlc3.OUT11
+    buttons.btn_gate.LED_RED ~ leds.tlc3.OUT12
+    buttons.btn_gate.LED_GREEN ~ leds.tlc3.OUT13
+    buttons.btn_gate.LED_BLUE ~ leds.tlc3.OUT14
+    buttons.btn_pitch.LED_RED ~ leds.tlc3.OUT15
+    buttons.btn_pitch.LED_GREEN ~ leds.tlc3.OUT16
+    buttons.btn_pitch.LED_BLUE ~ leds.tlc3.OUT17
+    buttons.btn_vel.LED_RED ~ leds.tlc3.OUT18
+    buttons.btn_vel.LED_GREEN ~ leds.tlc3.OUT19
+    buttons.btn_vel.LED_BLUE ~ leds.tlc3.OUT20
+    buttons.btn_mod.LED_RED ~ leds.tlc3.OUT21
+    buttons.btn_mod.LED_GREEN ~ leds.tlc3.OUT22
+    buttons.btn_mod.LED_BLUE ~ leds.tlc3.OUT23
+
+    # TLC4 (ch 72-95): Function buttons PAT through RESET
+    buttons.btn_pat.LED_RED ~ leds.tlc4.OUT0
+    buttons.btn_pat.LED_GREEN ~ leds.tlc4.OUT1
+    buttons.btn_pat.LED_BLUE ~ leds.tlc4.OUT2
+    buttons.btn_mute.LED_RED ~ leds.tlc4.OUT3
+    buttons.btn_mute.LED_GREEN ~ leds.tlc4.OUT4
+    buttons.btn_mute.LED_BLUE ~ leds.tlc4.OUT5
+    buttons.btn_route.LED_RED ~ leds.tlc4.OUT6
+    buttons.btn_route.LED_GREEN ~ leds.tlc4.OUT7
+    buttons.btn_route.LED_BLUE ~ leds.tlc4.OUT8
+    buttons.btn_drift.LED_RED ~ leds.tlc4.OUT9
+    buttons.btn_drift.LED_GREEN ~ leds.tlc4.OUT10
+    buttons.btn_drift.LED_BLUE ~ leds.tlc4.OUT11
+    buttons.btn_xpose.LED_RED ~ leds.tlc4.OUT12
+    buttons.btn_xpose.LED_GREEN ~ leds.tlc4.OUT13
+    buttons.btn_xpose.LED_BLUE ~ leds.tlc4.OUT14
+    buttons.btn_var.LED_RED ~ leds.tlc4.OUT15
+    buttons.btn_var.LED_GREEN ~ leds.tlc4.OUT16
+    buttons.btn_var.LED_BLUE ~ leds.tlc4.OUT17
+    buttons.btn_play.LED_RED ~ leds.tlc4.OUT18
+    buttons.btn_play.LED_GREEN ~ leds.tlc4.OUT19
+    buttons.btn_play.LED_BLUE ~ leds.tlc4.OUT20
+    buttons.btn_reset.LED_RED ~ leds.tlc4.OUT21
+    buttons.btn_reset.LED_GREEN ~ leds.tlc4.OUT22
+    buttons.btn_reset.LED_BLUE ~ leds.tlc4.OUT23
+
+    # === ENCODERS ===
+    # Encoder A (GP15-17)
+    enc_a.A ~ mcu.enc_a_a
+    enc_a.B ~ mcu.enc_a_b
+    enc_a.SW1 ~ mcu.enc_a_sw
+    enc_a.SW2 ~ gnd
+    enc_a.GND_ENC ~ gnd
+
+    # Encoder B (GP18-20)
+    enc_b.A ~ mcu.enc_b_a
+    enc_b.B ~ mcu.enc_b_b
+    enc_b.SW1 ~ mcu.enc_b_sw
+    enc_b.SW2 ~ gnd
+    enc_b.GND_ENC ~ gnd
+
+    # Encoder pull-up resistors (internal Pico pull-ups may suffice,
+    # but external 10kΩ pull-ups are more reliable for encoders)
+    r_enc_a_a = new Resistor
+    r_enc_a_a.value = 10kohm +/- 5%
+    r_enc_a_a.p1 ~ power.v3v3
+    r_enc_a_a.p2 ~ mcu.enc_a_a
+
+    r_enc_a_b = new Resistor
+    r_enc_a_b.value = 10kohm +/- 5%
+    r_enc_a_b.p1 ~ power.v3v3
+    r_enc_a_b.p2 ~ mcu.enc_a_b
+
+    r_enc_a_sw = new Resistor
+    r_enc_a_sw.value = 10kohm +/- 5%
+    r_enc_a_sw.p1 ~ power.v3v3
+    r_enc_a_sw.p2 ~ mcu.enc_a_sw
+
+    r_enc_b_a = new Resistor
+    r_enc_b_a.value = 10kohm +/- 5%
+    r_enc_b_a.p1 ~ power.v3v3
+    r_enc_b_a.p2 ~ mcu.enc_b_a
+
+    r_enc_b_b = new Resistor
+    r_enc_b_b.value = 10kohm +/- 5%
+    r_enc_b_b.p1 ~ power.v3v3
+    r_enc_b_b.p2 ~ mcu.enc_b_b
+
+    r_enc_b_sw = new Resistor
+    r_enc_b_sw.value = 10kohm +/- 5%
+    r_enc_b_sw.p1 ~ power.v3v3
+    r_enc_b_sw.p2 ~ mcu.enc_b_sw
+
+    # Encoder debounce caps
+    c_enc_a_a = new Capacitor
+    c_enc_a_a.value = 100nF +/- 20%
+    c_enc_a_a.p1 ~ mcu.enc_a_a
+    c_enc_a_a.p2 ~ gnd
+
+    c_enc_a_b = new Capacitor
+    c_enc_a_b.value = 100nF +/- 20%
+    c_enc_a_b.p1 ~ mcu.enc_a_b
+    c_enc_a_b.p2 ~ gnd
+
+    c_enc_b_a = new Capacitor
+    c_enc_b_a.value = 100nF +/- 20%
+    c_enc_b_a.p1 ~ mcu.enc_b_a
+    c_enc_b_a.p2 ~ gnd
+
+    c_enc_b_b = new Capacitor
+    c_enc_b_b.value = 100nF +/- 20%
+    c_enc_b_b.p1 ~ mcu.enc_b_b
+    c_enc_b_b.p2 ~ gnd
+
+    # === MIDI ===
+    mcu.midi_tx ~ midi.uart_tx
+    mcu.midi_rx ~ midi.uart_rx
+
+    # === CLOCK/RESET I/O ===
+    mcu.clk_in ~ jacks.clk_in_gpio
+    mcu.rst_in ~ jacks.rst_in_gpio
+    mcu.clk_out ~ jacks.clk_out_gpio
+
+    # === ANALOG OUTPUTS → JACKS ===
+    dac.gate1 ~ jacks.gate1
+    dac.gate2 ~ jacks.gate2
+    dac.gate3 ~ jacks.gate3
+    dac.gate4 ~ jacks.gate4
+    dac.pitch1 ~ jacks.pitch1
+    dac.pitch2 ~ jacks.pitch2
+    dac.pitch3 ~ jacks.pitch3
+    dac.pitch4 ~ jacks.pitch4
+    dac.vel1 ~ jacks.vel1
+    dac.vel2 ~ jacks.vel2
+    dac.vel3 ~ jacks.vel3
+    dac.vel4 ~ jacks.vel4
+    dac.mod1 ~ jacks.mod1
+    dac.mod2 ~ jacks.mod2
+    dac.mod3 ~ jacks.mod3
+    dac.mod4 ~ jacks.mod4

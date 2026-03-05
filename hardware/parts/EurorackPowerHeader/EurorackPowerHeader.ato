@@ -1,0 +1,17 @@
+# Eurorack Power Header — Shrouded 2×5 Pin Header, 2.54mm, Through-Hole
+# Standard eurorack power connector, keyed to prevent reverse insertion
+
+component EurorackPowerHeader:
+    # Standard eurorack pinout
+    signal NEG12V_1 ~ pin 1
+    signal NEG12V_2 ~ pin 2
+    signal GND1 ~ pin 3
+    signal GND2 ~ pin 4
+    signal GND3 ~ pin 5
+    signal GND4 ~ pin 6
+    signal GND5 ~ pin 7
+    signal GND6 ~ pin 8
+    signal POS12V_1 ~ pin 9
+    signal POS12V_2 ~ pin 10
+
+    designator_prefix = "J"

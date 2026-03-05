@@ -1,0 +1,16 @@
+# TC002-N11AS1XT-RGB — Well Buying RGB Tactile Switch, Through-Hole
+# Integrated RGB LED (common anode) + SPST momentary switch
+# Footprint: source from SnapEDA or datasheet
+
+component TC002_RGB:
+    # Switch contacts
+    signal SW1 ~ pin 1
+    signal SW2 ~ pin 2
+
+    # RGB LED (common anode)
+    signal LED_ANODE ~ pin 3
+    signal LED_RED ~ pin 4
+    signal LED_GREEN ~ pin 5
+    signal LED_BLUE ~ pin 6
+
+    designator_prefix = "SW"

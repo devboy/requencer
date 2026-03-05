@@ -1,0 +1,23 @@
+# DAC8568SPMR — TI 16-bit 8-channel DAC, TSSOP-16
+# LCSC: C133572
+# Internal 2.5V reference, SPI interface, gain=2 mode → 0–5V output
+
+component DAC8568SPMR:
+    signal VOUTA ~ pin 1
+    signal VOUTB ~ pin 2
+    signal VOUTC ~ pin 3
+    signal VOUTD ~ pin 4
+    signal VOUTE ~ pin 5
+    signal VOUTF ~ pin 6
+    signal VOUTG ~ pin 7
+    signal VOUTH ~ pin 8
+    signal GND ~ pin 9
+    signal DIN ~ pin 10
+    signal SCLK ~ pin 11
+    signal SYNC ~ pin 12
+    signal AVDD ~ pin 13
+    signal VREFIN_VREFOUT ~ pin 14
+    signal CLR ~ pin 15
+    signal LDAC ~ pin 16
+
+    designator_prefix = "U"

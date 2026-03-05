@@ -1,0 +1,599 @@
+# DAC + Analog Output Stage
+# 2× DAC8568 (16-bit, 8-ch each) → 4× OPA4172 (quad op-amp) → 16 buffered outputs
+#
+# Channel mapping:
+#   DAC1 channels A-D: GATE 1-4 (unity buffer, 0–5V)
+#   DAC1 channels E-H: PITCH 1-4 (gain=2, offset=-2V → -2V to +8V)
+#   DAC2 channels A-D: VEL 1-4 (gain≈1.6, 0–8V)
+#   DAC2 channels E-H: MOD 1-4 (gain=2, offset=-5V → -5V to +5V)
+
+from "generics/resistors.ato" import Resistor
+from "generics/capacitors.ato" import Capacitor
+
+from "../../parts/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
+from "../../parts/OPA4172ID/OPA4172ID.ato" import OPA4172ID
+
+# --- Reusable op-amp output channel modules ---
+
+module UnityBuffer:
+    """Gate output: DAC 0–5V passed through, no gain/offset."""
+    signal input
+    signal output
+    signal gnd
+
+    # Op-amp pins (wired externally to quad op-amp)
+    signal op_inp
+    signal op_inn
+    signal op_out
+
+    # Voltage follower: output → inverting input, signal → non-inverting
+    input ~ op_inp
+    op_out ~ op_inn
+    op_out ~ output
+
+
+module PitchOutput:
+    """Pitch CV: DAC 0–5V → -2V to +8V (gain=2, offset=-2V).
+    Inverting summing amplifier topology.
+    Vout = -(Rf/Rin)*Vdac - (Rf/Roff)*Vref
+    With Rf=20k, Rin=10k, Roff=100k, Vref=+10V → gain=-2, offset=+2V
+    Then invert again or use non-inverting config.
+
+    Simplified: non-inverting with offset.
+    Vout = (1 + Rf/Rg)*Vdac - (Rf/Rg)*Voffset
+    Rf=10k, Rg=10k → gain=2, Voffset=+2V → range: -2V to +8V
+    """
+    signal input
+    signal output
+    signal v_offset  # +2V reference
+    signal gnd
+
+    signal op_inp
+    signal op_inn
+    signal op_out
+
+    # Input resistor (0.1% for pitch accuracy)
+    r_in = new Resistor
+    r_in.value = 10kohm +/- 0.1%
+
+    # Feedback resistor (0.1% for pitch accuracy)
+    r_fb = new Resistor
+    r_fb.value = 10kohm +/- 0.1%
+
+    # Offset resistor
+    r_offset = new Resistor
+    r_offset.value = 10kohm +/- 0.1%
+
+    # Non-inverting amplifier with offset
+    # Input through R_in to non-inverting input
+    input ~ r_in.p1
+    r_in.p2 ~ op_inp
+
+    # Offset voltage through R_offset to inverting input
+    v_offset ~ r_offset.p1
+    r_offset.p2 ~ op_inn
+
+    # Feedback from output to inverting input
+    op_out ~ r_fb.p1
+    r_fb.p2 ~ op_inn
+
+    op_out ~ output
+
+
+module VelocityOutput:
+    """Velocity: DAC 0–5V → 0–8V (gain≈1.6).
+    Non-inverting amplifier: Vout = (1 + Rf/Rg)*Vin
+    Rf=6.04k, Rg=10k → gain = 1.604 → 5V*1.6 = 8V
+    """
+    signal input
+    signal output
+    signal gnd
+
+    signal op_inp
+    signal op_inn
+    signal op_out
+
+    r_fb = new Resistor
+    r_fb.value = 6.04kohm +/- 1%
+
+    r_gnd = new Resistor
+    r_gnd.value = 10kohm +/- 1%
+
+    input ~ op_inp
+    op_out ~ r_fb.p1
+    r_fb.p2 ~ op_inn
+    r_gnd.p1 ~ op_inn
+    r_gnd.p2 ~ gnd
+
+    op_out ~ output
+
+
+module ModOutput:
+    """Mod: DAC 0–5V → -5V to +5V (bipolar, gain=2, offset=-5V).
+    Vout = 2*Vdac - 5V
+    DAC midpoint (2.5V) = 0V output.
+    """
+    signal input
+    signal output
+    signal v_offset  # +5V reference
+    signal gnd
+
+    signal op_inp
+    signal op_inn
+    signal op_out
+
+    r_in = new Resistor
+    r_in.value = 10kohm +/- 1%
+
+    r_fb = new Resistor
+    r_fb.value = 10kohm +/- 1%
+
+    r_offset = new Resistor
+    r_offset.value = 10kohm +/- 1%
+
+    input ~ r_in.p1
+    r_in.p2 ~ op_inp
+
+    v_offset ~ r_offset.p1
+    r_offset.p2 ~ op_inn
+
+    op_out ~ r_fb.p1
+    r_fb.p2 ~ op_inn
+
+    op_out ~ output
+
+
+# --- Main DAC output module ---
+
+module DACOutputStage:
+    # SPI bus
+    signal spi_mosi
+    signal spi_sck
+    signal dac1_cs
+    signal dac2_cs
+
+    # Power rails
+    signal avdd       # +5V for DAC analog supply
+    signal dvdd       # +3.3V for DAC digital (shared with analog on DAC8568)
+    signal v12p       # +12V for op-amp V+
+    signal v12n       # -12V for op-amp V-
+    signal gnd
+
+    # Offset references (generated externally or from precision divider)
+    signal v_ref_2v   # +2V for pitch offset
+    signal v_ref_5v   # +5V for mod offset (can use avdd)
+
+    # 16 analog outputs (after protection resistors)
+    signal gate1
+    signal gate2
+    signal gate3
+    signal gate4
+    signal pitch1
+    signal pitch2
+    signal pitch3
+    signal pitch4
+    signal vel1
+    signal vel2
+    signal vel3
+    signal vel4
+    signal mod1
+    signal mod2
+    signal mod3
+    signal mod4
+
+    # --- DAC chips ---
+    dac1 = new DAC8568SPMR
+    dac2 = new DAC8568SPMR
+
+    # DAC1 SPI
+    dac1.DIN ~ spi_mosi
+    dac1.SCLK ~ spi_sck
+    dac1.SYNC ~ dac1_cs
+    dac1.GND ~ gnd
+    dac1.AVDD ~ avdd
+    dac1.CLR ~ avdd       # CLR tied high (no clear)
+    dac1.LDAC ~ gnd       # LDAC tied low (synchronous update)
+
+    # DAC2 SPI
+    dac2.DIN ~ spi_mosi
+    dac2.SCLK ~ spi_sck
+    dac2.SYNC ~ dac2_cs
+    dac2.GND ~ gnd
+    dac2.AVDD ~ avdd
+    dac2.CLR ~ avdd
+    dac2.LDAC ~ gnd
+
+    # DAC bypass caps
+    c_dac1_1 = new Capacitor
+    c_dac1_1.value = 100nF +/- 20%
+    c_dac1_1.p1 ~ avdd
+    c_dac1_1.p2 ~ gnd
+
+    c_dac1_2 = new Capacitor
+    c_dac1_2.value = 100nF +/- 20%
+    c_dac1_2.p1 ~ avdd
+    c_dac1_2.p2 ~ gnd
+
+    c_dac2_1 = new Capacitor
+    c_dac2_1.value = 100nF +/- 20%
+    c_dac2_1.p1 ~ avdd
+    c_dac2_1.p2 ~ gnd
+
+    c_dac2_2 = new Capacitor
+    c_dac2_2.value = 100nF +/- 20%
+    c_dac2_2.p1 ~ avdd
+    c_dac2_2.p2 ~ gnd
+
+    # DAC reference decoupling (1µF on VREFIN/VREFOUT pin)
+    c_ref1 = new Capacitor
+    c_ref1.value = 1uF +/- 20%
+    c_ref1.p1 ~ dac1.VREFIN_VREFOUT
+    c_ref1.p2 ~ gnd
+
+    c_ref2 = new Capacitor
+    c_ref2.value = 1uF +/- 20%
+    c_ref2.p1 ~ dac2.VREFIN_VREFOUT
+    c_ref2.p2 ~ gnd
+
+    # --- Op-Amp chips (4 × quad = 16 channels) ---
+    opamp1 = new OPA4172ID  # Gates 1-4
+    opamp2 = new OPA4172ID  # Pitch 1-4
+    opamp3 = new OPA4172ID  # Velocity 1-4
+    opamp4 = new OPA4172ID  # Mod 1-4
+
+    # Op-amp power (±12V)
+    opamp1.VCC_P ~ v12p
+    opamp1.VCC_N ~ v12n
+    opamp2.VCC_P ~ v12p
+    opamp2.VCC_N ~ v12n
+    opamp3.VCC_P ~ v12p
+    opamp3.VCC_N ~ v12n
+    opamp4.VCC_P ~ v12p
+    opamp4.VCC_N ~ v12n
+
+    # Op-amp bypass caps (100nF on each V+ and V-)
+    c_op1_p = new Capacitor
+    c_op1_p.value = 100nF +/- 20%
+    c_op1_p.p1 ~ v12p
+    c_op1_p.p2 ~ gnd
+
+    c_op1_n = new Capacitor
+    c_op1_n.value = 100nF +/- 20%
+    c_op1_n.p1 ~ gnd
+    c_op1_n.p2 ~ v12n
+
+    c_op2_p = new Capacitor
+    c_op2_p.value = 100nF +/- 20%
+    c_op2_p.p1 ~ v12p
+    c_op2_p.p2 ~ gnd
+
+    c_op2_n = new Capacitor
+    c_op2_n.value = 100nF +/- 20%
+    c_op2_n.p1 ~ gnd
+    c_op2_n.p2 ~ v12n
+
+    c_op3_p = new Capacitor
+    c_op3_p.value = 100nF +/- 20%
+    c_op3_p.p1 ~ v12p
+    c_op3_p.p2 ~ gnd
+
+    c_op3_n = new Capacitor
+    c_op3_n.value = 100nF +/- 20%
+    c_op3_n.p1 ~ gnd
+    c_op3_n.p2 ~ v12n
+
+    c_op4_p = new Capacitor
+    c_op4_p.value = 100nF +/- 20%
+    c_op4_p.p1 ~ v12p
+    c_op4_p.p2 ~ gnd
+
+    c_op4_n = new Capacitor
+    c_op4_n.value = 100nF +/- 20%
+    c_op4_n.p1 ~ gnd
+    c_op4_n.p2 ~ v12n
+
+    # --- Gate channels (unity buffer, opamp1) ---
+    # DAC1 channels A-D → opamp1 channels 1-4
+    dac1.VOUTA ~ opamp1.IN1_P
+    opamp1.OUT1 ~ opamp1.IN1_N
+
+    dac1.VOUTB ~ opamp1.IN2_P
+    opamp1.OUT2 ~ opamp1.IN2_N
+
+    dac1.VOUTC ~ opamp1.IN3_P
+    opamp1.OUT3 ~ opamp1.IN3_N
+
+    dac1.VOUTD ~ opamp1.IN4_P
+    opamp1.OUT4 ~ opamp1.IN4_N
+
+    # --- Pitch channels (gain=2, offset, opamp2) ---
+    # DAC1 channels E-H → opamp2 channels 1-4
+    # Using inverting summing amplifier for pitch accuracy
+    # Rin=10k (0.1%), Rfb=20k (0.1%)
+
+    r_pitch1_in = new Resistor
+    r_pitch1_in.value = 10kohm +/- 0.1%
+    r_pitch1_fb = new Resistor
+    r_pitch1_fb.value = 20kohm +/- 0.1%
+    r_pitch1_off = new Resistor
+    r_pitch1_off.value = 10kohm +/- 0.1%
+
+    dac1.VOUTE ~ r_pitch1_in.p1
+    r_pitch1_in.p2 ~ opamp2.IN1_N
+    opamp2.OUT1 ~ r_pitch1_fb.p1
+    r_pitch1_fb.p2 ~ opamp2.IN1_N
+    v_ref_2v ~ r_pitch1_off.p1
+    r_pitch1_off.p2 ~ opamp2.IN1_N
+    opamp2.IN1_P ~ gnd
+
+    r_pitch2_in = new Resistor
+    r_pitch2_in.value = 10kohm +/- 0.1%
+    r_pitch2_fb = new Resistor
+    r_pitch2_fb.value = 20kohm +/- 0.1%
+    r_pitch2_off = new Resistor
+    r_pitch2_off.value = 10kohm +/- 0.1%
+
+    dac1.VOUTF ~ r_pitch2_in.p1
+    r_pitch2_in.p2 ~ opamp2.IN2_N
+    opamp2.OUT2 ~ r_pitch2_fb.p1
+    r_pitch2_fb.p2 ~ opamp2.IN2_N
+    v_ref_2v ~ r_pitch2_off.p1
+    r_pitch2_off.p2 ~ opamp2.IN2_N
+    opamp2.IN2_P ~ gnd
+
+    r_pitch3_in = new Resistor
+    r_pitch3_in.value = 10kohm +/- 0.1%
+    r_pitch3_fb = new Resistor
+    r_pitch3_fb.value = 20kohm +/- 0.1%
+    r_pitch3_off = new Resistor
+    r_pitch3_off.value = 10kohm +/- 0.1%
+
+    dac1.VOUTG ~ r_pitch3_in.p1
+    r_pitch3_in.p2 ~ opamp2.IN3_N
+    opamp2.OUT3 ~ r_pitch3_fb.p1
+    r_pitch3_fb.p2 ~ opamp2.IN3_N
+    v_ref_2v ~ r_pitch3_off.p1
+    r_pitch3_off.p2 ~ opamp2.IN3_N
+    opamp2.IN3_P ~ gnd
+
+    r_pitch4_in = new Resistor
+    r_pitch4_in.value = 10kohm +/- 0.1%
+    r_pitch4_fb = new Resistor
+    r_pitch4_fb.value = 20kohm +/- 0.1%
+    r_pitch4_off = new Resistor
+    r_pitch4_off.value = 10kohm +/- 0.1%
+
+    dac1.VOUTH ~ r_pitch4_in.p1
+    r_pitch4_in.p2 ~ opamp2.IN4_N
+    opamp2.OUT4 ~ r_pitch4_fb.p1
+    r_pitch4_fb.p2 ~ opamp2.IN4_N
+    v_ref_2v ~ r_pitch4_off.p1
+    r_pitch4_off.p2 ~ opamp2.IN4_N
+    opamp2.IN4_P ~ gnd
+
+    # --- Velocity channels (gain≈1.6, opamp3) ---
+    # Non-inverting: Vout = (1 + Rf/Rg)*Vin
+    # Rf=6.04k, Rg=10k → gain=1.604 → 5V → 8.02V
+
+    r_vel1_fb = new Resistor
+    r_vel1_fb.value = 6.04kohm +/- 1%
+    r_vel1_gnd = new Resistor
+    r_vel1_gnd.value = 10kohm +/- 1%
+
+    dac2.VOUTA ~ opamp3.IN1_P
+    opamp3.OUT1 ~ r_vel1_fb.p1
+    r_vel1_fb.p2 ~ opamp3.IN1_N
+    r_vel1_gnd.p1 ~ opamp3.IN1_N
+    r_vel1_gnd.p2 ~ gnd
+
+    r_vel2_fb = new Resistor
+    r_vel2_fb.value = 6.04kohm +/- 1%
+    r_vel2_gnd = new Resistor
+    r_vel2_gnd.value = 10kohm +/- 1%
+
+    dac2.VOUTB ~ opamp3.IN2_P
+    opamp3.OUT2 ~ r_vel2_fb.p1
+    r_vel2_fb.p2 ~ opamp3.IN2_N
+    r_vel2_gnd.p1 ~ opamp3.IN2_N
+    r_vel2_gnd.p2 ~ gnd
+
+    r_vel3_fb = new Resistor
+    r_vel3_fb.value = 6.04kohm +/- 1%
+    r_vel3_gnd = new Resistor
+    r_vel3_gnd.value = 10kohm +/- 1%
+
+    dac2.VOUTC ~ opamp3.IN3_P
+    opamp3.OUT3 ~ r_vel3_fb.p1
+    r_vel3_fb.p2 ~ opamp3.IN3_N
+    r_vel3_gnd.p1 ~ opamp3.IN3_N
+    r_vel3_gnd.p2 ~ gnd
+
+    r_vel4_fb = new Resistor
+    r_vel4_fb.value = 6.04kohm +/- 1%
+    r_vel4_gnd = new Resistor
+    r_vel4_gnd.value = 10kohm +/- 1%
+
+    dac2.VOUTD ~ opamp3.IN4_P
+    opamp3.OUT4 ~ r_vel4_fb.p1
+    r_vel4_fb.p2 ~ opamp3.IN4_N
+    r_vel4_gnd.p1 ~ opamp3.IN4_N
+    r_vel4_gnd.p2 ~ gnd
+
+    # --- Mod channels (bipolar, gain=2, offset=-5V, opamp4) ---
+    # Inverting summing: Vout = -(Rf/Rin)*Vdac - (Rf/Roff)*5V
+    # Rin=10k, Rf=10k, Roff=10k → Vout = -Vdac - 5V... wait, we want +/-5V
+    # Actually: Vout = -(10k/10k)*Vdac + (10k/10k)*5V = -Vdac + 5V
+    # At Vdac=0V: Vout=+5V, at Vdac=5V: Vout=0V — that's wrong direction
+    # Correct: use non-inverting with subtraction
+    # Simpler: Vout = 2*Vdac - 5V
+    # Non-inverting: gain=2 on Vdac, then subtract 5V via summing
+    # Use difference amplifier: Vout = (R2/R1)*(Vdac - Vref) = (10k/10k)*(Vdac - 2.5V)*2
+    # Actually simplest: inverting with Vref on non-inverting
+    # Vout = -(Rf/Rin)*Vdac + (1+Rf/Rin)*Vref_at_pin+
+    # Rf=Rin=10k → Vout = -Vdac + 2*Vnon-inv
+    # Set Vnon-inv = 2.5V (voltage divider from 5V): Vout = -Vdac + 5V
+    # At 0V: +5V, at 5V: 0V — still inverted. Need double inversion or different topology.
+    # Best: use inverting with Rin=10k, Rf=20k (gain=-2), Vnon-inv=5V*(10k/(10k+20k))=1.667V
+    # Vout = -(20k/10k)*Vdac + (1+20k/10k)*1.667 = -2*Vdac + 5V
+    # At 0V: +5V, at 5V: -5V ✓
+
+    r_mod1_in = new Resistor
+    r_mod1_in.value = 10kohm +/- 1%
+    r_mod1_fb = new Resistor
+    r_mod1_fb.value = 20kohm +/- 1%
+
+    dac2.VOUTE ~ r_mod1_in.p1
+    r_mod1_in.p2 ~ opamp4.IN1_N
+    opamp4.OUT1 ~ r_mod1_fb.p1
+    r_mod1_fb.p2 ~ opamp4.IN1_N
+    v_ref_5v ~ opamp4.IN1_P  # needs voltage divider externally
+
+    r_mod2_in = new Resistor
+    r_mod2_in.value = 10kohm +/- 1%
+    r_mod2_fb = new Resistor
+    r_mod2_fb.value = 20kohm +/- 1%
+
+    dac2.VOUTF ~ r_mod2_in.p1
+    r_mod2_in.p2 ~ opamp4.IN2_N
+    opamp4.OUT2 ~ r_mod2_fb.p1
+    r_mod2_fb.p2 ~ opamp4.IN2_N
+    v_ref_5v ~ opamp4.IN2_P
+
+    r_mod3_in = new Resistor
+    r_mod3_in.value = 10kohm +/- 1%
+    r_mod3_fb = new Resistor
+    r_mod3_fb.value = 20kohm +/- 1%
+
+    dac2.VOUTG ~ r_mod3_in.p1
+    r_mod3_in.p2 ~ opamp4.IN3_N
+    opamp4.OUT3 ~ r_mod3_fb.p1
+    r_mod3_fb.p2 ~ opamp4.IN3_N
+    v_ref_5v ~ opamp4.IN3_P
+
+    r_mod4_in = new Resistor
+    r_mod4_in.value = 10kohm +/- 1%
+    r_mod4_fb = new Resistor
+    r_mod4_fb.value = 20kohm +/- 1%
+
+    dac2.VOUTH ~ r_mod4_in.p1
+    r_mod4_in.p2 ~ opamp4.IN4_N
+    opamp4.OUT4 ~ r_mod4_fb.p1
+    r_mod4_fb.p2 ~ opamp4.IN4_N
+    v_ref_5v ~ opamp4.IN4_P
+
+    # --- Voltage reference divider for mod channels ---
+    # 5V → 10k/20k divider → 1.667V at op-amp non-inverting inputs
+    # (v_ref_5v is wired to all mod opamp IN_P pins above)
+    # This divider generates the 1.667V reference
+    r_ref_top = new Resistor
+    r_ref_top.value = 20kohm +/- 1%
+    r_ref_bot = new Resistor
+    r_ref_bot.value = 10kohm +/- 1%
+    c_ref_filt = new Capacitor
+    c_ref_filt.value = 100nF +/- 20%
+
+    avdd ~ r_ref_top.p1
+    r_ref_top.p2 ~ v_ref_5v
+    r_ref_bot.p1 ~ v_ref_5v
+    r_ref_bot.p2 ~ gnd
+    c_ref_filt.p1 ~ v_ref_5v
+    c_ref_filt.p2 ~ gnd
+
+    # --- Voltage reference for pitch offset (2V) ---
+    # 5V → divider → 2V
+    # 5V * R2/(R1+R2) = 2V → R2/R1 = 2/3
+    # R1=15k, R2=10k → 5*10/25 = 2V
+    r_pitch_ref_top = new Resistor
+    r_pitch_ref_top.value = 15kohm +/- 0.1%
+    r_pitch_ref_bot = new Resistor
+    r_pitch_ref_bot.value = 10kohm +/- 0.1%
+    c_pitch_ref = new Capacitor
+    c_pitch_ref.value = 1uF +/- 20%
+
+    avdd ~ r_pitch_ref_top.p1
+    r_pitch_ref_top.p2 ~ v_ref_2v
+    r_pitch_ref_bot.p1 ~ v_ref_2v
+    r_pitch_ref_bot.p2 ~ gnd
+    c_pitch_ref.p1 ~ v_ref_2v
+    c_pitch_ref.p2 ~ gnd
+
+    # --- Output protection resistors (1kΩ each) ---
+    r_gate1 = new Resistor
+    r_gate1.value = 1kohm +/- 5%
+    opamp1.OUT1 ~ r_gate1.p1
+    r_gate1.p2 ~ gate1
+
+    r_gate2 = new Resistor
+    r_gate2.value = 1kohm +/- 5%
+    opamp1.OUT2 ~ r_gate2.p1
+    r_gate2.p2 ~ gate2
+
+    r_gate3 = new Resistor
+    r_gate3.value = 1kohm +/- 5%
+    opamp1.OUT3 ~ r_gate3.p1
+    r_gate3.p2 ~ gate3
+
+    r_gate4 = new Resistor
+    r_gate4.value = 1kohm +/- 5%
+    opamp1.OUT4 ~ r_gate4.p1
+    r_gate4.p2 ~ gate4
+
+    r_pitch1 = new Resistor
+    r_pitch1.value = 1kohm +/- 5%
+    opamp2.OUT1 ~ r_pitch1.p1
+    r_pitch1.p2 ~ pitch1
+
+    r_pitch2 = new Resistor
+    r_pitch2.value = 1kohm +/- 5%
+    opamp2.OUT2 ~ r_pitch2.p1
+    r_pitch2.p2 ~ pitch2
+
+    r_pitch3 = new Resistor
+    r_pitch3.value = 1kohm +/- 5%
+    opamp2.OUT3 ~ r_pitch3.p1
+    r_pitch3.p2 ~ pitch3
+
+    r_pitch4 = new Resistor
+    r_pitch4.value = 1kohm +/- 5%
+    opamp2.OUT4 ~ r_pitch4.p1
+    r_pitch4.p2 ~ pitch4
+
+    r_vel1 = new Resistor
+    r_vel1.value = 1kohm +/- 5%
+    opamp3.OUT1 ~ r_vel1.p1
+    r_vel1.p2 ~ vel1
+
+    r_vel2 = new Resistor
+    r_vel2.value = 1kohm +/- 5%
+    opamp3.OUT2 ~ r_vel2.p1
+    r_vel2.p2 ~ vel2
+
+    r_vel3 = new Resistor
+    r_vel3.value = 1kohm +/- 5%
+    opamp3.OUT3 ~ r_vel3.p1
+    r_vel3.p2 ~ vel3
+
+    r_vel4 = new Resistor
+    r_vel4.value = 1kohm +/- 5%
+    opamp3.OUT4 ~ r_vel4.p1
+    r_vel4.p2 ~ vel4
+
+    r_mod1 = new Resistor
+    r_mod1.value = 1kohm +/- 5%
+    opamp4.OUT1 ~ r_mod1.p1
+    r_mod1.p2 ~ mod1
+
+    r_mod2 = new Resistor
+    r_mod2.value = 1kohm +/- 5%
+    opamp4.OUT2 ~ r_mod2.p1
+    r_mod2.p2 ~ mod2
+
+    r_mod3 = new Resistor
+    r_mod3.value = 1kohm +/- 5%
+    opamp4.OUT3 ~ r_mod3.p1
+    r_mod3.p2 ~ mod3
+
+    r_mod4 = new Resistor
+    r_mod4.value = 1kohm +/- 5%
+    opamp4.OUT4 ~ r_mod4.p1
+    r_mod4.p2 ~ mod4

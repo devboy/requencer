@@ -1,0 +1,10 @@
+# BAT54S — Dual Series Schottky Diode, SOT-23
+# LCSC: C85099
+# Used for input protection clamping
+
+component BAT54S:
+    signal ANODE1 ~ pin 1
+    signal COMMON ~ pin 2
+    signal ANODE2 ~ pin 3
+
+    designator_prefix = "D"

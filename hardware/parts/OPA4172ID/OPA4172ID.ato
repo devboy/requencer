@@ -1,0 +1,21 @@
+# OPA4172ID — TI Quad Rail-to-Rail Op-Amp, SOIC-14
+# LCSC: C482288
+# ±18V max supply, rail-to-rail output, no phase reversal
+
+component OPA4172ID:
+    signal OUT1 ~ pin 1
+    signal IN1_N ~ pin 2
+    signal IN1_P ~ pin 3
+    signal VCC_P ~ pin 4
+    signal IN2_P ~ pin 5
+    signal IN2_N ~ pin 6
+    signal OUT2 ~ pin 7
+    signal OUT3 ~ pin 8
+    signal IN3_N ~ pin 9
+    signal IN3_P ~ pin 10
+    signal VCC_N ~ pin 11
+    signal IN4_P ~ pin 12
+    signal IN4_N ~ pin 13
+    signal OUT4 ~ pin 14
+
+    designator_prefix = "U"

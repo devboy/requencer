@@ -1,0 +1,87 @@
+# MIDI I/O — TRS Type A
+# MIDI OUT: Pico UART TX → resistors → TRS jack
+# MIDI IN: TRS jack → optocoupler (6N138) → Pico UART RX
+
+from "generics/resistors.ato" import Resistor
+from "generics/capacitors.ato" import Capacitor
+from "generics/diodes.ato" import Diode
+
+from "../../parts/6N138/6N138.ato" import _6N138
+from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
+
+module MIDIInterface:
+    # UART from MCU
+    signal uart_tx    # GP21
+    signal uart_rx    # GP22
+
+    # Power
+    signal vcc        # +3.3V
+    signal gnd
+
+    # --- MIDI OUT ---
+    # TRS Type A: tip = source (data), ring = sink (+V), sleeve = GND
+    jack_out = new PJ398SM
+
+    r_out_tip = new Resistor
+    r_out_tip.value = 220ohm +/- 5%
+
+    r_out_ring = new Resistor
+    r_out_ring.value = 220ohm +/- 5%
+
+    uart_tx ~ r_out_tip.p1
+    r_out_tip.p2 ~ jack_out.TIP
+
+    vcc ~ r_out_ring.p1
+    r_out_ring.p2 ~ jack_out.SLEEVE  # Note: TRS Type A ring=pin2
+
+    jack_out.SWITCH ~ gnd  # Sleeve to GND (unused switch contact)
+
+    # --- MIDI IN ---
+    # TRS Type A: tip → optocoupler LED anode, ring → LED cathode
+    jack_in = new PJ398SM
+
+    opto = new _6N138
+
+    # Input protection diode (reverse polarity)
+    d_protect = new Diode
+
+    r_in = new Resistor
+    r_in.value = 220ohm +/- 5%
+
+    # Optocoupler output pull-up
+    r_pullup = new Resistor
+    r_pullup.value = 470ohm +/- 5%
+
+    # Optocoupler base resistor
+    r_base = new Resistor
+    r_base.value = 4.7kohm +/- 5%
+
+    # Input circuit: TRS tip → 220Ω → diode → opto LED
+    jack_in.TIP ~ r_in.p1
+    r_in.p2 ~ opto.ANODE
+    opto.CATHODE ~ jack_in.SLEEVE  # Ring carries return current
+
+    # Protection diode across opto LED (reverse biased in normal operation)
+    d_protect.cathode ~ opto.ANODE
+    d_protect.anode ~ opto.CATHODE
+
+    jack_in.SWITCH ~ gnd
+
+    # Optocoupler output
+    opto.VCC ~ vcc
+    opto.GND ~ gnd
+
+    # VE (base) to GND via resistor for proper biasing
+    opto.VE ~ r_base.p1
+    r_base.p2 ~ gnd
+
+    # VO (collector) pulled up to VCC, output to UART RX
+    r_pullup.p1 ~ vcc
+    r_pullup.p2 ~ opto.VO
+    opto.VO ~ uart_rx
+
+    # Bypass cap on opto power
+    c_opto = new Capacitor
+    c_opto.value = 100nF +/- 20%
+    c_opto.p1 ~ vcc
+    c_opto.p2 ~ gnd
