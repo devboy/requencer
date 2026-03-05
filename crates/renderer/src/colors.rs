@@ -57,3 +57,45 @@ pub fn midi_note_name(midi: u8) -> (&'static str, i8) {
     let octave = (midi as i8 / 12) - 1;
     (name, octave)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn midi_note_name_c4() {
+        let (name, oct) = midi_note_name(60);
+        assert_eq!(name, "C");
+        assert_eq!(oct, 4);
+    }
+
+    #[test]
+    fn midi_note_name_a4() {
+        let (name, oct) = midi_note_name(69);
+        assert_eq!(name, "A");
+        assert_eq!(oct, 4);
+    }
+
+    #[test]
+    fn midi_note_name_c_minus_1() {
+        let (name, oct) = midi_note_name(0);
+        assert_eq!(name, "C");
+        assert_eq!(oct, -1);
+    }
+
+    #[test]
+    fn midi_note_name_g_sharp() {
+        let (name, oct) = midi_note_name(80);
+        assert_eq!(name, "G#");
+        assert_eq!(oct, 5);
+    }
+
+    #[test]
+    fn track_colors_are_distinct() {
+        for i in 0..4 {
+            for j in (i + 1)..4 {
+                assert_ne!(TRACK[i], TRACK[j]);
+            }
+        }
+    }
+}

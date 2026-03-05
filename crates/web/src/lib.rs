@@ -123,9 +123,26 @@ impl WasmSequencer {
     }
 
     /// Render the current state to the internal framebuffer and return RGBA pixel data.
+    /// Note: this clones the buffer. For zero-copy, use render_to_ptr() + buffer_ptr().
     pub fn render(&mut self) -> Vec<u8> {
         requencer_renderer::render(&mut self.framebuffer, &self.state, &self.ui);
         self.framebuffer.data.clone()
+    }
+
+    /// Render into the internal framebuffer without copying.
+    /// After calling this, read pixels via buffer_ptr() + buffer_len().
+    pub fn render_in_place(&mut self) {
+        requencer_renderer::render(&mut self.framebuffer, &self.state, &self.ui);
+    }
+
+    /// Pointer to the internal RGBA framebuffer (for zero-copy JS access via WASM memory).
+    pub fn buffer_ptr(&self) -> *const u8 {
+        self.framebuffer.data.as_ptr()
+    }
+
+    /// Length of the RGBA framebuffer in bytes.
+    pub fn buffer_len(&self) -> usize {
+        self.framebuffer.data.len()
     }
 
     // ── Transport ───────────────────────────────────────────────────

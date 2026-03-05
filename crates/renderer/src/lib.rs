@@ -82,3 +82,117 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_graphics_core::{
+        draw_target::DrawTarget,
+        geometry::{OriginDimensions, Size},
+        Pixel,
+    };
+
+    /// Null display that counts pixels drawn but discards them.
+    struct NullDisplay {
+        pixel_count: usize,
+    }
+
+    impl NullDisplay {
+        fn new() -> Self {
+            Self { pixel_count: 0 }
+        }
+    }
+
+    impl OriginDimensions for NullDisplay {
+        fn size(&self) -> Size {
+            Size::new(layout::LCD_W, layout::LCD_H)
+        }
+    }
+
+    impl DrawTarget for NullDisplay {
+        type Color = Rgb565;
+        type Error = core::convert::Infallible;
+
+        fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+        where
+            I: IntoIterator<Item = Pixel<Self::Color>>,
+        {
+            for _ in pixels {
+                self.pixel_count += 1;
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn render_all_screens_no_panic() {
+        let state = SequencerState::new();
+
+        let modes = [
+            ScreenMode::Home,
+            ScreenMode::GateEdit,
+            ScreenMode::PitchEdit,
+            ScreenMode::VelEdit,
+            ScreenMode::ModEdit,
+            ScreenMode::MuteEdit,
+            ScreenMode::Route,
+            ScreenMode::Rand,
+            ScreenMode::MutateEdit,
+            ScreenMode::TransposeEdit,
+            ScreenMode::VariationEdit,
+            ScreenMode::Settings,
+            ScreenMode::Pattern,
+            ScreenMode::PatternLoad,
+            ScreenMode::NameEntry,
+        ];
+
+        for mode in &modes {
+            let mut display = NullDisplay::new();
+            let ui = UiState {
+                mode: *mode,
+                ..UiState::default()
+            };
+            render(&mut display, &state, &ui);
+            assert!(display.pixel_count > 0, "Screen {:?} drew no pixels", mode);
+        }
+    }
+
+    #[test]
+    fn render_with_flash_message() {
+        let state = SequencerState::new();
+        let mut display = NullDisplay::new();
+        let ui = UiState {
+            flash_message: Some("SAVED"),
+            ..UiState::default()
+        };
+        render(&mut display, &state, &ui);
+        assert!(display.pixel_count > 0);
+    }
+
+    #[test]
+    fn render_mod_lfo_view() {
+        let state = SequencerState::new();
+        let mut display = NullDisplay::new();
+        let ui = UiState {
+            mode: ScreenMode::ModEdit,
+            mod_lfo_view: true,
+            ..UiState::default()
+        };
+        render(&mut display, &state, &ui);
+        assert!(display.pixel_count > 0);
+    }
+
+    #[test]
+    fn render_each_track_selected() {
+        let state = SequencerState::new();
+        for track in 0..4u8 {
+            let mut display = NullDisplay::new();
+            let ui = UiState {
+                selected_track: track,
+                ..UiState::default()
+            };
+            render(&mut display, &state, &ui);
+            assert!(display.pixel_count > 0);
+        }
+    }
+}

@@ -206,3 +206,61 @@ impl<'a> core::fmt::Write for WriteCursor<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_u16_zero() {
+        let mut buf = [0u8; 16];
+        assert_eq!(format_u16(0, &mut buf), "0");
+    }
+
+    #[test]
+    fn format_u16_large() {
+        let mut buf = [0u8; 16];
+        assert_eq!(format_u16(65535, &mut buf), "65535");
+    }
+
+    #[test]
+    fn format_i32_negative() {
+        let mut buf = [0u8; 16];
+        assert_eq!(format_i32(-42, &mut buf), "-42");
+    }
+
+    #[test]
+    fn format_f32_1_positive() {
+        let mut buf = [0u8; 16];
+        assert_eq!(format_f32_1(99.5, &mut buf), "99.5");
+    }
+
+    #[test]
+    fn format_f32_1_zero() {
+        let mut buf = [0u8; 16];
+        assert_eq!(format_f32_1(0.0, &mut buf), "0.0");
+    }
+
+    #[test]
+    fn fmt_buf_basic() {
+        let mut buf = [0u8; 16];
+        let s = fmt_buf(&mut buf, format_args!("T{}", 3));
+        assert_eq!(s, "T3");
+    }
+
+    #[test]
+    fn fmt_buf_truncates_overflow() {
+        let mut buf = [0u8; 16];
+        // WriteCursor handles truncation internally; fmt_buf uses [u8;16]
+        let s = fmt_buf(&mut buf, format_args!("ABCDEFGHIJKLMNOPQRST"));
+        assert_eq!(s, "ABCDEFGHIJKLMNOP"); // truncated to 16 bytes
+    }
+
+    #[test]
+    fn write_cursor_is_empty() {
+        let mut buf = [0u8; 16];
+        let cursor = WriteCursor::new(&mut buf);
+        assert!(cursor.is_empty());
+        assert_eq!(cursor.len(), 0);
+    }
+}

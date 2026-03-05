@@ -44,12 +44,15 @@ mod hw {
             // TODO: SPI transaction to DAC8568
         }
 
-        /// Convert MIDI note to DAC value (1V/oct, 0-10V range).
+        /// Convert MIDI note to DAC value (1V/oct).
+        /// Assumes DAC8568 in unipolar 0-10V mode (0=0V, 65535=10V).
+        /// Reference: C0 (MIDI 12) = 0V, C1 (MIDI 24) = 1V, ..., C8 (MIDI 108) = 8V.
+        /// Notes below MIDI 12 clamp to 0V. Notes above MIDI 127 clamp to ~9.58V.
         pub fn note_to_dac(note: u8) -> u16 {
-            // 1V per octave: MIDI 0 = 0V, MIDI 120 = 10V
-            let volts = note as f32 / 12.0;
-            let normalized = volts / 10.0;
-            (normalized * 65535.0).min(65535.0) as u16
+            let semitones_above_c0 = (note as i16 - 12).max(0) as f32;
+            let volts = semitones_above_c0 / 12.0; // 1V per octave
+            let normalized = (volts / 10.0).min(1.0);
+            (normalized * 65535.0) as u16
         }
     }
 
