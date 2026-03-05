@@ -1,0 +1,8 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+embedded-graphics-core = "0.4"
+embedded-graphics = "0.8"
+heapless = "0.8"

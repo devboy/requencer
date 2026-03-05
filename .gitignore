@@ -1,6 +1,13 @@
-node_modules/
-dist/
-.vite/
+# Rust
+target/
+
+# Web (JS/TS)
+web/node_modules/
+web/dist/
+web/.vite/
+web/pkg/
+web/coverage/
 *.local
+
+# Misc
 .worktrees/
-coverage/
