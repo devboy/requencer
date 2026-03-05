@@ -1,0 +1,176 @@
+# I/O Jacks — All 26 Thonkiconn PJ398SM jacks
+# 16 analog outputs, 2 clock/reset inputs, 1 clock output,
+# 4 CV inputs (future), 2 MIDI (handled in midi.ato), 1 USB (on Pico)
+
+import Resistor
+
+from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
+from "../../parts/2N3904/2N3904.ato" import _2N3904
+from "input-protection.ato" import InputProtection
+
+module IOJacks:
+    # Power
+    signal v5v
+    signal v3v3
+    signal gnd
+
+    # Analog outputs (from DAC output stage, after protection resistors)
+    signal gate1
+    signal gate2
+    signal gate3
+    signal gate4
+    signal pitch1
+    signal pitch2
+    signal pitch3
+    signal pitch4
+    signal vel1
+    signal vel2
+    signal vel3
+    signal vel4
+    signal mod1
+    signal mod2
+    signal mod3
+    signal mod4
+
+    # Digital I/O (from MCU)
+    signal clk_in_gpio    # To Pico GP26
+    signal rst_in_gpio    # To Pico GP27
+    signal clk_out_gpio   # From Pico GP28
+
+    # CV inputs (future, wired to test points)
+    signal cv_a
+    signal cv_b
+    signal cv_c
+    signal cv_d
+
+    # --- 16 Analog Output Jacks ---
+    j_gate1 = new PJ398SM
+    j_gate2 = new PJ398SM
+    j_gate3 = new PJ398SM
+    j_gate4 = new PJ398SM
+    j_pitch1 = new PJ398SM
+    j_pitch2 = new PJ398SM
+    j_pitch3 = new PJ398SM
+    j_pitch4 = new PJ398SM
+    j_vel1 = new PJ398SM
+    j_vel2 = new PJ398SM
+    j_vel3 = new PJ398SM
+    j_vel4 = new PJ398SM
+    j_mod1 = new PJ398SM
+    j_mod2 = new PJ398SM
+    j_mod3 = new PJ398SM
+    j_mod4 = new PJ398SM
+
+    # Wire analog outputs to jack tips
+    gate1 ~ j_gate1.TIP
+    gate2 ~ j_gate2.TIP
+    gate3 ~ j_gate3.TIP
+    gate4 ~ j_gate4.TIP
+    pitch1 ~ j_pitch1.TIP
+    pitch2 ~ j_pitch2.TIP
+    pitch3 ~ j_pitch3.TIP
+    pitch4 ~ j_pitch4.TIP
+    vel1 ~ j_vel1.TIP
+    vel2 ~ j_vel2.TIP
+    vel3 ~ j_vel3.TIP
+    vel4 ~ j_vel4.TIP
+    mod1 ~ j_mod1.TIP
+    mod2 ~ j_mod2.TIP
+    mod3 ~ j_mod3.TIP
+    mod4 ~ j_mod4.TIP
+
+    # All sleeves to GND
+    j_gate1.SLEEVE ~ gnd
+    j_gate2.SLEEVE ~ gnd
+    j_gate3.SLEEVE ~ gnd
+    j_gate4.SLEEVE ~ gnd
+    j_pitch1.SLEEVE ~ gnd
+    j_pitch2.SLEEVE ~ gnd
+    j_pitch3.SLEEVE ~ gnd
+    j_pitch4.SLEEVE ~ gnd
+    j_vel1.SLEEVE ~ gnd
+    j_vel2.SLEEVE ~ gnd
+    j_vel3.SLEEVE ~ gnd
+    j_vel4.SLEEVE ~ gnd
+    j_mod1.SLEEVE ~ gnd
+    j_mod2.SLEEVE ~ gnd
+    j_mod3.SLEEVE ~ gnd
+    j_mod4.SLEEVE ~ gnd
+
+    # --- Clock Input Jack ---
+    j_clk_in = new PJ398SM
+    prot_clk = new InputProtection
+
+    j_clk_in.TIP ~ prot_clk.input
+    j_clk_in.SLEEVE ~ gnd
+    prot_clk.output ~ clk_in_gpio
+    prot_clk.vclamp ~ v3v3
+    prot_clk.gnd ~ gnd
+
+    # --- Reset Input Jack ---
+    j_rst_in = new PJ398SM
+    prot_rst = new InputProtection
+
+    j_rst_in.TIP ~ prot_rst.input
+    j_rst_in.SLEEVE ~ gnd
+    prot_rst.output ~ rst_in_gpio
+    prot_rst.vclamp ~ v3v3
+    prot_rst.gnd ~ gnd
+
+    # --- Clock Output Jack ---
+    # Pico GPIO (3.3V) → 2N3904 transistor buffer → 5V gate output
+    j_clk_out = new PJ398SM
+    q_clk = new _2N3904
+
+    r_base = new Resistor
+    r_base.resistance = 1kohm +/- 5%
+
+    r_collector = new Resistor
+    r_collector.resistance = 1kohm +/- 5%
+
+    # NPN common-emitter: GPIO high → transistor ON → output pulled to GND
+    # Inverted logic (firmware accounts for inversion), or use as open-collector
+    # with pull-up to 5V
+    clk_out_gpio ~ r_base.unnamed[0]
+    r_base.unnamed[1] ~ q_clk.BASE
+    q_clk.EMITTER ~ gnd
+    v5v ~ r_collector.unnamed[0]
+    r_collector.unnamed[1] ~ q_clk.COLLECTOR
+    q_clk.COLLECTOR ~ j_clk_out.TIP
+    j_clk_out.SLEEVE ~ gnd
+
+    # --- CV Input Jacks (future expansion) ---
+    # Wired with protection circuits but not connected to MCU GPIO
+    j_cv_a = new PJ398SM
+    j_cv_b = new PJ398SM
+    j_cv_c = new PJ398SM
+    j_cv_d = new PJ398SM
+
+    prot_cv_a = new InputProtection
+    prot_cv_b = new InputProtection
+    prot_cv_c = new InputProtection
+    prot_cv_d = new InputProtection
+
+    j_cv_a.TIP ~ prot_cv_a.input
+    j_cv_a.SLEEVE ~ gnd
+    prot_cv_a.output ~ cv_a
+    prot_cv_a.vclamp ~ v3v3
+    prot_cv_a.gnd ~ gnd
+
+    j_cv_b.TIP ~ prot_cv_b.input
+    j_cv_b.SLEEVE ~ gnd
+    prot_cv_b.output ~ cv_b
+    prot_cv_b.vclamp ~ v3v3
+    prot_cv_b.gnd ~ gnd
+
+    j_cv_c.TIP ~ prot_cv_c.input
+    j_cv_c.SLEEVE ~ gnd
+    prot_cv_c.output ~ cv_c
+    prot_cv_c.vclamp ~ v3v3
+    prot_cv_c.gnd ~ gnd
+
+    j_cv_d.TIP ~ prot_cv_d.input
+    j_cv_d.SLEEVE ~ gnd
+    prot_cv_d.output ~ cv_d
+    prot_cv_d.vclamp ~ v3v3
+    prot_cv_d.gnd ~ gnd

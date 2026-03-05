@@ -1,0 +1,56 @@
+# Raspberry Pi Pico — RP2040 Module with Castellated Pads
+# 40-pin castellated edge footprint, solders flush to PCB
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component RaspberryPiPico:
+    trait is_atomic_part<manufacturer="Raspberry Pi", partnumber="SC0915", footprint="RaspberryPiPico.kicad_mod", symbol="RaspberryPiPico.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2040", manufacturer="Raspberry Pi", partno="SC0915">
+    # Left side (pin 1 at top-left, USB port facing up)
+    signal GP0 ~ pin 1
+    signal GP1 ~ pin 2
+    signal GND1 ~ pin 3
+    signal GP2 ~ pin 4
+    signal GP3 ~ pin 5
+    signal GP4 ~ pin 6
+    signal GP5 ~ pin 7
+    signal GND2 ~ pin 8
+    signal GP6 ~ pin 9
+    signal GP7 ~ pin 10
+    signal GP8 ~ pin 11
+    signal GP9 ~ pin 12
+    signal GND3 ~ pin 13
+    signal GP10 ~ pin 14
+    signal GP11 ~ pin 15
+    signal GP12 ~ pin 16
+    signal GP13 ~ pin 17
+    signal GND4 ~ pin 18
+    signal GP14 ~ pin 19
+    signal GP15 ~ pin 20
+
+    # Right side (pin 21 at bottom-right)
+    signal GP16 ~ pin 21
+    signal GP17 ~ pin 22
+    signal GND5 ~ pin 23
+    signal GP18 ~ pin 24
+    signal GP19 ~ pin 25
+    signal GP20 ~ pin 26
+    signal GP21 ~ pin 27
+    signal GND6 ~ pin 28
+    signal GP22 ~ pin 29
+    signal RUN ~ pin 30
+    signal GP26_ADC0 ~ pin 31
+    signal GP27_ADC1 ~ pin 32
+    signal GND7 ~ pin 33
+    signal GP28_ADC2 ~ pin 34
+    signal ADC_VREF ~ pin 35
+    signal V3V3_OUT ~ pin 36
+    signal V3V3_EN ~ pin 37
+    signal GND8 ~ pin 38
+    signal VSYS ~ pin 39
+    signal VBUS ~ pin 40
+

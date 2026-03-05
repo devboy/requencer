@@ -1,0 +1,105 @@
+# MCU Block — Raspberry Pi Pico (RP2040)
+# Castellated pad module with all GPIO assignments
+
+import Capacitor
+
+from "../../parts/RaspberryPiPico/RaspberryPiPico.ato" import RaspberryPiPico
+
+module PicoMCU:
+    # Power
+    signal vsys
+    signal gnd
+    signal v3v3_out  # Pico's onboard 3.3V output (unused, we supply externally)
+
+    # SPI bus (shared by LCD, DAC1, DAC2)
+    signal spi_mosi   # GP0 — SPI0 TX
+    signal spi_sck    # GP2 — SPI0 SCK
+
+    # LCD control
+    signal lcd_cs     # GP1
+    signal lcd_dc     # GP3
+    signal lcd_rst    # GP4
+    signal lcd_bl     # GP5 — backlight PWM
+
+    # DAC chip selects
+    signal dac1_cs    # GP6
+    signal dac2_cs    # GP7
+
+    # Button scan (74HC165 chain)
+    signal btn_clk    # GP8
+    signal btn_latch  # GP9
+    signal btn_data   # GP10
+
+    # LED driver (TLC5947 chain)
+    signal led_sin    # GP11
+    signal led_sclk   # GP12
+    signal led_xlat   # GP13
+    signal led_blank  # GP14
+
+    # Encoder A
+    signal enc_a_a    # GP15
+    signal enc_a_b    # GP16
+    signal enc_a_sw   # GP17
+
+    # Encoder B
+    signal enc_b_a    # GP18
+    signal enc_b_b    # GP19
+    signal enc_b_sw   # GP20
+
+    # MIDI UART
+    signal midi_tx    # GP21 — UART0 TX
+    signal midi_rx    # GP22 — UART0 RX
+
+    # Clock/Reset I/O
+    signal clk_in     # GP26
+    signal rst_in     # GP27
+    signal clk_out    # GP28
+
+    # --- Pico module ---
+    pico = new RaspberryPiPico
+
+    # Power connections
+    pico.VSYS ~ vsys
+    pico.GND1 ~ gnd
+    pico.GND2 ~ gnd
+    pico.GND3 ~ gnd
+    pico.GND4 ~ gnd
+    pico.GND5 ~ gnd
+    pico.GND6 ~ gnd
+    pico.GND7 ~ gnd
+    pico.GND8 ~ gnd
+    pico.V3V3_OUT ~ v3v3_out
+
+    # Bypass cap on VSYS
+    c_vsys = new Capacitor
+    c_vsys.capacitance = 100nF +/- 20%
+    c_vsys.unnamed[0] ~ vsys
+    c_vsys.unnamed[1] ~ gnd
+
+    # GPIO assignments
+    pico.GP0 ~ spi_mosi
+    pico.GP1 ~ lcd_cs
+    pico.GP2 ~ spi_sck
+    pico.GP3 ~ lcd_dc
+    pico.GP4 ~ lcd_rst
+    pico.GP5 ~ lcd_bl
+    pico.GP6 ~ dac1_cs
+    pico.GP7 ~ dac2_cs
+    pico.GP8 ~ btn_clk
+    pico.GP9 ~ btn_latch
+    pico.GP10 ~ btn_data
+    pico.GP11 ~ led_sin
+    pico.GP12 ~ led_sclk
+    pico.GP13 ~ led_xlat
+    pico.GP14 ~ led_blank
+    pico.GP15 ~ enc_a_a
+    pico.GP16 ~ enc_a_b
+    pico.GP17 ~ enc_a_sw
+    pico.GP18 ~ enc_b_a
+    pico.GP19 ~ enc_b_b
+    pico.GP20 ~ enc_b_sw
+    pico.GP21 ~ midi_tx
+    pico.GP22 ~ midi_rx
+    pico.GP26_ADC0 ~ clk_in
+    pico.GP27_ADC1 ~ rst_in
+    pico.GP28_ADC2 ~ clk_out

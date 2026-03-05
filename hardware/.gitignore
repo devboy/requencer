@@ -1,0 +1,7 @@
+# Atopile build outputs
+build/
+elec/layout/
+elec/src/parts/
+
+# Python venv (for local ato builds)
+.venv/

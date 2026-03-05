@@ -1,0 +1,22 @@
+# 74HC165D — NXP 8-bit Parallel-In Serial-Out Shift Register, SOIC-16
+# LCSC: C5613
+
+component _74HC165D:
+    signal SH_LD ~ pin 1
+    signal CLK ~ pin 2
+    signal D4 ~ pin 3
+    signal D5 ~ pin 4
+    signal D6 ~ pin 5
+    signal D7 ~ pin 6
+    signal QH_N ~ pin 7
+    signal GND ~ pin 8
+    signal QH ~ pin 9
+    signal SER ~ pin 10
+    signal D0 ~ pin 11
+    signal D1 ~ pin 12
+    signal D2 ~ pin 13
+    signal D3 ~ pin 14
+    signal CLK_INH ~ pin 15
+    signal VCC ~ pin 16
+
+    designator_prefix = "U"

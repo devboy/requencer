@@ -1,0 +1,17 @@
+(kicad_symbol_lib (version 20220914) (generator "custom")
+  (symbol "TC002-N11AS1XT-RGB" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "SW" (at 0 6.35 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "TC002-N11AS1XT-RGB" (at 0 -6.35 0) (effects (font (size 1.27 1.27))))
+    (symbol "TC002-N11AS1XT-RGB_0_1"
+      (rectangle (start -3.81 5.08) (end 3.81 -5.08) (stroke (width 0) (type default)) (fill (type background)))
+    )
+    (symbol "TC002-N11AS1XT-RGB_1_1"
+      (pin passive line (at -6.35 3.81 0) (length 2.54) (name "SW1" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -6.35 1.27 0) (length 2.54) (name "SW2" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at 6.35 3.81 180) (length 2.54) (name "LED_ANODE" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at 6.35 1.27 180) (length 2.54) (name "LED_RED" (effects (font (size 1.27 1.27)))) (number "4" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at 6.35 -1.27 180) (length 2.54) (name "LED_GREEN" (effects (font (size 1.27 1.27)))) (number "5" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at 6.35 -3.81 180) (length 2.54) (name "LED_BLUE" (effects (font (size 1.27 1.27)))) (number "6" (effects (font (size 1.27 1.27)))))
+    )
+  )
+)

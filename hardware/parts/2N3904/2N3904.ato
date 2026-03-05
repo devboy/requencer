@@ -1,0 +1,10 @@
+# 2N3904 — NPN Transistor, SOT-23
+# LCSC: C18536
+# Used for clock output buffer (3.3V → 5V gate level)
+
+component _2N3904:
+    signal BASE ~ pin 1
+    signal EMITTER ~ pin 2
+    signal COLLECTOR ~ pin 3
+
+    designator_prefix = "Q"

@@ -1,0 +1,8 @@
+requires-atopile: "^0.12.0"
+paths:
+  src: elec/src
+  layout: elec/layout
+builds:
+  default:
+    entry: elec/src/requencer.ato:Requencer
+dependencies: []

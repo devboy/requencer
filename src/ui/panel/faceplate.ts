@@ -16,37 +16,42 @@
  *   - Step buttons use same BTN_CC (10.7mm) center-to-center as all panel buttons
  */
 
-// ── Eurorack dimension constants (4.5 px/mm) ──────────────────────
-const SCALE = 4.5
-const HP_PX = 5.08 * SCALE // 22.86px per HP
-const MODULE_3U_H = 128.5 * SCALE // 578px — standard 3U height
-const RAIL_ZONE = 10.0 * SCALE // 45px — rack rail clearance zone (top/bottom)
-const MOUNT_SLOT_W = 7.0 * SCALE // 32px — Intellijel oval slot width
-const MOUNT_SLOT_H = 3.5 * SCALE // 16px — Intellijel oval slot height
-const MOUNT_X = 7.2 * SCALE // 33px from panel edge
-const MOUNT_Y = 3.4 * SCALE // 15px from panel edge
-const JACK_D = 10.0 * SCALE // 45px — Thonkiconn hex nut
-const JACK_HOLE = 3.5 * SCALE // 16px — 3.5mm socket opening
-const JACK_SPACING = 14.0 * SCALE // 63px — cable clearance
-const ENCODER_D = 14.5 * SCALE // 65px — encoder knob
-const BTN_D = 5.0 * SCALE // 23px — tactile button cap
-const BTN_CC = 10.7 * SCALE // 48px — button center-to-center
-const STEP_BTN_D = 4.5 * SCALE // 20px — step button (slightly smaller)
-const STEP_BTN_CC = 7.0 * SCALE // 32px — step button center-to-center
-const RECT_BTN_H = 10.0 * SCALE // 45px — button height
+// ── Panel layout from shared config (single source of truth) ──────
+// Physical dimensions in mm, converted to px via SCALE.
+// panel-layout.json is also consumed by hardware/scripts/ for PCB generation.
+import panelLayout from '../../../panel-layout.json'
 
-const SILK_TEXT = 10 // ~2.2mm silkscreen text
-const _LCD_CLEARANCE = 3.0 * SCALE // 13.5px — PCB clearance
+const C = panelLayout.constants
+const SCALE = 4.5 // px per mm — rendering concern, not in JSON
 
-// Clearance: half a button center-to-center — minimum gap between buttons and other components
-const COMPONENT_GAP = Math.round(BTN_CC / 2) // 24px = ~5.3mm
+const HP_PX = 5.08 * SCALE
+const MODULE_3U_H = panelLayout.panel.height_mm * SCALE
+const RAIL_ZONE = C.rail_zone_mm * SCALE
+const MOUNT_SLOT_W = C.mount_slot_w_mm * SCALE
+const MOUNT_SLOT_H = C.mount_slot_h_mm * SCALE
+const MOUNT_X = C.mount_offset_x_mm * SCALE
+const MOUNT_Y = C.mount_offset_y_mm * SCALE
+const JACK_D = C.jack_diameter_mm * SCALE
+const JACK_HOLE = C.jack_hole_mm * SCALE
+const JACK_SPACING = C.jack_spacing_mm * SCALE
+const ENCODER_D = C.encoder_diameter_mm * SCALE
+const BTN_D = C.btn_diameter_mm * SCALE
+const BTN_CC = C.btn_cc_mm * SCALE
+const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
+const STEP_BTN_CC = C.step_btn_cc_mm * SCALE
+const RECT_BTN_H = C.rect_btn_height_mm * SCALE
+
+const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
+const _LCD_CLEARANCE = 3.0 * SCALE
+
+const COMPONENT_GAP = Math.round(BTN_CC / 2)
 
 // Derived
 const JACK_GAP = JACK_SPACING - JACK_D
-const OUTPUT_JACK_SPACING = 12.4 * SCALE
-const BTN_GAP = BTN_CC - BTN_D // 25px — gap between button edges at BTN_CC spacing
-const _STEP_GAP = STEP_BTN_CC - STEP_BTN_D // 12px — gap between step button edges
-const LCD_BEZEL_W = Math.round(73.44 * SCALE) + 2 * Math.round(2.0 * SCALE) + 4
+const OUTPUT_JACK_SPACING = C.output_jack_spacing_mm * SCALE
+const BTN_GAP = BTN_CC - BTN_D
+const _STEP_GAP = STEP_BTN_CC - STEP_BTN_D
+const LCD_BEZEL_W = Math.round(C.lcd_canvas_w_mm * SCALE) + 2 * Math.round(C.lcd_padding_mm * SCALE) + 4
 const STEP_ROW_W = 8 * STEP_BTN_D + 7 * BTN_GAP
 const STEP_GRID_LEFT = BTN_D + COMPONENT_GAP + Math.round((LCD_BEZEL_W - STEP_ROW_W) / 2)
 

@@ -1,0 +1,108 @@
+# Power Supply Block
+# Eurorack ±12V → regulated +5V and +3.3V
+# Reverse polarity protection, bypass capacitors
+
+import Resistor
+import Capacitor
+import Diode
+
+from "../../parts/AMS1117-3.3/AMS1117-3.3.ato" import AMS1117_3V3
+from "../../parts/AZ1117IH-5.0/AZ1117IH-5.0.ato" import AZ1117_5V0
+from "../../parts/EurorackPowerHeader/EurorackPowerHeader.ato" import EurorackPowerHeader
+
+module PowerSupply:
+    # External interfaces
+    signal v12p        # +12V protected rail
+    signal v12n        # -12V protected rail
+    signal v5v         # +5V regulated rail
+    signal v3v3        # +3.3V regulated rail
+    signal gnd         # Common ground
+    signal pico_vsys   # Pico VSYS (3.3V via Schottky)
+
+    # Eurorack power connector
+    header = new EurorackPowerHeader
+
+    # Ground bus — all header GND pins
+    header.GND1 ~ gnd
+    header.GND2 ~ gnd
+    header.GND3 ~ gnd
+    header.GND4 ~ gnd
+    header.GND5 ~ gnd
+    header.GND6 ~ gnd
+
+    # --- Reverse polarity protection ---
+    # Schottky diodes on +12V and -12V rails
+    d_pos = new Diode
+    d_neg = new Diode
+
+    # +12V: header → diode anode → cathode = protected +12V
+    header.POS12V_1 ~ d_pos.anode
+    header.POS12V_2 ~ d_pos.anode
+    d_pos.cathode ~ v12p
+
+    # -12V: protected -12V = diode cathode ← anode ← header
+    # (reversed for negative rail protection)
+    header.NEG12V_1 ~ d_neg.cathode
+    header.NEG12V_2 ~ d_neg.cathode
+    d_neg.anode ~ v12n
+
+    # --- Bulk decoupling on raw rails ---
+    c_bulk_12p = new Capacitor
+    c_bulk_12p.capacitance = 10uF +/- 20%
+    c_bulk_12p.unnamed[0] ~ v12p
+    c_bulk_12p.unnamed[1] ~ gnd
+
+    c_bulk_12n = new Capacitor
+    c_bulk_12n.capacitance = 10uF +/- 20%
+    c_bulk_12n.unnamed[0] ~ gnd
+    c_bulk_12n.unnamed[1] ~ v12n
+
+    # --- +5V Regulator (AZ1117-5.0) ---
+    reg_5v = new AZ1117_5V0
+    reg_5v.VIN ~ v12p
+    reg_5v.GND ~ gnd
+    reg_5v.TAB ~ reg_5v.VOUT
+    reg_5v.VOUT ~ v5v
+
+    c_5v_in = new Capacitor
+    c_5v_in.capacitance = 100nF +/- 20%
+    c_5v_in.unnamed[0] ~ v12p
+    c_5v_in.unnamed[1] ~ gnd
+
+    c_5v_out = new Capacitor
+    c_5v_out.capacitance = 10uF +/- 20%
+    c_5v_out.unnamed[0] ~ v5v
+    c_5v_out.unnamed[1] ~ gnd
+
+    c_5v_out_hf = new Capacitor
+    c_5v_out_hf.capacitance = 100nF +/- 20%
+    c_5v_out_hf.unnamed[0] ~ v5v
+    c_5v_out_hf.unnamed[1] ~ gnd
+
+    # --- +3.3V Regulator (AMS1117-3.3) ---
+    reg_3v3 = new AMS1117_3V3
+    reg_3v3.VIN ~ v12p
+    reg_3v3.GND ~ gnd
+    reg_3v3.TAB ~ reg_3v3.VOUT
+    reg_3v3.VOUT ~ v3v3
+
+    c_3v3_in = new Capacitor
+    c_3v3_in.capacitance = 100nF +/- 20%
+    c_3v3_in.unnamed[0] ~ v12p
+    c_3v3_in.unnamed[1] ~ gnd
+
+    c_3v3_out = new Capacitor
+    c_3v3_out.capacitance = 10uF +/- 20%
+    c_3v3_out.unnamed[0] ~ v3v3
+    c_3v3_out.unnamed[1] ~ gnd
+
+    c_3v3_out_hf = new Capacitor
+    c_3v3_out_hf.capacitance = 100nF +/- 20%
+    c_3v3_out_hf.unnamed[0] ~ v3v3
+    c_3v3_out_hf.unnamed[1] ~ gnd
+
+    # --- Pico VSYS via Schottky ---
+    # Schottky diode allows USB power to coexist with eurorack power
+    d_vsys = new Diode
+    d_vsys.anode ~ v3v3
+    d_vsys.cathode ~ pico_vsys

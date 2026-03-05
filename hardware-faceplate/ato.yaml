@@ -1,0 +1,7 @@
+requires-atopile: "^0.14.0"
+paths:
+  src: elec/src
+  layout: elec/layout
+builds:
+  default:
+    entry: faceplate.ato:Faceplate
