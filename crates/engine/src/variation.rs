@@ -413,6 +413,7 @@ pub fn advance_override_bar(override_pattern: &mut OverridePattern) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::VariationSlot;
     use heapless::Vec;
 
     fn make_transform(t: TransformType, param: i32) -> Transform {
