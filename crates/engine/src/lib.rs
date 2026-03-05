@@ -8,11 +8,13 @@
 pub mod arpeggiator;
 pub mod clock_divider;
 pub mod euclidean;
+pub mod lfo;
 pub mod math;
 pub mod randomizer;
 pub mod rng;
 pub mod scales;
 pub mod types;
+pub mod variation;
 
 // ── Constants ───────────────────────────────────────────────────────
 
