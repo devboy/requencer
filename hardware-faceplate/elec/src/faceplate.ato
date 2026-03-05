@@ -1,0 +1,62 @@
+# Requencer Faceplate — Front Panel PCB
+#
+# No electrical components. This is a mechanical-only PCB:
+# - Drill holes for jacks, buttons, encoders
+# - Rectangular cutout for LCD
+# - Mounting slots for rack rails
+# - White silkscreen labels on black soldermask
+#
+# Material: FR4, 1.6mm, matte black soldermask both sides
+# Dimensions: 128.5mm × ~303mm (60HP × 5.08mm/HP)
+#
+# This file defines the panel outline and hole positions.
+# Actual drill holes and cutouts are placed in the KiCad PCB layout
+# using mechanical footprints (mounting holes, cutouts).
+#
+# Hole specifications (from china-pcb-ordering.md):
+#   Jack holes:     6.0mm drill (PJ398SM)
+#   Button holes:   per TC002 datasheet
+#   Encoder holes:  7.0mm drill (EC11E shaft)
+#   LCD cutout:     73.44 × 48.96mm rectangular
+#   Mounting slots: 7.0 × 3.5mm oval (Intellijel M3)
+#
+# Spacing (from faceplate.ts at 4.5 px/mm):
+#   Jack c-c:       14.0mm horizontal, 12.4mm vertical (output grid)
+#   Button c-c:     10.7mm (track/subtrack/feature columns)
+#   Step button c-c: 7.0mm (step grid)
+#
+# Panel zones:
+#   Top 10mm:    Rail cover zone (silkscreen only, no components)
+#   Bottom 10mm: Rail cover zone (silkscreen only, no components)
+#   Active area: 108.5mm vertical
+#
+# Layout reference (top to bottom):
+#   Row 1: LCD display (centered, near top)
+#   Row 2: Encoders (2×, flanking LCD or below)
+#   Row 3: Track buttons T1-T4, Subtrack buttons GATE/PITCH/VEL/MOD
+#   Row 4: Step buttons 1-16 (single row)
+#   Row 5: Function buttons (PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET)
+#   Row 6: Output jacks (4 rows × 4 columns: GATE/PITCH/VEL/MOD per track)
+#   Row 7: Utility jacks (CLK IN, CLK OUT, RST IN, MIDI IN, MIDI OUT, CV A-D)
+#
+# Silkscreen labels:
+#   Module name "REQUENCER" at top
+#   Section dividers between button groups
+#   Jack labels (abbreviated): G1-G4, P1-P4, V1-V4, M1-M4
+#   CLK, RST, MIDI, CV A-D
+#   Track numbers 1-4
+#   Step numbers 1-16
+
+module Faceplate:
+    # This module is intentionally empty of electrical connections.
+    # The panel is defined entirely through KiCad mechanical layers
+    # (Edge.Cuts for outline, drill holes for components, User layers for cutouts).
+    #
+    # The atopile build generates a KiCad project where the PCB editor
+    # is used to place:
+    # 1. Board outline on Edge.Cuts layer
+    # 2. Mounting hole footprints at jack/button/encoder positions
+    # 3. LCD cutout (routed slot or milled rectangle)
+    # 4. Mounting slots at top/bottom rail positions
+    # 5. Silkscreen text and graphics on F.SilkS layer
+    pass

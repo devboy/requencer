@@ -363,14 +363,16 @@ Spacing:
 
 ---
 
-## PCB Design Tool: Flux.ai
+## PCB Design Tool: Atopile → EasyEDA Pro
 
-Browser-based PCB design with AI copilot. See `flux-ai-prompt.md` for the complete design prompt.
+**Previous approach:** Flux.ai browser-based PCB design with AI copilot. Abandoned — the copilot was unreliable (wrong topologies, misassigned pins) and expensive (credits burned on bad results). See `flux-ai-prompt.md` for the archived prompts.
 
-- Start with JLCPCB 2-layer constraints template
-- Import TC002 footprint from SnapEDA
-- AI-assisted schematic entry and component placement
-- Direct Gerber + BOM export for JLCPCB ordering
+**Current approach:** Code-first schematic in atopile (`.ato` files in `hardware/`), compiled to KiCad format, imported into EasyEDA Pro for PCB layout, exported to JLCPCB. See `hardware-strategy.md` for full details.
+
+- Schematic source: `hardware/elec/src/*.ato` (version controlled, CI-tested)
+- Component library: `hardware/parts/` (14 component definitions)
+- CI: GitHub Actions runs `ato build` on every push to `hardware/`
+- Layout: done in EasyEDA Pro after importing KiCad output
 
 ---
 
@@ -388,7 +390,11 @@ Browser-based PCB design with AI copilot. See `flux-ai-prompt.md` for the comple
 
 ## Next Steps
 
-1. **Create Flux.ai prompt** — comprehensive design description for AI-assisted schematic/PCB (see `flux-ai-prompt.md`)
-2. **Order test panel** — just the faceplate first ($5), verify fit with TC002 buttons and Thonkiconn jacks
-3. **Order full PCB** — once panel verified
-4. **Port engine to Rust** — embassy-rs on RP2040
+1. **Build atopile schematic** — ✅ Complete. See `hardware/elec/src/requencer.ato`
+2. **Run `ato create part`** — import LCSC footprints for Tier 2 ICs
+3. **Source through-hole footprints** — PJ398SM, TC002-RGB, EC11E, Pico module
+4. **`ato build`** — verify full compilation to KiCad
+5. **PCB layout in EasyEDA Pro** — component placement and routing
+6. **Order test panel** — just the faceplate first ($5), verify fit with TC002 buttons and Thonkiconn jacks
+7. **Order full PCB** — once panel verified
+8. **Port engine to Rust** — embassy-rs on RP2040
