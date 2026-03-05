@@ -27,7 +27,7 @@ export class DrumMachine {
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
     }).toDestination()
-    this.kick.volume.value = -6
+    this.kick.volume.value = -2
 
     // Hi-hat — metallic ping
     this.hihat = new Tone.MetalSynth({
@@ -38,7 +38,7 @@ export class DrumMachine {
       octaves: 1.5,
     }).toDestination()
     this.hihat.frequency.value = 400
-    this.hihat.volume.value = -18
+    this.hihat.volume.value = -12
   }
 
   get enabled(): boolean {

@@ -46,13 +46,13 @@ export class ToneOutput {
       }).toDestination(),
     )
 
-    // T3: Lead — square with moderate filter, bright and cutting for melodic loops
+    // T3: Bleep — short percussive square pings, high filter for sharp digital bleeps
     this.synths.push(
       new Tone.MonoSynth({
         oscillator: { type: 'square' },
-        envelope: { attack: 0.005, decay: 0.1, sustain: 0.7, release: 0.08 },
-        filter: { type: 'lowpass', frequency: 3000, Q: 2 },
-        filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.1, baseFrequency: 800, octaves: 2 },
+        envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.03 },
+        filter: { type: 'lowpass', frequency: 5000, Q: 3 },
+        filterEnvelope: { attack: 0.001, decay: 0.06, sustain: 0, release: 0.03, baseFrequency: 2000, octaves: 2.5 },
       }).toDestination(),
     )
 
@@ -70,7 +70,7 @@ export class ToneOutput {
     this.synths[0].volume.value = -4
     this.synths[1].volume.value = -8
     this.synths[2].volume.value = -10
-    this.synths[3].volume.value = -12
+    this.synths[3].volume.value = -16
 
     this.activeNotes = new Array(NUM_OUTPUTS).fill(null)
   }
