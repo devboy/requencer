@@ -37,7 +37,7 @@ jobs:
       - name: Run DRC (verification)
         working-directory: hardware
         run: |
-          PCB="elec/layout/default/requencer.kicad_pcb"
+          PCB="elec/layout/default/default.kicad_pcb"
           if [ -f "$PCB" ]; then
             kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
             if [ -f drc-report.json ]; then
@@ -64,7 +64,7 @@ jobs:
       - name: Place components
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          PCB="hardware/elec/layout/default/default.kicad_pcb"
           if [ -f "$PCB" ]; then
             python3 hardware/scripts/place_components.py "$PCB"
           else
@@ -74,7 +74,7 @@ jobs:
       - name: Autoroute
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          PCB="hardware/elec/layout/default/default.kicad_pcb"
           if [ -f "$PCB" ]; then
             chmod +x hardware/scripts/autoroute.sh
             hardware/scripts/autoroute.sh "$PCB"
@@ -85,7 +85,7 @@ jobs:
       - name: Export manufacturing files
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/requencer.kicad_pcb"
+          PCB="hardware/elec/layout/default/default.kicad_pcb"
           if [ -f "$PCB" ]; then
             python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
           else
