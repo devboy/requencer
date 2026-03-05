@@ -3,7 +3,7 @@
 
 import Resistor
 import Capacitor
-import NFET
+import MOSFET
 
 module DisplayConnector:
     # SPI bus (from MCU)
@@ -25,7 +25,7 @@ module DisplayConnector:
     # VCC, GND, CS, RESET, DC, MOSI, SCK, LED (backlight), MISO (unused)
 
     # Backlight MOSFET — N-channel switches backlight cathode to GND
-    q_bl = new NFET
+    q_bl = new MOSFET
 
     # Gate resistor (limits inrush)
     r_gate = new Resistor
