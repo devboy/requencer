@@ -1,4 +1,4 @@
-ato-version: ^0.14.0
+requires-atopile: "^0.14.0"
 paths:
   src: elec/src
   layout: elec/layout
@@ -6,4 +6,6 @@ builds:
   default:
     entry: requencer.ato:Requencer
 dependencies:
-  generics: ^0.2.0
+  - type: registry
+    identifier: generics
+    release: "0.2.0"
