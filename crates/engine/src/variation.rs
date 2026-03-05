@@ -404,6 +404,23 @@ pub fn advance_variation_bar(pattern: &mut VariationPattern) {
     pattern.current_bar = (pattern.current_bar + 1) % pattern.length;
 }
 
+/// Reset all bar counters in a variation pattern to 0 (for snapshots).
+pub fn zero_variation_bar(pattern: &mut VariationPattern) {
+    pattern.current_bar = 0;
+    if let Some(SubtrackOverride::Pattern(ref mut p)) = pattern.gate_override {
+        p.current_bar = 0;
+    }
+    if let Some(SubtrackOverride::Pattern(ref mut p)) = pattern.pitch_override {
+        p.current_bar = 0;
+    }
+    if let Some(SubtrackOverride::Pattern(ref mut p)) = pattern.velocity_override {
+        p.current_bar = 0;
+    }
+    if let Some(SubtrackOverride::Pattern(ref mut p)) = pattern.mod_override {
+        p.current_bar = 0;
+    }
+}
+
 /// Advance a subtrack override's bar counter.
 pub fn advance_override_bar(override_pattern: &mut OverridePattern) {
     override_pattern.current_bar =

@@ -13,8 +13,11 @@ pub mod math;
 pub mod mutator;
 pub mod randomizer;
 pub mod rng;
+pub mod patterns;
+pub mod presets;
 pub mod routing;
 pub mod scales;
+pub mod sequencer;
 pub mod types;
 pub mod variation;
 
