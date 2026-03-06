@@ -152,20 +152,20 @@ export function createFaceplate(): FaceplateElements {
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
-            </div>
 
-            <!-- CONNECTORS: between step grid and jacks -->
-            <div class="connector-zone">
-              <div class="connector usb-c">
-                <span class="connector-label">USB</span>
-                <div class="connector-body usb-c-body">
-                  <div class="usb-c-port"></div>
+              <!-- CONNECTORS: under encoder B, between steps and jacks -->
+              <div class="connector-zone">
+                <div class="connector usb-c">
+                  <span class="connector-label">USB</span>
+                  <div class="connector-body usb-c-body">
+                    <div class="usb-c-port"></div>
+                  </div>
                 </div>
-              </div>
-              <div class="connector sd-slot">
-                <span class="connector-label">SD</span>
-                <div class="connector-body sd-slot-body">
-                  <div class="sd-slot-opening"></div>
+                <div class="connector sd-slot">
+                  <span class="connector-label">SD</span>
+                  <div class="connector-body sd-slot-body">
+                    <div class="sd-slot-opening"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1070,15 +1070,14 @@ const PANEL_CSS = `
      ══════════════════════════════════════════ */
 
   .connector-zone {
+    position: absolute;
+    bottom: ${RAIL_ZONE + 4}px;
+    right: ${Math.round(COMPONENT_GAP * 0.5)}px;
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    justify-content: center;
-    gap: ${Math.round(COMPONENT_GAP * 0.6)}px;
-    align-self: flex-end;
-    margin-bottom: ${RAIL_ZONE + 4}px;
-    padding: 0 ${Math.round(COMPONENT_GAP * 0.4)}px;
-    flex-shrink: 0;
+    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
+    z-index: 5;
   }
 
   .connector {
