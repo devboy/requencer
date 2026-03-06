@@ -59,9 +59,12 @@ module Requencer:
     power.v3v3 ~ jacks.v3v3        # Input protection clamp rail
 
     # +5V rail
-    power.v5v ~ leds.vcc           # LED drivers
-    power.v5v ~ dac.avdd           # DAC analog supply
+    power.v5v ~ leds.v5v           # LED anodes (+5V)
+    power.v5v ~ dac.avdd           # DAC analog supply + level shifter
     power.v5v ~ jacks.v5v          # Clock output transistor pull-up
+
+    # TLC5947 digital logic from 3.3V (ensures SPI level compatibility)
+    power.v3v3 ~ leds.vcc          # TLC5947 VCC = 3.3V
 
     # ±12V rails (op-amp supply)
     power.v12p ~ dac.v12p
@@ -296,7 +299,7 @@ module Requencer:
     r_enc_b_sw.unnamed[0] ~ power.v3v3
     r_enc_b_sw.unnamed[1] ~ mcu.enc_b_sw
 
-    # Encoder debounce caps
+    # Encoder rotation debounce caps
     c_enc_a_a = new Capacitor
     c_enc_a_a.capacitance = 100nF +/- 20%
     c_enc_a_a.unnamed[0] ~ mcu.enc_a_a
@@ -316,6 +319,17 @@ module Requencer:
     c_enc_b_b.capacitance = 100nF +/- 20%
     c_enc_b_b.unnamed[0] ~ mcu.enc_b_b
     c_enc_b_b.unnamed[1] ~ gnd
+
+    # Encoder switch debounce caps (matching rotation channels)
+    c_enc_a_sw = new Capacitor
+    c_enc_a_sw.capacitance = 100nF +/- 20%
+    c_enc_a_sw.unnamed[0] ~ mcu.enc_a_sw
+    c_enc_a_sw.unnamed[1] ~ gnd
+
+    c_enc_b_sw = new Capacitor
+    c_enc_b_sw.capacitance = 100nF +/- 20%
+    c_enc_b_sw.unnamed[0] ~ mcu.enc_b_sw
+    c_enc_b_sw.unnamed[1] ~ gnd
 
     # === MIDI ===
     mcu.midi_tx ~ midi.uart_tx

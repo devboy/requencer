@@ -2,6 +2,12 @@
 # 120 channels total (34 RGB buttons × 3 = 102 used, 18 spare)
 # 12-bit PWM brightness control per channel
 #
+# TLC5947 VCC powered from 3.3V (not 5V) to ensure SPI logic level compatibility
+# with PGA2350 3.3V GPIO. At VCC=3.3V, VIH = 0.7×3.3 = 2.31V — well within 3.3V logic.
+# LED anodes powered separately from 5V (led_vcc).
+# TLC5947 constant-current sinks work correctly regardless of VCC —
+# IREF is set by internal bandgap reference, not VCC.
+#
 # TLC1 (ch 0-23):  Step buttons 1-8 (R/G/B × 8)
 # TLC2 (ch 24-47): Step buttons 9-16 (R/G/B × 8)
 # TLC3 (ch 48-71): Track T1-T4 (12ch) + Subtrack GATE/PITCH/VEL/MOD (12ch)
@@ -21,10 +27,11 @@ module LEDDriverChain:
     signal blank     # GP14 — blanking/output enable
 
     # Power
-    signal vcc       # +5V
+    signal vcc       # +3.3V for TLC5947 digital logic
+    signal v5v       # +5V for LED anodes
     signal gnd
 
-    # LED anode supply (directly from VCC for common-anode RGB buttons)
+    # LED anode supply (+5V, separate from TLC5947 VCC)
     signal led_vcc
 
     # --- 5 TLC5947 chips ---
@@ -46,8 +53,8 @@ module LEDDriverChain:
     tlc5.VCC ~ vcc
     tlc5.GND ~ gnd
 
-    # LED anode power (connect to VCC)
-    led_vcc ~ vcc
+    # LED anode power (connect to 5V, NOT 3.3V VCC)
+    led_vcc ~ v5v
 
     # Bypass caps
     c1 = new Capacitor

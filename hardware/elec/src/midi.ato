@@ -1,13 +1,13 @@
-# MIDI I/O — TRS Type A
-# MIDI OUT: Pico UART TX → resistors → TRS jack
-# MIDI IN: TRS jack → optocoupler (6N138) → Pico UART RX
+# MIDI I/O — TRS Type A (stereo jacks required)
+# MIDI OUT: PGA2350 UART TX → 220Ω resistors → TRS jack (tip=data, ring=+V, sleeve=GND)
+# MIDI IN: TRS jack → 220Ω → optocoupler (6N138) → PGA2350 UART RX
 
 import Resistor
 import Capacitor
 import Diode
 
 from "../../parts/6N138/6N138.ato" import _6N138
-from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
+from "../../parts/PJ301M12/PJ301M12.ato" import PJ301M12
 
 module MIDIInterface:
     # UART from MCU
@@ -19,8 +19,8 @@ module MIDIInterface:
     signal gnd
 
     # --- MIDI OUT ---
-    # TRS Type A: tip = source (data), ring = sink (+V), sleeve = GND
-    jack_out = new PJ398SM
+    # TRS Type A: tip = source (pin 5, data), ring = sink (pin 4, +V), sleeve = shield (GND)
+    jack_out = new PJ301M12
 
     r_out_tip = new Resistor
     r_out_tip.resistance = 220ohm +/- 5%
@@ -28,21 +28,28 @@ module MIDIInterface:
     r_out_ring = new Resistor
     r_out_ring.resistance = 220ohm +/- 5%
 
+    # Tip carries UART TX data through 220Ω
     uart_tx ~ r_out_tip.unnamed[0]
     r_out_tip.unnamed[1] ~ jack_out.TIP
 
+    # Ring carries +V through 220Ω (current return path)
     vcc ~ r_out_ring.unnamed[0]
-    r_out_ring.unnamed[1] ~ jack_out.SLEEVE  # Note: TRS Type A ring=pin2
+    r_out_ring.unnamed[1] ~ jack_out.RING
 
-    jack_out.SWITCH ~ gnd  # Sleeve to GND (unused switch contact)
+    # Sleeve to GND (shield)
+    jack_out.SLEEVE ~ gnd
+
+    # Normalling switches unused
+    jack_out.TIP_SW ~ gnd
+    jack_out.RING_SW ~ gnd
 
     # --- MIDI IN ---
-    # TRS Type A: tip → optocoupler LED anode, ring → LED cathode
-    jack_in = new PJ398SM
+    # TRS Type A: tip → opto LED anode (through resistor), ring → opto LED cathode
+    jack_in = new PJ301M12
 
     opto = new _6N138
 
-    # Input protection diode (reverse polarity)
+    # Input protection diode (reverse polarity across opto LED)
     d_protect = new Diode
 
     r_in = new Resistor
@@ -56,16 +63,23 @@ module MIDIInterface:
     r_base = new Resistor
     r_base.resistance = 4.7kohm +/- 5%
 
-    # Input circuit: TRS tip → 220Ω → diode → opto LED
+    # Input circuit: TRS tip → 220Ω → opto LED anode
     jack_in.TIP ~ r_in.unnamed[0]
     r_in.unnamed[1] ~ opto.ANODE
-    opto.CATHODE ~ jack_in.SLEEVE  # Ring carries return current
+
+    # Ring carries return current → opto LED cathode
+    opto.CATHODE ~ jack_in.RING
+
+    # Sleeve to GND (shield)
+    jack_in.SLEEVE ~ gnd
+
+    # Normalling switches unused
+    jack_in.TIP_SW ~ gnd
+    jack_in.RING_SW ~ gnd
 
     # Protection diode across opto LED (reverse biased in normal operation)
     d_protect.cathode ~ opto.ANODE
     d_protect.anode ~ opto.CATHODE
-
-    jack_in.SWITCH ~ gnd
 
     # Optocoupler output
     opto.VCC ~ vcc

@@ -178,10 +178,12 @@ module PGA2350_MCU:
     sd_slot.SHIELD ~ gnd
 
     # SD card detect pull-up (active low when card inserted)
+    signal sd_detect   # GP25
     r_cd = new Resistor
     r_cd.resistance = 10kohm +/- 5%
     r_cd.unnamed[0] ~ v3v3
     r_cd.unnamed[1] ~ sd_slot.CD
+    sd_slot.CD ~ sd_detect
 
     # SD card decoupling
     c_sd = new Capacitor
@@ -250,5 +252,20 @@ module PGA2350_MCU:
     pga.GP42_ADC6 ~ cv_c
     pga.GP43_ADC7 ~ cv_d
 
-    # Spare GPIO: GP6, GP7, GP25, GP29, GP34-39, GP44-47
+    # SD card detect
+    pga.GP25 ~ sd_detect
+
+    # --- RUN pin pull-up (prevents spurious resets from noise) ---
+    r_run = new Resistor
+    r_run.resistance = 10kohm +/- 5%
+    r_run.unnamed[0] ~ v3v3
+    r_run.unnamed[1] ~ pga.RUN
+
+    # --- ADC_VREF decoupling (clean reference for CV input ADC channels) ---
+    c_aref = new Capacitor
+    c_aref.capacitance = 100nF +/- 20%
+    c_aref.unnamed[0] ~ pga.ADC_VREF
+    c_aref.unnamed[1] ~ gnd
+
+    # Spare GPIO: GP6, GP7, GP29, GP34-39, GP44-47
     # Left unconnected for future expansion
