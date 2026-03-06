@@ -17,20 +17,25 @@ OUTPUT_PCB="${2:-$INPUT_PCB}"
 WORK_DIR="$(mktemp -d)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Tool paths
-KICAD_PYTHON="/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3"
-KICAD_PYPATH="/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages"
-KICAD_FWPATH="/Applications/KiCad/KiCad.app/Contents/Frameworks"
-JAVA="/opt/homebrew/opt/openjdk/bin/java"
-FREEROUTING_JAR="$SCRIPT_DIR/../tools/freerouting.jar"
+# Tool paths (env vars with macOS defaults)
+KICAD_PYTHON="${KICAD_PYTHON:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3}"
+KICAD_PYPATH="${KICAD_PYPATH:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages}"
+KICAD_FWPATH="${KICAD_FWPATH:-/Applications/KiCad/KiCad.app/Contents/Frameworks}"
+KICAD_CLI="${KICAD_CLI:-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli}"
+JAVA="${JAVA:-/opt/homebrew/opt/openjdk/bin/java}"
+FREEROUTING_JAR="${FREEROUTING_JAR:-$SCRIPT_DIR/../tools/freerouting.jar}"
 
-# Verify tools exist
-for tool in "$KICAD_PYTHON" "$JAVA" "$FREEROUTING_JAR"; do
-  if [ ! -f "$tool" ]; then
-    echo "ERROR: Missing tool: $tool"
+# Verify tools exist (check as command for executables, file for JAR)
+for cmd in "$KICAD_PYTHON" "$JAVA" "$KICAD_CLI"; do
+  if ! command -v "$cmd" &>/dev/null && [ ! -f "$cmd" ]; then
+    echo "ERROR: Missing tool: $cmd"
     exit 1
   fi
 done
+if [ ! -f "$FREEROUTING_JAR" ]; then
+  echo "ERROR: Missing FreeRouting JAR: $FREEROUTING_JAR"
+  exit 1
+fi
 
 cleanup() { rm -rf "$WORK_DIR"; }
 trap cleanup EXIT
@@ -130,17 +135,17 @@ echo "=== Autorouting complete: $OUTPUT_PCB ==="
 echo "Step 4: Exporting gerbers..."
 GERBER_DIR="$(dirname "$OUTPUT_PCB")/gerbers"
 mkdir -p "$GERBER_DIR"
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export gerbers \
+"$KICAD_CLI" pcb export gerbers \
   "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Gerber export failed (non-critical)"
 
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export drill \
+"$KICAD_CLI" pcb export drill \
   "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Drill export failed (non-critical)"
 
 echo "  Gerbers in: $GERBER_DIR"
 
 # Step 5: Run DRC
 echo "Step 5: Running DRC..."
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb drc \
+"$KICAD_CLI" pcb drc \
   "$OUTPUT_PCB" -o "$WORK_DIR/drc-report.json" --format json 2>&1 || true
 
 if [ -f "$WORK_DIR/drc-report.json" ]; then

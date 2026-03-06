@@ -5,34 +5,35 @@ on:
     branches: [main]
     paths:
       - 'hardware/**'
+      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
       - 'panel-layout.json'
   pull_request:
     paths:
       - 'hardware/**'
+      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
       - 'panel-layout.json'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/devboy/requencer-hw-tools:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup atopile
-        uses: atopile/setup-atopile@v1
-        with:
-          ato-config: hardware/ato.yaml
-
-      # --- Main PCB ---
-
       - name: Build schematic
-        working-directory: hardware
-        run: ato build
+        run: |
+          rm -f hardware/elec/layout/default/default.kicad_pcb
+          cd hardware && ato --non-interactive build
 
       - name: Generate through-hole footprints
         run: python3 hardware/scripts/generate_footprints.py
+
+      - name: Generate faceplate PCB
+        run: python3 hardware-faceplate/scripts/generate_faceplate.py
 
       - name: Run DRC (verification)
         working-directory: hardware
@@ -51,13 +52,8 @@ jobs:
           "
             fi
           else
-            echo "PCB file not found, skipping DRC"
+            echo 'PCB file not found, skipping DRC'
           fi
-
-      # --- Faceplate ---
-
-      - name: Generate faceplate PCB
-        run: python3 hardware-faceplate/scripts/generate_faceplate.py
 
       # --- Full pipeline (main branch only) ---
 
@@ -66,30 +62,24 @@ jobs:
         run: |
           PCB="hardware/elec/layout/default/default.kicad_pcb"
           if [ -f "$PCB" ]; then
-            python3 hardware/scripts/place_components.py "$PCB"
-          else
-            echo "PCB not found, skipping placement"
+            python3 hardware/scripts/place_components.py "$PCB" hardware/build/placed.kicad_pcb
           fi
 
       - name: Autoroute
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
+          PCB="hardware/build/placed.kicad_pcb"
           if [ -f "$PCB" ]; then
             chmod +x hardware/scripts/autoroute.sh
-            hardware/scripts/autoroute.sh "$PCB"
-          else
-            echo "PCB not found, skipping autoroute"
+            hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
           fi
 
       - name: Export manufacturing files
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
+          PCB="hardware/build/routed.kicad_pcb"
           if [ -f "$PCB" ]; then
-            python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
-          else
-            echo "PCB not found, skipping manufacturing export"
+            python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
           fi
 
       - name: Upload KiCad output
@@ -106,6 +96,6 @@ jobs:
         with:
           name: manufacturing-${{ github.sha }}
           path: |
-            hardware/manufacturing/
+            hardware/build/manufacturing/
             hardware-faceplate/elec/layout/
           retention-days: 90

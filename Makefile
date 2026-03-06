@@ -2,7 +2,8 @@
 	test-rust test-web \
 	build-wasm build-web build-firmware \
 	lint-rust lint-web \
-	hw-build hw-footprints hw-faceplate hw-place hw-route hw-export hw-all hw-clean
+	hw-build hw-footprints hw-faceplate hw-place hw-route hw-export hw-all hw-clean \
+	hw-docker-build hw-docker hw-all-inner
 
 all: test
 
@@ -40,6 +41,9 @@ KICAD_CLI    := $(KICAD_APP)/Contents/MacOS/kicad-cli
 KICAD_PYTHON := $(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3
 KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks PYTHONPATH=$(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
 
+# Docker image
+HW_IMAGE := ghcr.io/devboy/requencer-hw-tools:latest
+
 # Build artifacts
 PCB_SRC     := hardware/elec/layout/default/default.kicad_pcb
 PCB_PLACED  := hardware/build/placed.kicad_pcb
@@ -70,6 +74,26 @@ hw-export:
 # Full pipeline: each step feeds into the next
 hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
 	@echo "=== Hardware pipeline complete ==="
+	@echo "  Routed PCB: $(PCB_ROUTED)"
+	@echo "  Manufacturing: $(MFG_DIR)/"
+
+# === Hardware (Docker) ===
+
+hw-docker-build:
+	docker build -t $(HW_IMAGE) hardware/docker/
+
+hw-docker:
+	docker run --rm -v $(PWD):/work -w /work $(HW_IMAGE) make hw-all-inner
+
+hw-all-inner:
+	rm -f $(PCB_SRC) $(PCB_SRC).bak
+	cd hardware && ato --non-interactive build
+	python3 hardware/scripts/generate_footprints.py
+	python3 hardware-faceplate/scripts/generate_faceplate.py
+	python3 hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
+	python3 hardware/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
+	@echo "=== Hardware pipeline complete (Docker) ==="
 	@echo "  Routed PCB: $(PCB_ROUTED)"
 	@echo "  Manufacturing: $(MFG_DIR)/"
 
