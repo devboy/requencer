@@ -14,16 +14,7 @@ import panelLayout from '../../../../panel-layout.json'
 
 const SCALE = 4.5 // px per mm
 const C = panelLayout.constants
-
-// Footprint rectangles from generate_footprints.py (relative to component origin)
-// PJ398SM jack: courtyard fp_rect(-4, -7, 7, 3)
-const JACK_BODY = { x1: -4, y1: -7, x2: 7, y2: 3 } // silkscreen courtyard
-// TC002-RGB button: body fp_rect(-3.5, -3.5, 3.5, 3.5), courtyard fp_rect(-4.5, -4.5, 4.5, 4.5)
-const BTN_BODY = { x1: -3.5, y1: -3.5, x2: 3.5, y2: 3.5 }
-const BTN_COURTYARD = { x1: -4.5, y1: -4.5, x2: 4.5, y2: 4.5 }
-// EC11E encoder: body fp_rect(-6.5, -6.5, 6.5, 6.5), courtyard fp_rect(-8, -9, 8, 9)
-const ENC_BODY = { x1: -6.5, y1: -6.5, x2: 6.5, y2: 6.5 }
-const ENC_COURTYARD = { x1: -8, y1: -9, x2: 8, y2: 9 }
+const FP = panelLayout.footprints
 
 const W = panelLayout.panel.width_mm * SCALE
 const H = panelLayout.panel.height_mm * SCALE
@@ -96,8 +87,8 @@ export function createFootprintOverlay(): void {
   // Buttons — body rect (green) + courtyard rect (yellow)
   function addButtonFootprints(buttons: Array<{ x_mm: number; y_mm: number }>): void {
     for (const b of buttons) {
-      parts.push(offsetRect(b.x_mm, b.y_mm, BTN_BODY, '#44ff44'))
-      parts.push(offsetRect(b.x_mm, b.y_mm, BTN_COURTYARD, '#cccc00', '2,2'))
+      parts.push(offsetRect(b.x_mm, b.y_mm, FP.tc002_rgb.body, '#44ff44'))
+      parts.push(offsetRect(b.x_mm, b.y_mm, FP.tc002_rgb.courtyard, '#cccc00', '2,2'))
     }
   }
 
@@ -126,14 +117,14 @@ export function createFootprintOverlay(): void {
 
   // Encoders — body rect (green) + courtyard rect (yellow)
   for (const enc of panelLayout.encoders) {
-    parts.push(offsetRect(enc.x_mm, enc.y_mm, ENC_BODY, '#44ff44'))
-    parts.push(offsetRect(enc.x_mm, enc.y_mm, ENC_COURTYARD, '#cccc00', '2,2'))
+    parts.push(offsetRect(enc.x_mm, enc.y_mm, FP.ec11e.body, '#44ff44'))
+    parts.push(offsetRect(enc.x_mm, enc.y_mm, FP.ec11e.courtyard, '#cccc00', '2,2'))
   }
 
   // Jacks — asymmetric courtyard rect (green)
   function addJackFootprints(jacks: Array<{ x_mm: number; y_mm: number }>): void {
     for (const j of jacks) {
-      parts.push(offsetRect(j.x_mm, j.y_mm, JACK_BODY, '#44ff44'))
+      parts.push(offsetRect(j.x_mm, j.y_mm, FP.pj398sm.body, '#44ff44'))
     }
   }
 
