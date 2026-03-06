@@ -87,6 +87,7 @@ export interface FaceplateElements {
   backBtn: HTMLButtonElement
   clrBtn: HTMLButtonElement
   patBtn: HTMLButtonElement
+  tbdBtn: HTMLButtonElement
   settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
@@ -229,6 +230,15 @@ export function createFaceplate(): FaceplateElements {
     trackBtns.push(btn)
   }
 
+  // --- TBD button (below T4) ---
+  const tbdBtn = document.createElement('button')
+  tbdBtn.className = 'circle-btn tbd-btn'
+  const tbdLabel = document.createElement('span')
+  tbdLabel.className = 'btn-label label-above'
+  tbdLabel.textContent = 'TBD'
+  tbdBtn.appendChild(tbdLabel)
+  trackBtnGroup.appendChild(tbdBtn)
+
   // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) + PAT ---
   const subtrackCol = root.querySelector('#subtrack-col') as HTMLDivElement
   const subtrackBtns: HTMLButtonElement[] = []
@@ -363,6 +373,7 @@ export function createFaceplate(): FaceplateElements {
     backBtn,
     clrBtn,
     patBtn,
+    tbdBtn,
     settingsBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
@@ -840,10 +851,10 @@ const PANEL_CSS = `
   .track-btn.led-on[data-track="2"] { background: #5aaa6e; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,170,110,0.5), 0 0 16px rgba(90,170,110,0.2); }
   .track-btn.led-on[data-track="3"] { background: #5aabb4; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,171,180,0.5), 0 0 16px rgba(90,171,180,0.2); }
 
-  /* Subtrack/feature/pat buttons */
-  .subtrack-btn, .feature-btn, .pat-btn { background: #555; }
-  .subtrack-btn:active, .feature-btn:active, .pat-btn:active { background: #777; }
-  .subtrack-btn.active, .feature-btn.active, .pat-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  /* Subtrack/feature/pat/tbd buttons */
+  .subtrack-btn, .feature-btn, .pat-btn, .tbd-btn { background: #555; }
+  .subtrack-btn:active, .feature-btn:active, .pat-btn:active, .tbd-btn:active { background: #777; }
+  .subtrack-btn.active, .feature-btn.active, .pat-btn.active, .tbd-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* Transport buttons — styled by .large-btn, these are overrides only */
 
