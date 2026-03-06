@@ -1,0 +1,26 @@
+# Micro SD Card Connector — Push-push type, SPI mode
+# Generic footprint compatible with Molex 5031821852 or equivalent
+# Panel-mount vertical orientation (card inserts from front panel)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+
+component MicroSD:
+    trait is_atomic_part<manufacturer="Generic", partnumber="MicroSD-PP", footprint="MicroSD.kicad_mod", symbol="MicroSD.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+
+    # SPI mode pins
+    signal CS ~ pin 1       # DAT3/CS — chip select (active low)
+    signal MOSI ~ pin 2     # CMD/DI  — data in (from MCU)
+    signal VCC ~ pin 3      # VDD     — 3.3V supply
+    signal SCK ~ pin 4      # CLK     — SPI clock
+    signal GND1 ~ pin 5     # VSS1    — ground
+    signal MISO ~ pin 6     # DAT0/DO — data out (to MCU)
+
+    # Card detect (active low when card inserted)
+    signal CD ~ pin 7       # Card detect switch
+    signal GND2 ~ pin 8     # Shield / VSS2
+
+    # Mechanical shield
+    signal SHIELD ~ pin 9   # Metal shell ground

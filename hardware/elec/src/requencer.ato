@@ -10,6 +10,7 @@ from "led-driver.ato" import LEDDriverChain
 from "display.ato" import DisplayConnector
 from "io-jacks.ato" import IOJacks
 from "midi.ato" import MIDIInterface
+from "sdcard.ato" import SDCardModule
 
 from "../../parts/EC11E/EC11E.ato" import EC11E
 
@@ -26,6 +27,7 @@ module Requencer:
     display = new DisplayConnector
     jacks = new IOJacks
     midi = new MIDIInterface
+    sdcard = new SDCardModule
 
     # --- Encoders ---
     enc_a = new EC11E
@@ -317,6 +319,16 @@ module Requencer:
     mcu.rst_in ~ jacks.rst_in_gpio
     mcu.clk_out ~ jacks.clk_out_gpio
     mcu.rst_out ~ jacks.rst_out_gpio
+
+    # === SD CARD STORAGE ===
+    # Shares SPI0 bus (MOSI/SCK) with LCD and DACs.
+    # MISO is new — only SD card sends data back on the SPI bus.
+    sdcard.mosi ~ mcu.spi_mosi
+    sdcard.sck ~ mcu.spi_sck
+    sdcard.miso ~ mcu.spi_miso
+    sdcard.cs ~ mcu.sd_cs
+    sdcard.vcc ~ power.v3v3
+    sdcard.gnd ~ gnd
 
     # === ANALOG OUTPUTS → JACKS ===
     dac.gate1 ~ jacks.gate1

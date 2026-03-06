@@ -177,6 +177,13 @@ export function createFaceplate(): FaceplateElements {
             </div>
           </div>
 
+          <div class="sd-slot-group">
+            <span class="sd-label">SD</span>
+            <div class="sd-slot">
+              <div class="sd-slot-opening"></div>
+            </div>
+          </div>
+
           <div class="branding">VILE TENSOR</div>
         </div>
       </div>
@@ -991,6 +998,53 @@ const PANEL_CSS = `
     transform: translate(-50%, -50%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.95);
     z-index: 1;
+  }
+
+  /* ══════════════════════════════════════════
+     SD CARD SLOT
+     ══════════════════════════════════════════ */
+
+  .sd-slot-group {
+    position: absolute;
+    left: ${10.0 * SCALE}px;
+    top: ${96.29 * SCALE}px;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    z-index: 6;
+    pointer-events: none;
+  }
+
+  .sd-label {
+    font-size: ${Math.round(1.8 * SCALE)}px;
+    font-weight: 600;
+    color: #666;
+    letter-spacing: 1px;
+  }
+
+  .sd-slot {
+    width: ${2.5 * SCALE}px;
+    height: ${12.5 * SCALE}px;
+    border-radius: ${0.4 * SCALE}px;
+    background: linear-gradient(90deg, #888 0%, #aaa 20%, #bbb 50%, #aaa 80%, #888 100%);
+    border: 1px solid #666;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.4),
+      inset 0 0.5px 0 rgba(255,255,255,0.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sd-slot-opening {
+    width: ${1.5 * SCALE}px;
+    height: ${11.0 * SCALE}px;
+    border-radius: ${0.3 * SCALE}px;
+    background: radial-gradient(ellipse, #0a0a0a, #1a1a1a);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.9);
   }
 
   /* ══════════════════════════════════════════

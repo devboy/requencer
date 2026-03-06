@@ -59,4 +59,8 @@ module Faceplate:
     # 3. LCD cutout (routed slot or milled rectangle)
     # 4. Mounting slots at top/bottom rail positions
     # 5. Silkscreen text and graphics on F.SilkS layer
+    # 6. Micro SD card slot cutout (vertical, left of step grid)
+    #    Position: x=10.0mm, y=96.29mm (centered with step button rows)
+    #    Cutout: 2.5mm × 12.5mm routed slot for card insertion
+    #    Silkscreen "SD" label above slot
     pass

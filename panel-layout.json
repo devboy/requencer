@@ -98,6 +98,15 @@
     { "id": "enc_b", "label": "B", "x_mm": 107.30, "y_mm": 76.36 }
   ],
 
+  "sd_slot": {
+    "x_mm": 10.0,
+    "y_mm": 96.29,
+    "slot_width_mm": 2.5,
+    "slot_height_mm": 12.5,
+    "orientation": "vertical",
+    "label": "SD"
+  },
+
   "jacks": {
     "utility": [
       { "id": "clk_in",  "label": "CLK IN",  "x_mm": 156.55, "y_mm": 15.00 },

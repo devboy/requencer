@@ -1,0 +1,55 @@
+# SD Card Module — Micro SD connector with SPI interface
+# Panel-mount vertical slot, card inserts from faceplate
+#
+# SPI bus is shared with LCD and DACs (MOSI/SCK).
+# MISO is new — only the SD card needs data-out on SPI0.
+#
+# GPIO constraint: Pico 2 castellated pads don't expose GP23-25.
+# For prototype, solder to test pads on Pico 2 underside:
+#   GP25 → SD_CS  (also drives onboard LED — free activity indicator!)
+#   GP24 → SPI0 MISO (SPI0 RX function on GP24 via RP2350 PIO/mux)
+# Alternative: use a 2-bit GPIO expander or repurpose an existing pin.
+
+from "../../parts/MicroSD/MicroSD.ato" import MicroSD
+
+import Resistor
+import Capacitor
+
+module SDCardModule:
+    # External signals
+    signal cs          # Directly to MCU GPIO (directly directly in CS)
+    signal mosi        # Shared SPI MOSI
+    signal sck         # Shared SPI SCK
+    signal miso        # SPI MISO (new line, only SD uses it)
+    signal vcc         # 3.3V supply
+    signal gnd         # Ground
+
+    # --- Connector ---
+    sd = new MicroSD
+
+    # SPI wiring
+    sd.CS ~ cs
+    sd.MOSI ~ mosi
+    sd.SCK ~ sck
+    sd.MISO ~ miso
+
+    # Power
+    sd.VCC ~ vcc
+    sd.GND1 ~ gnd
+    sd.GND2 ~ gnd
+    sd.SHIELD ~ gnd
+
+    # Card detect left floating (internal pull-up in firmware if needed)
+    # sd.CD is not connected — firmware can poll SPI CMD0 to detect card
+
+    # --- Decoupling cap on VCC ---
+    c_sd = new Capacitor
+    c_sd.capacitance = 100nF +/- 20%
+    c_sd.unnamed[0] ~ vcc
+    c_sd.unnamed[1] ~ gnd
+
+    # --- Pull-up on CS (SD spec: CS must be high when deselected) ---
+    r_cs = new Resistor
+    r_cs.resistance = 10kohm +/- 5%
+    r_cs.unnamed[0] ~ vcc
+    r_cs.unnamed[1] ~ cs

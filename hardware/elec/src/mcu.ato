@@ -57,8 +57,16 @@ module PicoMCU:
     signal rst_in     # GP27
     signal clk_out    # GP28
 
-    # Note: GP23-GP25 are NOT available on Pico 2 module
-    # (GP23=SMPS, GP24=VBUS detect, GP25=onboard LED)
+    # SD card storage (SPI0 shared bus + dedicated CS)
+    signal spi_miso   # GP24 — SPI0 RX (MISO), used only by SD card
+    signal sd_cs      # GP25 — SD card chip select
+
+    # Note: GP23-GP25 are NOT on Pico 2 castellated edge pads.
+    # They ARE available as test pads on the module underside.
+    # For prototype: bodge wires from Pico 2 test pads to PCB.
+    # GP24 = SPI0 RX (MISO for SD card reads)
+    # GP25 = SD_CS (active low; also drives onboard LED = free activity indicator)
+    # GP23 = spare (future use)
     # Settings button uses shift register chain (SR5) instead
 
     # --- Pico 2 module ---
@@ -109,3 +117,9 @@ module PicoMCU:
     pico.GP26_ADC0 ~ clk_in
     pico.GP27_ADC1 ~ rst_in
     pico.GP28_ADC2 ~ clk_out
+
+    # SD card pins — GP24/GP25 are NOT on castellated pads.
+    # Prototype: bodge wires from Pico 2 underside test pads to PCB pads.
+    # Production: switch to bare RP2350 QFN or a module with all GPIO exposed.
+    # pico.GP24 ~ spi_miso   # bodge wire — SPI0 RX
+    # pico.GP25 ~ sd_cs      # bodge wire — SD chip select
