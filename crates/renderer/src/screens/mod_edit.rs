@@ -136,7 +136,7 @@ fn render_mod_grid<D: DrawTarget<Color = Rgb565>>(
                 // Placeholder for unused steps
                 let x = layout::PAD as i32 + col as i32 * cell_w as i32;
                 let y = grid_y + row as i32 * cell_h as i32;
-                draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, colors::LCD_BG);
+                draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, colors::GRID_BG);
                 draw::fill_rect(display, x + 2, y + cell_h as i32 - 4, cell_w - 4, 2, colors::STEP_OFF);
                 continue;
             }
@@ -151,7 +151,7 @@ fn render_mod_grid<D: DrawTarget<Color = Rgb565>>(
             let bg = if is_playhead {
                 colors::SELECTED_ROW
             } else {
-                colors::LCD_BG
+                dim
             };
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 
@@ -212,20 +212,24 @@ fn render_lfo<D: DrawTarget<Color = Rgb565>>(
     let mid_y = grid_y + wave_h as i32 / 2;
     let amp = (wave_h as i32 - 8) / 2;
 
-    // Center/offset line
-    let offset_y = mid_y - (lfo.offset * amp as f32) as i32;
+    // Center/offset line (clamped to box)
+    let box_top = grid_y + 1;
+    let box_bottom = grid_y + wave_h as i32 - 2;
+    let offset_y = (mid_y - (lfo.offset * amp as f32) as i32).max(box_top).min(box_bottom);
     // Dashed center line (alternate 3px on, 3px off)
     for px in (0..wave_w).step_by(6) {
         draw::fill_rect(display, wave_x + px as i32, offset_y, 3.min(wave_w - px), 1, colors::TEXT_DIM);
     }
 
-    // Smooth waveform — draw connected line segments
+    // Smooth waveform — draw connected line segments, clamped to box
     let mut prev_sy: Option<i32> = None;
     for px in 0..wave_w {
         let phase = px as f32 / wave_w as f32;
         let val = waveform_sample(lfo.waveform, phase, lfo.width);
         let scaled = (val * lfo.depth * amp as f32) as i32;
-        let sy = mid_y - scaled - (lfo.offset * amp as f32) as i32;
+        let sy = (mid_y - scaled - (lfo.offset * amp as f32) as i32)
+            .max(box_top)
+            .min(box_bottom);
 
         if let Some(prev) = prev_sy {
             // Draw vertical connector for smooth line
@@ -243,9 +247,11 @@ fn render_lfo<D: DrawTarget<Color = Rgb565>>(
     if cursor_x >= wave_x && cursor_x < wave_x + wave_w as i32 {
         // Vertical line
         draw::fill_rect(display, cursor_x, grid_y + 1, 1, wave_h - 2, colors::TEXT_DIM);
-        // Value dot
+        // Value dot (clamped to box)
         let cursor_val = waveform_sample(lfo.waveform, lfo_rt.current_phase, lfo.width);
-        let cursor_sy = mid_y - (cursor_val * lfo.depth * amp as f32) as i32 - (lfo.offset * amp as f32) as i32;
+        let cursor_sy = (mid_y - (cursor_val * lfo.depth * amp as f32) as i32 - (lfo.offset * amp as f32) as i32)
+            .max(box_top)
+            .min(box_bottom);
         draw::fill_rect(display, cursor_x - 2, cursor_sy - 2, 5, 5, colors::PLAYHEAD);
     }
 

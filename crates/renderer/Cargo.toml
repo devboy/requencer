@@ -13,3 +13,4 @@ embedded-graphics-core = { workspace = true }
 embedded-graphics = { workspace = true }
 heapless = { workspace = true }
 libm = "0.2"
+profont = "0.7"

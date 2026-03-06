@@ -1,4 +1,5 @@
 use embedded_graphics::{pixelcolor::Rgb565, prelude::*};
+use requencer_engine::mode_machine::TRANSFORM_CATALOG;
 use requencer_engine::types::{SequencerState, TransformType};
 
 use crate::{colors, draw, layout, types::UiState};
@@ -12,6 +13,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     let track_idx = ui.selected_track as usize;
     let var = &state.variation_patterns[track_idx];
     let color = colors::TRACK[track_idx];
+    let dim = colors::TRACK_DIM[track_idx];
 
     // Header
     draw::fill_rect(
@@ -73,7 +75,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let bg = if is_current {
                 colors::SELECTED_ROW
             } else {
-                colors::LCD_BG
+                dim
             };
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 
@@ -177,12 +179,21 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                         colors::SELECTED_ROW,
                     );
                 }
+                // Show catalog preview name
+                let cat_idx = ui.var_param as usize;
+                let preview_name = if cat_idx < TRANSFORM_CATALOG.len() {
+                    transform_name(TRANSFORM_CATALOG[cat_idx].0)
+                } else {
+                    "ADD"
+                };
+                let mut add_buf = [0u8; 16];
+                let add_str = draw::fmt_buf(&mut add_buf, format_args!("+ {}", preview_name));
                 draw::text_center(
                     display,
                     layout::LCD_W as i32 / 2,
                     add_y + 7,
-                    "+ ADD",
-                    colors::TEXT_DIM,
+                    add_str,
+                    if is_add_cursor { colors::TEXT } else { colors::TEXT_DIM },
                 );
             }
         }
@@ -233,6 +244,25 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             draw::text(display, layout::PAD as i32 + 24, y + 7, names_str, color);
 
             line += 1;
+        }
+    }
+
+    // Catalog popup overlay when browsing transforms
+    if ui.var_catalog_open && ui.var_selected_bar >= 0 {
+        let bar_idx = ui.var_selected_bar as usize;
+        if bar_idx < var.slots.len() {
+            let add_y = stack_y + var.slots[bar_idx].transforms.len() as i32 * layout::ROW_H as i32;
+            let mut dd = crate::types::DropdownState {
+                open: true,
+                items: heapless::Vec::new(),
+                selected: ui.var_param,
+            };
+            for &(tt, _) in TRANSFORM_CATALOG.iter() {
+                let mut s = heapless::String::new();
+                let _ = s.push_str(transform_name(tt));
+                let _ = dd.items.push(s);
+            }
+            draw::dropdown(display, &dd, add_y, color);
         }
     }
 

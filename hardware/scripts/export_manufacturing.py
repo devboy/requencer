@@ -9,7 +9,7 @@ Generates:
 Usage:
     python export_manufacturing.py <board.kicad_pcb> [output_dir]
 
-Requires: kicad-cli
+Requires: kicad-cli (set PATH to include KiCad.app/Contents/MacOS)
 """
 
 import csv

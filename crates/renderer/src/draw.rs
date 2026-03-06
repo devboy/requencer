@@ -1,10 +1,11 @@
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    mono_font::MonoTextStyle,
     pixelcolor::Rgb565,
     prelude::*,
     primitives::{PrimitiveStyleBuilder, Rectangle},
     text::{Alignment, Text},
 };
+use profont::{PROFONT_12_POINT, PROFONT_14_POINT, PROFONT_18_POINT};
 
 use crate::layout;
 
@@ -51,7 +52,7 @@ pub fn stroke_rect<D: DrawTarget<Color = Rgb565>>(
         .draw(display);
 }
 
-/// Draw text at position (left-aligned, 6x10 font).
+/// Draw text at position (left-aligned, standard 14pt font).
 pub fn text<D: DrawTarget<Color = Rgb565>>(
     display: &mut D,
     x: i32,
@@ -59,8 +60,32 @@ pub fn text<D: DrawTarget<Color = Rgb565>>(
     s: &str,
     color: Rgb565,
 ) {
-    let style = MonoTextStyle::new(&FONT_6X10, color);
+    let style = MonoTextStyle::new(&PROFONT_14_POINT, color);
     let _ = Text::new(s, Point::new(x, y + layout::CHAR_H as i32), style).draw(display);
+}
+
+/// Draw small text (12pt) — for dense info, footers, secondary labels.
+pub fn text_sm<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_12_POINT, color);
+    let _ = Text::new(s, Point::new(x, y + layout::CHAR_H_SM as i32), style).draw(display);
+}
+
+/// Draw large text (18pt) — for headers, titles, prominent values.
+pub fn text_lg<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_18_POINT, color);
+    let _ = Text::new(s, Point::new(x, y + layout::CHAR_H_LG as i32), style).draw(display);
 }
 
 /// Draw text right-aligned at x position.
@@ -71,10 +96,46 @@ pub fn text_right<D: DrawTarget<Color = Rgb565>>(
     s: &str,
     color: Rgb565,
 ) {
-    let style = MonoTextStyle::new(&FONT_6X10, color);
+    let style = MonoTextStyle::new(&PROFONT_14_POINT, color);
     let _ = Text::with_alignment(
         s,
         Point::new(x, y + layout::CHAR_H as i32),
+        style,
+        Alignment::Right,
+    )
+    .draw(display);
+}
+
+/// Draw small text right-aligned.
+pub fn text_right_sm<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_12_POINT, color);
+    let _ = Text::with_alignment(
+        s,
+        Point::new(x, y + layout::CHAR_H_SM as i32),
+        style,
+        Alignment::Right,
+    )
+    .draw(display);
+}
+
+/// Draw large text right-aligned.
+pub fn text_right_lg<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_18_POINT, color);
+    let _ = Text::with_alignment(
+        s,
+        Point::new(x, y + layout::CHAR_H_LG as i32),
         style,
         Alignment::Right,
     )
@@ -89,10 +150,46 @@ pub fn text_center<D: DrawTarget<Color = Rgb565>>(
     s: &str,
     color: Rgb565,
 ) {
-    let style = MonoTextStyle::new(&FONT_6X10, color);
+    let style = MonoTextStyle::new(&PROFONT_14_POINT, color);
     let _ = Text::with_alignment(
         s,
         Point::new(x, y + layout::CHAR_H as i32),
+        style,
+        Alignment::Center,
+    )
+    .draw(display);
+}
+
+/// Draw small text center-aligned.
+pub fn text_center_sm<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_12_POINT, color);
+    let _ = Text::with_alignment(
+        s,
+        Point::new(x, y + layout::CHAR_H_SM as i32),
+        style,
+        Alignment::Center,
+    )
+    .draw(display);
+}
+
+/// Draw large text center-aligned.
+pub fn text_center_lg<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    x: i32,
+    y: i32,
+    s: &str,
+    color: Rgb565,
+) {
+    let style = MonoTextStyle::new(&PROFONT_18_POINT, color);
+    let _ = Text::with_alignment(
+        s,
+        Point::new(x, y + layout::CHAR_H_LG as i32),
         style,
         Alignment::Center,
     )
@@ -111,23 +208,23 @@ pub fn status_bar<D: DrawTarget<Color = Rgb565>>(
     fill_rect(display, 0, 0, layout::LCD_W, layout::STATUS_H, colors::STATUS_BAR);
 
     // Left: mode/track info
-    text(display, layout::PAD as i32, 7, left_text, colors::TEXT);
+    text(display, layout::PAD as i32, 4, left_text, colors::TEXT);
 
     // Right: BPM + transport
     let mut buf = [0u8; 16];
     let bpm_str = format_u16(bpm, &mut buf);
     let bpm_x = layout::LCD_W as i32 - layout::PAD as i32 - 30;
-    text_right(display, bpm_x, 7, bpm_str, colors::TEXT_DIM);
+    text_right(display, bpm_x, 4, bpm_str, colors::TEXT_DIM);
 
     // Transport indicator
-    let tx = layout::LCD_W as i32 - layout::PAD as i32 - 8;
-    let ty = 8;
+    let tx = layout::LCD_W as i32 - layout::PAD as i32 - 10;
+    let ty = 7;
     let indicator_color = if playing {
         colors::PLAY_GREEN
     } else {
         colors::STOP_DIM
     };
-    fill_rect(display, tx, ty, 6, 8, indicator_color);
+    fill_rect(display, tx, ty, 8, 10, indicator_color);
 }
 
 /// Format u16 to string in a fixed buffer. Returns &str.
@@ -192,6 +289,105 @@ pub fn scroll_bar<D: DrawTarget<Color = Rgb565>>(
     let thumb_h = (height * visible as u32 / total as u32).max(8);
     let thumb_y = y + (scroll as u32 * height / total as u32) as i32;
     fill_rect(display, layout::LCD_W as i32 - 3, thumb_y, 2, thumb_h, color);
+}
+
+/// Draw a dropdown popup overlay. `anchor_y` is the y position of the row
+/// that triggered the dropdown. Items are rendered centered around the anchor,
+/// clamped within the LCD content area.
+pub fn dropdown<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    dropdown: &crate::types::DropdownState,
+    anchor_y: i32,
+    track_color: Rgb565,
+) {
+    // Default bounds: full content area minus footer
+    let top = layout::CONTENT_Y as i32;
+    let bottom = layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32;
+    dropdown_bounded(display, dropdown, anchor_y, track_color, top, bottom);
+}
+
+pub fn dropdown_bounded<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    dropdown: &crate::types::DropdownState,
+    anchor_y: i32,
+    track_color: Rgb565,
+    bounds_top: i32,
+    bounds_bottom: i32,
+) {
+    use crate::colors;
+
+    if !dropdown.open || dropdown.items.is_empty() {
+        return;
+    }
+
+    let total = dropdown.items.len();
+    let max_visible: usize = 7;
+    let visible = total.min(max_visible);
+    let row_h = layout::ROW_H as i32;
+
+    // Compute popup width from longest item
+    let max_chars = dropdown.items.iter().map(|s| s.len()).max().unwrap_or(4);
+    let popup_w = ((max_chars as u32 + 4) * layout::CHAR_W).max(120);
+    let popup_x = layout::LCD_W as i32 - layout::PAD as i32 - 6 - popup_w as i32;
+
+    let popup_h = visible as i32 * row_h;
+
+    // Position: try to show dropdown below anchor row, flip above if no room
+    let below_top = anchor_y + row_h; // just below the anchor row
+    let above_bottom = anchor_y; // just above the anchor row
+
+    let popup_top = if below_top + popup_h <= bounds_bottom {
+        // Fits below — preferred position
+        below_top
+    } else if above_bottom - popup_h >= bounds_top {
+        // Fits above
+        above_bottom - popup_h
+    } else {
+        // Doesn't fit either way — clamp to bounds (align to bottom)
+        (bounds_bottom - popup_h).max(bounds_top)
+    };
+
+    // Scroll window centered on selection
+    let sel = dropdown.selected as usize;
+    let mut scroll_start = sel as i32 - (visible as i32 / 2);
+    scroll_start = scroll_start.max(0).min(total as i32 - visible as i32);
+    let scroll_start = scroll_start as usize;
+
+    // Background + border
+    fill_rect(
+        display,
+        popup_x - 4,
+        popup_top - 2,
+        popup_w + 8,
+        popup_h as u32 + 4,
+        colors::DROPDOWN_BG,
+    );
+    stroke_rect(
+        display,
+        popup_x - 4,
+        popup_top - 2,
+        popup_w + 8,
+        popup_h as u32 + 4,
+        colors::DROPDOWN_BORDER,
+    );
+
+    // Draw items
+    for vi in 0..visible {
+        let item_idx = scroll_start + vi;
+        if item_idx >= total {
+            break;
+        }
+        let y = popup_top + vi as i32 * row_h;
+        let is_sel = item_idx == sel;
+
+        if is_sel {
+            fill_rect(display, popup_x - 4, y, popup_w + 8, layout::ROW_H, colors::DROPDOWN_SEL);
+            text(display, popup_x, y + 5, ">", track_color);
+            text(display, popup_x + 18, y + 5, &dropdown.items[item_idx], colors::TEXT_BRIGHT);
+        } else {
+            text(display, popup_x + 18, y + 5, &dropdown.items[item_idx], colors::TEXT_DIM);
+        }
+    }
 }
 
 /// Draw a playhead indicator bar (2px wide white bar at bottom of cell).

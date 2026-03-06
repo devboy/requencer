@@ -1,10 +1,11 @@
-# Button Scanning — 4× 74HC165 Shift Register Chain
-# 32 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
+# Button Scanning — 5× 74HC165 Shift Register Chain
+# 33 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
 #
 # SR1 (bits 0-7):   Step buttons 1-8
 # SR2 (bits 8-15):  Step buttons 9-16
 # SR3 (bits 16-23): Track T1-T4, Subtrack GATE/PITCH/VEL/MOD
 # SR4 (bits 24-31): PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET
+# SR5 (bits 32-39): SETTINGS (D0), D1-D7 unused (7 spare inputs)
 
 import Resistor
 import Capacitor
@@ -22,11 +23,12 @@ module ButtonScanner:
     signal vcc       # +3.3V
     signal gnd
 
-    # --- 4 shift registers ---
+    # --- 5 shift registers ---
     sr1 = new _74HC165D
     sr2 = new _74HC165D
     sr3 = new _74HC165D
     sr4 = new _74HC165D
+    sr5 = new _74HC165D
 
     # Power all shift registers
     sr1.VCC ~ vcc
@@ -37,6 +39,8 @@ module ButtonScanner:
     sr3.GND ~ gnd
     sr4.VCC ~ vcc
     sr4.GND ~ gnd
+    sr5.VCC ~ vcc
+    sr5.GND ~ gnd
 
     # Bypass caps
     c1 = new Capacitor
@@ -59,30 +63,39 @@ module ButtonScanner:
     c4.unnamed[0] ~ vcc
     c4.unnamed[1] ~ gnd
 
+    c5 = new Capacitor
+    c5.capacitance = 100nF +/- 20%
+    c5.unnamed[0] ~ vcc
+    c5.unnamed[1] ~ gnd
+
     # Shared clock and latch
     sr1.CLK ~ clk
     sr2.CLK ~ clk
     sr3.CLK ~ clk
     sr4.CLK ~ clk
+    sr5.CLK ~ clk
 
     sr1.SH_LD ~ latch
     sr2.SH_LD ~ latch
     sr3.SH_LD ~ latch
     sr4.SH_LD ~ latch
+    sr5.SH_LD ~ latch
 
     # Clock inhibit tied low (always enabled)
     sr1.CLK_INH ~ gnd
     sr2.CLK_INH ~ gnd
     sr3.CLK_INH ~ gnd
     sr4.CLK_INH ~ gnd
+    sr5.CLK_INH ~ gnd
 
-    # Daisy chain: SR1.QH → SR2.SER → SR3.SER → SR4.SER
-    # MCU reads from SR4.QH (last in chain)
+    # Daisy chain: SR1 → SR2 → SR3 → SR4 → SR5
+    # MCU reads from SR5.QH (last in chain), 40 bits total
     sr1.SER ~ gnd    # First in chain, no serial input
     sr1.QH ~ sr2.SER
     sr2.QH ~ sr3.SER
     sr3.QH ~ sr4.SER
-    sr4.QH ~ data_out
+    sr4.QH ~ sr5.SER
+    sr5.QH ~ data_out
 
     # --- 32 buttons ---
     # Each button: one side to shift register input, other side to GND
@@ -117,6 +130,9 @@ module ButtonScanner:
     btn_pitch = new TC002_RGB
     btn_vel = new TC002_RGB
     btn_mod = new TC002_RGB
+
+    # Settings + spare (SR5, D0-D7)
+    btn_settings = new TC002_RGB
 
     # Function buttons (SR4, D0-D7)
     btn_pat = new TC002_RGB
@@ -362,3 +378,47 @@ module ButtonScanner:
     r_pu32.resistance = 10kohm +/- 5%
     r_pu32.unnamed[0] ~ vcc
     r_pu32.unnamed[1] ~ sr4.D7
+
+    # SR5 inputs — settings button on D0, D1-D7 spare (tied high via pull-ups)
+    btn_settings.SW1 ~ sr5.D0
+    btn_settings.SW2 ~ gnd
+
+    r_pu33 = new Resistor
+    r_pu33.resistance = 10kohm +/- 5%
+    r_pu33.unnamed[0] ~ vcc
+    r_pu33.unnamed[1] ~ sr5.D0
+
+    r_pu34 = new Resistor
+    r_pu34.resistance = 10kohm +/- 5%
+    r_pu34.unnamed[0] ~ vcc
+    r_pu34.unnamed[1] ~ sr5.D1
+
+    r_pu35 = new Resistor
+    r_pu35.resistance = 10kohm +/- 5%
+    r_pu35.unnamed[0] ~ vcc
+    r_pu35.unnamed[1] ~ sr5.D2
+
+    r_pu36 = new Resistor
+    r_pu36.resistance = 10kohm +/- 5%
+    r_pu36.unnamed[0] ~ vcc
+    r_pu36.unnamed[1] ~ sr5.D3
+
+    r_pu37 = new Resistor
+    r_pu37.resistance = 10kohm +/- 5%
+    r_pu37.unnamed[0] ~ vcc
+    r_pu37.unnamed[1] ~ sr5.D4
+
+    r_pu38 = new Resistor
+    r_pu38.resistance = 10kohm +/- 5%
+    r_pu38.unnamed[0] ~ vcc
+    r_pu38.unnamed[1] ~ sr5.D5
+
+    r_pu39 = new Resistor
+    r_pu39.resistance = 10kohm +/- 5%
+    r_pu39.unnamed[0] ~ vcc
+    r_pu39.unnamed[1] ~ sr5.D6
+
+    r_pu40 = new Resistor
+    r_pu40.resistance = 10kohm +/- 5%
+    r_pu40.unnamed[0] ~ vcc
+    r_pu40.unnamed[1] ~ sr5.D7

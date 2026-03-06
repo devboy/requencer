@@ -79,6 +79,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         ScreenMode::NameEntry => screens::name_entry::render(display, state, ui),
     }
 
+    // Hold overlay — show length/divider info when holding track/subtrack/feature buttons
+    if let Some(ref held) = ui.held_button {
+        render_hold_overlay(display, state, ui, held);
+    }
+
     // Flash message overlay
     if let Some(msg) = ui.flash_message {
         if ui.mode != ScreenMode::NameEntry {
@@ -91,6 +96,94 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                 msg,
                 colors::TEXT_BRIGHT,
             );
+        }
+    }
+}
+
+/// Render a hold overlay strip at the top of the content area.
+/// Shows length/divider info when holding track, subtrack, or feature buttons.
+fn render_hold_overlay<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    state: &SequencerState,
+    ui: &UiState,
+    held: &types::HeldButton,
+) {
+    use types::HeldButton;
+    const OVERLAY_H: u32 = 42;
+    let y = layout::CONTENT_Y as i32;
+
+    // Semi-transparent dark background (solid dark since we can't do alpha)
+    draw::fill_rect(display, 0, y, layout::LCD_W, OVERLAY_H, colors::STATUS_BAR);
+
+    let track_idx = match held {
+        HeldButton::Track(t) => *t as usize,
+        _ => ui.selected_track as usize,
+    };
+
+    let mut buf = [0u8; 16];
+
+    match held {
+        HeldButton::Subtrack(sub) => {
+            let track = &state.tracks[track_idx];
+            let (len, div) = match sub {
+                types::UiSubtrack::Gate => (track.gate.length, track.gate.clock_divider),
+                types::UiSubtrack::Pitch => (track.pitch.length, track.pitch.clock_divider),
+                types::UiSubtrack::Velocity => (track.velocity.length, track.velocity.clock_divider),
+                types::UiSubtrack::Mod => (track.modulation.length, track.modulation.clock_divider),
+            };
+            let s = draw::fmt_buf(&mut buf, format_args!("LEN {}", len));
+            draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+            let mut div_buf = [0u8; 16];
+            let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", div));
+            draw::text_lg(display, layout::PAD as i32 + 140, y + 10, ds, colors::TEXT_BRIGHT);
+        }
+        HeldButton::Track(t) => {
+            let track = &state.tracks[*t as usize];
+            let s = draw::fmt_buf(
+                &mut buf,
+                format_args!(
+                    "G:{} P:{} V:{} M:{}",
+                    track.gate.length,
+                    track.pitch.length,
+                    track.velocity.length,
+                    track.modulation.length,
+                ),
+            );
+            draw::text(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+            let mut div_buf = [0u8; 16];
+            let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", track.clock_divider));
+            draw::text_right(
+                display,
+                layout::LCD_W as i32 - layout::PAD as i32,
+                y + 10,
+                ds,
+                colors::TEXT_BRIGHT,
+            );
+        }
+        HeldButton::Feature(feat) => {
+            match feat {
+                types::Feature::Mute => {
+                    let mute = &state.mute_patterns[track_idx];
+                    let s = draw::fmt_buf(&mut buf, format_args!("MUTE LEN {}", mute.length));
+                    draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+                    let mut div_buf = [0u8; 16];
+                    let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", mute.clock_divider));
+                    draw::text_lg(display, layout::PAD as i32 + 240, y + 10, ds, colors::TEXT_BRIGHT);
+                }
+                types::Feature::Variation => {
+                    let vp = &state.variation_patterns[track_idx];
+                    let loop_str = if vp.loop_mode { " LOOP" } else { "" };
+                    let s = draw::fmt_buf(&mut buf, format_args!("VAR {} bars{}", vp.length, loop_str));
+                    draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+                }
+                _ => {}
+            }
+        }
+        HeldButton::Step(_) => {
+            // Step hold doesn't show an overlay (it's handled by gate-edit inline)
         }
     }
 }

@@ -2,9 +2,14 @@
 # LCSC: C18536
 # Used for clock output buffer (3.3V → 5V gate level)
 
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
 component _2N3904:
+    trait has_designator_prefix<prefix="Q">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C18536", manufacturer="Changjiang Electronics", partno="2N3904">
+
     signal BASE ~ pin 1
     signal EMITTER ~ pin 2
     signal COLLECTOR ~ pin 3
-
-    designator_prefix = "Q"

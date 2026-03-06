@@ -91,7 +91,7 @@ export interface UIState {
   clrPendingAt: number // timestamp of first CLR press (for 2s timeout)
   patternParam: number // selected row in PATTERN screen
   patternIndex: number // highlighted saved pattern
-  patternLayerFlags: import('../engine/types').LayerFlags
+  patternLayerFlags: { gate: boolean; pitch: boolean; velocity: boolean; mod: boolean; transpose: boolean; drift: boolean; variation: boolean }
   patternLoadTarget: number // 0-3: destination track for pattern load
   nameEntryContext: 'preset' | 'pattern'
   flashMessage: string // brief overlay text, cleared by timer

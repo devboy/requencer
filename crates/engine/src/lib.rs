@@ -9,8 +9,10 @@ pub mod arpeggiator;
 pub mod clock_divider;
 pub mod clock_recovery;
 pub mod euclidean;
+pub mod input;
 pub mod lfo;
 pub mod math;
+pub mod mode_machine;
 pub mod mutator;
 pub mod randomizer;
 pub mod rng;
@@ -19,7 +21,9 @@ pub mod presets;
 pub mod routing;
 pub mod scales;
 pub mod sequencer;
+pub mod storage;
 pub mod types;
+pub mod ui_types;
 pub mod variation;
 
 // ── Constants ───────────────────────────────────────────────────────

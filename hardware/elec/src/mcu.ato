@@ -18,8 +18,10 @@ module PicoMCU:
     # LCD control
     signal lcd_cs     # GP1
     signal lcd_dc     # GP3
-    signal lcd_rst    # GP4
     signal lcd_bl     # GP5 — backlight PWM
+
+    # Reset output (GP4, freed from LCD RST which now uses RC circuit)
+    signal rst_out    # GP4
 
     # DAC chip selects
     signal dac1_cs    # GP6
@@ -55,6 +57,10 @@ module PicoMCU:
     signal rst_in     # GP27
     signal clk_out    # GP28
 
+    # Note: GP23-GP25 are NOT available on Pico 2 module
+    # (GP23=SMPS, GP24=VBUS detect, GP25=onboard LED)
+    # Settings button uses shift register chain (SR5) instead
+
     # --- Pico 2 module ---
     pico = new RaspberryPiPico2
 
@@ -81,7 +87,7 @@ module PicoMCU:
     pico.GP1 ~ lcd_cs
     pico.GP2 ~ spi_sck
     pico.GP3 ~ lcd_dc
-    pico.GP4 ~ lcd_rst
+    pico.GP4 ~ rst_out
     pico.GP5 ~ lcd_bl
     pico.GP6 ~ dac1_cs
     pico.GP7 ~ dac2_cs

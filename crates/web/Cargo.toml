@@ -17,6 +17,7 @@ std = ["requencer-engine/std", "requencer-renderer/std"]
 requencer-engine = { path = "../engine" }
 requencer-renderer = { path = "../renderer" }
 embedded-graphics-core = { workspace = true }
+heapless = { workspace = true }
 wasm-bindgen = "0.2"
 
 [dependencies.web-sys]

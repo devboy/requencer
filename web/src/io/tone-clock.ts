@@ -1,5 +1,6 @@
 import * as Tone from 'tone'
-import { PPQN, TICKS_PER_STEP } from '../engine/clock-divider'
+const PPQN = 24
+const TICKS_PER_STEP = PPQN / 4 // = 6
 
 export interface ClockCallbacks {
   onTick: (time: number, stepDuration: number, tickDuration: number) => void

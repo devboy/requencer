@@ -2,7 +2,14 @@
 # LCSC: C571211
 # Used for MIDI input isolation
 
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
 component _6N138:
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C571211", manufacturer="Vishay", partno="6N138">
+
     signal NC1 ~ pin 1
     signal ANODE ~ pin 2
     signal CATHODE ~ pin 3
@@ -11,5 +18,3 @@ component _6N138:
     signal VO ~ pin 6
     signal VE ~ pin 7
     signal VCC ~ pin 8
-
-    designator_prefix = "U"

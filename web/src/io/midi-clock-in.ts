@@ -17,7 +17,7 @@ import {
   createClockRecovery,
   processClockTick,
   resetClockRecovery,
-} from '../engine/clock-recovery'
+} from './clock-recovery'
 
 export interface MIDIInputDevice {
   id: string

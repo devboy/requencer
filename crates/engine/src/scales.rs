@@ -1,4 +1,5 @@
 use heapless::Vec;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A musical scale definition.
 #[derive(Clone, Debug, PartialEq)]
@@ -65,6 +66,27 @@ impl Scales {
         Self::CHROMATIC,
         Self::WHOLE_TONE,
     ];
+}
+
+impl Serialize for Scale {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let index = Scales::ALL
+            .iter()
+            .position(|s| s.intervals == self.intervals)
+            .unwrap_or(0) as u8;
+        serializer.serialize_u8(index)
+    }
+}
+
+impl<'de> Deserialize<'de> for Scale {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let index = u8::deserialize(deserializer)? as usize;
+        if index < Scales::ALL.len() {
+            Ok(Scales::ALL[index].clone())
+        } else {
+            Ok(Scales::CHROMATIC.clone())
+        }
+    }
 }
 
 /// Return all MIDI notes in [low, high] that belong to the given scale at the given root.
@@ -143,6 +165,17 @@ mod tests {
     fn snap_63_major_60() {
         // 63 (Eb) → nearest in C major: 62 (D) or 64 (E), both distance 1 → snap down to 62
         assert_eq!(snap_to_scale(63, 60, &Scales::MAJOR), 62);
+    }
+
+    #[test]
+    fn scale_serde_round_trip() {
+        use postcard::{from_bytes, to_allocvec};
+        for (i, scale) in Scales::ALL.iter().enumerate() {
+            let bytes = to_allocvec(scale).unwrap();
+            let restored: Scale = from_bytes(&bytes).unwrap();
+            assert_eq!(restored.name, Scales::ALL[i].name);
+            assert_eq!(restored.intervals, Scales::ALL[i].intervals);
+        }
     }
 
     #[test]

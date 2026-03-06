@@ -1,11 +1,12 @@
 use heapless::{String, Vec};
+use serde::{Deserialize, Serialize};
 
 use crate::scales::Scale;
 use crate::{MAX_STEPS, NUM_OUTPUTS, NUM_TRACKS};
 
 // ── Step types ──────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GateStep {
     pub on: bool,
     pub tie: bool,
@@ -24,7 +25,7 @@ impl Default for GateStep {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitchStep {
     pub note: u8,    // MIDI 0-127
     pub slide: f32,  // 0 = off, 0.01-0.50 = portamento time in seconds
@@ -39,7 +40,7 @@ impl Default for PitchStep {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ModStep {
     pub value: f32,  // 0.0-1.0, CV value
     pub slew: f32,   // 0.0-1.0, interpolation time as fraction of step
@@ -56,7 +57,8 @@ impl Default for ModStep {
 
 // ── Subtrack ────────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(bound = "T: Serialize + serde::de::DeserializeOwned")]
 pub struct Subtrack<T: Clone> {
     pub steps: Vec<T, MAX_STEPS>,
     pub length: u8,           // active length (1..=MAX_STEPS)
@@ -81,7 +83,7 @@ impl<T: Clone + Default> Default for Subtrack<T> {
 
 // ── Enums ───────────────────────────────────────────────────────────
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PitchMode {
     Random,
     Arp,
@@ -90,7 +92,7 @@ pub enum PitchMode {
     Fall,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PitchArpDirection {
     Up,
     Down,
@@ -98,7 +100,7 @@ pub enum PitchArpDirection {
     Random,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GateAlgo {
     Random,
     Euclidean,
@@ -106,7 +108,7 @@ pub enum GateAlgo {
     Cluster,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VelocityMode {
     Random,
     Accent,
@@ -116,7 +118,7 @@ pub enum VelocityMode {
     Walk,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModMode {
     Random,
     Rise,
@@ -127,7 +129,7 @@ pub enum ModMode {
     Walk,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ArpDirection {
     Up,
     Down,
@@ -135,7 +137,7 @@ pub enum ArpDirection {
     Random,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LfoWaveform {
     Sine,
     Triangle,
@@ -145,26 +147,26 @@ pub enum LfoWaveform {
     SampleAndHold,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LfoSyncMode {
     Track,
     Free,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClockSource {
     Internal,
     Midi,
     External,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MutateTrigger {
     Loop,
     Bars,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModSource {
     Seq,
     Lfo,
@@ -172,7 +174,7 @@ pub enum ModSource {
 
 // ── Sequence Track ──────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SequenceTrack {
     pub id: String<32>,
     pub name: String<32>,
@@ -215,7 +217,7 @@ impl SequenceTrack {
 
 // ── Random Config ───────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitchConfig {
     pub low: u8,
     pub high: u8,
@@ -226,7 +228,7 @@ pub struct PitchConfig {
     pub arp_direction: PitchArpDirection,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GateConfig {
     pub fill_min: f32,
     pub fill_max: f32,
@@ -235,31 +237,31 @@ pub struct GateConfig {
     pub cluster_continuation: f32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VelocityConfig {
     pub low: u8,
     pub high: u8,
     pub mode: VelocityMode,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GateLengthConfig {
     pub min: f32,
     pub max: f32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RatchetConfig {
     pub max_ratchet: u8,
     pub probability: f32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SlideConfig {
     pub probability: f32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ModGenConfig {
     pub low: f32,
     pub high: f32,
@@ -270,13 +272,13 @@ pub struct ModGenConfig {
     pub sync_bias: f32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TieConfig {
     pub probability: f32,
     pub max_length: u8,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RandomConfig {
     pub pitch: PitchConfig,
     pub gate: GateConfig,
@@ -341,7 +343,7 @@ impl Default for RandomConfig {
 
 // ── Output Routing ──────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OutputRouting {
     pub gate: u8,      // source track index 0-3
     pub pitch: u8,
@@ -364,7 +366,7 @@ impl OutputRouting {
 
 // ── Mute Track ──────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MuteTrack {
     pub steps: Vec<bool, MAX_STEPS>,
     pub length: u8,
@@ -389,7 +391,7 @@ impl Default for MuteTrack {
 
 // ── Note Event ──────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NoteEvent {
     pub output: u8,
     pub gate: bool,
@@ -406,7 +408,7 @@ pub struct NoteEvent {
 
 // ── Transport ───────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transport {
     pub bpm: u16,
     pub playing: bool,
@@ -427,7 +429,7 @@ impl Default for Transport {
 
 // ── LFO ─────────────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LfoConfig {
     pub waveform: LfoWaveform,
     pub sync_mode: LfoSyncMode,
@@ -454,7 +456,7 @@ impl Default for LfoConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LfoRuntime {
     pub current_phase: f32,
     pub last_sh_value: f32,
@@ -475,7 +477,7 @@ impl Default for LfoRuntime {
 
 // ── Transpose ───────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TransposeConfig {
     pub semitones: i8,     // -48 to +48
     pub note_low: u8,      // MIDI floor
@@ -498,7 +500,7 @@ impl Default for TransposeConfig {
 
 // ── Arpeggiator ─────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ArpConfig {
     pub enabled: bool,
     pub direction: ArpDirection,
@@ -517,7 +519,7 @@ impl Default for ArpConfig {
 
 // ── Mutation ────────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MutateConfig {
     pub trigger: MutateTrigger,
     pub bars: u8,      // 1, 2, 4, 8, 16
@@ -542,7 +544,7 @@ impl Default for MutateConfig {
 
 // ── MIDI Config ─────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MidiOutputConfig {
     pub channel: u8, // 1-16
 }
@@ -555,7 +557,7 @@ impl MidiOutputConfig {
 
 // ── Variation / Transforms ──────────────────────────────────────────
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransformType {
     // Playhead transforms
     Reverse,
@@ -606,7 +608,7 @@ impl TransformType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transform {
     pub transform_type: TransformType,
     pub param: i32,
@@ -618,7 +620,7 @@ pub const MAX_TRANSFORMS: usize = 8;
 /// Maximum variation slots (bars in phrase).
 pub const MAX_VARIATION_SLOTS: usize = 16;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VariationSlot {
     pub transforms: Vec<Transform, MAX_TRANSFORMS>,
 }
@@ -631,7 +633,7 @@ impl Default for VariationSlot {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SubtrackKey {
     Gate,
     Pitch,
@@ -640,7 +642,7 @@ pub enum SubtrackKey {
 }
 
 /// A flat variation pattern used for per-subtrack overrides (no further nesting).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OverridePattern {
     pub length: u8,
     pub loop_mode: bool,
@@ -665,14 +667,14 @@ impl Default for OverridePattern {
 
 /// Per-subtrack override: None = inherit track, Bypass = no transforms, Pattern = custom.
 /// Size difference is intentional — Box not available in no_std.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum SubtrackOverride {
     Bypass,
     Pattern(OverridePattern),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VariationPattern {
     pub enabled: bool,
     pub length: u8,
@@ -707,7 +709,7 @@ impl Default for VariationPattern {
 
 // ── Pattern Storage ─────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TrackSlotData {
     pub track: SequenceTrack,
     pub transpose_config: TransposeConfig,
@@ -718,7 +720,7 @@ pub struct TrackSlotData {
     pub arp_config: ArpConfig,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LayerFlags {
     pub gate: bool,
     pub pitch: bool,
@@ -743,7 +745,7 @@ impl Default for LayerFlags {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SavedPattern {
     pub name: String<32>,
     pub data: TrackSlotData,
@@ -752,7 +754,7 @@ pub struct SavedPattern {
 
 // ── User Preset ─────────────────────────────────────────────────────
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UserPreset {
     pub name: String<32>,
     pub config: RandomConfig,
@@ -763,7 +765,7 @@ pub struct UserPreset {
 /// Maximum saved patterns / user presets.
 pub const MAX_SAVED: usize = 32;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SequencerState {
     pub tracks: [SequenceTrack; NUM_TRACKS],
     pub routing: [OutputRouting; NUM_OUTPUTS],
@@ -845,6 +847,23 @@ mod tests {
         assert_eq!(state.tracks[0].gate.steps.len(), 16);
         assert_eq!(state.tracks[0].pitch.length, 16);
         assert_eq!(state.tracks[0].velocity.length, 16);
+    }
+
+    #[test]
+    fn sequencer_state_serde_round_trip() {
+        // SequencerState is large; run on a thread with extra stack space.
+        let result = std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                let state = Box::new(SequencerState::new());
+                let bytes = postcard::to_allocvec(&*state).unwrap();
+                let restored: Box<SequencerState> =
+                    Box::new(postcard::from_bytes(&bytes).unwrap());
+                assert_eq!(*state, *restored);
+            })
+            .unwrap()
+            .join();
+        result.unwrap();
     }
 
     #[test]

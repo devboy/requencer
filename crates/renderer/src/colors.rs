@@ -40,6 +40,9 @@ pub const TEXT_BRIGHT: Rgb565 = rgb(0xff, 0xff, 0xff);
 pub const ACCENT: Rgb565 = rgb(0xe9, 0x45, 0x60);
 pub const BUTTON_BG: Rgb565 = rgb(0x2a, 0x2a, 0x4a);
 pub const SELECTED_ROW: Rgb565 = rgb(0x20, 0x20, 0x3a);
+pub const DROPDOWN_BG: Rgb565 = rgb(0x0c, 0x0c, 0x20);
+pub const DROPDOWN_SEL: Rgb565 = rgb(0x28, 0x20, 0x3a);
+pub const DROPDOWN_BORDER: Rgb565 = rgb(0x3a, 0x3a, 0x5a);
 
 // ── Transport ────────────────────────────────────────────────────────
 pub const PLAY_GREEN: Rgb565 = rgb(0x44, 0xff, 0x66);

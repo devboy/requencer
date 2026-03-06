@@ -89,6 +89,17 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             src_str,
             source_color,
         );
+
+        // Hint on MOD row when selected: PUSH to toggle MOD/LFO
+        if i == 3 && is_sel {
+            draw::text_right(
+                display,
+                layout::LCD_W as i32 - layout::PAD as i32,
+                y + row_h as i32 / 2 + 6,
+                "PUSH:MOD/LFO",
+                colors::TEXT_DIM,
+            );
+        }
     }
 
     // Footer

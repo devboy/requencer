@@ -35,7 +35,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     let row_h = layout::ROW_H as i32;
 
     // Save action row
-    let save_sel = ui.selected_step == 0;
+    let save_sel = ui.pattern_param == 0;
     if save_sel {
         draw::fill_rect(display, 0, list_y, layout::LCD_W, layout::ROW_H, colors::SELECTED_ROW);
     }
@@ -43,21 +43,22 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
     let save_str = draw::fmt_buf(&mut save_buf, format_args!("[ SAVE T{} ]", track_idx + 1));
     draw::text_center(display, layout::LCD_W as i32 / 2, list_y + 7, save_str, color);
 
-    // Section header
+    // Section header (split line around text)
     let sec_y = list_y + row_h;
-    draw::fill_rect(
-        display,
-        layout::PAD as i32,
-        sec_y + row_h / 2,
-        layout::LCD_W - layout::PAD * 2,
-        1,
-        colors::TEXT_DIM,
-    );
+    let center_x = layout::LCD_W as i32 / 2;
+    let text_label = "PATTERNS";
+    let text_w = text_label.len() as i32 * layout::CHAR_W as i32;
+    let gap = 6i32;
+    draw::fill_rect(display, layout::PAD as i32, sec_y + row_h / 2,
+        (center_x - text_w / 2 - gap - layout::PAD as i32) as u32, 1, colors::TEXT_DIM);
+    let right_start = center_x + text_w / 2 + gap;
+    draw::fill_rect(display, right_start, sec_y + row_h / 2,
+        (layout::LCD_W as i32 - layout::PAD as i32 - right_start) as u32, 1, colors::TEXT_DIM);
     draw::text_center(
         display,
-        layout::LCD_W as i32 / 2,
+        center_x,
         sec_y + 7,
-        "PATTERNS",
+        text_label,
         colors::TEXT_DIM,
     );
 
@@ -72,7 +73,7 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             break;
         }
         let y = list_y + (i as i32 + 2) * row_h;
-        let is_sel = ui.selected_step as usize == i + 1;
+        let is_sel = ui.pattern_param as usize == i + 1;
         if is_sel {
             draw::fill_rect(display, 0, y, layout::LCD_W, layout::ROW_H, colors::SELECTED_ROW);
         }

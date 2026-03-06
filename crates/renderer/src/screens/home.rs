@@ -76,11 +76,8 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
         for i in 0..track.gate.length.min(16) as usize {
             let x = grid_left + (i as i32 * step_w as i32);
             let step = &track.gate.steps[i];
-            let is_playhead = track.gate.current_step as usize == i;
 
-            let c = if is_playhead {
-                colors::PLAYHEAD
-            } else if step.on {
+            let c = if step.on {
                 color
             } else if step.tie {
                 dim
@@ -88,6 +85,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
                 colors::STEP_OFF
             };
             draw::fill_rect(display, x + 1, gate_y, step_w - 2, gate_h - 1, c);
+        }
+        // Gate playhead: thin 2px vertical white line
+        if (track.gate.current_step as usize) < 16 {
+            let px = grid_left + (track.gate.current_step as i32 * step_w as i32);
+            draw::fill_rect(display, px, gate_y, 2, gate_h - 1, colors::PLAYHEAD);
         }
 
         // Pitch row (note bars, bright track color)
@@ -98,18 +100,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let bar_h = ((note as u32) * (pitch_h - 2)) / 127;
             let bar_y = pitch_y + (pitch_h as i32 - bar_h as i32 - 1);
             draw::fill_rect(display, x + 1, bar_y, step_w - 2, bar_h.max(1), color);
-
-            // Playhead on pitch
-            if track.pitch.current_step as usize == i {
-                draw::fill_rect(
-                    display,
-                    x + 1,
-                    pitch_y + pitch_h as i32 - 2,
-                    step_w - 2,
-                    2,
-                    colors::PLAYHEAD,
-                );
-            }
+        }
+        // Pitch playhead: thin 2px vertical white line
+        if (track.pitch.current_step as usize) < 16 {
+            let px = grid_left + (track.pitch.current_step as i32 * step_w as i32);
+            draw::fill_rect(display, px, pitch_y, 2, pitch_h, colors::PLAYHEAD);
         }
 
         // Velocity row (bar heights)
@@ -120,18 +115,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let bar_h = ((vel as u32) * (vel_h - 2)) / 127;
             let bar_y = vel_y + (vel_h as i32 - bar_h as i32 - 1);
             draw::fill_rect(display, x + 1, bar_y, step_w - 2, bar_h.max(1), dim);
-
-            // Playhead on velocity
-            if track.velocity.current_step as usize == i {
-                draw::fill_rect(
-                    display,
-                    x + 1,
-                    vel_y + vel_h as i32 - 2,
-                    step_w - 2,
-                    2,
-                    colors::PLAYHEAD,
-                );
-            }
+        }
+        // Velocity playhead: thin 2px vertical white line
+        if (track.velocity.current_step as usize) < 16 {
+            let px = grid_left + (track.velocity.current_step as i32 * step_w as i32);
+            draw::fill_rect(display, px, vel_y, 2, vel_h, colors::PLAYHEAD);
         }
 
         // Separator line between tracks

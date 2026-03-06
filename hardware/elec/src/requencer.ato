@@ -79,9 +79,8 @@ module Requencer:
     mcu.dac1_cs ~ dac.dac1_cs
     mcu.dac2_cs ~ dac.dac2_cs
 
-    # LCD control lines
+    # LCD control lines (RST is handled by RC circuit in display module)
     mcu.lcd_dc ~ display.dc
-    mcu.lcd_rst ~ display.rst
     mcu.lcd_bl ~ display.bl_ctrl
 
     # === BUTTON SCANNING ===
@@ -306,6 +305,9 @@ module Requencer:
     c_enc_b_b.unnamed[0] ~ mcu.enc_b_b
     c_enc_b_b.unnamed[1] ~ gnd
 
+    # Settings button LED anode to VCC (button is in SR5 chain, no TLC channels for LED)
+    buttons.btn_settings.LED_ANODE ~ leds.led_vcc
+
     # === MIDI ===
     mcu.midi_tx ~ midi.uart_tx
     mcu.midi_rx ~ midi.uart_rx
@@ -314,6 +316,7 @@ module Requencer:
     mcu.clk_in ~ jacks.clk_in_gpio
     mcu.rst_in ~ jacks.rst_in_gpio
     mcu.clk_out ~ jacks.clk_out_gpio
+    mcu.rst_out ~ jacks.rst_out_gpio
 
     # === ANALOG OUTPUTS → JACKS ===
     dac.gate1 ~ jacks.gate1

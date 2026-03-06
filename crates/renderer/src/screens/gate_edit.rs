@@ -94,11 +94,11 @@ pub fn render<D: DrawTarget<Color = Rgb565>>(
             let is_playhead = track.gate.current_step as usize == step_idx;
             let is_selected = ui.selected_step as usize == step_idx;
 
-            // Cell background
+            // Cell background (trackDim tint like TS)
             let bg = if is_playhead {
                 colors::SELECTED_ROW
             } else {
-                colors::LCD_BG
+                dim
             };
             draw::fill_rect(display, x + 1, y + 1, cell_w - 2, cell_h - 2, bg);
 

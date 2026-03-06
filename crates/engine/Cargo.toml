@@ -10,5 +10,7 @@ std = []
 [dependencies]
 heapless = { workspace = true }
 libm = "0.2"
+serde = { workspace = true }
+postcard = { workspace = true }
 
 [dev-dependencies]

@@ -15,13 +15,17 @@ pub const ROW_H: u32 = 24;
 /// Standard padding.
 pub const PAD: u32 = 8;
 
-/// Font dimensions (6x10 bitmap font).
-pub const CHAR_W: u32 = 6;
-pub const CHAR_H: u32 = 10;
+/// Font dimensions — ProFont 12pt (small).
+pub const CHAR_W_SM: u32 = 7;
+pub const CHAR_H_SM: u32 = 12;
 
-/// Large font dimensions (10x20 bitmap font).
+/// Font dimensions — ProFont 14pt (standard).
+pub const CHAR_W: u32 = 8;
+pub const CHAR_H: u32 = 14;
+
+/// Font dimensions — ProFont 18pt (large/headers).
 pub const CHAR_W_LG: u32 = 10;
-pub const CHAR_H_LG: u32 = 20;
+pub const CHAR_H_LG: u32 = 18;
 
 /// Home screen: track band height (4 tracks in 296px).
 pub const HOME_BAND_H: u32 = CONTENT_H / 4; // 74px per track

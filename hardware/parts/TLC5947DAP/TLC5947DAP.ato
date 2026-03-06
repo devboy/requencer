@@ -2,7 +2,14 @@
 # LCSC: C1554203
 # 12-bit PWM per channel, daisy-chainable SPI-like interface
 
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
 component TLC5947DAP:
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C1554203", manufacturer="TI", partno="TLC5947DAP">
+
     signal OUT0 ~ pin 1
     signal OUT1 ~ pin 2
     signal OUT2 ~ pin 3
@@ -35,5 +42,3 @@ component TLC5947DAP:
     signal OUT21 ~ pin 30
     signal OUT22 ~ pin 31
     signal OUT23 ~ pin 32
-
-    designator_prefix = "U"

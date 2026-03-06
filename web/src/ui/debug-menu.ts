@@ -13,8 +13,6 @@ export interface DebugActions {
   togglePlay(): void
   clearTrack(): void
   drums: DrumMachine
-  getRendererMode(): 'ts' | 'wasm'
-  setRendererMode(mode: 'ts' | 'wasm'): void
   isWasmReady(): boolean
 }
 
@@ -55,13 +53,11 @@ export function createDebugMenu(actions: DebugActions): void {
     expanded = show
     content.style.display = show ? '' : 'none'
     toggleBtn.textContent = show ? '\u2715' : '...'
-    // When collapsed, tighten the container
     el.style.padding = '0'
   }
 
   toggleBtn.addEventListener('click', () => setExpanded(!expanded))
 
-  // Track media query changes
   isMobile.addEventListener('change', (e) => {
     setExpanded(!e.matches)
   })
@@ -122,27 +118,10 @@ export function createDebugMenu(actions: DebugActions): void {
   instrBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
   instrBtn.addEventListener('click', () => toggleInstructions())
 
-  // Renderer toggle (TS / WASM)
-  const rendererBtn = document.createElement('button')
-  function updateRendererBtn(): void {
-    const mode = actions.getRendererMode()
-    const ready = actions.isWasmReady()
-    rendererBtn.textContent = `Engine: ${mode.toUpperCase()}${mode === 'wasm' && !ready ? ' (loading...)' : ''}`
-    rendererBtn.style.background = mode === 'wasm' ? '#2e4a5e' : '#2a2a4e'
-  }
-  rendererBtn.style.cssText = BTN_CSS
-  rendererBtn.addEventListener('click', () => {
-    const current = actions.getRendererMode()
-    actions.setRendererMode(current === 'ts' ? 'wasm' : 'ts')
-    updateRendererBtn()
-  })
-  updateRendererBtn()
-
   btnRow.append(playBtn, clearBtn)
-  content.append(bpmRow, drumsBtn, rendererBtn, btnRow, helpBtn, instrBtn)
+  content.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
   el.append(toggleBtn, content)
   document.body.appendChild(el)
 
-  // Set initial state
   setExpanded(expanded)
 }
