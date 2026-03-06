@@ -38,8 +38,7 @@ build-firmware:
 KICAD_APP    := /Applications/KiCad/KiCad.app
 KICAD_CLI    := $(KICAD_APP)/Contents/MacOS/kicad-cli
 KICAD_PYTHON := $(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3
-KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks \
-                PYTHONPATH=$(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
+KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks PYTHONPATH=$(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
 
 # Build artifacts
 PCB_SRC     := hardware/elec/layout/default/default.kicad_pcb
@@ -48,6 +47,8 @@ PCB_ROUTED  := hardware/build/routed.kicad_pcb
 MFG_DIR     := hardware/build/manufacturing
 
 hw-build:
+	@# Remove stale layout to avoid atopile "duplicate designator" error on rebuild
+	rm -f $(PCB_SRC) $(PCB_SRC).bak
 	cd hardware && PATH="$$HOME/.local/bin:$$PATH" ato build
 
 hw-footprints:
@@ -56,17 +57,18 @@ hw-footprints:
 hw-faceplate:
 	python3 hardware-faceplate/scripts/generate_faceplate.py
 
-hw-place: hw-build hw-footprints
+hw-place:
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
 
-hw-route: hw-place
+hw-route:
 	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
 
-hw-export: hw-route
+hw-export:
 	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
 	python3 hardware/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
 
-hw-all: hw-export hw-faceplate
+# Full pipeline: each step feeds into the next
+hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
 	@echo "=== Hardware pipeline complete ==="
 	@echo "  Routed PCB: $(PCB_ROUTED)"
 	@echo "  Manufacturing: $(MFG_DIR)/"
