@@ -142,22 +142,20 @@
     "usb_c": {
       "id": "usb_c",
       "label": "USB",
-      "x_mm": 107.30,
-      "y_mm": 91.00,
-      "width_mm": 3.5,
-      "height_mm": 9.0,
-      "rotation_deg": 90,
-      "notes": "USB-C receptacle rotated 90° under encoder B"
+      "x_mm": 97.00,
+      "y_mm": 101.39,
+      "width_mm": 9.0,
+      "height_mm": 3.5,
+      "notes": "USB-C receptacle, landscape, step-row-2 height under encoder B"
     },
     "sd_card": {
       "id": "sd_card",
       "label": "SD",
-      "x_mm": 107.30,
-      "y_mm": 103.00,
-      "width_mm": 2.5,
-      "height_mm": 12.0,
-      "rotation_deg": 90,
-      "notes": "Micro SD push-push slot rotated 90° under encoder B"
+      "x_mm": 110.00,
+      "y_mm": 101.39,
+      "width_mm": 12.0,
+      "height_mm": 2.5,
+      "notes": "Micro SD push-push slot, landscape, step-row-2 height under encoder B"
     }
   }
 }
