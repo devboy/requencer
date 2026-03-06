@@ -1,7 +1,12 @@
 /**
- * Footprint debug overlay — SVG layer showing component drill holes,
- * body outlines, rail zones, and panel bounds as dotted lines.
+ * Footprint debug overlay — SVG layer showing PCB component footprints,
+ * body outlines, courtyards, rail zones, and panel bounds as dotted lines.
  * Toggle via debug menu. Hidden by default.
+ *
+ * Footprint dimensions from hardware/scripts/generate_footprints.py:
+ *   PJ398SM jack:  body courtyard 11×10mm, silkscreen 6mm circle
+ *   TC002 button:  body 7×7mm rect, courtyard 9×9mm
+ *   EC11E encoder: body 13×13mm rect, courtyard 16×18mm
  */
 
 import panelLayout from '../../../../panel-layout.json'
@@ -9,10 +14,18 @@ import panelLayout from '../../../../panel-layout.json'
 const SCALE = 4.5 // px per mm
 const C = panelLayout.constants
 
-// Hardware drill sizes (from generate_faceplate.py)
-const JACK_DRILL_MM = 6.0
-const BUTTON_DRILL_MM = 3.2
-const ENCODER_DRILL_MM = 7.0
+// PCB footprint dimensions (from generate_footprints.py)
+// Jack (PJ398SM): courtyard rect from (-4,-7) to (7,3) = 11×10mm centered ~(1.5, -2)
+const JACK_COURTYARD_W = 11.0
+const JACK_COURTYARD_H = 10.0
+// Button (TC002-RGB): body rect 7×7mm, courtyard 9×9mm
+const BTN_BODY_MM = 7.0
+const BTN_COURTYARD_MM = 9.0
+// Encoder (EC11E): body rect 13×13mm, courtyard 16×18mm
+const ENC_BODY_W = 13.0
+const ENC_BODY_H = 13.0
+const ENC_COURTYARD_W = 16.0
+const ENC_COURTYARD_H = 18.0
 
 const W = panelLayout.panel.width_mm * SCALE
 const H = panelLayout.panel.height_mm * SCALE
@@ -37,6 +50,11 @@ function mm(v: number): number {
   return v * SCALE
 }
 
+/** Centered rect helper: draw a rect centered at (cx,cy) with given width/height in mm */
+function centeredRect(cx_mm: number, cy_mm: number, w_mm: number, h_mm: number, color: string, dash = '3,3'): string {
+  return svgRect(mm(cx_mm - w_mm / 2), mm(cy_mm - h_mm / 2), mm(w_mm), mm(h_mm), color, dash)
+}
+
 /** Create the footprint SVG overlay inside #module-panel */
 export function createFootprintOverlay(): void {
   const panel = document.getElementById('module-panel')
@@ -55,9 +73,7 @@ export function createFootprintOverlay(): void {
 
   // LCD cutout
   const lcd = panelLayout.lcd_cutout
-  const lcdX = mm(lcd.center_x_mm - lcd.width_mm / 2)
-  const lcdY = mm(lcd.center_y_mm - lcd.height_mm / 2)
-  parts.push(svgRect(lcdX, lcdY, mm(lcd.width_mm), mm(lcd.height_mm), '#ff6600', '4,3'))
+  parts.push(centeredRect(lcd.center_x_mm, lcd.center_y_mm, lcd.width_mm, lcd.height_mm, '#ff6600', '4,3'))
 
   // Mounting slots
   for (const slot of panelLayout.mounting_slots) {
@@ -66,62 +82,51 @@ export function createFootprintOverlay(): void {
     parts.push(svgOval(mm(slot.x_mm), mm(slot.y_mm), rx, ry, '#00cccc'))
   }
 
-  // Buttons — drill holes (inner) + body outlines (outer)
-  function addButtonFootprints(buttons: Array<{ x_mm: number; y_mm: number }>, bodyDiameterMM: number): void {
+  // Buttons — PCB body (green) + courtyard (yellow)
+  function addButtonFootprints(buttons: Array<{ x_mm: number; y_mm: number }>): void {
     for (const b of buttons) {
-      const cx = mm(b.x_mm)
-      const cy = mm(b.y_mm)
-      // Drill hole
-      parts.push(svgCircle(cx, cy, mm(BUTTON_DRILL_MM / 2), '#ff4444'))
-      // Body outline
-      parts.push(svgCircle(cx, cy, mm(bodyDiameterMM / 2), '#44ff44'))
+      // Body outline (7×7mm silkscreen rect)
+      parts.push(centeredRect(b.x_mm, b.y_mm, BTN_BODY_MM, BTN_BODY_MM, '#44ff44'))
+      // Courtyard (9×9mm)
+      parts.push(centeredRect(b.x_mm, b.y_mm, BTN_COURTYARD_MM, BTN_COURTYARD_MM, '#cccc00', '2,2'))
     }
   }
 
-  addButtonFootprints(panelLayout.buttons.track, C.btn_diameter_mm)
-  addButtonFootprints([panelLayout.buttons.tbd], C.btn_diameter_mm)
-  addButtonFootprints(panelLayout.buttons.subtrack, C.btn_diameter_mm)
-  addButtonFootprints([panelLayout.buttons.pat], C.btn_diameter_mm)
-  addButtonFootprints(panelLayout.buttons.feature, C.btn_diameter_mm)
-  addButtonFootprints(panelLayout.buttons.step, C.step_btn_diameter_mm)
+  addButtonFootprints(panelLayout.buttons.track)
+  addButtonFootprints([panelLayout.buttons.tbd])
+  addButtonFootprints(panelLayout.buttons.subtrack)
+  addButtonFootprints([panelLayout.buttons.pat])
+  addButtonFootprints(panelLayout.buttons.feature)
+  addButtonFootprints(panelLayout.buttons.step)
 
-  // Control strip buttons — rectangular, show as rect outlines
+  // Control strip buttons — rectangular, show visual rect
   for (const b of panelLayout.buttons.control_strip) {
     if (b.x_mm !== undefined && b.y_mm !== undefined) {
-      const cx = mm(b.x_mm)
-      const cy = mm(b.y_mm)
-      const bw = b.id === 'rand' ? mm(26.0 / 2) : mm(20.0 / 2)
-      const bh = mm(C.rect_btn_height_mm / 2)
-      parts.push(svgRect(cx - bw, cy - bh, bw * 2, bh * 2, '#44ff44'))
+      const bw = b.id === 'rand' ? 26.0 : 20.0
+      parts.push(centeredRect(b.x_mm, b.y_mm, bw, C.rect_btn_height_mm, '#44ff44'))
     }
   }
 
   // Transport buttons — rectangular
   for (const b of panelLayout.buttons.transport) {
-    const cx = mm(b.x_mm)
-    const cy = mm(b.y_mm)
-    const bw = mm(10.0 / 2)
-    const bh = mm(C.rect_btn_height_mm / 2)
-    parts.push(svgRect(cx - bw, cy - bh, bw * 2, bh * 2, '#44ff44'))
+    parts.push(centeredRect(b.x_mm, b.y_mm, 10.0, C.rect_btn_height_mm, '#44ff44'))
   }
 
-  // Encoders — drill holes + body outlines
+  // Encoders — PCB body (green) + courtyard (yellow)
   for (const enc of panelLayout.encoders) {
-    const cx = mm(enc.x_mm)
-    const cy = mm(enc.y_mm)
-    parts.push(svgCircle(cx, cy, mm(ENCODER_DRILL_MM / 2), '#ff4444'))
-    parts.push(svgCircle(cx, cy, mm(C.encoder_diameter_mm / 2), '#44ff44'))
+    // Body outline (13×13mm)
+    parts.push(centeredRect(enc.x_mm, enc.y_mm, ENC_BODY_W, ENC_BODY_H, '#44ff44'))
+    // Courtyard (16×18mm)
+    parts.push(centeredRect(enc.x_mm, enc.y_mm, ENC_COURTYARD_W, ENC_COURTYARD_H, '#cccc00', '2,2'))
   }
 
-  // Jacks — drill holes + hex nut body outlines
+  // Jacks — PCB courtyard rect (green) + hex nut circle (dimmer)
   function addJackFootprints(jacks: Array<{ x_mm: number; y_mm: number }>): void {
     for (const j of jacks) {
-      const cx = mm(j.x_mm)
-      const cy = mm(j.y_mm)
-      // Drill hole
-      parts.push(svgCircle(cx, cy, mm(JACK_DRILL_MM / 2), '#ff4444'))
-      // Hex nut body
-      parts.push(svgCircle(cx, cy, mm(C.jack_diameter_mm / 2), '#44ff44'))
+      // Courtyard rect (11×10mm)
+      parts.push(centeredRect(j.x_mm, j.y_mm, JACK_COURTYARD_W, JACK_COURTYARD_H, '#44ff44'))
+      // Hex nut on panel side (10mm circle, dimmer)
+      parts.push(svgCircle(mm(j.x_mm), mm(j.y_mm), mm(C.jack_diameter_mm / 2), '#44ff44', '2,4'))
     }
   }
 
@@ -131,26 +136,10 @@ export function createFootprintOverlay(): void {
 
   // Connectors
   const usb = panelLayout.connectors.usb_c
-  parts.push(
-    svgRect(
-      mm(usb.x_mm) - mm(usb.width_mm / 2),
-      mm(usb.y_mm) - mm(usb.height_mm / 2),
-      mm(usb.width_mm),
-      mm(usb.height_mm),
-      '#ff6600',
-    ),
-  )
+  parts.push(centeredRect(usb.x_mm, usb.y_mm, usb.width_mm, usb.height_mm, '#ff6600'))
 
   const sd = panelLayout.connectors.sd_card
-  parts.push(
-    svgRect(
-      mm(sd.x_mm) - mm(sd.width_mm / 2),
-      mm(sd.y_mm) - mm(sd.height_mm / 2),
-      mm(sd.width_mm),
-      mm(sd.height_mm),
-      '#ff6600',
-    ),
-  )
+  parts.push(centeredRect(sd.x_mm, sd.y_mm, sd.width_mm, sd.height_mm, '#ff6600'))
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.id = 'footprint-overlay'

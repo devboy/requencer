@@ -29,10 +29,7 @@ const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
 const RECT_BTN_H = C.rect_btn_height_mm * SCALE
 const RECT_BTN_W = 10.0 * SCALE // transport button width
 
-const USB_C_W = C.usb_c_w_mm * SCALE
-const USB_C_H = C.usb_c_h_mm * SCALE
-const SD_SLOT_W = C.sd_slot_w_mm * SCALE
-const SD_SLOT_H = C.sd_slot_h_mm * SCALE
+const USB_C_H = C.usb_c_h_mm * SCALE // used for border-radius
 
 const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
 const _COMPONENT_GAP = Math.round(BTN_CC / 2)
@@ -328,29 +325,32 @@ export function createFaceplate(): FaceplateElements {
   }
 
   // --- Connectors (USB-C, SD) ---
+  // Position the body at the coordinate; label floats above via CSS
   const usbData = panelLayout.connectors.usb_c
   const usbEl = document.createElement('div')
-  usbEl.className = 'connector usb-c'
-  usbEl.innerHTML = `
-    <span class="connector-label">USB</span>
-    <div class="connector-body usb-c-body">
-      <div class="usb-c-port"></div>
-    </div>
-  `
+  usbEl.className = 'connector-body usb-c-body'
+  usbEl.innerHTML = `<div class="usb-c-port"></div>`
+  usbEl.style.width = `${usbData.width_mm * SCALE}px`
+  usbEl.style.height = `${usbData.height_mm * SCALE}px`
   placeAt(usbEl, usbData.x_mm, usbData.y_mm)
   modulePanel.appendChild(usbEl)
+  const usbLabel = document.createElement('span')
+  usbLabel.className = 'btn-label label-above'
+  usbLabel.textContent = 'USB'
+  usbEl.appendChild(usbLabel)
 
   const sdData = panelLayout.connectors.sd_card
   const sdEl = document.createElement('div')
-  sdEl.className = 'connector sd-slot'
-  sdEl.innerHTML = `
-    <span class="connector-label">SD</span>
-    <div class="connector-body sd-slot-body">
-      <div class="sd-slot-opening"></div>
-    </div>
-  `
+  sdEl.className = 'connector-body sd-slot-body'
+  sdEl.innerHTML = `<div class="sd-slot-opening"></div>`
+  sdEl.style.width = `${sdData.width_mm * SCALE}px`
+  sdEl.style.height = `${sdData.height_mm * SCALE}px`
   placeAt(sdEl, sdData.x_mm, sdData.y_mm)
   modulePanel.appendChild(sdEl)
+  const sdLabel = document.createElement('span')
+  sdLabel.className = 'btn-label label-above'
+  sdLabel.textContent = 'SD'
+  sdEl.appendChild(sdLabel)
 
   // Ruler ticks
   requestAnimationFrame(() => generateRulerTicks(root))
@@ -902,28 +902,10 @@ const PANEL_CSS = `
      CONNECTORS (USB-C, SD card)
      ══════════════════════════════════════════ */
 
-  .connector {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .connector-label {
-    font-size: ${Math.round(SILK_TEXT * 0.7)}px;
-    font-weight: 600;
-    color: #666;
-    letter-spacing: 0.5px;
-  }
-
-  /* Vertical (portrait): swap W↔H */
-  .usb-c-body {
-    width: ${USB_C_H}px;
-    height: ${USB_C_W}px;
+  /* Connector bodies — sized via inline style from JSON dimensions */
+  .usb-c-body, .sd-slot-body {
+    position: relative;
     background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
-    border-radius: ${USB_C_H * 0.4}px;
     border: 1px solid #555;
     display: flex;
     align-items: center;
@@ -931,29 +913,25 @@ const PANEL_CSS = `
     box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.15);
   }
 
+  .usb-c-body {
+    border-radius: ${USB_C_H * 0.4}px;
+  }
+
+  .sd-slot-body {
+    border-radius: 2px;
+  }
+
   .usb-c-port {
-    width: ${USB_C_H * 0.45}px;
-    height: ${USB_C_W * 0.65}px;
+    width: 45%;
+    height: 65%;
     background: #1a1a1a;
     border-radius: ${USB_C_H * 0.18}px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
   }
 
-  .sd-slot-body {
-    width: ${SD_SLOT_H}px;
-    height: ${SD_SLOT_W}px;
-    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
-    border-radius: 2px;
-    border: 1px solid #555;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.15);
-  }
-
   .sd-slot-opening {
-    width: ${SD_SLOT_H * 0.5}px;
-    height: ${SD_SLOT_W * 0.75}px;
+    width: 50%;
+    height: 75%;
     background: #1a1a1a;
     border-radius: 1px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
