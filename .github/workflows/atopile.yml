@@ -15,72 +15,87 @@ on:
       - 'hardware-faceplate/**'
       - 'panel-layout.json'
 
+env:
+  HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/devboy/requencer-hw-tools:latest
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pull or build hardware tools image
+        run: |
+          docker pull "$HW_IMAGE" 2>/dev/null || \
+          docker build -t "$HW_IMAGE" hardware/docker/
+
       - name: Build schematic
         run: |
-          rm -f hardware/elec/layout/default/default.kicad_pcb
-          cd hardware && ato --non-interactive build
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            rm -f hardware/elec/layout/default/default.kicad_pcb
+            cd hardware && ato --non-interactive build
+          '
 
       - name: Generate through-hole footprints
-        run: python3 hardware/scripts/generate_footprints.py
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
 
       - name: Generate faceplate PCB
-        run: python3 hardware-faceplate/scripts/generate_faceplate.py
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
 
       - name: Run DRC (verification)
-        working-directory: hardware
         run: |
-          PCB="elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
-            if [ -f drc-report.json ]; then
-              python3 -c "
-          import json
-          with open('drc-report.json') as f:
-              r = json.load(f)
-          v = len(r.get('violations', []))
-          u = len(r.get('unconnected', []))
-          print(f'DRC: {v} violations, {u} unconnected')
-          "
+          docker run --rm -v "$PWD":/work -w /work/hardware "$HW_IMAGE" bash -c '
+            PCB="elec/layout/default/default.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
+              if [ -f drc-report.json ]; then
+                python3 -c "
+            import json
+            with open(\"drc-report.json\") as f:
+                r = json.load(f)
+            v = len(r.get(\"violations\", []))
+            u = len(r.get(\"unconnected\", []))
+            print(f\"DRC: {v} violations, {u} unconnected\")
+            "
+              fi
+            else
+              echo "PCB file not found, skipping DRC"
             fi
-          else
-            echo 'PCB file not found, skipping DRC'
-          fi
+          '
 
       # --- Full pipeline (main branch only) ---
 
       - name: Place components
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            python3 hardware/scripts/place_components.py "$PCB" hardware/build/placed.kicad_pcb
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/elec/layout/default/default.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              python3 hardware/scripts/place_components.py "$PCB" hardware/build/placed.kicad_pcb
+            fi
+          '
 
       - name: Autoroute
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/build/placed.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            chmod +x hardware/scripts/autoroute.sh
-            hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/placed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              chmod +x hardware/scripts/autoroute.sh
+              hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
+            fi
+          '
 
       - name: Export manufacturing files
         if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/build/routed.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/routed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
+            fi
+          '
 
       - name: Upload KiCad output
         if: github.ref == 'refs/heads/main'
