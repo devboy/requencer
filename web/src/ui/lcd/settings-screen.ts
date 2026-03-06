@@ -19,6 +19,7 @@ const LIST_TOP = LCD_CONTENT_Y + HEADER_H + 2
 const LABEL_X = PAD + 18 // after cursor indicator
 const VALUE_X = LCD_W - PAD
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 export function renderSettings(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const visibleRows = getSettingsRows(engine, ui)
 

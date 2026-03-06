@@ -123,6 +123,7 @@ export function createInitialUIState(): UIState {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex dispatch logic
 export function dispatch(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   // --- Hold events ---
 
@@ -781,6 +782,7 @@ export const TRANSFORM_CATALOG: Array<{ type: TransformType; label: string; defa
   { type: 'humanize', label: 'HUMANIZE', defaultParam: 0.5 },
 ]
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex dispatch logic
 function dispatchVariationEdit(ui: UIState, engine: SequencerState, event: ControlEvent): DispatchResult {
   const vp = getEditingVariationPattern(engine, ui)
 
@@ -1673,6 +1675,7 @@ function dispatchSettings(ui: UIState, engine: SequencerState, event: ControlEve
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex dispatch logic
 function dispatchSettingsEncoderB(ui: UIState, engine: SequencerState, delta: number): DispatchResult {
   const rows = getSettingsRows(engine, ui)
   const row = rows[ui.settingsParam]
@@ -1907,6 +1910,7 @@ export function getLEDState(ui: UIState, engine: SequencerState): LEDState {
   return { steps, tracks, play }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex LED state logic
 function getStepLEDs(ui: UIState, engine: SequencerState): LEDState['steps'] {
   const leds: LEDState['steps'] = new Array(16).fill('off') as LEDState['steps']
   const track = engine.tracks[ui.selectedTrack]
@@ -2085,6 +2089,7 @@ function dispatchStepTie(
 // Hold mute + enc A = mute length
 // Hold mute + enc B = mute clock divider
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex dispatch logic
 function dispatchHoldCombo(
   ui: UIState,
   engine: SequencerState,

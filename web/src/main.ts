@@ -270,6 +270,7 @@ function syncClockSource() {
 // --- Control Event Handler ---
 let _playStopInProgress = false // re-entrancy guard for async play-stop
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex control event dispatch
 onControlEvent(async (event: ControlEvent) => {
   // Handle play-stop specially — needs async Tone.start()
   if (event.type === 'play-stop') {
@@ -457,6 +458,7 @@ const ruler = panel.root.querySelector('.ruler')
 panel.root.insertBefore(hintEl, ruler)
 
 // --- Render Loop ---
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 function render(): void {
   // Sync transport state from clock — only in internal mode.
   // In MIDI clock mode, transport is controlled by incoming MIDI messages, not ToneClock.

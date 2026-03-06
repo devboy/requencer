@@ -44,6 +44,7 @@ interface VelocityConfig {
  * In 'random' mode: randomly places `hits` gates.
  * In 'euclidean' mode: uses euclidean distribution for `hits` gates.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex gate randomization
 export function randomizeGates(config: GateConfig, length: number, seed: number = Date.now()): boolean[] {
   const rng = createRng(seed)
   const fillMin = Math.round(config.fillMin * length)
@@ -196,6 +197,7 @@ export function randomizePitch(config: PitchConfig, length: number, seed: number
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex pitch arp randomization
 function randomizePitchArp(
   scaleNotes: Note[],
   direction: PitchArpDirection,

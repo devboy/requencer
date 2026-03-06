@@ -61,6 +61,7 @@ function mutateSubtrack<T>(
  * Regeneration constraints come from the track's RandomConfig.
  * Returns a new track (does not mutate input).
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex mutation logic
 export function mutateTrack(
   track: SequenceTrack,
   randomConfig: RandomConfig,

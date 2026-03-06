@@ -56,6 +56,7 @@ function buildNoteSet(root: Note, chordIntervals: number[], octaveRange: number)
  * @param length - Number of steps to generate
  * @param seed - PRNG seed for random mode
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex arp pattern generation
 export function generateArpPattern(
   root: Note,
   scale: Scale,

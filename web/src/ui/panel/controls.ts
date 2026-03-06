@@ -349,6 +349,7 @@ export function createControls(panel: FaceplateElements): void {
     })
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex pointer tracking logic
   window.addEventListener('pointermove', (e) => {
     for (const enc of encStates) {
       if (!enc.dragging || enc.pointerId !== e.pointerId) continue
@@ -382,6 +383,7 @@ export function createControls(panel: FaceplateElements): void {
     }
   })
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex pointer tracking logic
   window.addEventListener('pointerup', (e) => {
     for (const enc of encStates) {
       if (enc.dragging && enc.pointerId === e.pointerId) {

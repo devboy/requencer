@@ -212,6 +212,7 @@ function renderBarOverview(
 }
 
 /** Bar detail mode — transform stack with cursor + catalog browser */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 function renderBarDetail(ctx: CanvasRenderingContext2D, vp: VariationPattern, ui: UIState, trackColor: string): void {
   const bar = ui.varSelectedBar
   const slot = vp.slots[bar]

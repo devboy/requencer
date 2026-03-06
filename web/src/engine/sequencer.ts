@@ -234,6 +234,7 @@ export function tick(state: SequencerState): { state: SequencerState; events: (N
 
   // --- Mutation (Turing Machine drift) ---
   // Apply before advancing to next tick so mutations take effect on the next loop.
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex mutation logic
   const mutatedTracks = state.tracks.map((track, idx) => {
     const mc = state.mutateConfigs[idx]
     if (!isMutateActive(mc)) return track
@@ -552,7 +553,6 @@ export function setMutePattern(state: SequencerState, trackIndex: number, mute: 
  * Randomize a track's subtrack patterns using its random config. Returns new state.
  */
 export function randomizeTrackPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
-  const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
 
   const generated = randomizeTrack(
@@ -600,7 +600,6 @@ export function randomizeTrackPattern(state: SequencerState, trackIndex: number,
  * Randomize only the gate subtrack of a track. Returns new state.
  */
 export function randomizeGatePattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
-  const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
   const s = seed ?? Date.now()
 
@@ -631,7 +630,6 @@ export function randomizeGatePattern(state: SequencerState, trackIndex: number, 
  * Randomize only the pitch subtrack of a track. Returns new state.
  */
 export function randomizePitchPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
-  const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
   const arpConfig = state.arpConfigs[trackIndex]
   const s = seed ?? Date.now()
@@ -667,7 +665,6 @@ export function randomizePitchPattern(state: SequencerState, trackIndex: number,
  * Randomize only the velocity subtrack of a track. Returns new state.
  */
 export function randomizeVelocityPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
-  const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
   const newVel = randomizeVelocity(config.velocity, MAX_LENGTH, seed)
 
@@ -684,7 +681,6 @@ export function randomizeVelocityPattern(state: SequencerState, trackIndex: numb
  * Randomize only the mod subtrack of a track. Returns new state.
  */
 export function randomizeModPattern(state: SequencerState, trackIndex: number, seed?: number): SequencerState {
-  const track = state.tracks[trackIndex]
   const config = state.randomConfigs[trackIndex]
   const newMod = randomizeMod(config.mod, MAX_LENGTH, seed)
 

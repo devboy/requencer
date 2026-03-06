@@ -77,6 +77,7 @@ export function screenModeToU8(mode: string): number {
  * Sync TS engine + UI state into the WASM sequencer so the Rust renderer
  * can produce the correct display. Called each frame before render.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex WASM state sync
 export function syncStateToWasm(
   // biome-ignore lint/suspicious/noExplicitAny: generic engine state object
   engine: any,
@@ -228,6 +229,7 @@ export function syncStateToWasm(
  * Called after mode machine dispatch to keep WASM engine's tick()
  * in sync with edits made via the TS UI.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex WASM step sync
 export function syncEngineStepsToWasm(
   // biome-ignore lint/suspicious/noExplicitAny: generic engine state object
   engine: any,

@@ -84,6 +84,7 @@ describe('randomizeGates sync mode', () => {
     expect(a).toEqual(b)
   })
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex statistical validation
   it('statistically biases away from downbeats', () => {
     const downbeatPositions = [0, 4, 8, 12]
     const offbeatPositions = [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15]

@@ -220,6 +220,7 @@ function findPanelButton(button: HeldButtonTarget): HTMLElement | null {
 }
 
 export function setupKeyboardInput(): () => void {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex keyboard input handling
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return // ignore key repeat
 
@@ -304,6 +305,7 @@ export function setupKeyboardInput(): () => void {
     }
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex keyboard input handling
   const handleKeyUp = (e: KeyboardEvent) => {
     // Encoder A push: emit push on keyup if hold didn't fire
     if (e.key === 'Enter') {

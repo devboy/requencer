@@ -22,6 +22,7 @@ const ROW_H = (AVAIL_H - 3 * TRACK_GAP) / 4
 
 const MUTE_COLOR = '#aa3344'
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 export function renderMuteEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   // Title
   const trackColor = COLORS.track[ui.selectedTrack]

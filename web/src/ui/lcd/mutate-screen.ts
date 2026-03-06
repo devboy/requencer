@@ -24,6 +24,7 @@ const VALUE_X = LCD_W - PAD
 const SUBTRACK_LABELS = ['GATE', 'PITCH', 'VEL', 'MOD']
 const SUBTRACK_KEYS = ['gate', 'pitch', 'velocity', 'mod'] as const
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 export function renderMutateEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const trackColor = COLORS.track[ui.selectedTrack]
   const mc = engine.mutateConfigs[ui.selectedTrack]

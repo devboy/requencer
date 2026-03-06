@@ -27,6 +27,7 @@ export function createDefaultRouting(): OutputRouting[] {
   }))
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex output routing logic
 export function resolveOutputs(
   tracks: SequenceTrack[],
   routing: OutputRouting[],

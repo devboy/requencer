@@ -79,6 +79,7 @@ export class ToneOutput {
    * Process note events at the given audio-context time.
    * stepDuration is the duration of one 16th note in seconds.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex audio event handling
   handleEvents(events: NoteEvent[], time: number, stepDuration: number): void {
     for (const event of events) {
       const synth = this.synths[event.output]

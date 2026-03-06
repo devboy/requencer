@@ -22,6 +22,7 @@ const LABEL_X = PAD + 18 // after cursor indicator
 const SUBPARAM_X = PAD + 30 // indented sub-params
 const VALUE_X = LCD_W - PAD
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 export function renderRand(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const trackColor = COLORS.track[ui.selectedTrack]
   const visibleRows = getVisibleRows(engine, ui)

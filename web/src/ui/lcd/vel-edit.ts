@@ -19,6 +19,7 @@ const STEP_W = (LCD_W - PAD * 2 - (COLS - 1) * COL_GAP) / COLS
 const AVAIL_H = LCD_CONTENT_H - HEADER_H - 4
 const BAR_MAX_H = (AVAIL_H - ROW_GAP) / 2
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 export function renderVelEdit(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const track = engine.tracks[ui.selectedTrack]
   const trackColor = COLORS.track[ui.selectedTrack]

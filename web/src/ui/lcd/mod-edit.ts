@@ -44,6 +44,7 @@ export function renderModEdit(ctx: CanvasRenderingContext2D, engine: SequencerSt
 
 // --- MOD view (step bars) ---
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 function renderModSeq(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const track = engine.tracks[ui.selectedTrack]
   const trackColor = COLORS.track[ui.selectedTrack]
@@ -120,6 +121,7 @@ const LFO_WAVEFORM_NAMES: Record<LFOWaveform, string> = {
   's+h': 'S+H',
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 function renderModLfo(ctx: CanvasRenderingContext2D, engine: SequencerState, ui: UIState): void {
   const trackColor = COLORS.track[ui.selectedTrack]
   const config = engine.lfoConfigs[ui.selectedTrack]
