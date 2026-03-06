@@ -314,20 +314,20 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
-            </div>
 
-            <!-- CONNECTORS: between step grid and jacks -->
-            <div class="connector-zone">
-              <div class="connector usb-c">
-                <span class="connector-label">USB</span>
-                <div class="connector-body usb-c-body">
-                  <div class="usb-c-port"></div>
+              <!-- CONNECTORS: under encoder B, between steps and jacks -->
+              <div class="connector-zone">
+                <div class="connector usb-c">
+                  <span class="connector-label">USB</span>
+                  <div class="connector-body usb-c-body">
+                    <div class="usb-c-port"></div>
+                  </div>
                 </div>
-              </div>
-              <div class="connector sd-slot">
-                <span class="connector-label">SD</span>
-                <div class="connector-body sd-slot-body">
-                  <div class="sd-slot-opening"></div>
+                <div class="connector sd-slot">
+                  <span class="connector-label">SD</span>
+                  <div class="connector-body sd-slot-body">
+                    <div class="sd-slot-opening"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -964,15 +964,14 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
      ══════════════════════════════════════════ */
 
   .connector-zone {
+    position: absolute;
+    bottom: ${Or+4}px;
+    right: ${Math.round(Ze*.5)}px;
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    justify-content: center;
-    gap: ${Math.round(Ze*.6)}px;
-    align-self: flex-end;
-    margin-bottom: ${Or+4}px;
-    padding: 0 ${Math.round(Ze*.4)}px;
-    flex-shrink: 0;
+    gap: ${Math.round(Ze*.5)}px;
+    z-index: 5;
   }
 
   .connector {
