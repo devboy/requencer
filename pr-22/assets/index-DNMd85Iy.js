@@ -965,20 +965,20 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
 
   .connector-zone {
     position: absolute;
-    bottom: ${Or}px;
+    bottom: ${Or+4}px;
     right: 0;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: ${Math.round(tt*.5)}px;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: ${tt}px;
     z-index: 5;
   }
 
   .connector {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
   }
 
   .connector-label {
@@ -988,11 +988,10 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
     letter-spacing: 0.5px;
   }
 
-  /* Rotated 90°: swap W↔H */
   .usb-c-body {
-    width: ${Gn}px;
-    height: ${Pr}px;
-    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
+    width: ${Pr}px;
+    height: ${Gn}px;
+    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
     border-radius: ${Gn*.4}px;
     border: 1px solid #555;
     display: flex;
@@ -1002,17 +1001,17 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
   }
 
   .usb-c-port {
-    width: ${Gn*.45}px;
-    height: ${Pr*.65}px;
+    width: ${Pr*.65}px;
+    height: ${Gn*.45}px;
     background: #1a1a1a;
     border-radius: ${Gn*.18}px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
   }
 
   .sd-slot-body {
-    width: ${Lr}px;
-    height: ${Fr}px;
-    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
+    width: ${Fr}px;
+    height: ${Lr}px;
+    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
     border-radius: 2px;
     border: 1px solid #555;
     display: flex;
@@ -1022,8 +1021,8 @@ Press G for TRANSPOSE — per-track transposition. Set semitone offset, note ran
   }
 
   .sd-slot-opening {
-    width: ${Lr*.5}px;
-    height: ${Fr*.75}px;
+    width: ${Fr*.75}px;
+    height: ${Lr*.5}px;
     background: #1a1a1a;
     border-radius: 1px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
