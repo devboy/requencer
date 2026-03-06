@@ -8,7 +8,7 @@
 
 import type { NoteEvent } from './types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: WASM module types not available at compile time
 type WasmSequencerInstance = any
 
 // Module-level state
@@ -78,9 +78,9 @@ export function screenModeToU8(mode: string): number {
  * can produce the correct display. Called each frame before render.
  */
 export function syncStateToWasm(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: generic engine state object
   engine: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: generic UI state object
   ui: any,
 ): void {
   if (!wasmSeq) return
@@ -178,7 +178,12 @@ export function syncStateToWasm(
   for (let t = 0; t < 4; t++) {
     const lfo = engine.lfoConfigs[t]
     const waveMap: Record<string, number> = {
-      sine: 0, triangle: 1, saw: 2, square: 3, 'slew-random': 4, 'sample-and-hold': 5,
+      sine: 0,
+      triangle: 1,
+      saw: 2,
+      square: 3,
+      'slew-random': 4,
+      'sample-and-hold': 5,
     }
     seq.set_lfo_waveform(t, waveMap[lfo.waveform] ?? 0)
     seq.set_lfo_sync_mode(t, lfo.syncMode === 'free' ? 1 : 0)
@@ -224,7 +229,7 @@ export function syncStateToWasm(
  * in sync with edits made via the TS UI.
  */
 export function syncEngineStepsToWasm(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: generic engine state object
   engine: any,
 ): void {
   if (!wasmSeq) return
@@ -323,9 +328,9 @@ export function renderWasmLcd(ctx: CanvasRenderingContext2D): boolean {
   if (!memory) {
     try {
       // wasm-pack --target web exports memory through the bg module
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: wasm-bindgen internals
       const bg = (wasmModule as any).__wbg_get_imports?.() ?? wasmModule
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: wasm-bindgen internals
       memory = (bg as any).memory ?? (bg as any).__wbindgen_export_0
       if (memory) wasmMemory = memory
     } catch {

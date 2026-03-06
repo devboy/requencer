@@ -6,7 +6,15 @@ import * as Tone from 'tone'
 import { TICKS_PER_STEP } from './engine/clock-divider'
 import { createSequencer, tick } from './engine/sequencer'
 import type { ClockSource, NoteEvent, SequencerState } from './engine/types'
-import { initWasm, isWasmReady, renderWasmLcd, syncStateToWasm, syncEngineStepsToWasm, getWasmSequencer, wasmTick } from './engine/wasm-adapter'
+import {
+  getWasmSequencer,
+  initWasm,
+  isWasmReady,
+  renderWasmLcd,
+  syncEngineStepsToWasm,
+  syncStateToWasm,
+  wasmTick,
+} from './engine/wasm-adapter'
 import { DrumMachine } from './io/drum-machine'
 import { MIDIClockIn } from './io/midi-clock-in'
 import { MIDIClockOut } from './io/midi-clock-out'
@@ -49,7 +57,7 @@ console.log('requencer starting')
 // --- Engine Mode (TS or WASM) — persisted, requires reload to switch ---
 type EngineMode = 'ts' | 'wasm'
 const ENGINE_MODE_KEY = 'requencer-engine-mode'
-let engineMode: EngineMode = (localStorage.getItem(ENGINE_MODE_KEY) as EngineMode) || 'ts'
+const engineMode: EngineMode = (localStorage.getItem(ENGINE_MODE_KEY) as EngineMode) || 'ts'
 let wasmLoaded = false
 
 // Try to load WASM in background — needed for both engine and renderer modes
