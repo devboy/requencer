@@ -12,21 +12,11 @@ Components:
   - 2x5 shrouded header (eurorack power)
 """
 
-import json
 import os
 import sys
 
 
 FOOTPRINT_DIR = os.path.join(os.path.dirname(__file__), "..", "elec", "footprints")
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LAYOUT_PATH = os.path.join(REPO_ROOT, "panel-layout.json")
-
-
-def load_footprint_specs():
-    """Load footprint specs from panel-layout.json."""
-    with open(LAYOUT_PATH) as f:
-        layout = json.load(f)
-    return layout["footprints"]
 
 
 def mm(v):
@@ -101,16 +91,12 @@ def write_footprint(name, description, tags, items):
     return header + "\n".join(items) + "\n)\n"
 
 
-def make_pj398sm(specs):
+def make_pj398sm():
     """Thonkiconn PJ398SM 3.5mm mono jack.
 
     3 pins: tip, sleeve (GND), switch (NC)
-    Mounting: panel drill hole per specs
+    Mounting: 6mm panel drill hole
     """
-    fp = specs["pj398sm"]
-    body = fp["body"]
-    crtyd = fp["courtyard"]
-    drill = fp["drill_mm"]
     items = [
         fp_text("reference", "REF**", 0, -7, "F.SilkS"),
         fp_text("value", "PJ398SM", 0, 7, "F.Fab"),
@@ -123,9 +109,9 @@ def make_pj398sm(specs):
         # Mounting pin (NPTH)
         npth_pad(-2.35, -4.7, 1.5),
         # Courtyard
-        fp_rect(crtyd["x1"], crtyd["y1"], crtyd["x2"], crtyd["y2"], "F.CrtYd", 0.05),
-        # Panel drill hole outline
-        fp_circle(0, 0, drill / 2, "F.SilkS"),
+        fp_rect(-4, -7, 7, 3, "F.CrtYd", 0.05),
+        # Panel drill hole outline (6mm)
+        fp_circle(0, 0, 3.0, "F.SilkS"),
         # Hex nut outline (10mm)
         fp_circle(0, 0, 5.0, "F.Fab", 0.1),
     ]
@@ -137,14 +123,12 @@ def make_pj398sm(specs):
     )
 
 
-def make_tc002_rgb(specs):
+def make_tc002_rgb():
     """Well Buying TC002-N11AS1XT-RGB tactile switch with RGB LED.
 
     2 switch pins (SPST momentary) + 4 LED pins (anode + R/G/B)
+    ~6x6mm body
     """
-    fp = specs["tc002_rgb"]
-    body = fp["body"]
-    crtyd = fp["courtyard"]
     items = [
         fp_text("reference", "REF**", 0, -6, "F.SilkS"),
         fp_text("value", "TC002-RGB", 0, 6, "F.Fab"),
@@ -157,9 +141,9 @@ def make_tc002_rgb(specs):
         tht_pad(5, 1.0, 2.25, 1.6, 0.9),
         tht_pad(6, 2.5, 2.25, 1.6, 0.9),
         # Body outline
-        fp_rect(body["x1"], body["y1"], body["x2"], body["y2"], "F.SilkS"),
+        fp_rect(-3.5, -3.5, 3.5, 3.5, "F.SilkS"),
         # Courtyard
-        fp_rect(crtyd["x1"], crtyd["y1"], crtyd["x2"], crtyd["y2"], "F.CrtYd", 0.05),
+        fp_rect(-4.5, -4.5, 4.5, 4.5, "F.CrtYd", 0.05),
         # Button cap (5mm)
         fp_circle(0, 0, 2.5, "F.Fab", 0.1),
     ]
@@ -171,15 +155,12 @@ def make_tc002_rgb(specs):
     )
 
 
-def make_ec11e(specs):
+def make_ec11e():
     """Alps EC11E rotary encoder with push switch.
 
     5 electrical pins (A, GND, B, SW1, SW2) + 2 mounting tabs
+    7mm shaft drill in panel
     """
-    fp = specs["ec11e"]
-    body = fp["body"]
-    crtyd = fp["courtyard"]
-    drill = fp["drill_mm"]
     items = [
         fp_text("reference", "REF**", 0, -10, "F.SilkS"),
         fp_text("value", "EC11E", 0, 10, "F.Fab"),
@@ -194,11 +175,11 @@ def make_ec11e(specs):
         npth_pad(-5.5, 0, 2.0),
         npth_pad(5.5, 0, 2.0),
         # Body outline
-        fp_rect(body["x1"], body["y1"], body["x2"], body["y2"], "F.SilkS"),
-        # Shaft hole
-        fp_circle(0, 0, drill / 2, "F.Fab", 0.1),
+        fp_rect(-6.5, -6.5, 6.5, 6.5, "F.SilkS"),
+        # Shaft hole (7mm)
+        fp_circle(0, 0, 3.5, "F.Fab", 0.1),
         # Courtyard
-        fp_rect(crtyd["x1"], crtyd["y1"], crtyd["x2"], crtyd["y2"], "F.CrtYd", 0.05),
+        fp_rect(-8, -9, 8, 9, "F.CrtYd", 0.05),
     ]
     return write_footprint(
         "EC11E",
@@ -293,13 +274,10 @@ def make_eurorack_header():
 def main():
     os.makedirs(FOOTPRINT_DIR, exist_ok=True)
 
-    specs = load_footprint_specs()
-    print(f"  Loaded footprint specs from {LAYOUT_PATH}")
-
     footprints = [
-        ("PJ398SM", lambda: make_pj398sm(specs)),
-        ("TC002-N11AS1XT-RGB", lambda: make_tc002_rgb(specs)),
-        ("EC11E", lambda: make_ec11e(specs)),
+        ("PJ398SM", make_pj398sm),
+        ("TC002-N11AS1XT-RGB", make_tc002_rgb),
+        ("EC11E", make_ec11e),
         ("RaspberryPiPico", make_rpi_pico),
         ("EurorackPowerHeader_2x5", make_eurorack_header),
     ]

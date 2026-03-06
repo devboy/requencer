@@ -194,8 +194,8 @@ def generate_faceplate(layout, output_path):
     )
     print("  LCD cutout added")
 
-    # 4. Jack holes (drill from footprint specs)
-    jack_drill = layout["footprints"]["pj398sm"]["drill_mm"]
+    # 4. Jack holes (6mm drill for PJ398SM)
+    jack_drill = 6.0
     jack_count = 0
     for group_name in ("utility", "output", "cv_input"):
         for jack in layout["jacks"][group_name]:
@@ -207,8 +207,8 @@ def generate_faceplate(layout, output_path):
             jack_count += 1
     print(f"  {jack_count} jack holes added (6.0mm drill)")
 
-    # 5. Button holes (drill from footprint specs)
-    btn_drill = layout["footprints"]["tc002_rgb"]["drill_mm"]
+    # 5. Button holes — per TC002 datasheet mounting hole
+    btn_drill = 3.2  # TC002 panel mount shaft
     btn_count = 0
     for group_name in ("track", "subtrack", "feature", "step", "transport"):
         items = layout["buttons"].get(group_name, [])
@@ -232,8 +232,8 @@ def generate_faceplate(layout, output_path):
         btn_count += 1
     print(f"  {btn_count} button holes added (3.2mm drill)")
 
-    # 6. Encoder holes (drill from footprint specs)
-    enc_drill = layout["footprints"]["ec11e"]["drill_mm"]
+    # 6. Encoder holes (7mm drill for EC11E shaft)
+    enc_drill = 7.0
     for enc in layout["encoders"]:
         pcb.add_drill_hole(
             enc["x_mm"], enc["y_mm"],
