@@ -152,20 +152,20 @@ export function createFaceplate(): FaceplateElements {
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
+            </div>
 
-              <!-- CONNECTORS: under encoder B -->
-              <div class="connector-zone">
-                <div class="connector usb-c">
-                  <div class="connector-body usb-c-body">
-                    <div class="usb-c-port"></div>
-                  </div>
-                  <span class="connector-label">USB</span>
+            <!-- CONNECTORS: between step grid and jacks -->
+            <div class="connector-zone">
+              <div class="connector usb-c">
+                <span class="connector-label">USB</span>
+                <div class="connector-body usb-c-body">
+                  <div class="usb-c-port"></div>
                 </div>
-                <div class="connector sd-slot">
-                  <div class="connector-body sd-slot-body">
-                    <div class="sd-slot-opening"></div>
-                  </div>
-                  <span class="connector-label">SD</span>
+              </div>
+              <div class="connector sd-slot">
+                <span class="connector-label">SD</span>
+                <div class="connector-body sd-slot-body">
+                  <div class="sd-slot-opening"></div>
                 </div>
               </div>
             </div>
@@ -1070,14 +1070,15 @@ const PANEL_CSS = `
      ══════════════════════════════════════════ */
 
   .connector-zone {
-    position: absolute;
-    bottom: ${RAIL_ZONE + 4}px;
-    right: 0;
     display: flex;
     flex-direction: row;
     align-items: flex-end;
-    gap: ${COMPONENT_GAP}px;
-    z-index: 5;
+    justify-content: center;
+    gap: ${Math.round(COMPONENT_GAP * 0.6)}px;
+    align-self: flex-end;
+    margin-bottom: ${RAIL_ZONE + 4}px;
+    padding: 0 ${Math.round(COMPONENT_GAP * 0.4)}px;
+    flex-shrink: 0;
   }
 
   .connector {
@@ -1088,16 +1089,17 @@ const PANEL_CSS = `
   }
 
   .connector-label {
-    font-size: ${Math.round(SILK_TEXT * 0.85)}px;
+    font-size: ${Math.round(SILK_TEXT * 0.7)}px;
     font-weight: 600;
     color: #666;
     letter-spacing: 0.5px;
   }
 
+  /* Vertical (portrait): swap W↔H */
   .usb-c-body {
-    width: ${USB_C_W}px;
-    height: ${USB_C_H}px;
-    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
+    width: ${USB_C_H}px;
+    height: ${USB_C_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
     border-radius: ${USB_C_H * 0.4}px;
     border: 1px solid #555;
     display: flex;
@@ -1107,17 +1109,17 @@ const PANEL_CSS = `
   }
 
   .usb-c-port {
-    width: ${USB_C_W * 0.65}px;
-    height: ${USB_C_H * 0.45}px;
+    width: ${USB_C_H * 0.45}px;
+    height: ${USB_C_W * 0.65}px;
     background: #1a1a1a;
     border-radius: ${USB_C_H * 0.18}px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
   }
 
   .sd-slot-body {
-    width: ${SD_SLOT_W}px;
-    height: ${SD_SLOT_H}px;
-    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
+    width: ${SD_SLOT_H}px;
+    height: ${SD_SLOT_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
     border-radius: 2px;
     border: 1px solid #555;
     display: flex;
@@ -1127,8 +1129,8 @@ const PANEL_CSS = `
   }
 
   .sd-slot-opening {
-    width: ${SD_SLOT_W * 0.75}px;
-    height: ${SD_SLOT_H * 0.5}px;
+    width: ${SD_SLOT_H * 0.5}px;
+    height: ${SD_SLOT_W * 0.75}px;
     background: #1a1a1a;
     border-radius: 1px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
