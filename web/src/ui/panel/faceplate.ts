@@ -152,6 +152,22 @@ export function createFaceplate(): FaceplateElements {
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
+
+              <!-- CONNECTORS: under encoder B -->
+              <div class="connector-zone">
+                <div class="connector usb-c">
+                  <div class="connector-body usb-c-body">
+                    <div class="usb-c-port"></div>
+                  </div>
+                  <span class="connector-label">USB</span>
+                </div>
+                <div class="connector sd-slot">
+                  <div class="connector-body sd-slot-body">
+                    <div class="sd-slot-opening"></div>
+                  </div>
+                  <span class="connector-label">SD</span>
+                </div>
+              </div>
             </div>
 
             <!-- JACK ZONE: right side, spans full height -->
@@ -180,21 +196,6 @@ export function createFaceplate(): FaceplateElements {
                   <div class="jack-cell"><div class="jack"><div class="jack-hole"></div></div><span class="btn-label label-below">D</span></div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div class="connector-zone">
-            <div class="connector usb-c">
-              <div class="connector-body usb-c-body">
-                <div class="usb-c-port"></div>
-              </div>
-              <span class="connector-label">USB</span>
-            </div>
-            <div class="connector sd-slot">
-              <div class="connector-body sd-slot-body">
-                <div class="sd-slot-opening"></div>
-              </div>
-              <span class="connector-label">SD</span>
             </div>
           </div>
 
@@ -587,6 +588,7 @@ const PANEL_CSS = `
     flex-direction: column;
     flex: 1;
     min-width: 0;
+    position: relative;
   }
 
   /* ── Top section: track col | LCD | right button cols ── */
@@ -1069,12 +1071,12 @@ const PANEL_CSS = `
 
   .connector-zone {
     position: absolute;
-    top: ${76.36 * SCALE + ENCODER_D / 2 + 4}px;
-    right: ${COMPONENT_GAP + 18}px;
+    bottom: ${RAIL_ZONE}px;
+    right: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: ${COMPONENT_GAP}px;
+    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
     z-index: 5;
   }
 
