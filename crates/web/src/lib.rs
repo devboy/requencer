@@ -272,6 +272,33 @@ impl WasmSequencer {
         }
     }
 
+    /// Set gate on/off for a step (non-toggling).
+    pub fn set_gate_on(&mut self, track: u8, step: u8, on: bool) {
+        let t = track.min(3) as usize;
+        let s = step as usize;
+        if s < self.state.tracks[t].gate.steps.len() {
+            self.state.tracks[t].gate.steps[s].on = on;
+        }
+    }
+
+    /// Set gate tie for a step (non-toggling).
+    pub fn set_gate_tie(&mut self, track: u8, step: u8, tie: bool) {
+        let t = track.min(3) as usize;
+        let s = step as usize;
+        if s < self.state.tracks[t].gate.steps.len() {
+            self.state.tracks[t].gate.steps[s].tie = tie;
+        }
+    }
+
+    /// Set mute on/off for a step (non-toggling).
+    pub fn set_mute_step(&mut self, track: u8, step: u8, muted: bool) {
+        let t = track.min(3) as usize;
+        let s = step as usize;
+        if s < self.state.mute_patterns[t].steps.len() {
+            self.state.mute_patterns[t].steps[s] = muted;
+        }
+    }
+
     /// Set pitch note for a step.
     pub fn set_pitch_note(&mut self, track: u8, step: u8, note: u8) {
         let t = track.min(3) as usize;

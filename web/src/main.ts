@@ -6,6 +6,7 @@ import * as Tone from 'tone'
 import { TICKS_PER_STEP } from './engine/clock-divider'
 import { createSequencer, tick } from './engine/sequencer'
 import type { ClockSource, NoteEvent, SequencerState } from './engine/types'
+import { initWasm, isWasmReady, renderWasmLcd, syncStateToWasm, syncEngineStepsToWasm, getWasmSequencer, wasmTick } from './engine/wasm-adapter'
 import { DrumMachine } from './io/drum-machine'
 import { MIDIClockIn } from './io/midi-clock-in'
 import { MIDIClockOut } from './io/midi-clock-out'
@@ -45,6 +46,18 @@ import { drawStatusBar, LCD_H, LCD_W, setupLCDCanvas } from './ui/renderer'
 
 console.log('requencer starting')
 
+// --- Engine Mode (TS or WASM) — persisted, requires reload to switch ---
+type EngineMode = 'ts' | 'wasm'
+const ENGINE_MODE_KEY = 'requencer-engine-mode'
+let engineMode: EngineMode = (localStorage.getItem(ENGINE_MODE_KEY) as EngineMode) || 'ts'
+let wasmLoaded = false
+
+// Try to load WASM in background — needed for both engine and renderer modes
+initWasm().then((ok) => {
+  wasmLoaded = ok
+  if (ok) console.log('[WASM] Ready — use debug menu to toggle engine')
+})
+
 // --- Engine State (empty tracks — no initial randomization) ---
 let engineState: SequencerState = createSequencer()
 
@@ -63,25 +76,40 @@ const midiDeviceIds: string[] = ['', '', '', ''] // per-output device selection
 
 /** Shared tick handler — called by both ToneClock and MIDIClockIn */
 function handleEngineTick(time: number, stepDuration: number) {
-  const mt = engineState.transport.masterTick // capture BEFORE tick advances it
-  const result = tick(engineState)
-  engineState = result.state
-
-  // Filter to only non-null events (outputs at step boundaries)
-  const events = result.events.filter((e): e is NoteEvent => e !== null)
-  if (events.length > 0) {
-    output.handleEvents(events, time, stepDuration)
-    midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
+  if (engineMode === 'wasm' && isWasmReady()) {
+    // WASM engine mode — tick via Rust
+    const seq = getWasmSequencer()
+    const mt = seq.get_master_tick()
+    const allEvents = wasmTick()
+    const events = allEvents.filter((e): e is NoteEvent => e !== null)
+    if (events.length > 0) {
+      output.handleEvents(events, time, stepDuration)
+      midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
+    }
+    // Sync master tick back to TS state for drum machine
+    engineState = {
+      ...engineState,
+      transport: { ...engineState.transport, masterTick: seq.get_master_tick() },
+    }
+    if (mt === 0 || mt % TICKS_PER_STEP === 0) {
+      drums.triggerStep(mt / TICKS_PER_STEP, time)
+    }
+    midiClockOut.tick(engineState.transport.playing, engineState.midiClockOut)
+  } else {
+    // TS engine mode (original)
+    const mt = engineState.transport.masterTick
+    const result = tick(engineState)
+    engineState = result.state
+    const events = result.events.filter((e): e is NoteEvent => e !== null)
+    if (events.length > 0) {
+      output.handleEvents(events, time, stepDuration)
+      midi.handleEvents(events, engineState.midiConfigs, midiDeviceIds, stepDuration, engineState.midiEnabled)
+    }
+    if (mt === 0 || mt % TICKS_PER_STEP === 0) {
+      drums.triggerStep(mt / TICKS_PER_STEP, time)
+    }
+    midiClockOut.tick(engineState.transport.playing, engineState.midiClockOut)
   }
-
-  // Drums: only trigger at base step boundaries
-  if (mt === 0 || mt % TICKS_PER_STEP === 0) {
-    const step = mt / TICKS_PER_STEP
-    drums.triggerStep(step, time)
-  }
-
-  // Send MIDI clock out if enabled
-  midiClockOut.tick(engineState.transport.playing, engineState.midiClockOut)
 }
 
 const clock = new ToneClock({
@@ -125,6 +153,15 @@ const midiClockIn = new MIDIClockIn({
     }
   },
 })
+
+/** Sync transport state to WASM engine when in WASM mode. */
+function syncWasmTransport(): void {
+  if (engineMode !== 'wasm' || !isWasmReady()) return
+  const seq = getWasmSequencer()
+  if (!seq) return
+  seq.set_bpm(engineState.transport.bpm)
+  seq.set_playing(engineState.transport.playing)
+}
 
 /** Track current clock source and MIDI input device to detect changes */
 let activeClockSource: ClockSource = engineState.transport.clockSource
@@ -172,6 +209,13 @@ createDebugMenu({
     }
   },
   drums,
+  getRendererMode: () => engineMode,
+  setRendererMode(mode: 'ts' | 'wasm') {
+    if (mode === engineMode) return
+    localStorage.setItem(ENGINE_MODE_KEY, mode)
+    window.location.reload()
+  },
+  isWasmReady: () => wasmLoaded,
 })
 
 function refreshMIDIDevices() {
@@ -235,6 +279,7 @@ onControlEvent(async (event: ControlEvent) => {
           ...engineState,
           transport: { ...engineState.transport, playing: false },
         }
+        syncWasmTransport()
       } else {
         // Always start Tone.js audio context (needed for synths even in MIDI clock mode)
         await Tone.start()
@@ -261,6 +306,13 @@ onControlEvent(async (event: ControlEvent) => {
             transport: { ...engineState.transport, playing: true },
           }
         }
+        // Sync to WASM engine + reset playheads
+        if (engineMode === 'wasm' && isWasmReady()) {
+          const seq = getWasmSequencer()
+          seq.set_bpm(engineState.transport.bpm)
+          seq.set_playing(true)
+          seq.reset_playheads()
+        }
       }
     } finally {
       _playStopInProgress = false
@@ -282,6 +334,11 @@ onControlEvent(async (event: ControlEvent) => {
   // Sync BPM if it changed (only for internal clock)
   if (engineState.transport.clockSource === 'internal' && clock.bpm !== engineState.transport.bpm) {
     clock.bpm = engineState.transport.bpm
+  }
+
+  // Sync edited state to WASM engine
+  if (engineMode === 'wasm' && isWasmReady()) {
+    syncEngineStepsToWasm(engineState)
   }
 
   // Handle clock source changes
@@ -406,41 +463,42 @@ function render(): void {
   }
   const isPlaying = engineState.transport.playing
 
-  // Clear LCD
-  lcdCtx.fillStyle = COLORS.lcdBg
-  lcdCtx.fillRect(0, 0, LCD_W, LCD_H)
+  // --- LCD Rendering: WASM or TS ---
+  if (engineMode === 'wasm' && isWasmReady()) {
+    // Sync TS UI state → WASM, then render via Rust renderer
+    syncStateToWasm(engineState, uiState)
+    renderWasmLcd(lcdCtx)
+  } else {
+    // TS renderer (original)
+    lcdCtx.fillStyle = COLORS.lcdBg
+    lcdCtx.fillRect(0, 0, LCD_W, LCD_H)
 
-  // Status bar
-  const statusText = MODE_STATUS[uiState.mode](uiState)
-  drawStatusBar(lcdCtx, statusText, engineState.transport.bpm, isPlaying)
+    const statusText = MODE_STATUS[uiState.mode](uiState)
+    drawStatusBar(lcdCtx, statusText, engineState.transport.bpm, isPlaying)
 
-  // Mode-specific content
-  const renderer = RENDERERS[uiState.mode]
-  if (renderer) renderer(lcdCtx, engineState, uiState)
+    const renderer = RENDERERS[uiState.mode]
+    if (renderer) renderer(lcdCtx, engineState, uiState)
 
-  // Hold overlay — always thin (42px strip) for compact display
-  // Step holds stay in the normal screen (gate-edit shows GL/ratchet inline)
-  if (uiState.heldButton && uiState.heldButton.kind !== 'step') {
-    renderHoldOverlay(lcdCtx, engineState, uiState, true)
-  }
+    if (uiState.heldButton && uiState.heldButton.kind !== 'step') {
+      renderHoldOverlay(lcdCtx, engineState, uiState, true)
+    }
 
-  // CLR confirm overlay + auto-expire
-  if (uiState.clrPending) {
-    const now = Date.now()
-    if (now - uiState.clrPendingAt >= 2000) {
-      uiState = { ...uiState, clrPending: false, clrPendingAt: 0 }
-    } else {
-      renderClrConfirmOverlay(lcdCtx, uiState)
+    if (uiState.clrPending) {
+      const now = Date.now()
+      if (now - uiState.clrPendingAt >= 2000) {
+        uiState = { ...uiState, clrPending: false, clrPendingAt: 0 }
+      } else {
+        renderClrConfirmOverlay(lcdCtx, uiState)
+      }
+    }
+
+    if (uiState.flashMessage && performance.now() < uiState.flashUntil) {
+      renderFlashOverlay(lcdCtx, uiState.flashMessage)
+    } else if (uiState.flashMessage) {
+      uiState = { ...uiState, flashMessage: '', flashUntil: 0 }
     }
   }
   panel.clrBtn.classList.toggle('clr-pending', uiState.clrPending)
-
-  // Flash message overlay (SAVED, LOADED, DELETED)
-  if (uiState.flashMessage && performance.now() < uiState.flashUntil) {
-    renderFlashOverlay(lcdCtx, uiState.flashMessage)
-  } else if (uiState.flashMessage) {
-    uiState = { ...uiState, flashMessage: '', flashUntil: 0 }
-  }
 
   // Update panel LEDs
   const ledState = getLEDState(uiState, engineState)

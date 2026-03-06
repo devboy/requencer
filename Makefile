@@ -55,7 +55,7 @@ hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
 
 # === Dev ===
 
-dev:
+dev: build-wasm
 	cd web && npm run dev
 
 # === Lint ===

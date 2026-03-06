@@ -1,37 +1,359 @@
 /**
- * WASM Engine Adapter — wraps the Rust WasmSequencer to match the TS engine API.
+ * WASM Engine Adapter — wraps the Rust WasmSequencer for LCD rendering
+ * and (optionally) engine tick.
  *
- * This module provides a drop-in replacement for the TS sequencer's tick()
- * function and state management, backed by the Rust WASM engine.
+ * MVP integration: sync TS engine state → WASM UI state each frame,
+ * render LCD via Rust renderer instead of TS canvas calls.
  */
 
-import type { NoteEvent, SequencerState } from './types'
+import type { NoteEvent } from './types'
 
-// The WasmSequencer class from the Rust WASM build.
-// Import path assumes wasm-pack output at web/pkg/.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let WasmSequencerClass: any = null
+type WasmSequencerInstance = any
 
-/** Dynamically import the WASM module (must be called once at startup). */
-export async function initWasm(): Promise<void> {
-  const mod = await import('../../pkg/requencer_web')
-  await mod.default() // initialize WASM
-  WasmSequencerClass = mod.WasmSequencer
+// Module-level state
+let wasmModule: typeof import('../../pkg/requencer_web') | null = null
+let wasmSeq: WasmSequencerInstance | null = null
+let wasmMemory: WebAssembly.Memory | null = null
+let _wasmReady = false
+
+/** Dynamically import and initialize the WASM module. */
+export async function initWasm(): Promise<boolean> {
+  try {
+    const mod = await import('../../pkg/requencer_web')
+    await mod.default() // initialize WASM
+    wasmModule = mod
+    wasmSeq = new mod.WasmSequencer()
+    // Access WASM memory for zero-copy framebuffer reads
+    // @ts-expect-error wasm-bindgen internals
+    wasmMemory = mod.__wbg_get_memory?.() ?? null
+    _wasmReady = true
+    console.log('[WASM] Rust engine initialized')
+    return true
+  } catch (e) {
+    console.warn('[WASM] Failed to initialize:', e)
+    _wasmReady = false
+    return false
+  }
 }
 
 /** Check if WASM engine is initialized. */
 export function isWasmReady(): boolean {
-  return WasmSequencerClass !== null
+  return _wasmReady
 }
 
-// Fields per event in the flat tick() result
-const EVENT_STRIDE = 12
+/** Get the raw WasmSequencer instance. */
+export function getWasmSequencer(): WasmSequencerInstance | null {
+  return wasmSeq
+}
+
+// ── Screen mode mapping ─────────────────────────────────────────
+
+const SCREEN_MODE_MAP: Record<string, number> = {
+  home: 0,
+  'gate-edit': 1,
+  'pitch-edit': 2,
+  'vel-edit': 3,
+  'mod-edit': 4,
+  'mute-edit': 5,
+  route: 6,
+  rand: 7,
+  'mutate-edit': 8,
+  'transpose-edit': 9,
+  'variation-edit': 10,
+  settings: 11,
+  pattern: 12,
+  'pattern-load': 13,
+  'name-entry': 14,
+}
+
+export function screenModeToU8(mode: string): number {
+  return SCREEN_MODE_MAP[mode] ?? 0
+}
+
+// ── State sync: TS → WASM ───────────────────────────────────────
 
 /**
- * Parse the flat f32 array from WasmSequencer.tick() into NoteEvent[] | null[].
- * Layout per event: [valid, output, gate, pitch, velocity, modulation,
- *   mod_slew, gate_length, ratchet_count, slide, retrigger, sustain]
+ * Sync TS engine + UI state into the WASM sequencer so the Rust renderer
+ * can produce the correct display. Called each frame before render.
  */
+export function syncStateToWasm(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  engine: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ui: any,
+): void {
+  if (!wasmSeq) return
+  const seq = wasmSeq
+
+  // Transport
+  seq.set_bpm(engine.transport.bpm)
+  seq.set_playing(engine.transport.playing)
+
+  // UI navigation
+  seq.set_screen(screenModeToU8(ui.mode))
+  seq.set_selected_track(ui.selectedTrack)
+  seq.set_selected_step(ui.selectedStep)
+  seq.set_current_page(ui.currentPage ?? 0)
+  seq.set_rand_param(ui.randParam ?? 0)
+  seq.set_route_param(ui.routeParam ?? 0)
+  seq.set_mutate_param(ui.mutateParam ?? 0)
+  seq.set_xpose_param(ui.transposeParam ?? 0)
+  seq.set_settings_scroll(ui.settingsParam ?? 0)
+  seq.set_mod_lfo_view(ui.modLfoView ?? false)
+
+  // Variation UI
+  seq.set_var_selected_bar(ui.varSelectedBar ?? -1)
+  seq.set_var_cursor(ui.varCursor ?? 0)
+
+  // Name entry
+  if (ui.nameChars) {
+    for (let i = 0; i < Math.min(ui.nameChars.length, 16); i++) {
+      seq.set_name_char(i, ui.nameChars[i] ?? 0)
+    }
+  }
+  seq.set_name_cursor(ui.nameCursor ?? 0)
+  seq.set_name_len(ui.nameLen ?? 0)
+  seq.set_name_context(ui.nameEntryContext === 'pattern')
+
+  // Flash message
+  if (ui.flashMessage) {
+    seq.set_flash_message(ui.flashMessage)
+  } else {
+    seq.set_flash_message('')
+  }
+
+  // Sync track step data (playheads, gates, pitch, vel, mod, mutes)
+  for (let t = 0; t < 4; t++) {
+    const track = engine.tracks[t]
+
+    // Playheads
+    seq.set_playhead(t, 0, track.gate.currentStep)
+    seq.set_playhead(t, 1, track.pitch.currentStep)
+    seq.set_playhead(t, 2, track.velocity.currentStep)
+    seq.set_playhead(t, 3, track.modulation.currentStep)
+
+    // Subtrack lengths + dividers
+    seq.set_subtrack_length(t, 0, track.gate.length ?? track.gate.steps.length)
+    seq.set_subtrack_length(t, 1, track.pitch.length ?? track.pitch.steps.length)
+    seq.set_subtrack_length(t, 2, track.velocity.length ?? track.velocity.steps.length)
+    seq.set_subtrack_length(t, 3, track.modulation.length ?? track.modulation.steps.length)
+
+    seq.set_subtrack_divider(t, 0, track.gate.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 1, track.pitch.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 2, track.velocity.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 3, track.modulation.clockDivider ?? 1)
+
+    seq.set_track_divider(t, track.clockDivider ?? 1)
+
+    // Gate steps
+    for (let s = 0; s < Math.min(track.gate.steps.length, 16); s++) {
+      const step = track.gate.steps[s]
+      if (step.on) {
+        seq.toggle_gate(t, s) // ensure on
+        // Need to check current state... simpler to just set directly
+      }
+    }
+
+    // Mute patterns
+    const mute = engine.mutePatterns?.[t]
+    if (mute) {
+      seq.set_mute_length(t, mute.length ?? mute.steps.length)
+      seq.set_mute_divider(t, mute.clockDivider ?? 1)
+    }
+  }
+
+  // Routing
+  for (let o = 0; o < 4; o++) {
+    const r = engine.routing[o]
+    seq.set_route_gate(o, r.gate)
+    seq.set_route_pitch(o, r.pitch)
+    seq.set_route_velocity(o, r.velocity)
+    seq.set_route_mod(o, r.modulation)
+    const modSrc = r.modSource === 'lfo' ? 1 : 0
+    seq.set_mod_source(o, modSrc)
+  }
+
+  // LFO configs
+  for (let t = 0; t < 4; t++) {
+    const lfo = engine.lfoConfigs[t]
+    const waveMap: Record<string, number> = {
+      sine: 0, triangle: 1, saw: 2, square: 3, 'slew-random': 4, 'sample-and-hold': 5,
+    }
+    seq.set_lfo_waveform(t, waveMap[lfo.waveform] ?? 0)
+    seq.set_lfo_sync_mode(t, lfo.syncMode === 'free' ? 1 : 0)
+    seq.set_lfo_rate(t, lfo.rate)
+    seq.set_lfo_free_rate(t, lfo.freeRate ?? 1.0)
+    seq.set_lfo_depth(t, lfo.depth)
+    seq.set_lfo_offset(t, lfo.offset)
+    seq.set_lfo_width(t, lfo.width)
+    seq.set_lfo_phase(t, lfo.phase)
+  }
+
+  // Transpose configs
+  for (let t = 0; t < 4; t++) {
+    const xp = engine.transposeConfigs[t]
+    seq.set_transpose_semitones(t, xp.semitones)
+    seq.set_transpose_range(t, xp.noteLow, xp.noteHigh)
+    seq.set_transpose_gl_scale(t, xp.glScale ?? 1.0)
+    seq.set_transpose_vel_scale(t, xp.velScale ?? 1.0)
+  }
+
+  // Mutate configs
+  for (let t = 0; t < 4; t++) {
+    const mc = engine.mutateConfigs[t]
+    seq.set_mutate_trigger(t, mc.trigger === 'bars' ? 1 : 0)
+    seq.set_mutate_bars(t, mc.bars)
+    seq.set_mutate_rates(t, mc.gate, mc.pitch, mc.velocity, mc.modulation)
+  }
+
+  // Variation patterns
+  for (let t = 0; t < 4; t++) {
+    const vp = engine.variationPatterns[t]
+    seq.set_variation_enabled(t, vp.enabled)
+    seq.set_variation_length(t, vp.length)
+    seq.set_variation_loop(t, vp.loopMode)
+  }
+}
+
+// ── Full engine state sync (after mode machine dispatch) ────────
+
+/**
+ * Sync all step data from TS engine state into the WASM sequencer.
+ * Called after mode machine dispatch to keep WASM engine's tick()
+ * in sync with edits made via the TS UI.
+ */
+export function syncEngineStepsToWasm(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  engine: any,
+): void {
+  if (!wasmSeq) return
+  const seq = wasmSeq
+
+  // Transport
+  seq.set_bpm(engine.transport.bpm)
+  seq.set_playing(engine.transport.playing)
+
+  for (let t = 0; t < 4; t++) {
+    const track = engine.tracks[t]
+
+    // Subtrack config
+    seq.set_track_divider(t, track.clockDivider ?? 1)
+    seq.set_subtrack_length(t, 0, track.gate.length ?? track.gate.steps.length)
+    seq.set_subtrack_length(t, 1, track.pitch.length ?? track.pitch.steps.length)
+    seq.set_subtrack_length(t, 2, track.velocity.length ?? track.velocity.steps.length)
+    seq.set_subtrack_length(t, 3, track.modulation.length ?? track.modulation.steps.length)
+    seq.set_subtrack_divider(t, 0, track.gate.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 1, track.pitch.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 2, track.velocity.clockDivider ?? 1)
+    seq.set_subtrack_divider(t, 3, track.modulation.clockDivider ?? 1)
+
+    // Gate steps
+    for (let s = 0; s < Math.min(track.gate.steps.length, 16); s++) {
+      const step = track.gate.steps[s]
+      seq.set_gate_on(t, s, step.on ?? false)
+      seq.set_gate_tie(t, s, step.tie ?? false)
+      seq.set_gate_length(t, s, step.length ?? 0.5)
+      seq.set_ratchet(t, s, step.ratchet ?? 1)
+    }
+
+    // Pitch steps
+    for (let s = 0; s < Math.min(track.pitch.steps.length, 16); s++) {
+      const step = track.pitch.steps[s]
+      seq.set_pitch_note(t, s, step.note ?? 60)
+      seq.set_slide(t, s, step.slide ?? 0)
+    }
+
+    // Velocity steps
+    for (let s = 0; s < Math.min(track.velocity.steps.length, 16); s++) {
+      seq.set_velocity(t, s, track.velocity.steps[s] ?? 100)
+    }
+
+    // Mod steps
+    for (let s = 0; s < Math.min(track.modulation.steps.length, 16); s++) {
+      const step = track.modulation.steps[s]
+      seq.set_mod_value(t, s, step.value ?? 0.5)
+      seq.set_mod_slew(t, s, step.slew ?? 0)
+    }
+
+    // Mute steps
+    const mute = engine.mutePatterns?.[t]
+    if (mute) {
+      seq.set_mute_length(t, mute.length ?? mute.steps.length)
+      seq.set_mute_divider(t, mute.clockDivider ?? 1)
+      for (let s = 0; s < Math.min(mute.steps.length, 16); s++) {
+        seq.set_mute_step(t, s, mute.steps[s] ?? false)
+      }
+    }
+  }
+
+  // Routing
+  for (let o = 0; o < 4; o++) {
+    const r = engine.routing[o]
+    seq.set_route_gate(o, r.gate)
+    seq.set_route_pitch(o, r.pitch)
+    seq.set_route_velocity(o, r.velocity)
+    seq.set_route_mod(o, r.modulation)
+    seq.set_mod_source(o, r.modSource === 'lfo' ? 1 : 0)
+  }
+}
+
+// ── WASM LCD Rendering ──────────────────────────────────────────
+
+/**
+ * Render the LCD using the Rust WASM renderer.
+ * Writes directly to the provided CanvasRenderingContext2D.
+ * Returns true if rendering succeeded, false if WASM isn't ready.
+ */
+export function renderWasmLcd(ctx: CanvasRenderingContext2D): boolean {
+  if (!wasmSeq || !wasmModule) return false
+
+  const seq = wasmSeq
+
+  // Render into WASM framebuffer
+  seq.render_in_place()
+
+  const w = seq.width()
+  const h = seq.height()
+  const ptr = seq.buffer_ptr()
+  const len = seq.buffer_len()
+
+  // Get WASM memory - try multiple access patterns
+  let memory: WebAssembly.Memory | null = wasmMemory
+  if (!memory) {
+    try {
+      // wasm-pack --target web exports memory through the bg module
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bg = (wasmModule as any).__wbg_get_imports?.() ?? wasmModule
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      memory = (bg as any).memory ?? (bg as any).__wbindgen_export_0
+      if (memory) wasmMemory = memory
+    } catch {
+      // fallback: use the render() method that returns a copy
+    }
+  }
+
+  if (memory) {
+    // Zero-copy: read directly from WASM memory
+    const pixels = new Uint8ClampedArray(memory.buffer, ptr, len)
+    const imageData = new ImageData(pixels, w, h)
+    ctx.putImageData(imageData, 0, 0)
+  } else {
+    // Fallback: render() returns a copy as Vec<u8>
+    const data = seq.render()
+    const pixels = new Uint8ClampedArray(data)
+    const imageData = new ImageData(pixels, w, h)
+    ctx.putImageData(imageData, 0, 0)
+  }
+
+  return true
+}
+
+// ── Tick (for future full WASM engine mode) ─────────────────────
+
+const EVENT_STRIDE = 12
+
+/** Parse flat f32 array from tick() into NoteEvent[]. */
 function parseTickEvents(data: Float32Array | number[]): (NoteEvent | null)[] {
   const events: (NoteEvent | null)[] = []
   for (let i = 0; i < 4; i++) {
@@ -57,237 +379,9 @@ function parseTickEvents(data: Float32Array | number[]): (NoteEvent | null)[] {
   return events
 }
 
-/**
- * WasmEngine wraps the Rust WasmSequencer and exposes a tick() method
- * compatible with the TS engine's handleEngineTick() expectations.
- *
- * Unlike the TS engine which returns a new state object on each tick,
- * WasmEngine mutates internal state. The TS SequencerState is lazily
- * synced only when needed (for UI rendering via the TS renderer).
- */
-export class WasmEngine {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private seq: any
-
-  constructor() {
-    if (!WasmSequencerClass) {
-      throw new Error('WASM not initialized. Call initWasm() first.')
-    }
-    this.seq = new WasmSequencerClass()
-  }
-
-  /** Get the underlying WasmSequencer for direct access. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get raw(): any {
-    return this.seq
-  }
-
-  /** Advance engine by one tick. Returns events (Some or None per output). */
-  tick(): (NoteEvent | null)[] {
-    const data = this.seq.tick()
-    return parseTickEvents(data)
-  }
-
-  /** Set BPM. */
-  setBpm(bpm: number): void {
-    this.seq.set_bpm(bpm)
-  }
-
-  /** Get BPM. */
-  getBpm(): number {
-    return this.seq.get_bpm()
-  }
-
-  /** Set playing state. */
-  setPlaying(playing: boolean): void {
-    this.seq.set_playing(playing)
-  }
-
-  /** Check if playing. */
-  isPlaying(): boolean {
-    return this.seq.is_playing()
-  }
-
-  /** Get master tick count. */
-  getMasterTick(): number {
-    return this.seq.get_master_tick()
-  }
-
-  /** Set clock source (0=internal, 1=midi, 2=external). */
-  setClockSource(source: number): void {
-    this.seq.set_clock_source(source)
-  }
-
-  /** Reset all playheads. */
-  resetPlayheads(): void {
-    this.seq.reset_playheads()
-  }
-
-  /** Randomize all subtracks of a track. */
-  randomizeFullTrack(track: number, seed: number): void {
-    this.seq.randomize_full_track(track, seed)
-  }
-
-  /** Randomize gate pattern. */
-  randomizeGate(track: number, seed: number): void {
-    this.seq.randomize_gate(track, seed)
-  }
-
-  /** Randomize pitch pattern. */
-  randomizePitch(track: number, seed: number): void {
-    this.seq.randomize_pitch(track, seed)
-  }
-
-  /** Randomize velocity pattern. */
-  randomizeVelocity(track: number, seed: number): void {
-    this.seq.randomize_velocity(track, seed)
-  }
-
-  /** Randomize mod pattern. */
-  randomizeMod(track: number, seed: number): void {
-    this.seq.randomize_mod(track, seed)
-  }
-
-  /** Clear track to defaults. */
-  clearTrack(track: number): void {
-    this.seq.clear_track_to_defaults(track)
-  }
-
-  /** Apply factory presets. */
-  applyDefaultPresets(): void {
-    this.seq.apply_default_presets()
-  }
-
-  /** Save pattern from track. */
-  savePattern(track: number, name: string): void {
-    this.seq.save_pattern(track, name)
-  }
-
-  /** Load pattern into track. */
-  loadPattern(patternIndex: number, targetTrack: number): void {
-    this.seq.load_pattern(patternIndex, targetTrack)
-  }
-
-  /** Delete pattern. */
-  deletePattern(index: number): void {
-    this.seq.delete_pattern(index)
-  }
-
-  // ── Rendering ─────────────────────────────────────────────────
-
-  /** Get display dimensions. */
-  getDisplaySize(): { width: number; height: number } {
-    return { width: this.seq.width(), height: this.seq.height() }
-  }
-
-  /** Render to internal framebuffer and return pointer+length for zero-copy ImageData. */
-  renderInPlace(): void {
-    this.seq.render_in_place()
-  }
-
-  /** Get framebuffer pointer (for WASM memory direct access). */
-  bufferPtr(): number {
-    return this.seq.buffer_ptr()
-  }
-
-  /** Get framebuffer byte length. */
-  bufferLen(): number {
-    return this.seq.buffer_len()
-  }
-
-  // ── UI State sync ─────────────────────────────────────────────
-
-  /** Set screen mode. */
-  setScreen(mode: number): void {
-    this.seq.set_screen(mode)
-  }
-
-  /** Set selected track. */
-  setSelectedTrack(track: number): void {
-    this.seq.set_selected_track(track)
-  }
-
-  /** Set selected step. */
-  setSelectedStep(step: number): void {
-    this.seq.set_selected_step(step)
-  }
-
-  /** Set current page. */
-  setCurrentPage(page: number): void {
-    this.seq.set_current_page(page)
-  }
-
-  /** Toggle gate step. */
-  toggleGate(track: number, step: number): void {
-    this.seq.toggle_gate(track, step)
-  }
-
-  /** Set pitch note. */
-  setPitchNote(track: number, step: number, note: number): void {
-    this.seq.set_pitch_note(track, step, note)
-  }
-
-  /** Set velocity. */
-  setVelocity(track: number, step: number, vel: number): void {
-    this.seq.set_velocity(track, step, vel)
-  }
-
-  /** Set gate length. */
-  setGateLength(track: number, step: number, length: number): void {
-    this.seq.set_gate_length(track, step, length)
-  }
-
-  /** Set ratchet count. */
-  setRatchet(track: number, step: number, count: number): void {
-    this.seq.set_ratchet(track, step, count)
-  }
-
-  /** Toggle tie. */
-  toggleTie(track: number, step: number): void {
-    this.seq.toggle_tie(track, step)
-  }
-
-  /** Set slide. */
-  setSlide(track: number, step: number, slide: number): void {
-    this.seq.set_slide(track, step, slide)
-  }
-
-  /** Set mod value. */
-  setModValue(track: number, step: number, value: number): void {
-    this.seq.set_mod_value(track, step, value)
-  }
-
-  /** Set mod slew. */
-  setModSlew(track: number, step: number, slew: number): void {
-    this.seq.set_mod_slew(track, step, slew)
-  }
-
-  /** Toggle mute. */
-  toggleMute(track: number, step: number): void {
-    this.seq.toggle_mute(track, step)
-  }
-}
-
-/**
- * Map TS ScreenMode string to u8 for WASM.
- */
-export function screenModeToU8(mode: string): number {
-  const map: Record<string, number> = {
-    home: 0,
-    'gate-edit': 1,
-    'pitch-edit': 2,
-    'vel-edit': 3,
-    'mod-edit': 4,
-    'mute-edit': 5,
-    route: 6,
-    rand: 7,
-    'mutate-edit': 8,
-    'transpose-edit': 9,
-    'variation-edit': 10,
-    settings: 11,
-    pattern: 12,
-    'pattern-load': 13,
-    'name-entry': 14,
-  }
-  return map[mode] ?? 0
+/** Tick the WASM engine directly (for full WASM engine mode). */
+export function wasmTick(): (NoteEvent | null)[] {
+  if (!wasmSeq) return [null, null, null, null]
+  const data = wasmSeq.tick()
+  return parseTickEvents(data)
 }

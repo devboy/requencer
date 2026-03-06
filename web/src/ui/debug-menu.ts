@@ -13,6 +13,9 @@ export interface DebugActions {
   togglePlay(): void
   clearTrack(): void
   drums: DrumMachine
+  getRendererMode(): 'ts' | 'wasm'
+  setRendererMode(mode: 'ts' | 'wasm'): void
+  isWasmReady(): boolean
 }
 
 const BTN_CSS = `
@@ -119,8 +122,24 @@ export function createDebugMenu(actions: DebugActions): void {
   instrBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
   instrBtn.addEventListener('click', () => toggleInstructions())
 
+  // Renderer toggle (TS / WASM)
+  const rendererBtn = document.createElement('button')
+  function updateRendererBtn(): void {
+    const mode = actions.getRendererMode()
+    const ready = actions.isWasmReady()
+    rendererBtn.textContent = `Engine: ${mode.toUpperCase()}${mode === 'wasm' && !ready ? ' (loading...)' : ''}`
+    rendererBtn.style.background = mode === 'wasm' ? '#2e4a5e' : '#2a2a4e'
+  }
+  rendererBtn.style.cssText = BTN_CSS
+  rendererBtn.addEventListener('click', () => {
+    const current = actions.getRendererMode()
+    actions.setRendererMode(current === 'ts' ? 'wasm' : 'ts')
+    updateRendererBtn()
+  })
+  updateRendererBtn()
+
   btnRow.append(playBtn, clearBtn)
-  content.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
+  content.append(bpmRow, drumsBtn, rendererBtn, btnRow, helpBtn, instrBtn)
   el.append(toggleBtn, content)
   document.body.appendChild(el)
 
