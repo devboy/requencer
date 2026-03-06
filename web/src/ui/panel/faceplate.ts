@@ -387,6 +387,7 @@ export function setupMobileViewport(): void {
   })
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex render logic
 function generateRulerTicks(root: HTMLElement): void {
   const panel = root.querySelector('#module-panel') as HTMLElement
   const hpTrack = root.querySelector('.ruler-hp') as HTMLElement

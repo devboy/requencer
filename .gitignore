@@ -2,12 +2,18 @@
 target/
 
 # Web (JS/TS)
+node_modules/
+dist/
+.vite/
 web/node_modules/
 web/dist/
 web/.vite/
 web/pkg/
 web/coverage/
 *.local
+
+# macOS
+.DS_Store
 
 # Misc
 .worktrees/

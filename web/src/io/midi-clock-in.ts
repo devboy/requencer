@@ -12,12 +12,7 @@
  *   0xFC — Stop
  */
 
-import {
-  type ClockRecoveryState,
-  createClockRecovery,
-  processClockTick,
-  resetClockRecovery,
-} from '../engine/clock-recovery'
+import { type ClockRecoveryState, createClockRecovery, processClockTick, resetClockRecovery } from './clock-recovery'
 
 export interface MIDIInputDevice {
   id: string

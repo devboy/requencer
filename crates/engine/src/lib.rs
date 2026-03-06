@@ -1,6 +1,38 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 //! Requencer engine — pure sequencer logic.
 //!
 //! Zero dependencies on DOM, audio, or any platform-specific APIs.
-//! All functions are pure: receive state, return new state.
+//! Targets both WASM (browser) and RP2350 (embedded).
+
+pub mod arpeggiator;
+pub mod clock_divider;
+pub mod clock_recovery;
+pub mod euclidean;
+pub mod input;
+pub mod lfo;
+pub mod math;
+pub mod mode_machine;
+pub mod mutator;
+pub mod randomizer;
+pub mod rng;
+pub mod patterns;
+pub mod presets;
+pub mod routing;
+pub mod scales;
+pub mod sequencer;
+pub mod storage;
+pub mod types;
+pub mod ui_types;
+pub mod variation;
+
+// ── Constants ───────────────────────────────────────────────────────
+
+/// Maximum steps per subtrack.
+pub const MAX_STEPS: usize = 16;
+
+/// Number of sequencer tracks.
+pub const NUM_TRACKS: usize = 4;
+
+/// Number of CV/gate outputs.
+pub const NUM_OUTPUTS: usize = 4;

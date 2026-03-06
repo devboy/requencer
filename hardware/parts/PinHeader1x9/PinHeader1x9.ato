@@ -1,0 +1,22 @@
+# PinHeader1x9 — Generic 1×9 Male Pin Header, 2.54mm, Through-Hole
+# Used for LCD module connector
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component PinHeader1x9:
+    trait is_atomic_part<manufacturer="Generic", partnumber="PinHeader_1x9_P2.54mm", footprint="PinHeader1x9.kicad_mod", symbol="PinHeader1x9.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C124413", manufacturer="BOOMELE", partno="C124413">
+
+    signal PIN1 ~ pin 1
+    signal PIN2 ~ pin 2
+    signal PIN3 ~ pin 3
+    signal PIN4 ~ pin 4
+    signal PIN5 ~ pin 5
+    signal PIN6 ~ pin 6
+    signal PIN7 ~ pin 7
+    signal PIN8 ~ pin 8
+    signal PIN9 ~ pin 9

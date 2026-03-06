@@ -2,9 +2,14 @@
 # LCSC: C83935
 # Used for input protection clamping
 
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
 component BAT54S:
+    trait has_designator_prefix<prefix="D">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C83935", manufacturer="Nexperia", partno="BAT54S,215">
+
     signal ANODE1 ~ pin 1
     signal COMMON ~ pin 2
     signal ANODE2 ~ pin 3
-
-    designator_prefix = "D"

@@ -50,6 +50,7 @@ export class MIDIOutput {
    * deviceIds maps output index to selected MIDI device ID.
    * stepDuration is the duration of one 16th note in seconds.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: complex MIDI event handling
   handleEvents(
     events: NoteEvent[],
     configs: MIDIOutputConfig[],

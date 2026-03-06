@@ -1,48 +1,86 @@
-import type { SavedPattern, UserPreset } from '../engine/types'
+/**
+ * Persistence — stores opaque byte blobs from Rust serialization in localStorage.
+ * Rust owns all serialization (postcard). TS just stores/retrieves raw bytes.
+ */
 
-const PATTERNS_KEY = 'requencer:patterns'
-const PRESETS_KEY = 'requencer:presets'
+const STATE_KEY = 'requencer:state'
+const LIBRARY_KEY = 'requencer:library'
 
-export function savePatterns(patterns: SavedPattern[]): void {
+// Clean up old JSON-format keys from previous TS persistence
+try {
+  localStorage.removeItem('requencer:patterns')
+  localStorage.removeItem('requencer:presets')
+} catch {
+  /* */
+}
+
+/** Encode bytes to base64 string for localStorage. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+/** Decode base64 string from localStorage to bytes. */
+function fromBase64(str: string): Uint8Array {
+  const binary = atob(str)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+export function saveState(bytes: Uint8Array): void {
   try {
-    localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns))
+    localStorage.setItem(STATE_KEY, toBase64(bytes))
   } catch {
-    // localStorage full or unavailable — silently ignore
+    // localStorage full or unavailable
   }
 }
 
-export function loadPatterns(): SavedPattern[] {
+export function loadState(): Uint8Array | null {
   try {
-    const raw = localStorage.getItem(PATTERNS_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown[]
-    // Filter out old-format or corrupt entries
-    return parsed.filter(isValidPattern) as SavedPattern[]
+    const raw = localStorage.getItem(STATE_KEY)
+    if (!raw) return null
+    return fromBase64(raw)
   } catch {
-    return []
+    return null
   }
 }
 
-function isValidPattern(p: unknown): boolean {
-  if (!p || typeof p !== 'object') return false
-  const obj = p as Record<string, unknown>
-  return typeof obj.name === 'string' && typeof obj.data === 'object' && obj.data !== null
-}
-
-export function savePresets(presets: UserPreset[]): void {
+export function saveLibrary(bytes: Uint8Array): void {
   try {
-    localStorage.setItem(PRESETS_KEY, JSON.stringify(presets))
+    localStorage.setItem(LIBRARY_KEY, toBase64(bytes))
   } catch {
-    // localStorage full or unavailable — silently ignore
+    // localStorage full or unavailable
   }
 }
 
-export function loadPresets(): UserPreset[] {
+export function loadLibrary(): Uint8Array | null {
   try {
-    const raw = localStorage.getItem(PRESETS_KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as UserPreset[]
+    const raw = localStorage.getItem(LIBRARY_KEY)
+    if (!raw) return null
+    return fromBase64(raw)
   } catch {
-    return []
+    return null
+  }
+}
+
+export function clearState(): void {
+  try {
+    localStorage.removeItem(STATE_KEY)
+  } catch {
+    /* */
+  }
+}
+
+export function clearLibrary(): void {
+  try {
+    localStorage.removeItem(LIBRARY_KEY)
+  } catch {
+    /* */
   }
 }

@@ -5,5 +5,9 @@ export default defineConfig({
   base: '/requencer/',
   build: {
     outDir: 'dist',
+    target: 'esnext',
+  },
+  optimizeDeps: {
+    exclude: ['requencer-web'],
   },
 })

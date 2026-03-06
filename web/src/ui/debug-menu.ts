@@ -13,6 +13,7 @@ export interface DebugActions {
   togglePlay(): void
   clearTrack(): void
   drums: DrumMachine
+  isWasmReady(): boolean
 }
 
 const BTN_CSS = `
@@ -52,13 +53,11 @@ export function createDebugMenu(actions: DebugActions): void {
     expanded = show
     content.style.display = show ? '' : 'none'
     toggleBtn.textContent = show ? '\u2715' : '...'
-    // When collapsed, tighten the container
     el.style.padding = '0'
   }
 
   toggleBtn.addEventListener('click', () => setExpanded(!expanded))
 
-  // Track media query changes
   isMobile.addEventListener('change', (e) => {
     setExpanded(!e.matches)
   })
@@ -124,6 +123,5 @@ export function createDebugMenu(actions: DebugActions): void {
   el.append(toggleBtn, content)
   document.body.appendChild(el)
 
-  // Set initial state
   setExpanded(expanded)
 }

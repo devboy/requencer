@@ -1,7 +1,303 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 //! Requencer renderer — platform-agnostic display rendering.
 //!
 //! Uses `embedded-graphics` DrawTarget abstraction to render
 //! the sequencer UI to any display backend (Canvas2D via WASM,
 //! ST7796 TFT via SPI on RP2350).
+
+use embedded_graphics::{pixelcolor::Rgb565, prelude::*};
+use requencer_engine::types::SequencerState;
+
+pub mod colors;
+pub mod draw;
+pub mod layout;
+pub mod screens;
+pub mod types;
+
+use types::{ScreenMode, UiState};
+
+/// Render the full display: status bar + current screen.
+pub fn render<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    state: &SequencerState,
+    ui: &UiState,
+) {
+    // Clear display
+    draw::fill_screen(display, colors::BG);
+
+    // Status bar — include track indicator for per-track screens
+    let t = ui.selected_track + 1;
+    let mut hdr_buf = [0u8; 16];
+    let status_left = match ui.mode {
+        ScreenMode::Home => "HOME",
+        ScreenMode::GateEdit => draw::fmt_buf(&mut hdr_buf, format_args!("GATE \u{2014} T{}", t)),
+        ScreenMode::PitchEdit => draw::fmt_buf(&mut hdr_buf, format_args!("PITCH \u{2014} T{}", t)),
+        ScreenMode::VelEdit => draw::fmt_buf(&mut hdr_buf, format_args!("VEL \u{2014} T{}", t)),
+        ScreenMode::ModEdit => {
+            if ui.mod_lfo_view {
+                draw::fmt_buf(&mut hdr_buf, format_args!("MOD LFO \u{2014} T{}", t))
+            } else {
+                draw::fmt_buf(&mut hdr_buf, format_args!("MOD \u{2014} T{}", t))
+            }
+        }
+        ScreenMode::MuteEdit => draw::fmt_buf(&mut hdr_buf, format_args!("MUTE \u{2014} T{}", t)),
+        ScreenMode::Route => draw::fmt_buf(&mut hdr_buf, format_args!("ROUTE \u{2014} O{}", t)),
+        ScreenMode::Rand => draw::fmt_buf(&mut hdr_buf, format_args!("RAND \u{2014} T{}", t)),
+        ScreenMode::MutateEdit => draw::fmt_buf(&mut hdr_buf, format_args!("DRIFT \u{2014} T{}", t)),
+        ScreenMode::TransposeEdit => draw::fmt_buf(&mut hdr_buf, format_args!("XPOSE \u{2014} T{}", t)),
+        ScreenMode::VariationEdit => draw::fmt_buf(&mut hdr_buf, format_args!("VAR \u{2014} T{}", t)),
+        ScreenMode::Settings => "SETTINGS",
+        ScreenMode::Pattern => draw::fmt_buf(&mut hdr_buf, format_args!("PATTERN T{}", t)),
+        ScreenMode::PatternLoad => "LOAD",
+        ScreenMode::NameEntry => {
+            if ui.pattern_context {
+                draw::fmt_buf(&mut hdr_buf, format_args!("SAVE T{} PAT", t))
+            } else {
+                "SAVE PRESET"
+            }
+        }
+    };
+    draw::status_bar(display, status_left, state.transport.bpm, state.transport.playing);
+
+    // Screen content
+    match ui.mode {
+        ScreenMode::Home => screens::home::render(display, state, ui),
+        ScreenMode::GateEdit => screens::gate_edit::render(display, state, ui),
+        ScreenMode::PitchEdit => screens::pitch_edit::render(display, state, ui),
+        ScreenMode::VelEdit => screens::vel_edit::render(display, state, ui),
+        ScreenMode::ModEdit => screens::mod_edit::render(display, state, ui),
+        ScreenMode::MuteEdit => screens::mute_edit::render(display, state, ui),
+        ScreenMode::Route => screens::route::render(display, state, ui),
+        ScreenMode::Rand => screens::rand::render(display, state, ui),
+        ScreenMode::MutateEdit => screens::mutate_edit::render(display, state, ui),
+        ScreenMode::TransposeEdit => screens::transpose_edit::render(display, state, ui),
+        ScreenMode::VariationEdit => screens::variation_edit::render(display, state, ui),
+        ScreenMode::Settings => screens::settings::render(display, state, ui),
+        ScreenMode::Pattern => screens::pattern::render(display, state, ui),
+        ScreenMode::PatternLoad => screens::pattern_load::render(display, state, ui),
+        ScreenMode::NameEntry => screens::name_entry::render(display, state, ui),
+    }
+
+    // Hold overlay — show length/divider info when holding track/subtrack/feature buttons
+    if let Some(ref held) = ui.held_button {
+        render_hold_overlay(display, state, ui, held);
+    }
+
+    // Flash message overlay
+    if let Some(msg) = ui.flash_message {
+        if ui.mode != ScreenMode::NameEntry {
+            let msg_y = layout::LCD_H as i32 - layout::EDIT_FOOTER_H as i32 - 30;
+            draw::fill_rect(display, 40, msg_y, layout::LCD_W - 80, 24, colors::STATUS_BAR);
+            draw::text_center(
+                display,
+                layout::LCD_W as i32 / 2,
+                msg_y + 7,
+                msg,
+                colors::TEXT_BRIGHT,
+            );
+        }
+    }
+}
+
+/// Render a hold overlay strip at the top of the content area.
+/// Shows length/divider info when holding track, subtrack, or feature buttons.
+fn render_hold_overlay<D: DrawTarget<Color = Rgb565>>(
+    display: &mut D,
+    state: &SequencerState,
+    ui: &UiState,
+    held: &types::HeldButton,
+) {
+    use types::HeldButton;
+    const OVERLAY_H: u32 = 42;
+    let y = layout::CONTENT_Y as i32;
+
+    // Semi-transparent dark background (solid dark since we can't do alpha)
+    draw::fill_rect(display, 0, y, layout::LCD_W, OVERLAY_H, colors::STATUS_BAR);
+
+    let track_idx = match held {
+        HeldButton::Track(t) => *t as usize,
+        _ => ui.selected_track as usize,
+    };
+
+    let mut buf = [0u8; 16];
+
+    match held {
+        HeldButton::Subtrack(sub) => {
+            let track = &state.tracks[track_idx];
+            let (len, div) = match sub {
+                types::UiSubtrack::Gate => (track.gate.length, track.gate.clock_divider),
+                types::UiSubtrack::Pitch => (track.pitch.length, track.pitch.clock_divider),
+                types::UiSubtrack::Velocity => (track.velocity.length, track.velocity.clock_divider),
+                types::UiSubtrack::Mod => (track.modulation.length, track.modulation.clock_divider),
+            };
+            let s = draw::fmt_buf(&mut buf, format_args!("LEN {}", len));
+            draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+            let mut div_buf = [0u8; 16];
+            let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", div));
+            draw::text_lg(display, layout::PAD as i32 + 140, y + 10, ds, colors::TEXT_BRIGHT);
+        }
+        HeldButton::Track(t) => {
+            let track = &state.tracks[*t as usize];
+            let s = draw::fmt_buf(
+                &mut buf,
+                format_args!(
+                    "G:{} P:{} V:{} M:{}",
+                    track.gate.length,
+                    track.pitch.length,
+                    track.velocity.length,
+                    track.modulation.length,
+                ),
+            );
+            draw::text(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+            let mut div_buf = [0u8; 16];
+            let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", track.clock_divider));
+            draw::text_right(
+                display,
+                layout::LCD_W as i32 - layout::PAD as i32,
+                y + 10,
+                ds,
+                colors::TEXT_BRIGHT,
+            );
+        }
+        HeldButton::Feature(feat) => {
+            match feat {
+                types::Feature::Mute => {
+                    let mute = &state.mute_patterns[track_idx];
+                    let s = draw::fmt_buf(&mut buf, format_args!("MUTE LEN {}", mute.length));
+                    draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+
+                    let mut div_buf = [0u8; 16];
+                    let ds = draw::fmt_buf(&mut div_buf, format_args!("/{}", mute.clock_divider));
+                    draw::text_lg(display, layout::PAD as i32 + 240, y + 10, ds, colors::TEXT_BRIGHT);
+                }
+                types::Feature::Variation => {
+                    let vp = &state.variation_patterns[track_idx];
+                    let loop_str = if vp.loop_mode { " LOOP" } else { "" };
+                    let s = draw::fmt_buf(&mut buf, format_args!("VAR {} bars{}", vp.length, loop_str));
+                    draw::text_lg(display, layout::PAD as i32, y + 10, s, colors::TEXT_BRIGHT);
+                }
+                _ => {}
+            }
+        }
+        HeldButton::Step(_) => {
+            // Step hold doesn't show an overlay (it's handled by gate-edit inline)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_graphics_core::{
+        draw_target::DrawTarget,
+        geometry::{OriginDimensions, Size},
+        Pixel,
+    };
+
+    /// Null display that counts pixels drawn but discards them.
+    struct NullDisplay {
+        pixel_count: usize,
+    }
+
+    impl NullDisplay {
+        fn new() -> Self {
+            Self { pixel_count: 0 }
+        }
+    }
+
+    impl OriginDimensions for NullDisplay {
+        fn size(&self) -> Size {
+            Size::new(layout::LCD_W, layout::LCD_H)
+        }
+    }
+
+    impl DrawTarget for NullDisplay {
+        type Color = Rgb565;
+        type Error = core::convert::Infallible;
+
+        fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+        where
+            I: IntoIterator<Item = Pixel<Self::Color>>,
+        {
+            for _ in pixels {
+                self.pixel_count += 1;
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn render_all_screens_no_panic() {
+        let state = SequencerState::new();
+
+        let modes = [
+            ScreenMode::Home,
+            ScreenMode::GateEdit,
+            ScreenMode::PitchEdit,
+            ScreenMode::VelEdit,
+            ScreenMode::ModEdit,
+            ScreenMode::MuteEdit,
+            ScreenMode::Route,
+            ScreenMode::Rand,
+            ScreenMode::MutateEdit,
+            ScreenMode::TransposeEdit,
+            ScreenMode::VariationEdit,
+            ScreenMode::Settings,
+            ScreenMode::Pattern,
+            ScreenMode::PatternLoad,
+            ScreenMode::NameEntry,
+        ];
+
+        for mode in &modes {
+            let mut display = NullDisplay::new();
+            let ui = UiState {
+                mode: *mode,
+                ..UiState::default()
+            };
+            render(&mut display, &state, &ui);
+            assert!(display.pixel_count > 0, "Screen {:?} drew no pixels", mode);
+        }
+    }
+
+    #[test]
+    fn render_with_flash_message() {
+        let state = SequencerState::new();
+        let mut display = NullDisplay::new();
+        let ui = UiState {
+            flash_message: Some("SAVED"),
+            ..UiState::default()
+        };
+        render(&mut display, &state, &ui);
+        assert!(display.pixel_count > 0);
+    }
+
+    #[test]
+    fn render_mod_lfo_view() {
+        let state = SequencerState::new();
+        let mut display = NullDisplay::new();
+        let ui = UiState {
+            mode: ScreenMode::ModEdit,
+            mod_lfo_view: true,
+            ..UiState::default()
+        };
+        render(&mut display, &state, &ui);
+        assert!(display.pixel_count > 0);
+    }
+
+    #[test]
+    fn render_each_track_selected() {
+        let state = SequencerState::new();
+        for track in 0..4u8 {
+            let mut display = NullDisplay::new();
+            let ui = UiState {
+                selected_track: track,
+                ..UiState::default()
+            };
+            render(&mut display, &state, &ui);
+            assert!(display.pixel_count > 0);
+        }
+    }
+}

@@ -1,0 +1,15 @@
+pub mod home;
+pub mod gate_edit;
+pub mod pitch_edit;
+pub mod vel_edit;
+pub mod mod_edit;
+pub mod mute_edit;
+pub mod route;
+pub mod rand;
+pub mod mutate_edit;
+pub mod transpose_edit;
+pub mod variation_edit;
+pub mod settings;
+pub mod pattern;
+pub mod pattern_load;
+pub mod name_entry;

@@ -2,7 +2,14 @@
 # LCSC: C1849436 (OPA4172IPWR, TSSOP-14 — SOIC-14 variant not stocked on LCSC)
 # ±18V max supply, rail-to-rail output, no phase reversal
 
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
 component OPA4172ID:
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C1849436", manufacturer="TI", partno="OPA4172IPWR">
+
     signal OUT1 ~ pin 1
     signal IN1_N ~ pin 2
     signal IN1_P ~ pin 3
@@ -17,5 +24,3 @@ component OPA4172ID:
     signal IN4_P ~ pin 12
     signal IN4_N ~ pin 13
     signal OUT4 ~ pin 14
-
-    designator_prefix = "U"

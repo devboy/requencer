@@ -36,6 +36,7 @@ module IOJacks:
     signal clk_in_gpio    # To Pico GP26
     signal rst_in_gpio    # To Pico GP27
     signal clk_out_gpio   # From Pico GP28
+    signal rst_out_gpio   # From Pico GP24
 
     # CV inputs (future, wired to test points)
     signal cv_a
@@ -138,6 +139,25 @@ module IOJacks:
     r_collector.unnamed[1] ~ q_clk.COLLECTOR
     q_clk.COLLECTOR ~ j_clk_out.TIP
     j_clk_out.SLEEVE ~ gnd
+
+    # --- Reset Output Jack ---
+    # Same transistor buffer as CLK OUT
+    j_rst_out = new PJ398SM
+    q_rst = new _2N3904
+
+    r_rst_base = new Resistor
+    r_rst_base.resistance = 1kohm +/- 5%
+
+    r_rst_collector = new Resistor
+    r_rst_collector.resistance = 1kohm +/- 5%
+
+    rst_out_gpio ~ r_rst_base.unnamed[0]
+    r_rst_base.unnamed[1] ~ q_rst.BASE
+    q_rst.EMITTER ~ gnd
+    v5v ~ r_rst_collector.unnamed[0]
+    r_rst_collector.unnamed[1] ~ q_rst.COLLECTOR
+    q_rst.COLLECTOR ~ j_rst_out.TIP
+    j_rst_out.SLEEVE ~ gnd
 
     # --- CV Input Jacks (future expansion) ---
     # Wired with protection circuits but not connected to MCU GPIO

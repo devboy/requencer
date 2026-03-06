@@ -4,6 +4,7 @@
 import Resistor
 import Capacitor
 import MOSFET
+from "../../parts/PinHeader1x9/PinHeader1x9.ato" import PinHeader1x9
 
 module DisplayConnector:
     # SPI bus (from MCU)
@@ -11,7 +12,6 @@ module DisplayConnector:
     signal sck
     signal cs
     signal dc
-    signal rst
 
     # Backlight control
     signal bl_ctrl    # GPIO from MCU
@@ -48,3 +48,40 @@ module DisplayConnector:
     c_lcd.capacitance = 100nF +/- 20%
     c_lcd.unnamed[0] ~ vcc
     c_lcd.unnamed[1] ~ gnd
+
+    # --- RC power-on reset for LCD controller ---
+    # At power-on, cap is discharged (RST=LOW), then charges through pull-up (RST=HIGH)
+    # Time constant: 10kΩ × 100nF = 1ms (ST7796 needs >10μs reset pulse)
+    r_lcd_rst = new Resistor
+    r_lcd_rst.resistance = 10kohm +/- 5%
+    c_lcd_rst = new Capacitor
+    c_lcd_rst.capacitance = 100nF +/- 20%
+
+    signal rst_internal
+    r_lcd_rst.unnamed[0] ~ vcc
+    r_lcd_rst.unnamed[1] ~ rst_internal
+    c_lcd_rst.unnamed[0] ~ rst_internal
+    c_lcd_rst.unnamed[1] ~ gnd
+
+    # --- Physical LCD connector (9-pin header) ---
+    header = new PinHeader1x9
+
+    # Pin 1: VCC
+    header.PIN1 ~ vcc
+    # Pin 2: GND
+    header.PIN2 ~ gnd
+    # Pin 3: CS
+    header.PIN3 ~ cs
+    # Pin 4: RESET (RC power-on reset, no GPIO needed)
+    header.PIN4 ~ rst_internal
+    # Pin 5: DC
+    header.PIN5 ~ dc
+    # Pin 6: MOSI
+    header.PIN6 ~ mosi
+    # Pin 7: SCK
+    header.PIN7 ~ sck
+    # Pin 8: LED (backlight — connects to MOSFET drain)
+    header.PIN8 ~ q_bl.drain
+    # Pin 9: MISO (not connected in current design)
+    signal miso
+    header.PIN9 ~ miso
