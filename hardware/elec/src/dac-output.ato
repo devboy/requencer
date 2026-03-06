@@ -1,5 +1,6 @@
 # DAC + Analog Output Stage
 # 2× DAC8568 (16-bit, 8-ch each) → 4× OPA4172 (quad op-amp) → 16 buffered outputs
+# Uses dedicated SPI1 bus (GP30/GP31) — no contention with display/SD card
 #
 # Channel mapping:
 #   DAC1 channels A-D: GATE 1-4 (unity buffer, 0–5V)

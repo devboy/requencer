@@ -1,11 +1,12 @@
-# LED Driver — 4× TLC5947 Daisy-Chained
-# 96 channels (32 RGB buttons × 3 channels each)
+# LED Driver — 5× TLC5947 Daisy-Chained
+# 120 channels total (34 RGB buttons × 3 = 102 used, 18 spare)
 # 12-bit PWM brightness control per channel
 #
 # TLC1 (ch 0-23):  Step buttons 1-8 (R/G/B × 8)
 # TLC2 (ch 24-47): Step buttons 9-16 (R/G/B × 8)
 # TLC3 (ch 48-71): Track T1-T4 (12ch) + Subtrack GATE/PITCH/VEL/MOD (12ch)
 # TLC4 (ch 72-95): PAT/MUTE/ROUTE/DRIFT/XPOSE/VAR/PLAY/RESET (8 × 3ch)
+# TLC5 (ch 96-119): SETTINGS (3ch) + TBD (3ch) + 18 spare channels
 
 import Resistor
 import Capacitor
@@ -26,11 +27,12 @@ module LEDDriverChain:
     # LED anode supply (directly from VCC for common-anode RGB buttons)
     signal led_vcc
 
-    # --- 4 TLC5947 chips ---
+    # --- 5 TLC5947 chips ---
     tlc1 = new TLC5947DAP
     tlc2 = new TLC5947DAP
     tlc3 = new TLC5947DAP
     tlc4 = new TLC5947DAP
+    tlc5 = new TLC5947DAP
 
     # Power
     tlc1.VCC ~ vcc
@@ -41,6 +43,8 @@ module LEDDriverChain:
     tlc3.GND ~ gnd
     tlc4.VCC ~ vcc
     tlc4.GND ~ gnd
+    tlc5.VCC ~ vcc
+    tlc5.GND ~ gnd
 
     # LED anode power (connect to VCC)
     led_vcc ~ vcc
@@ -66,32 +70,40 @@ module LEDDriverChain:
     c4.unnamed[0] ~ vcc
     c4.unnamed[1] ~ gnd
 
+    c5 = new Capacitor
+    c5.capacitance = 100nF +/- 20%
+    c5.unnamed[0] ~ vcc
+    c5.unnamed[1] ~ gnd
+
     # Shared control lines
     tlc1.XLAT ~ xlat
     tlc2.XLAT ~ xlat
     tlc3.XLAT ~ xlat
     tlc4.XLAT ~ xlat
+    tlc5.XLAT ~ xlat
 
     tlc1.BLANK ~ blank
     tlc2.BLANK ~ blank
     tlc3.BLANK ~ blank
     tlc4.BLANK ~ blank
+    tlc5.BLANK ~ blank
 
     tlc1.SCLK ~ sclk
     tlc2.SCLK ~ sclk
     tlc3.SCLK ~ sclk
     tlc4.SCLK ~ sclk
+    tlc5.SCLK ~ sclk
 
-    # Daisy chain: MCU → TLC1.SIN → TLC1.SOUT → TLC2.SIN → ... → TLC4.SOUT (unused)
+    # Daisy chain: MCU → TLC1.SIN → TLC1.SOUT → ... → TLC5.SOUT (unused)
     sin ~ tlc1.SIN
     tlc1.SOUT ~ tlc2.SIN
     tlc2.SOUT ~ tlc3.SIN
     tlc3.SOUT ~ tlc4.SIN
+    tlc4.SOUT ~ tlc5.SIN
 
     # IREF resistors — set maximum output current
     # IREF = 39.06 / R_iref (from datasheet)
     # For 20mA: R_iref = 39.06 / 0.020 = 1953Ω ≈ 2kΩ (standard value → ~19.5mA)
-    # Using 1.96kΩ (closest 1%) for ~20mA
     r_iref1 = new Resistor
     r_iref1.resistance = 2kohm +/- 1%
     r_iref1.unnamed[0] ~ tlc1.IREF
@@ -111,6 +123,11 @@ module LEDDriverChain:
     r_iref4.resistance = 2kohm +/- 1%
     r_iref4.unnamed[0] ~ tlc4.IREF
     r_iref4.unnamed[1] ~ gnd
+
+    r_iref5 = new Resistor
+    r_iref5.resistance = 2kohm +/- 1%
+    r_iref5.unnamed[0] ~ tlc5.IREF
+    r_iref5.unnamed[1] ~ gnd
 
     # Note: LED cathode connections (TLC output pins → button LED cathodes)
     # are wired in the top-level requencer.ato since they cross between

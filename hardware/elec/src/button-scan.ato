@@ -1,11 +1,11 @@
 # Button Scanning — 5× 74HC165 Shift Register Chain
-# 33 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
+# 34 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
 #
 # SR1 (bits 0-7):   Step buttons 1-8
 # SR2 (bits 8-15):  Step buttons 9-16
 # SR3 (bits 16-23): Track T1-T4, Subtrack GATE/PITCH/VEL/MOD
 # SR4 (bits 24-31): PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET
-# SR5 (bits 32-39): SETTINGS (D0), D1-D7 unused (7 spare inputs)
+# SR5 (bits 32-39): SETTINGS (D0), TBD (D1), D2-D7 unused (6 spare inputs)
 
 import Resistor
 import Capacitor
@@ -97,7 +97,7 @@ module ButtonScanner:
     sr4.QH ~ sr5.SER
     sr5.QH ~ data_out
 
-    # --- 32 buttons ---
+    # --- 34 buttons ---
     # Each button: one side to shift register input, other side to GND
     # Pull-up resistors on each input to VCC
 
@@ -131,9 +131,6 @@ module ButtonScanner:
     btn_vel = new TC002_RGB
     btn_mod = new TC002_RGB
 
-    # Settings + spare (SR5, D0-D7)
-    btn_settings = new TC002_RGB
-
     # Function buttons (SR4, D0-D7)
     btn_pat = new TC002_RGB
     btn_mute = new TC002_RGB
@@ -143,6 +140,10 @@ module ButtonScanner:
     btn_var = new TC002_RGB
     btn_play = new TC002_RGB
     btn_reset = new TC002_RGB
+
+    # Settings + TBD buttons (SR5, D0-D1)
+    btn_settings = new TC002_RGB
+    btn_tbd = new TC002_RGB
 
     # Wire all button switch contacts: SW1 to shift register, SW2 to GND
     # SR1 inputs
@@ -217,8 +218,14 @@ module ButtonScanner:
     btn_reset.SW1 ~ sr4.D7
     btn_reset.SW2 ~ gnd
 
-    # Pull-up resistors (10kΩ) on all 32 shift register inputs
-    # Using resistor arrays would be better for PCB, but specifying individually
+    # SR5 inputs — settings on D0, TBD on D1, D2-D7 spare
+    btn_settings.SW1 ~ sr5.D0
+    btn_settings.SW2 ~ gnd
+    btn_tbd.SW1 ~ sr5.D1
+    btn_tbd.SW2 ~ gnd
+
+    # Pull-up resistors (10kΩ) on all shift register inputs
+    # SR1 pull-ups (D0-D7)
     r_pu1 = new Resistor
     r_pu1.resistance = 10kohm +/- 5%
     r_pu1.unnamed[0] ~ vcc
@@ -259,6 +266,7 @@ module ButtonScanner:
     r_pu8.unnamed[0] ~ vcc
     r_pu8.unnamed[1] ~ sr1.D7
 
+    # SR2 pull-ups (D0-D7)
     r_pu9 = new Resistor
     r_pu9.resistance = 10kohm +/- 5%
     r_pu9.unnamed[0] ~ vcc
@@ -299,6 +307,7 @@ module ButtonScanner:
     r_pu16.unnamed[0] ~ vcc
     r_pu16.unnamed[1] ~ sr2.D7
 
+    # SR3 pull-ups (D0-D7)
     r_pu17 = new Resistor
     r_pu17.resistance = 10kohm +/- 5%
     r_pu17.unnamed[0] ~ vcc
@@ -339,6 +348,7 @@ module ButtonScanner:
     r_pu24.unnamed[0] ~ vcc
     r_pu24.unnamed[1] ~ sr3.D7
 
+    # SR4 pull-ups (D0-D7)
     r_pu25 = new Resistor
     r_pu25.resistance = 10kohm +/- 5%
     r_pu25.unnamed[0] ~ vcc
@@ -379,10 +389,7 @@ module ButtonScanner:
     r_pu32.unnamed[0] ~ vcc
     r_pu32.unnamed[1] ~ sr4.D7
 
-    # SR5 inputs — settings button on D0, D1-D7 spare (tied high via pull-ups)
-    btn_settings.SW1 ~ sr5.D0
-    btn_settings.SW2 ~ gnd
-
+    # SR5 pull-ups (D0-D7, including spare inputs)
     r_pu33 = new Resistor
     r_pu33.resistance = 10kohm +/- 5%
     r_pu33.unnamed[0] ~ vcc

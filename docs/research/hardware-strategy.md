@@ -105,12 +105,24 @@ GitHub Actions workflow (`.github/workflows/atopile.yml`):
 
 ### Current Status
 
+**Updated 2026-03-06:** Migrated from Raspberry Pi Pico 2 to **Pimoroni PGA2350** (RP2350B, 48 GPIO).
+
 The complete schematic is written in atopile:
-- 14 component definitions (all ICs + through-hole parts)
+- 19 component definitions (all ICs + through-hole parts + PGA2350 + USB-C + SD slot + ESD + BOOTSEL switch)
 - 9 circuit modules (power, MCU, DAC+analog, buttons, LEDs, display, input protection, MIDI, I/O jacks)
-- Top-level `requencer.ato` wiring everything together
+- Top-level `requencer.ato` wiring everything together — **all components connected, no placeholders**
 - Full automation pipeline: footprint generation, placement, autorouting, manufacturing export
 - Faceplate generator producing mechanical-only PCB from shared layout config
+
+**Key changes from Pico 2 design:**
+- MCU: PGA2350 (48 GPIO) replaces Pico Plus 2 (26 GPIO)
+- DACs get dedicated SPI1 bus (no contention with display)
+- 4 CV inputs now connected to ADC4-7 (were "future expansion" placeholders)
+- Front-panel USB-C for firmware updates
+- Front-panel micro SD slot for preset import/export
+- 5th TLC5947 LED driver for settings + TBD button LEDs
+- TBD button added under T4 (on SR5.D1)
+- 15+ spare GPIO for future expansion
 
 ### Remaining Steps
 

@@ -1,9 +1,11 @@
 # Requencer — Top-Level Module
 # 4-track eurorack step sequencer
+# PGA2350 (RP2350B) MCU with 48 GPIO
 # Wires all sub-modules together: power, MCU, DAC, buttons, LEDs, display, I/O
+# All components connected — no shortcuts, no placeholders
 
 from "power.ato" import PowerSupply
-from "mcu.ato" import PicoMCU
+from "mcu.ato" import PGA2350_MCU
 from "dac-output.ato" import DACOutputStage
 from "button-scan.ato" import ButtonScanner
 from "led-driver.ato" import LEDDriverChain
@@ -19,7 +21,7 @@ import Capacitor
 module Requencer:
     # --- Sub-module instances ---
     power = new PowerSupply
-    mcu = new PicoMCU
+    mcu = new PGA2350_MCU
     dac = new DACOutputStage
     buttons = new ButtonScanner
     leds = new LEDDriverChain
@@ -46,10 +48,11 @@ module Requencer:
     jacks.gnd ~ gnd
     midi.gnd ~ gnd
 
-    # Pico VSYS from power supply (3.3V via Schottky)
-    power.pico_vsys ~ mcu.vsys
+    # PGA2350 VB power — fed from +5V via Schottky (inside mcu.ato)
+    power.v5v ~ mcu.v5v
 
-    # +3.3V rail
+    # +3.3V rail (from board regulator — NOT from PGA2350's internal regulator)
+    # PGA2350 has its own 3.3V for MCU core; board 3.3V powers peripherals
     power.v3v3 ~ buttons.vcc       # Shift registers
     power.v3v3 ~ display.vcc       # LCD logic
     power.v3v3 ~ midi.vcc          # MIDI interface
@@ -64,24 +67,24 @@ module Requencer:
     power.v12p ~ dac.v12p
     power.v12n ~ dac.v12n
 
-    # DAC digital supply (3.3V — note: DAC8568 AVDD also serves as DVDD)
-    # The DAC8568 has a single AVDD pin; digital interface is 1.8V–5.5V compatible
+    # === SPI0 BUS (Display + SD Card) ===
+    # Display shares SPI0 MOSI and SCK with SD card (in mcu.ato)
+    mcu.spi0_mosi ~ display.mosi
+    mcu.spi0_sck ~ display.sck
 
-    # === SPI BUS ===
-    # Shared MOSI and SCK from MCU to LCD, DAC1, DAC2
-    mcu.spi_mosi ~ display.mosi
-    mcu.spi_mosi ~ dac.spi_mosi
-    mcu.spi_sck ~ display.sck
-    mcu.spi_sck ~ dac.spi_sck
-
-    # Separate chip select lines
+    # Display chip select and control
     mcu.lcd_cs ~ display.cs
-    mcu.dac1_cs ~ dac.dac1_cs
-    mcu.dac2_cs ~ dac.dac2_cs
-
-    # LCD control lines (RST is handled by RC circuit in display module)
     mcu.lcd_dc ~ display.dc
     mcu.lcd_bl ~ display.bl_ctrl
+
+    # SD card is wired inside mcu.ato (SD slot is part of MCU module)
+
+    # === SPI1 BUS (DACs — Dedicated) ===
+    # DACs get their own SPI bus — no contention with display/SD card
+    mcu.spi1_mosi ~ dac.spi_mosi
+    mcu.spi1_sck ~ dac.spi_sck
+    mcu.dac1_cs ~ dac.dac1_cs
+    mcu.dac2_cs ~ dac.dac2_cs
 
     # === BUTTON SCANNING ===
     mcu.btn_clk ~ buttons.clk
@@ -97,9 +100,8 @@ module Requencer:
     # === LED ↔ BUTTON WIRING ===
     # All button LED anodes connect to +5V (LED driver sinks current)
     # LED cathodes connect to TLC5947 outputs
-    # Buttons are instantiated in button-scan module; LED connections:
 
-    # All button LED anodes to LED VCC (+5V)
+    # All 34 button LED anodes to LED VCC (+5V)
     buttons.btn_step1.LED_ANODE ~ leds.led_vcc
     buttons.btn_step2.LED_ANODE ~ leds.led_vcc
     buttons.btn_step3.LED_ANODE ~ leds.led_vcc
@@ -132,6 +134,8 @@ module Requencer:
     buttons.btn_var.LED_ANODE ~ leds.led_vcc
     buttons.btn_play.LED_ANODE ~ leds.led_vcc
     buttons.btn_reset.LED_ANODE ~ leds.led_vcc
+    buttons.btn_settings.LED_ANODE ~ leds.led_vcc
+    buttons.btn_tbd.LED_ANODE ~ leds.led_vcc
 
     # TLC1 (ch 0-23): Step buttons 1-8 (R, G, B per button)
     buttons.btn_step1.LED_RED ~ leds.tlc1.OUT0
@@ -237,6 +241,15 @@ module Requencer:
     buttons.btn_reset.LED_GREEN ~ leds.tlc4.OUT22
     buttons.btn_reset.LED_BLUE ~ leds.tlc4.OUT23
 
+    # TLC5 (ch 96-119): SETTINGS + TBD buttons
+    buttons.btn_settings.LED_RED ~ leds.tlc5.OUT0
+    buttons.btn_settings.LED_GREEN ~ leds.tlc5.OUT1
+    buttons.btn_settings.LED_BLUE ~ leds.tlc5.OUT2
+    buttons.btn_tbd.LED_RED ~ leds.tlc5.OUT3
+    buttons.btn_tbd.LED_GREEN ~ leds.tlc5.OUT4
+    buttons.btn_tbd.LED_BLUE ~ leds.tlc5.OUT5
+    # TLC5 OUT6-OUT23: spare (18 channels available for future expansion)
+
     # === ENCODERS ===
     # Encoder A (GP15-17)
     enc_a.A ~ mcu.enc_a_a
@@ -252,8 +265,7 @@ module Requencer:
     enc_b.SW2 ~ gnd
     enc_b.GND_ENC ~ gnd
 
-    # Encoder pull-up resistors (internal Pico pull-ups may suffice,
-    # but external 10kΩ pull-ups are more reliable for encoders)
+    # Encoder pull-up resistors (external 10kΩ for reliable operation)
     r_enc_a_a = new Resistor
     r_enc_a_a.resistance = 10kohm +/- 5%
     r_enc_a_a.unnamed[0] ~ power.v3v3
@@ -305,9 +317,6 @@ module Requencer:
     c_enc_b_b.unnamed[0] ~ mcu.enc_b_b
     c_enc_b_b.unnamed[1] ~ gnd
 
-    # Settings button LED anode to VCC (button is in SR5 chain, no TLC channels for LED)
-    buttons.btn_settings.LED_ANODE ~ leds.led_vcc
-
     # === MIDI ===
     mcu.midi_tx ~ midi.uart_tx
     mcu.midi_rx ~ midi.uart_rx
@@ -317,6 +326,12 @@ module Requencer:
     mcu.rst_in ~ jacks.rst_in_gpio
     mcu.clk_out ~ jacks.clk_out_gpio
     mcu.rst_out ~ jacks.rst_out_gpio
+
+    # === CV INPUTS (connected to PGA2350 ADC4-7) ===
+    mcu.cv_a ~ jacks.cv_a_gpio
+    mcu.cv_b ~ jacks.cv_b_gpio
+    mcu.cv_c ~ jacks.cv_c_gpio
+    mcu.cv_d ~ jacks.cv_d_gpio
 
     # === ANALOG OUTPUTS → JACKS ===
     dac.gate1 ~ jacks.gate1

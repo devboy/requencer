@@ -1,22 +1,79 @@
-# QFN RP2350 Research: Bare Chip vs Pico 2 Module
+# QFN RP2350 Research: PGA2350 Module Selected
 
-## Current Design
+## Decision: Pimoroni PGA2350
 
-The Requencer currently uses the **Raspberry Pi Pico 2 module** (castellated 40-pin), which contains:
-- RP2350A (QFN-60) chip
-- 4MB external QSPI flash
-- 3.3V buck-boost SMPS
-- 12MHz crystal
-- USB connector + ESD protection
-- BOOTSEL button
+**Date:** 2026-03-06
 
-The Pico 2 exposes **26 GPIO** of the chip's 30 — GP23/GP24/GP25 are used internally (SMPS mode, VBUS detect, onboard LED). We currently use **all 29 assignable pins** including the 3 "internal" ones where possible, with zero GPIO to spare.
+After evaluating bare RP2350B vs module options, we're going with the **Pimoroni PGA2350** as our MCU module. It gives us the RP2350B's 48 GPIO without the complexity of designing our own power/clock/flash circuitry.
 
-The **Pico Plus 2** variant adds 8MB PSRAM on the QSPI bus, which our firmware plan depends on for state storage (~244KB), framebuffer (~307KB), and deserialization buffers.
+### Why PGA2350
+
+| Feature | Pico Plus 2 (old) | PGA2350 (new) |
+|---|---|---|
+| **GPIO** | 26 usable (0 spare) | **48** (15+ spare) |
+| **ADC channels** | 3 usable | **8** |
+| **Flash** | 4MB | **16MB** |
+| **PSRAM** | 8MB | **8MB** |
+| **Size** | 51 × 21mm | **25.4 × 25.4mm** (smaller!) |
+| **USB connector** | Built-in Micro-B | **None** (we add USB-C to faceplate) |
+| **BOOTSEL** | Physical button | **BS pin** (wire our own) |
+| **3.3V regulator** | Built-in | **Built-in** (300mA) |
+| **Mounting** | Castellated edge pads | **PGA** (pin grid, 2.54mm pitch) |
+| **Price** | ~$8 | **~$10** |
+
+### What This Enables
+
+1. **4 CV inputs actually connected** — ADC4-7 on GP40-GP43, no more "future expansion" placeholder
+2. **Dedicated DAC SPI bus** — SPI1 on GP30/GP31 for DACs, SPI0 stays with display + SD card. Eliminates bus contention.
+3. **Front-panel USB-C** — for firmware updates without opening the rack
+4. **Front-panel micro SD slot** — for preset import/export, pattern sharing
+5. **Extra button (TBD)** — below T4, available for future features
+6. **15+ spare GPIO** — room for expansion without a board respin
+
+### Flashing Strategy
+
+The PGA2350 has no BOOTSEL button — it has a **BS pin** that must be pulled to GND during power-up to enter UF2 bootloader mode.
+
+**How we handle this:**
+
+1. **First flash / recovery:** Small tactile BOOTSEL switch on the main PCB (accessible when module is removed from rack, or through a pinhole). Hold BS button → plug USB-C → appears as USB mass storage → drag UF2 file.
+2. **Normal firmware updates:** Once initial firmware is loaded, use `picotool reboot -f -u` over USB-C to reboot into bootloader mode. **No physical button press needed.** The firmware can expose a "firmware update" menu option that triggers this automatically.
+3. **SWD header:** 3-pin debug header (SWCLK, SWDIO, GND) on the main PCB for development with `probe-rs` / `cargo flash`. This is the primary development workflow.
+
+**Summary: You do NOT need to push a button for normal updates.** Software-triggered reboot to bootloader works once any firmware is loaded. Physical button is only for initial flash or brick recovery.
+
+### USB-C on Front Panel
+
+The PGA2350 exposes U+ and U- pins (USB data lines) on the pin grid. We wire these to a USB-C connector mounted on the front panel faceplate:
+
+- **USB-C receptacle** on faceplate (standard 16-pin through-hole or mid-mount)
+- **27Ω series resistors** on D+/D- (USB spec)
+- **ESD protection** TVS diode (PRTR5V0U2X or similar)
+- **5.1kΩ pull-down resistors** on CC1/CC2 (required for USB-C as device)
+- **VBUS** connected to PGA2350's VB pin through a Schottky diode (so USB power doesn't fight eurorack power)
+
+USB is **only for programming/debug**. Normal operation is powered by eurorack ±12V.
+
+### Micro SD Card on Front Panel
+
+With SPI0 shared between display and SD card:
+
+- **SPI0 MISO** on GP23 (new — not available on Pico 2)
+- **SD CS** on GP24
+- Display and SD card share MOSI (GP0) and SCK (GP2)
+- Bus arbitration handled in firmware (never talk to both simultaneously)
+
+Front-panel micro SD slot allows:
+- **Preset backup/restore** — copy all patterns to SD as files
+- **MIDI file import** — load .mid files for playback
+- **Preset sharing** — swap SD cards between modules
+- **Firmware backup** — store UF2 files on card
+
+The module works fine without a card inserted. SD is purely for import/export.
 
 ---
 
-## RP2350 Chip Variants
+## RP2350 Chip Variants (Reference)
 
 | | RP2350A | RP2354A | RP2350B | RP2354B |
 |---|---|---|---|---|
@@ -31,182 +88,126 @@ The **Pico Plus 2** variant adds 8MB PSRAM on the QSPI bus, which our firmware p
 | **USB** | 1 (FS) | 1 (FS) | 1 (FS) | 1 (FS) |
 | **Price** | ~$0.80 | ~$0.80 | ~$0.90 | ~$0.90 |
 
-**All variants share:** Dual Cortex-M33 / dual RISC-V Hazard3 cores, 150MHz, 520KB SRAM, 12 PIO state machines, 3 PIO blocks, QSPI bus with secondary CS for PSRAM/flash, TrustZone, SHA-256, OTP.
+**PGA2350 uses the RP2350B** (QFN-80, 48 GPIO). All variants share: Dual Cortex-M33 / dual RISC-V Hazard3 cores, 150MHz, 520KB SRAM, 12 PIO state machines, 3 PIO blocks, QSPI bus with secondary CS for PSRAM/flash, TrustZone, SHA-256, OTP.
 
 ---
 
-## What We Gain: RP2350B (QFN-80)
+## New GPIO Allocation (PGA2350)
 
-### 1. **+18 GPIO pins (30 → 48)**
-
-This is the headline win. We currently have **zero spare GPIO**. With 18 extra pins:
-
-| Potential Use | Pins Needed | Notes |
+### SPI0 — Display + SD Card
+| GPIO | Function | Notes |
 |---|---|---|
-| **Direct encoder reading** (no shift register) | 0 (already direct) | Already using 6 GPIO for 2 encoders |
-| **Direct button matrix** (replace 74HC165 chain) | ~10-12 | Could scan a 6×6 matrix = 36 buttons directly, eliminating 5 shift register ICs |
-| **Second SPI bus** for DAC (dedicated) | 2-3 | Separate DAC SPI from display SPI — eliminates bus contention and simplifies ISR timing |
-| **I2C bus** for expansion | 2 | OLED, sensors, I/O expanders |
-| **Additional CV inputs** | 4 | 4 more ADC channels (8 total vs current 4) — the panel already has 4 CV input jacks allocated for "future expansion" |
-| **Additional gate/trigger outputs** | 2-4 | Direct GPIO gate outputs (no DAC needed for digital signals) |
-| **SD card** (SPI mode) | 4 | Pattern/preset storage |
-| **WS2812 LED strip** | 1 | Alternative to TLC5947 LED drivers via PIO |
-| **Debug UART** | 2 | Dedicated debug serial port separate from MIDI |
+| GP0 | SPI0 TX (MOSI) | Shared: display + SD card |
+| GP2 | SPI0 SCK | Shared: display + SD card |
+| GP23 | SPI0 RX (MISO) | SD card reads (+ display MISO if needed) |
+| GP1 | LCD CS | Display chip select |
+| GP24 | SD CS | SD card chip select |
 
-**Most impactful allocation for Requencer:** Dedicate a separate SPI bus to the DACs, use the extra ADC channels for the 4 CV inputs, and keep some spare pins for future expansion.
+### Display Control
+| GPIO | Function |
+|---|---|
+| GP3 | LCD DC (data/command) |
+| GP5 | LCD backlight PWM |
 
-### 2. **+4 ADC channels (4 → 8)**
-
-The RP2350B exposes ADC channels 4–7 on GPIO40–GPIO47. Currently we use ADC0–2 as digital inputs (clock in, reset in, clock out). With 8 ADC channels we could:
-- Keep clock/reset as digital GPIO on the original pins
-- Use 4 new ADC channels for **proper analog CV input** on the 4 CV input jacks
-- Potentially add a **tuning/calibration voltage reference** input
-
-### 3. **PSRAM is still available**
-
-The QSPI bus with secondary chip select works identically on both QFN-60 and QFN-80. We can attach 8MB or 16MB PSRAM the same way the Pico Plus 2 does. **No difference in RAM capability** — the package doesn't affect memory, the QSPI interface is the same.
-
-### 4. **Same SRAM (520KB)**
-
-On-chip SRAM is 520KB regardless of package. This is a property of the die, not the package.
-
----
-
-## What We Must Add: External Components
-
-Moving from the Pico 2 module to a bare RP2350B means we must provide everything the module currently handles:
-
-### Required External Circuitry
-
-| Component | Purpose | Complexity |
+### SPI1 — DACs (Dedicated Bus)
+| GPIO | Function | Notes |
 |---|---|---|
-| **12MHz crystal + 2× load caps** | Clock source (ABM8-272-T3 recommended) | Low — 3 passives |
-| **QSPI flash** (e.g. W25Q128JV 16MB) | Program storage | Low — 1 IC + decoupling |
-| **PSRAM** (e.g. APS6404L 8MB) | Data memory | Low — 1 IC + decoupling (uses QSS_CS1 secondary select) |
-| **3.3V power supply** | Core I/O voltage | Medium — buck converter or LDO from +5V rail |
-| **1.1V core supply** | DVDD (generated by internal SMPS) | Low — just an inductor + caps (RP2350 has internal SMPS) |
-| **USB connector + ESD** | Programming/debug | Medium — USB-C connector, TVS diode, series resistors |
-| **BOOTSEL circuit** | Enter programming mode | Low — button pulling QSPI_SS low |
-| **Decoupling caps** | Power integrity | Low — ~10× 100nF + bulk caps |
-| **Reset circuit** | Power-on reset (optional) | Low — RC circuit or supervisor IC |
+| GP30 | SPI1 TX (MOSI) | DAC data (no bus contention with display) |
+| GP31 | SPI1 SCK | DAC clock |
+| GP32 | DAC1 CS | DAC8568 #1 chip select |
+| GP33 | DAC2 CS | DAC8568 #2 chip select |
 
-**Total additional BOM:** ~15-20 extra components (vs the ~0 needed with the module).
+### Button Scanning (74HC165 Chain)
+| GPIO | Function |
+|---|---|
+| GP8 | Shift register CLK |
+| GP9 | Shift register SH/LD (latch) |
+| GP10 | Shift register QH (data out) |
 
-### Yes, USB Must Be Wired
+### LED Drivers (TLC5947 Chain)
+| GPIO | Function |
+|---|---|
+| GP11 | TLC SIN (serial data) |
+| GP12 | TLC SCLK (serial clock) |
+| GP13 | TLC XLAT (latch) |
+| GP14 | TLC BLANK (output enable) |
 
-**You must wire USB yourself.** This means:
-- USB-C (or Micro-B) connector footprint on the PCB
-- D+ and D- routed as a 90Ω differential pair
-- 27Ω series resistors on D+/D-
-- ESD protection TVS diode (e.g. PRTR5V0U2X)
-- VBUS detection (can use a simple voltage divider to a GPIO)
+### Encoders
+| GPIO | Function |
+|---|---|
+| GP15 | Encoder A, phase A |
+| GP16 | Encoder A, phase B |
+| GP17 | Encoder A, push switch |
+| GP18 | Encoder B, phase A |
+| GP19 | Encoder B, phase B |
+| GP20 | Encoder B, push switch |
 
-However: **USB is only needed for programming/debug.** If you use SWD for flashing (which you likely will with `probe-rs` / `cargo flash`), USB becomes optional. You could:
-- Include a **SWD header** (3 pins: SWCLK, SWDIO, GND) for development
-- Omit USB entirely if you flash via SWD
-- Or include a minimal USB-C for BOOTSEL/UF2 drag-and-drop as a fallback
+### MIDI (UART0)
+| GPIO | Function |
+|---|---|
+| GP21 | UART0 TX (MIDI OUT) |
+| GP22 | UART0 RX (MIDI IN) |
 
-The RP2350 has dedicated USB D+/D- pins that are **not** part of the GPIO bank, so USB doesn't consume any of your 48 GPIO.
+### Clock/Reset I/O
+| GPIO | Function |
+|---|---|
+| GP26 (ADC0) | Clock input |
+| GP27 (ADC1) | Reset input |
+| GP28 (ADC2) | Clock output |
+| GP4 | Reset output |
 
----
+### CV Inputs (NEW — previously unconnected)
+| GPIO | Function |
+|---|---|
+| GP40 (ADC4) | CV input A |
+| GP41 (ADC5) | CV input B |
+| GP42 (ADC6) | CV input C |
+| GP43 (ADC7) | CV input D |
 
-## Caveats and Risks
+### Spare GPIO (15 pins)
+| GPIO | Notes |
+|---|---|
+| GP6, GP7 | Freed from old DAC CS assignment |
+| GP25 | Was Pico onboard LED, now free |
+| GP29 (ADC3) | Spare ADC channel |
+| GP34-39 | General purpose |
+| GP44-47 | GP47 has PSRAM CS trace (cuttable) |
 
-### 1. **PCB Complexity Increase**
-- **0.4mm pitch QFN-80** requires careful PCB layout:
-  - 0402 (1005 metric) passives near the chip
-  - Solder mask webs between pads may not be feasible — single mask opening per side
-  - Exposed thermal pad needs windowed solder paste stencil (~50-80% coverage)
-  - **Minimum 4-layer PCB recommended** (signal-ground-power-signal)
-  - X-ray inspection recommended for production QA (no visible solder fillets)
-- The current Pico module just needs castellated pads on a 2.54mm pitch — dramatically simpler
-
-### 2. **Assembly Difficulty**
-- QFN packages **cannot be hand-soldered reliably** — require reflow oven or hot air station
-- 0.4mm pitch means ~0.2mm pad width with ~0.15mm gaps
-- This is fine for JLCPCB/PCBA assembly, but makes prototyping harder
-- **The Pico module can be hand-soldered with a regular iron** — big advantage for iteration
-
-### 3. **Increased BOM Cost and Complexity**
-- Module cost: Pico 2 = ~$5, Pico Plus 2 (with PSRAM) = ~$8
-- Bare chip: RP2350B = ~$0.90 + flash (~$0.50) + PSRAM (~$1.50) + crystal (~$0.30) + passives (~$0.50) + USB (~$0.50) ≈ **~$4.20**
-- Savings: ~$1-4 per board at BOM level, but **NRE is higher** (more complex PCB, more PCBA placement charges)
-- At small volumes (<100 units), the module is likely cheaper overall
-- At volume (>500), bare chip wins on per-unit cost
-
-### 4. **Atopile Redesign Scope**
-- The entire `hardware/` project would need significant rework:
-  - Replace `RaspberryPiPico2.ato` module with bare RP2350B schematic
-  - Add power supply section (SMPS inductor, caps, LDO)
-  - Add crystal oscillator section
-  - Add flash + PSRAM section
-  - Add USB section (or SWD-only)
-  - Remap all GPIO assignments (new pin numbers)
-  - Redesign PCB layout (likely needs 4-layer board)
-- The `mcu.ato` GPIO mapping would change entirely — pin numbers differ between module and bare chip
-
-### 5. **RP2350 Errata (E9 — resolved in A3/A4 stepping)**
-- Early RP2350 silicon (A2 stepping) has a GPIO input leakage bug: ~120μA leakage when input voltage is between thresholds, pulling pins to ~2.2V
-- **Fixed in A3 and A4 stepping** (available since July 2025)
-- When ordering bare chips, ensure you get **stepping A3 or later**
-- Pull-down resistors on affected A2 chips need to be ≤8.2kΩ
-
-### 6. **No Wireless Option**
-- The Pico 2 W adds Wi-Fi/BT via CYW43439 — there's no equivalent for the bare chip without adding your own wireless module
-- Not relevant for Requencer (no wireless needed), but worth noting
-
-### 7. **Embassy/HAL Support**
-- `embassy-rp` supports both RP2350A and RP2350B — the HAL abstracts GPIO bank differences
-- You'll need to enable the correct chip feature flag in Cargo.toml
-- The extra GPIO (30-47) are fully supported in the SDK and HAL
+**Total used: 33 of 48 GPIO. 15 spare.**
 
 ---
 
-## Alternative: RP2350B Modules
+## PGA2350 Module Specifications
 
-Instead of full bare-chip design, consider drop-in modules that use the RP2350B:
-
-| Module | GPIO Exposed | PSRAM | Flash | Size | Price |
-|---|---|---|---|---|---|
-| **Pimoroni PGA2350** | 48 (all) | 8MB | 16MB | 22×22mm (PGA) | ~$10 |
-| **Solder Party RP2350 Stamp XL** | 48 (all) | 8MB | 16MB | 45×25mm (castellated) | ~$12 |
-| **SparkFun Pro Micro RP2350** | 30 (subset) | — | 16MB | — | ~$10 |
-
-**The Pimoroni PGA2350 or RP2350 Stamp XL** could be a middle ground — you get all 48 GPIO and 8MB PSRAM without designing the power/clock/flash/USB circuitry yourself. The tradeoff is larger footprint and higher cost vs bare chip.
+- **Chip:** RP2350B (QFN-80)
+- **Package:** 25.4 × 25.4mm Pin Grid Array, 2.54mm pin pitch
+- **64 total pins:** 48 GPIO + power + USB data + GND
+- **Flash:** 16MB QSPI with XiP
+- **PSRAM:** 8MB (on QSS_CS1, GP47 trace cuttable if not needed)
+- **Onboard 3.3V regulator:** 300mA max output
+- **Input voltage:** 3V to 5.5V on VB pin
+- **No USB connector** — U+/U- exposed as pins
+- **No BOOTSEL button** — BS pin exposed
+- **No LEDs** — minimal module
+- **RP2350-E9 erratum:** Early A2 stepping affected; A3+ stepping resolved. Current stock should be A3+.
 
 ---
 
-## Recommendation for Requencer
+## Errata Notes
 
-### Short-term (current prototype): Stay with Pico Plus 2 module
-- Zero spare GPIO is tight but workable — the shift register architecture handles button scanning efficiently
-- PSRAM is already provided
-- Fast iteration with hand-soldering
-- Focus firmware development effort on the current hardware
-
-### Medium-term (next PCB revision): Consider RP2350B bare chip or module
-- **If you need the 4 CV inputs working as analog**: RP2350B gives you 4 extra ADC channels
-- **If bus contention between LCD and DAC becomes a timing problem**: Separate SPI buses is a clean solution with extra GPIO
-- **If you want to reduce BOM at volume**: Bare chip saves $1-4/unit
-- The RP2350 Stamp XL (castellated, 2mm pitch) is a pragmatic stepping stone — all 48 GPIO, hand-solderable, no QFN headaches
-
-### What the extra GPIO enables specifically for Requencer:
-1. **4 CV inputs via ADC4-7** — the panel already has these jacks allocated
-2. **Dedicated DAC SPI bus** — eliminates LCD/DAC bus sharing, simplifies ISR
-3. **3-4 spare GPIO** for future features (SD card, expansion header, etc.)
+### RP2350-E9 (GPIO Input Leakage)
+- **Affects:** A2 stepping only (shipping pre-July 2025)
+- **Fixed in:** A3 and A4 stepping
+- **Impact:** ~120μA leakage when input voltage is between thresholds
+- **Mitigation:** If on A2, use pull-down resistors ≤8.2kΩ on affected inputs
+- **Current PGA2350 stock:** Should be A3+ stepping. Verify on receipt.
 
 ---
 
 ## Sources
 
+- [Pimoroni PGA2350 Product Page](https://shop.pimoroni.com/en-us/products/pga2350)
+- [Pimoroni PGA GitHub Repository](https://github.com/pimoroni/pga)
 - [Raspberry Pi RP2350 Hardware Design Guide (PDF)](https://datasheets.raspberrypi.com/rp2350/hardware-design-with-rp2350.pdf)
 - [RP2350 Product Brief (PDF)](https://datasheets.raspberrypi.com/rp2350/rp2350-product-brief.pdf)
 - [RP2350B QFN-80 Pinout](https://rp2350b.pinout.xyz/)
-- [JLCPCB: How to Design Layout with RP2350](https://jlcpcb.com/blog/how-to-design-layout-with-rp2350)
-- [DeepBlue Embedded: RP2350 Hardware PCB Design in KiCAD](https://deepbluembedded.com/rp2350-hardware-pcb-design-in-kicad-rp2350-schematic/)
-- [Tom's Hardware: What's Inside the Pico 2's RP2350](https://www.tomshardware.com/raspberry-pi/raspberry-pi-pico/whats-inside-the-raspberry-pi-pico-2s-rp2350)
-- [Jeff Geerling: Raspberry Pi Pico 2 - RP2350](https://www.jeffgeerling.com/blog/2024/raspberry-pi-pico-2-rp2350-adds-more-pio-risc-v-cores/)
-- [Adafruit: Eye on NPI – RP2350A and RP2350B](https://blog.adafruit.com/2025/03/27/eye-on-npi-raspberry-pi-rp2350a-and-rp2350b-microcontrollers-eyeonnpi-raspberrypi-digikey-raspberry_pi)
-- [RP2350 Wikipedia](https://en.wikipedia.org/wiki/RP2350)
-- [Arduino-Pico PSRAM Documentation](https://arduino-pico.readthedocs.io/en/latest/psram.html)
-- [Raspberry Pi Minimal Design KiCAD Files](https://datasheets.raspberrypi.com/rp2350/Minimal-KiCAD.zip)

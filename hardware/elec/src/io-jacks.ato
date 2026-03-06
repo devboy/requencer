@@ -1,6 +1,6 @@
 # I/O Jacks — All 26 Thonkiconn PJ398SM jacks
-# 16 analog outputs, 2 clock/reset inputs, 1 clock output,
-# 4 CV inputs (future), 2 MIDI (handled in midi.ato), 1 USB (on Pico)
+# 16 analog outputs, 2 clock/reset inputs, 2 clock/reset outputs,
+# 4 CV inputs (connected to PGA2350 ADC4-7), 2 MIDI (handled in midi.ato)
 
 import Resistor
 
@@ -33,16 +33,16 @@ module IOJacks:
     signal mod4
 
     # Digital I/O (from MCU)
-    signal clk_in_gpio    # To Pico GP26
-    signal rst_in_gpio    # To Pico GP27
-    signal clk_out_gpio   # From Pico GP28
-    signal rst_out_gpio   # From Pico GP24
+    signal clk_in_gpio    # To PGA2350 GP26 (ADC0)
+    signal rst_in_gpio    # To PGA2350 GP27 (ADC1)
+    signal clk_out_gpio   # From PGA2350 GP28 (ADC2)
+    signal rst_out_gpio   # From PGA2350 GP4
 
-    # CV inputs (future, wired to test points)
-    signal cv_a
-    signal cv_b
-    signal cv_c
-    signal cv_d
+    # CV inputs (connected to PGA2350 ADC4-7 via input protection)
+    signal cv_a_gpio      # To PGA2350 GP40 (ADC4)
+    signal cv_b_gpio      # To PGA2350 GP41 (ADC5)
+    signal cv_c_gpio      # To PGA2350 GP42 (ADC6)
+    signal cv_d_gpio      # To PGA2350 GP43 (ADC7)
 
     # --- 16 Analog Output Jacks ---
     j_gate1 = new PJ398SM
@@ -119,7 +119,7 @@ module IOJacks:
     prot_rst.gnd ~ gnd
 
     # --- Clock Output Jack ---
-    # Pico GPIO (3.3V) → 2N3904 transistor buffer → 5V gate output
+    # PGA2350 GPIO (3.3V) → 2N3904 transistor buffer → 5V gate output
     j_clk_out = new PJ398SM
     q_clk = new _2N3904
 
@@ -130,8 +130,7 @@ module IOJacks:
     r_collector.resistance = 1kohm +/- 5%
 
     # NPN common-emitter: GPIO high → transistor ON → output pulled to GND
-    # Inverted logic (firmware accounts for inversion), or use as open-collector
-    # with pull-up to 5V
+    # Inverted logic (firmware accounts for inversion)
     clk_out_gpio ~ r_base.unnamed[0]
     r_base.unnamed[1] ~ q_clk.BASE
     q_clk.EMITTER ~ gnd
@@ -159,8 +158,7 @@ module IOJacks:
     q_rst.COLLECTOR ~ j_rst_out.TIP
     j_rst_out.SLEEVE ~ gnd
 
-    # --- CV Input Jacks (future expansion) ---
-    # Wired with protection circuits but not connected to MCU GPIO
+    # --- CV Input Jacks (connected to PGA2350 ADC4-7) ---
     j_cv_a = new PJ398SM
     j_cv_b = new PJ398SM
     j_cv_c = new PJ398SM
@@ -173,24 +171,24 @@ module IOJacks:
 
     j_cv_a.TIP ~ prot_cv_a.input
     j_cv_a.SLEEVE ~ gnd
-    prot_cv_a.output ~ cv_a
+    prot_cv_a.output ~ cv_a_gpio
     prot_cv_a.vclamp ~ v3v3
     prot_cv_a.gnd ~ gnd
 
     j_cv_b.TIP ~ prot_cv_b.input
     j_cv_b.SLEEVE ~ gnd
-    prot_cv_b.output ~ cv_b
+    prot_cv_b.output ~ cv_b_gpio
     prot_cv_b.vclamp ~ v3v3
     prot_cv_b.gnd ~ gnd
 
     j_cv_c.TIP ~ prot_cv_c.input
     j_cv_c.SLEEVE ~ gnd
-    prot_cv_c.output ~ cv_c
+    prot_cv_c.output ~ cv_c_gpio
     prot_cv_c.vclamp ~ v3v3
     prot_cv_c.gnd ~ gnd
 
     j_cv_d.TIP ~ prot_cv_d.input
     j_cv_d.SLEEVE ~ gnd
-    prot_cv_d.output ~ cv_d
+    prot_cv_d.output ~ cv_d_gpio
     prot_cv_d.vclamp ~ v3v3
     prot_cv_d.gnd ~ gnd
