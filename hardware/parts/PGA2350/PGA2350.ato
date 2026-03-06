@@ -14,7 +14,7 @@ import has_part_picked
 component PGA2350:
     trait is_atomic_part<manufacturer="Pimoroni", partnumber="PIM722", footprint="PGA2350.kicad_mod", symbol="PGA2350.kicad_sym">
     trait has_designator_prefix<prefix="U">
-    trait has_part_picked::by_supplier<supplier_id="pimoroni", supplier_partno="PIM722", manufacturer="Pimoroni", partno="PIM722">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C0000", manufacturer="Pimoroni", partno="PIM722">
 
     # Power pins
     signal VB ~ pin 1          # Power input: 3V-5.5V

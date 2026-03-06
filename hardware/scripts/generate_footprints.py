@@ -2,7 +2,7 @@
 """Generate KiCad footprints (.kicad_mod) for through-hole components.
 
 Writes KiCad S-expression format directly — no external dependencies.
-Output: hardware/elec/footprints/*.kicad_mod
+Output: hardware/parts/<PartName>/<footprint>.kicad_mod
 
 Components:
   - PJ398SM (Thonkiconn 3.5mm mono jack)
@@ -10,13 +10,14 @@ Components:
   - EC11E (Alps rotary encoder with push switch)
   - RPi Pico (castellated pad module)
   - 2x5 shrouded header (eurorack power)
+  - PGA2350 (Pimoroni PGA2350, 8x8 PGA module)
 """
 
 import os
 import sys
 
 
-FOOTPRINT_DIR = os.path.join(os.path.dirname(__file__), "..", "elec", "footprints")
+PARTS_DIR = os.path.join(os.path.dirname(__file__), "..", "parts")
 
 
 def mm(v):
@@ -271,25 +272,70 @@ def make_eurorack_header():
     )
 
 
-def main():
-    os.makedirs(FOOTPRINT_DIR, exist_ok=True)
+def make_pga2350():
+    """Pimoroni PGA2350 — 64-pin PGA module, 8x8 grid, 2.54mm pitch.
 
-    footprints = [
-        ("PJ398SM", make_pj398sm),
-        ("TC002-N11AS1XT-RGB", make_tc002_rgb),
-        ("EC11E", make_ec11e),
-        ("RaspberryPiPico", make_rpi_pico),
-        ("EurorackPowerHeader_2x5", make_eurorack_header),
+    25.4mm x 25.4mm module with through-hole pins on bottom.
+    Pins numbered 1-64 sequentially, row by row.
+    """
+    pitch = 2.54
+    grid = 8
+    # Center the grid: offset so pin grid is centered at origin
+    offset = (grid - 1) / 2 * pitch  # 8.89mm
+
+    items = [
+        fp_text("reference", "REF**", 0, -15, "F.SilkS"),
+        fp_text("value", "PGA2350", 0, 15, "F.Fab"),
     ]
 
-    for name, factory in footprints:
+    # 8x8 grid of through-hole pins, numbered 1-64 row by row
+    pin = 1
+    for row in range(grid):
+        for col in range(grid):
+            x = col * pitch - offset
+            y = row * pitch - offset
+            shape = "rect" if pin == 1 else "circle"
+            items.append(tht_pad(pin, x, y, 1.7, 1.0, shape=shape))
+            pin += 1
+
+    items.extend([
+        # Module body outline (25.4mm x 25.4mm)
+        fp_rect(-12.7, -12.7, 12.7, 12.7, "F.SilkS"),
+        # Pin 1 marker
+        fp_circle(-offset - 1.5, -offset, 0.3, "F.SilkS"),
+        # Courtyard
+        fp_rect(-13.7, -13.7, 13.7, 13.7, "F.CrtYd", 0.05),
+    ])
+
+    return write_footprint(
+        "PGA2350",
+        "Pimoroni PGA2350 RP2350B module, 64-pin PGA, 2.54mm pitch",
+        "PGA2350 RP2350 Pimoroni module PGA",
+        items,
+    )
+
+
+def main():
+    # Map: (footprint_filename, part_directory, factory_function)
+    footprints = [
+        ("PJ398SM.kicad_mod", "PJ398SM", make_pj398sm),
+        ("TC002-N11AS1XT-RGB.kicad_mod", "TC002-RGB", make_tc002_rgb),
+        ("EC11E.kicad_mod", "EC11E", make_ec11e),
+        ("RaspberryPiPico.kicad_mod", "RaspberryPiPico", make_rpi_pico),
+        ("EurorackPowerHeader_2x5.kicad_mod", "EurorackPowerHeader", make_eurorack_header),
+        ("PGA2350.kicad_mod", "PGA2350", make_pga2350),
+    ]
+
+    for filename, part_dir, factory in footprints:
         content = factory()
-        path = os.path.join(FOOTPRINT_DIR, f"{name}.kicad_mod")
+        out_dir = os.path.join(PARTS_DIR, part_dir)
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, filename)
         with open(path, "w") as f:
             f.write(content)
         print(f"  Generated {path}")
 
-    print(f"\n{len(footprints)} footprints generated in {FOOTPRINT_DIR}")
+    print(f"\n{len(footprints)} footprints generated in {PARTS_DIR}/<PartName>/")
 
 
 if __name__ == "__main__":

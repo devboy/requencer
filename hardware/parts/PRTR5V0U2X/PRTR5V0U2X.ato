@@ -7,7 +7,7 @@ import has_designator_prefix
 import has_part_picked
 
 component PRTR5V0U2X:
-    trait is_atomic_part<manufacturer="Nexperia", partnumber="PRTR5V0U2X", footprint="SOT-143B", symbol="PRTR5V0U2X.kicad_sym">
+    trait is_atomic_part<manufacturer="Nexperia", partnumber="PRTR5V0U2X", footprint="SOT-143B.kicad_mod", symbol="PRTR5V0U2X.kicad_sym">
     trait has_designator_prefix<prefix="D">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C12333", manufacturer="Nexperia", partno="PRTR5V0U2X">
 
