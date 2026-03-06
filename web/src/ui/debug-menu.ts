@@ -118,8 +118,22 @@ export function createDebugMenu(actions: DebugActions): void {
   instrBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
   instrBtn.addEventListener('click', () => toggleInstructions())
 
+  // Footprints toggle
+  const footprintsBtn = document.createElement('button')
+  footprintsBtn.textContent = 'Footprints: OFF'
+  footprintsBtn.style.cssText = BTN_CSS
+  footprintsBtn.addEventListener('click', () => {
+    const overlay = document.getElementById('footprint-overlay')
+    if (overlay) {
+      const visible = overlay.style.display !== 'none'
+      overlay.style.display = visible ? 'none' : ''
+      footprintsBtn.textContent = `Footprints: ${visible ? 'OFF' : 'ON'}`
+      footprintsBtn.style.background = visible ? '#2a2a4e' : '#2e5a2e'
+    }
+  })
+
   btnRow.append(playBtn, clearBtn)
-  content.append(bpmRow, drumsBtn, btnRow, helpBtn, instrBtn)
+  content.append(bpmRow, drumsBtn, btnRow, footprintsBtn, helpBtn, instrBtn)
   el.append(toggleBtn, content)
   document.body.appendChild(el)
 

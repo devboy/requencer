@@ -92,9 +92,9 @@
       { "id": "settings", "label": "SET",   "x_mm": 135.55, "y_mm": 43.00 }
     ],
     "control_strip": [
-      { "id": "back", "label": "BACK" },
-      { "id": "rand", "label": "RAND" },
-      { "id": "clr",  "label": "CLR" }
+      { "id": "back", "label": "BACK", "x_mm": 36.26, "y_mm": 76.36 },
+      { "id": "rand", "label": "RAND", "x_mm": 59.94, "y_mm": 76.36 },
+      { "id": "clr",  "label": "CLR",  "x_mm": 83.62, "y_mm": 76.36 }
     ]
   },
 
@@ -156,6 +156,28 @@
       "width_mm": 2.5,
       "height_mm": 12.0,
       "notes": "Micro SD push-push slot, vertical portrait, between step grid and jacks"
+    }
+  },
+
+  "footprints": {
+    "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
+    "pj398sm": {
+      "description": "Thonkiconn PJ398SM 3.5mm mono jack",
+      "drill_mm": 6.0,
+      "body":      { "x1": -4.0, "y1": -7.0, "x2": 7.0, "y2": 3.0 },
+      "courtyard": { "x1": -4.0, "y1": -7.0, "x2": 7.0, "y2": 3.0 }
+    },
+    "tc002_rgb": {
+      "description": "Well Buying TC002 RGB tactile switch",
+      "drill_mm": 3.2,
+      "body":      { "x1": -3.5, "y1": -3.5, "x2": 3.5, "y2": 3.5 },
+      "courtyard": { "x1": -4.5, "y1": -4.5, "x2": 4.5, "y2": 4.5 }
+    },
+    "ec11e": {
+      "description": "Alps EC11E rotary encoder with push switch",
+      "drill_mm": 7.0,
+      "body":      { "x1": -6.5, "y1": -6.5, "x2": 6.5, "y2": 6.5 },
+      "courtyard": { "x1": -8.0, "y1": -9.0, "x2": 8.0, "y2": 9.0 }
     }
   }
 }

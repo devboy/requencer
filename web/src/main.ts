@@ -41,6 +41,7 @@ import type { ControlEvent, ScreenMode } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
 import { createControls, updateLEDs, updateModeIndicators } from './ui/panel/controls'
 import { createFaceplate, injectPanelStyles, setupMobileViewport } from './ui/panel/faceplate'
+import { createFootprintOverlay } from './ui/panel/footprint-overlay'
 import { setupLCDCanvas } from './ui/renderer'
 
 console.log('requencer starting')
@@ -162,6 +163,7 @@ const panel = createFaceplate()
 const lcdCtx = setupLCDCanvas(panel.lcdCanvas)
 
 createControls(panel)
+createFootprintOverlay()
 setupMobileViewport()
 
 // --- Keyboard Input ---
