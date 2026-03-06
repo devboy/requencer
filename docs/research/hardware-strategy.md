@@ -108,31 +108,42 @@ GitHub Actions workflow (`.github/workflows/atopile.yml`):
 **Updated 2026-03-06:** Migrated from Raspberry Pi Pico 2 to **Pimoroni PGA2350** (RP2350B, 48 GPIO).
 
 The complete schematic is written in atopile:
-- 19 component definitions (all ICs + through-hole parts + PGA2350 + USB-C + SD slot + ESD + BOOTSEL switch)
+- 21 component definitions (all ICs + through-hole parts + PGA2350 + USB-C + SD slot + ESD + BOOTSEL switch + 74HCT125 level shifter + PJ301M12 stereo jack)
 - 9 circuit modules (power, MCU, DAC+analog, buttons, LEDs, display, input protection, MIDI, I/O jacks)
 - Top-level `requencer.ato` wiring everything together — **all components connected, no placeholders**
 - Full automation pipeline: footprint generation, placement, autorouting, manufacturing export
 - Faceplate generator producing mechanical-only PCB from shared layout config
 
 **Key changes from Pico 2 design:**
-- MCU: PGA2350 (48 GPIO) replaces Pico Plus 2 (26 GPIO)
+- MCU: PGA2350 (48 GPIO, 34 used, 14 spare) replaces Pico Plus 2 (26 GPIO, 0 spare)
 - DACs get dedicated SPI1 bus (no contention with display)
-- 4 CV inputs now connected to ADC4-7 (were "future expansion" placeholders)
-- Front-panel USB-C for firmware updates
-- Front-panel micro SD slot for preset import/export
-- 5th TLC5947 LED driver for settings + TBD button LEDs
-- TBD button added under T4 (on SR5.D1)
-- 15+ spare GPIO for future expansion
+- 74HCT125 level shifter on DAC SPI (3.3V → 5V for DAC8568 VIH compliance)
+- 5× OPA4172 quad op-amps (4 signal + 1 reference buffer)
+- Buffered voltage references for pitch (2V) and mod (1.667V) offset networks
+- Pitch CV: non-inverting topology, 0.1% resistors, Vout = 2×Vdac - 2V
+- 4 CV inputs connected to ADC4-7 with 1% tolerance input protection dividers
+- Front-panel USB-C for firmware updates (PRTR5V0U2X ESD protection)
+- Front-panel micro SD slot with card detect on GP25
+- 5× TLC5947 LED drivers at 3.3V VCC (120 channels, 102 used, 18 spare)
+- All 34 buttons with RGB LEDs: 16 step + 4 track + 4 subtrack + 8 function + settings + TBD
+- MIDI uses PJ301M12 stereo TRS jacks (TRS Type A compliant)
+- RUN pin pull-up, ADC_VREF decoupling for reliability
+- 470Ω output protection resistors (reduced from 1kΩ)
+
+**Reliability audit complete.** All signals traced end-to-end, no floating pins, no dead components, all bus voltage levels verified.
 
 ### Remaining Steps
 
 1. **Run `ato create part`** for Tier 2 ICs — adds proper LCSC footprints/symbols:
    - DAC8568SPMR (C133572), OPA4172ID (C482288), TLC5947DAP (C147565)
-   - 74HC165D (C5613), 6N138 (C14010), AMS1117-3.3 (C6186)
-   - AZ1117IH-5.0 (C108494), BAT54S (C85099), 2N3904 (C18536)
-2. **Run `ato build`** — verify full compilation
-3. **Run placement + autorouting pipeline** — review analog routing quality
-4. **Export manufacturing files** → JLCPCB order
+   - 74HC165D (C5613), 74HCT125D (C7862), 6N138 (C14010)
+   - AMS1117-3.3 (C6186), AZ1117IH-5.0 (C108494)
+   - BAT54S (C85099), 2N3904 (C18536), PRTR5V0U2X (C12333)
+   - PJ301M12 (TBD — source from Thonkiconn)
+2. **Verify OPA4172 footprint** — LCSC stocks TSSOP-14 only (C1849436), not SOIC-14
+3. **Run `ato build`** — verify full compilation
+4. **Run placement + autorouting pipeline** — review analog routing quality
+5. **Export manufacturing files** → JLCPCB order
 
 ### Faceplate Strategy
 

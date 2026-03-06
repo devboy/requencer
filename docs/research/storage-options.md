@@ -46,6 +46,7 @@ Front-panel micro SD card (user-supplied, GB+)
 | GP2 | SPI0 SCK | Shared with display |
 | GP23 | SPI0 RX (MISO) | SD card reads |
 | GP24 | SD_CS | SD card chip select |
+| GP25 | SD_CD | Card detect (active low, 10kΩ pull-up) |
 | GP1 | LCD_CS | Display chip select (bus arbitration) |
 
 ### Firmware Support
@@ -68,6 +69,10 @@ Front-panel micro SD card (user-supplied, GB+)
 ### SD Card Physical Placement
 
 Micro SD push-push slot on the front panel faceplate, below the CV input jacks. Accessible while module is racked — no need to remove the module for preset management.
+
+### Card Detect
+
+The SD slot's CD (card detect) pin is connected to GP25 with a 10kΩ pull-up resistor. When a card is inserted, the pin is pulled to GND (active low). Firmware reads this GPIO to determine if a card is present before attempting SPI communication.
 
 ### Open Questions
 

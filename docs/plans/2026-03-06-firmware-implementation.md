@@ -2,62 +2,101 @@
 
 ## Overview
 
-Bring the requencer to life on the Pimoroni Pico Plus 2 (RP2350 + 8MB PSRAM). The hardware PCB design is complete. The Rust engine and renderer crates are shared with the WASM/web target. This document covers what firmware modules need to be built and in what order.
+Bring the requencer to life on the **Pimoroni PGA2350** (RP2350B, 48 GPIO, 16MB flash, 8MB PSRAM). The hardware PCB design is complete and audited. The Rust engine and renderer crates are shared with the WASM/web target. This document covers what firmware modules need to be built and in what order.
 
 ## Hardware Summary
 
 | Component | Part | Qty | Interface | MCU Pins |
 |-----------|------|-----|-----------|----------|
-| MCU | Pico Plus 2 (RP2350 + 8MB PSRAM) | 1 | — | GP0-28 |
-| LCD | ST7796 480×320 TFT | 1 | SPI | GP0,1,2,3,5 |
-| DAC | DAC8568SPMR (8-ch 16-bit) | 2 | SPI | GP0,2,6,7 |
-| Op-Amp | OPA4172ID (quad) | 4 | Analog | — |
+| MCU | PGA2350 (RP2350B + 8MB PSRAM) | 1 | — | 34 of 48 GPIO used |
+| LCD | ST7796 480×320 TFT | 1 | SPI0 | GP0,1,2,3,5 |
+| SD Card | Micro SD slot (front panel) | 1 | SPI0 | GP0,2,23,24,25 |
+| DAC | DAC8568SPMR (8-ch 16-bit) | 2 | SPI1 (dedicated) | GP30,31,32,33 |
+| Level Shifter | 74HCT125D (3.3V→5V) | 1 | SPI1 | — (inline) |
+| Op-Amp | OPA4172ID (quad) | 5 | Analog | — |
 | Button SR | 74HC165D (8-bit PISO) | 5 | GPIO/PIO | GP8,9,10 |
-| LED Driver | TLC5947DAP (24-ch PWM) | 4 | SPI daisy | GP11,12,13,14 |
+| LED Driver | TLC5947DAP (24-ch PWM, 3.3V VCC) | 5 | SPI daisy | GP11,12,13,14 |
 | Encoder | EC11E (rotary + push) | 2 | GPIO | GP15-20 |
 | MIDI Opto | 6N138 | 1 | UART | GP21,22 |
-| Jacks | PJ398SM (Thonkiconn) | 26 | Analog/GPIO | GP4,26,27,28 |
-| Transistor | 2N3904 (clock output buffer) | 2 | GPIO | GP4,28 |
+| MIDI Jacks | PJ301M12 (stereo TRS) | 2 | — | — |
+| Output Jacks | PJ398SM (Thonkiconn) | 24 | Analog/GPIO | — |
+| CV Input Jacks | PJ398SM (Thonkiconn) | 4 | ADC | GP40-43 |
+| Clock/Reset Jacks | PJ398SM (Thonkiconn) | 4 | GPIO | GP4,26,27,28 |
+| Transistor | 2N3904 (clock/reset output buffer) | 2 | GPIO | GP4,28 |
+| USB-C | Front-panel connector | 1 | USB | USB_DP, USB_DM |
+| BOOTSEL | Tactile switch (recovery) | 1 | GPIO | BS pin |
 
 ## GPIO Pin Map
 
 ```
-GP0   SPI0 MOSI  → LCD, DAC1, DAC2 (shared bus)
-GP1   GPIO        → LCD chip select
-GP2   SPI0 SCK   → LCD, DAC1, DAC2 (shared bus)
-GP3   GPIO        → LCD data/command
-GP4   GPIO        → Reset output (via 2N3904)
-GP5   PWM         → LCD backlight
-GP6   GPIO        → DAC1 chip select
-GP7   GPIO        → DAC2 chip select
-GP8   GPIO/PIO    → Button SR clock
-GP9   GPIO/PIO    → Button SR latch (SH/LD)
-GP10  GPIO/PIO    → Button SR data out (QH)
-GP11  GPIO        → LED driver serial data in (SIN)
-GP12  GPIO        → LED driver serial clock (SCLK)
-GP13  GPIO        → LED driver latch (XLAT)
-GP14  GPIO        → LED driver blanking (BLANK)
-GP15  GPIO        → Encoder A, pin A
-GP16  GPIO        → Encoder A, pin B
-GP17  GPIO        → Encoder A, push switch
-GP18  GPIO        → Encoder B, pin A
-GP19  GPIO        → Encoder B, pin B
-GP20  GPIO        → Encoder B, push switch
-GP21  UART0 TX    → MIDI out (via 220Ω)
-GP22  UART0 RX    → MIDI in (via 6N138 optocoupler)
-GP26  ADC0/GPIO   → External clock input (via BAT54S clamp)
-GP27  ADC1/GPIO   → External reset input (via BAT54S clamp)
-GP28  ADC2/GPIO   → Clock output (via 2N3904)
+# SPI0 — Display + SD Card (shared bus, firmware-arbitrated)
+GP0   SPI0 MOSI   → LCD + SD card (shared)
+GP1   GPIO         → LCD chip select
+GP2   SPI0 SCK    → LCD + SD card (shared)
+GP3   GPIO         → LCD data/command
+GP5   PWM          → LCD backlight
+GP23  SPI0 MISO   → SD card reads
+GP24  GPIO         → SD card chip select
+GP25  GPIO         → SD card detect (active low, 10kΩ pull-up)
+
+# SPI1 — DACs (dedicated bus, no contention with display)
+GP30  SPI1 MOSI   → 74HCT125 → DAC1, DAC2
+GP31  SPI1 SCK    → 74HCT125 → DAC1, DAC2
+GP32  GPIO         → 74HCT125 → DAC1 SYNC (chip select)
+GP33  GPIO         → 74HCT125 → DAC2 SYNC (chip select)
+
+# Clock/Reset I/O
+GP4   GPIO         → Reset output (via 2N3904, inverted)
+GP26  ADC0/GPIO    → Clock input (via BAT54S clamp + 1% divider)
+GP27  ADC1/GPIO    → Reset input (via BAT54S clamp + 1% divider)
+GP28  ADC2/GPIO    → Clock output (via 2N3904, inverted)
+
+# Button Scanning
+GP8   GPIO/PIO     → Button SR clock
+GP9   GPIO/PIO     → Button SR latch (SH/LD)
+GP10  GPIO/PIO     → Button SR data out (QH)
+
+# LED Drivers (TLC5947, 3.3V VCC)
+GP11  GPIO         → LED driver serial data in (SIN)
+GP12  GPIO         → LED driver serial clock (SCLK)
+GP13  GPIO         → LED driver latch (XLAT)
+GP14  GPIO         → LED driver blanking (BLANK)
+
+# Encoders
+GP15  GPIO         → Encoder A, pin A
+GP16  GPIO         → Encoder A, pin B
+GP17  GPIO         → Encoder A, push switch
+GP18  GPIO         → Encoder B, pin A
+GP19  GPIO         → Encoder B, pin B
+GP20  GPIO         → Encoder B, push switch
+
+# MIDI
+GP21  UART0 TX     → MIDI out (via 220Ω, TRS Type A)
+GP22  UART0 RX     → MIDI in (via 6N138 optocoupler, TRS Type A)
+
+# CV Inputs (ADC4-7 on RP2350B — not available on RP2350A)
+GP40  ADC4         → CV input A (via 1% divider + BAT54S clamp)
+GP41  ADC5         → CV input B
+GP42  ADC6         → CV input C
+GP43  ADC7         → CV input D
+
+# Spare: GP6, GP7, GP29, GP34-39, GP44-47 (14 pins)
 ```
 
-## SPI Bus Sharing
+## SPI Bus Architecture
 
-LCD, DAC1, and DAC2 share SPI0 (GP0 MOSI, GP2 SCK) with independent chip selects:
-- GP1 = LCD CS
-- GP6 = DAC1 SYNC
-- GP7 = DAC2 SYNC
+**SPI0 — Display + SD Card (shared, firmware-arbitrated):**
+- GP0 (MOSI), GP2 (SCK) shared between LCD and SD card
+- GP23 (MISO) for SD card reads
+- GP1 = LCD CS, GP24 = SD CS
+- Bus arbitration: never access LCD and SD card simultaneously
+- Use embassy `SpiDevice` for safe sharing
 
-Only one device active at a time. Use a shared SPI bus abstraction (embassy `SpiDevice`).
+**SPI1 — DACs (dedicated, no contention):**
+- GP30 (MOSI), GP31 (SCK) → 74HCT125 level shifter → DAC1, DAC2
+- GP32 = DAC1 SYNC, GP33 = DAC2 SYNC (also level-shifted)
+- **No bus contention with display** — DAC writes never conflict with LCD/SD
+- Tick ISR writes DACs on SPI1 while display DMA runs on SPI0 simultaneously
 
 ## Shift Register Chain (Buttons)
 
@@ -68,37 +107,49 @@ SR1 (bits 0-7):   Step buttons 1-8
 SR2 (bits 8-15):  Step buttons 9-16
 SR3 (bits 16-23): Track T1-T4, Subtrack GATE/PITCH/VEL/MOD
 SR4 (bits 24-31): PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET
-SR5 (bits 32-39): SETTINGS (bit 32), 7× spare
+SR5 (bits 32-39): SETTINGS (bit 32), TBD (bit 33), 6× spare
 ```
 
 Scan sequence: pull GP9 (SH/LD) low to latch, then clock 40 bits out via GP8/GP10.
 
 ## LED Driver Chain
 
-4× TLC5947DAP daisy-chained, 96 channels (32 RGB LEDs × 3):
+5× TLC5947DAP daisy-chained, 120 channels (34 RGB LEDs × 3 = 102 used, 18 spare):
 
 ```
-TLC1 (ch 0-23):  Step LEDs 1-8 (RGB)
-TLC2 (ch 0-23):  Step LEDs 9-16 (RGB)
-TLC3 (ch 0-23):  Track T1-T4 + Subtrack GATE/PITCH/VEL/MOD (RGB)
-TLC4 (ch 0-23):  Function buttons PAT/MUTE/ROUTE/DRIFT/XPOSE/VAR/PLAY/RESET (RGB)
+TLC1 (ch 0-23):   Step LEDs 1-8 (RGB)
+TLC2 (ch 0-23):   Step LEDs 9-16 (RGB)
+TLC3 (ch 0-23):   Track T1-T4 + Subtrack GATE/PITCH/VEL/MOD (RGB)
+TLC4 (ch 0-23):   Function buttons PAT/MUTE/ROUTE/DRIFT/XPOSE/VAR/PLAY/RESET (RGB)
+TLC5 (ch 0-5):    SETTINGS (ch 0-2) + TBD (ch 3-5), ch 6-23 spare
 ```
 
-12-bit PWM per channel. Clock 96×12 = 1152 bits via GP11 (data), GP12 (clock), then pulse GP13 (XLAT) to latch. GP14 (BLANK) controls output enable.
+TLC5947 VCC powered from 3.3V (fixes SPI logic level issue; IREF is bandgap-based, independent of VCC). LED anodes connected to 5V rail.
+
+12-bit PWM per channel. Clock 120×12 = 1440 bits via GP11 (data), GP12 (clock), then pulse GP13 (XLAT) to latch. GP14 (BLANK) controls output enable.
 
 ## DAC Output Stage
 
-2× DAC8568 → 16 channels → 4× OPA4172 quad op-amps → 16 eurorack jacks:
+2× DAC8568 → 16 channels → 4× OPA4172 signal op-amps + 1× OPA4172 reference buffer → 16 eurorack jacks:
+
+SPI1 signals pass through 74HCT125 level shifter (3.3V → 5V) before reaching DACs. DAC8568 VIH = 0.7×AVDD = 3.5V at 5V supply — 3.3V GPIO is out of spec without the level shifter.
 
 ```
-DAC1 (GP6 CS):
-  CH A-D: Gate 1-4      → unity gain buffer     → 0-5V
-  CH E-H: Pitch 1-4     → gain=2, offset=-2V    → -2V to +8V (1V/oct)
+DAC1 (GP32 CS, via 74HCT125):
+  CH A-D: Gate 1-4      → unity gain buffer (opamp1)        → 0-5V
+  CH E-H: Pitch 1-4     → non-inv gain=2, offset=-2V (opamp2, 0.1% R) → -2V to +8V (1V/oct)
 
-DAC2 (GP7 CS):
-  CH A-D: Velocity 1-4  → gain≈1.6              → 0-8V
-  CH E-H: Mod 1-4       → gain=2, offset=-5V    → -5V to +5V
+DAC2 (GP33 CS, via 74HCT125):
+  CH A-D: Velocity 1-4  → non-inv gain≈1.6 (opamp3)        → 0-8V
+  CH E-H: Mod 1-4       → inv gain=-2, offset=+5V (opamp4)  → +5V to -5V
+
+Reference buffers (opamp5):
+  Ch1: 2V pitch reference (voltage follower from 5V divider 15k/10k, 0.1% R)
+  Ch2: 1.667V mod reference (voltage follower from 5V divider 20k/10k)
+  Ch3-4: spare (tied to GND)
 ```
+
+All outputs pass through 470Ω protection resistors before jacks.
 
 DAC8568 protocol: 32-bit SPI word = [prefix(4)][command(4)][address(4)][data(16)][feature(4)].
 
@@ -109,10 +160,11 @@ DAC8568 protocol: 32-bit SPI word = [prefix(4)][command(4)][address(4)][data(16)
 
 ## Clock/Reset I/O
 
-- **Clock IN**: GP26 (ADC0 as digital), protected by BAT54S Schottky clamp + 220Ω series R
+- **Clock IN**: GP26 (ADC0 as digital), protected by 22kΩ/10kΩ divider (1%) + BAT54S Schottky clamp + 100nF filter
 - **Reset IN**: GP27 (ADC1 as digital), same protection
 - **Clock OUT**: GP28 → 1kΩ → 2N3904 base, collector pulled to +5V via 1kΩ (inverted logic)
 - **Reset OUT**: GP4 → same circuit
+- **CV IN A-D**: GP40-43 (ADC4-7), same divider + clamp protection as clock/reset
 
 ---
 
@@ -192,15 +244,18 @@ DAC8568 protocol: 32-bit SPI word = [prefix(4)][command(4)][address(4)][data(16)
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     // Init hardware
-    let spi_bus = init_spi0(gp0, gp2);
-    let display = init_display(&spi_bus, gp1, gp3, gp5);
-    let dac1 = init_dac(&spi_bus, gp6);
-    let dac2 = init_dac(&spi_bus, gp7);
+    let spi0_bus = init_spi0(gp0, gp2, gp23);  // Display + SD card
+    let spi1_bus = init_spi1(gp30, gp31);        // DACs (dedicated, via 74HCT125)
+    let display = init_display(&spi0_bus, gp1, gp3, gp5);
+    let sd_card = init_sd(&spi0_bus, gp24, gp25); // CS + card detect
+    let dac1 = init_dac(&spi1_bus, gp32);
+    let dac2 = init_dac(&spi1_bus, gp33);
     let buttons = init_buttons(gp8, gp9, gp10);
     let leds = init_leds(gp11, gp12, gp13, gp14);
     let enc_a = init_encoder(gp15, gp16, gp17);
     let enc_b = init_encoder(gp18, gp19, gp20);
     let midi = init_midi(gp21, gp22);
+    let cv_inputs = init_adc(gp40, gp41, gp42, gp43);  // ADC4-7
 
     // Engine state (in PSRAM)
     let mut state = SequencerState::new();
@@ -308,28 +363,23 @@ PIO eliminates interrupt latency entirely. Consider for clock I/O if jitter from
 └─────────────────────────────────────────────┘
 ```
 
-### SPI Bus Contention
+### SPI Bus Architecture (No Contention)
 
-LCD and DACs share SPI0. This works IF:
+**DACs have a dedicated SPI1 bus** (GP30/31/32/33 via 74HCT125 level shifter). Display + SD card share SPI0 (GP0/2/23). The tick ISR writes DACs on SPI1 while display DMA runs on SPI0 simultaneously — **zero contention, zero jitter from bus sharing.**
 
-1. **DAC writes happen in the tick ISR** — short transaction (~32 bits × 16 channels = ~8 µs at 50 MHz)
-2. **Display writes happen in the main loop via DMA** — pauses when tick ISR takes the bus
-3. **Tick ISR has highest interrupt priority** — preempts everything
-
-Worst case: if a display DMA transfer is in progress when the tick ISR fires, the ISR waits for the current SPI byte to finish (~160 ns at 50 MHz) before grabbing the bus. This adds <1 µs jitter — acceptable.
-
-Alternative: use PIO to bit-bang DAC SPI on separate pins, fully decoupling DAC from display. Would require PCB changes (dedicated DAC SPI pins).
+SPI0 bus arbitration is only needed between display and SD card (both in main loop, never simultaneous). This is simple firmware-level CS management — no timing-critical concern.
 
 ### What Can Go Wrong
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Timing jitter | Display SPI blocks during tick ISR | Use DMA for display, never block in tick ISR |
+| Timing jitter | Display SPI blocks during tick ISR | **Eliminated** — DACs on dedicated SPI1, display on SPI0 |
 | Missed ticks | ISR takes too long | Keep tick ISR <10 µs, defer work to main loop |
 | Clock drift | Software timing (`delay()`, `millis()`) | Use hardware timer driven by crystal oscillator |
 | External clock jitter | Polling instead of interrupt | Use GPIO interrupt or PIO for edge capture |
 | Priority inversion | Button scan ISR preempts tick ISR | Set tick ISR to highest NVIC priority |
-| DAC glitch | SPI bus contention | Dedicated CS pins, short DAC writes in ISR |
+| DAC SPI level mismatch | 3.3V GPIO < 3.5V VIH threshold | **Fixed** — 74HCT125 level shifter on SPI1 |
+| Reference loading | Divider loaded by summing network | **Fixed** — OPA4172 voltage follower buffers |
 
 ### Reference Implementations
 
@@ -365,7 +415,7 @@ Alternative: use PIO to bit-bang DAC SPI on separate pins, fully decoupling DAC 
 | 7 | Clock I/O | External sync |
 | 8 | Storage | Persistence (SD card or PSRAM-backed flash) |
 
-## Memory Layout (Pico Plus 2 with PSRAM)
+## Memory Layout (PGA2350 with PSRAM)
 
 ```
 Internal SRAM (520 KB):
@@ -420,8 +470,10 @@ defmt-rtt = "0.4"
 
 ## Notes
 
-- **SPI clock speed**: ST7796 supports up to 80 MHz SPI read, 62.5 MHz write. DAC8568 supports up to 50 MHz. Use 50 MHz for shared bus or switch speeds per device.
-- **Encoder debounce**: Hardware has 10kΩ pull-ups + 100nF caps (~1ms RC). Firmware should still debounce ~20-30ms.
-- **LED refresh**: TLC5947 has no internal PWM clock — BLANK must be toggled by firmware to advance the PWM cycle. Typical: 4 kHz BLANK toggle rate for smooth dimming.
-- **MIDI timing**: 31250 baud, 10 bits per byte (8N1 + start), ~320 µs per byte. 3-byte note message = ~1ms.
+- **SPI0 clock speed**: ST7796 supports up to 62.5 MHz write. SD card typically 25 MHz (SPI mode).
+- **SPI1 clock speed**: DAC8568 supports up to 50 MHz. 74HCT125 propagation delay ~9ns — no issue at 50 MHz.
+- **Encoder debounce**: Hardware has 10kΩ pull-ups + 100nF caps (~1ms RC) on both rotation and switch pins. Firmware should still debounce ~20-30ms.
+- **LED refresh**: TLC5947 at 3.3V VCC (SPI-compatible). No internal PWM clock — BLANK must be toggled by firmware at ~4 kHz for smooth dimming. LED anodes powered separately from 5V.
+- **MIDI timing**: 31250 baud, 10 bits per byte (8N1 + start), ~320 µs per byte. 3-byte note message = ~1ms. Uses PJ301M12 stereo TRS jacks (TRS Type A).
 - **DAC settling**: DAC8568 settles in ~10 µs. Safe to update all 16 channels within one tick.
+- **CV inputs**: ADC4-7 (GP40-43) with 1% tolerance dividers. 12-bit ADC, 0-3.3V range after divider (maps to 0-10V input).

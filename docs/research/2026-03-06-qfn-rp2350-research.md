@@ -164,16 +164,20 @@ The module works fine without a card inserted. SD is purely for import/export.
 | GP42 (ADC6) | CV input C |
 | GP43 (ADC7) | CV input D |
 
-### Spare GPIO (15 pins)
+### SD Card Detect
+| GPIO | Function |
+|---|---|
+| GP25 | SD card detect (active low, 10kΩ pull-up) |
+
+### Spare GPIO (14 pins)
 | GPIO | Notes |
 |---|---|
 | GP6, GP7 | Freed from old DAC CS assignment |
-| GP25 | Was Pico onboard LED, now free |
 | GP29 (ADC3) | Spare ADC channel |
 | GP34-39 | General purpose |
 | GP44-47 | GP47 has PSRAM CS trace (cuttable) |
 
-**Total used: 33 of 48 GPIO. 15 spare.**
+**Total used: 34 of 48 GPIO. 14 spare.**
 
 ---
 
@@ -201,6 +205,51 @@ The module works fine without a card inserted. SD is purely for import/export.
 - **Impact:** ~120μA leakage when input voltage is between thresholds
 - **Mitigation:** If on A2, use pull-down resistors ≤8.2kΩ on affected inputs
 - **Current PGA2350 stock:** Should be A3+ stepping. Verify on receipt.
+
+---
+
+## Hardware Audit Results (2026-03-06)
+
+Post-migration audit identified and fixed several reliability issues:
+
+### Level Shifting (DAC SPI)
+DAC8568 VIH = 0.7×AVDD = 3.5V at 5V supply. PGA2350 GPIO outputs 3.3V — out of spec. **Fix:** 74HCT125 quad bus buffer on SPI1 MOSI, SCK, CS1, CS2. TTL input (VIH=2.0V) accepts 3.3V, outputs 5V CMOS.
+
+### Reference Voltage Buffering
+Pitch (2V) and mod (1.667V) reference dividers were loaded by 4× summing network resistors each, pulling references off-target. **Fix:** OPA4172 quad op-amp (opamp5) configured as voltage follower buffers. Two channels buffer references, two spare channels tied to GND.
+
+### Pitch CV Topology
+Original inverting summing topology produced wrong output range. **Fix:** Non-inverting topology. Vout = 2×Vdac - 2V, range -2V to +8V. Uses 0.1% resistors (Rf=Rg=10kΩ) for 1V/oct precision.
+
+### TLC5947 Logic Levels
+TLC5947 at 5V VCC had same VIH issue as DAC. **Fix:** Power TLC5947 VCC from 3.3V. IREF is internal bandgap-based (independent of VCC). LED anodes powered separately from 5V rail.
+
+### MIDI Jacks
+PJ398SM is mono (TIP/SLEEVE/SWITCH) — cannot implement TRS Type A MIDI. **Fix:** Created PJ301M12 stereo TRS jack part (TIP/RING/SLEEVE/TIP_SW/RING_SW).
+
+### MCU Pin Completion
+- **RUN pin:** 10kΩ pull-up to 3.3V (prevents spurious resets from noise)
+- **ADC_VREF:** 100nF decoupling cap to GND (clean reference for CV ADC channels)
+- **SD card detect:** CD pin wired to GP25 (firmware can detect card insertion)
+
+### Input Protection Tolerance
+Upgraded voltage divider resistors (22kΩ/10kΩ) from 5% to 1% tolerance for better CV input accuracy.
+
+### Output Protection
+Reduced from 1kΩ to 470Ω. At 470Ω + 10kΩ load: 4.5% voltage drop (vs 9% with 1kΩ). Acceptable for pitch 1V/oct.
+
+### Decoupling
+- 100nF HF + 10µF bulk per DAC chip on AVDD
+- 1µF on each DAC VREFIN/VREFOUT
+- 100nF per op-amp per rail (±12V) — 10 caps total for 5 quad op-amps
+- 10µF bulk on each ±12V rail near op-amp cluster
+- 100nF on 74HCT125 level shifter VCC
+
+### BOM/Layout Notes
+- Verify PGA2350 is A3+ stepping (RP2350-E9 errata affects A2 only)
+- OPA4172: LCSC stocks TSSOP-14 (OPA4172IPWR, C1849436), not SOIC-14 — verify footprint
+- TLC5947DAP: Low LCSC stock (7 units, C1554203) — source early or use alternative supplier
+- Consider 4-layer PCB for mixed-signal density (2-layer may have routing congestion)
 
 ---
 
