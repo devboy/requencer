@@ -92,9 +92,9 @@
       { "id": "settings", "label": "SET",   "x_mm": 135.55, "y_mm": 43.00 }
     ],
     "control_strip": [
-      { "id": "back", "label": "BACK" },
-      { "id": "rand", "label": "RAND" },
-      { "id": "clr",  "label": "CLR" }
+      { "id": "back", "label": "BACK", "x_mm": 36.26, "y_mm": 76.36 },
+      { "id": "rand", "label": "RAND", "x_mm": 59.94, "y_mm": 76.36 },
+      { "id": "clr",  "label": "CLR",  "x_mm": 83.62, "y_mm": 76.36 }
     ]
   },
 

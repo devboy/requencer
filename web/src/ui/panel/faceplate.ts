@@ -1,24 +1,13 @@
 /**
- * Module faceplate — 3U eurorack panel with control strip layout.
- * True 3U height (128.5mm = 578px at 4.5px/mm).
+ * Module faceplate — 3U eurorack panel with absolute positioning.
+ * All component positions come directly from panel-layout.json (mm coordinates).
+ * Coordinates are scaled to pixels via SCALE (4.5 px/mm).
  *
- * Layout (left to right):
- *   Track column (T1-T4) | LCD (480×320) | Right col 1 (GATE/PITCH/VEL/MOD) | Right col 2 (MUTE/ROUTE/CLR/CLR) | Jacks
- *   Jack zone: PLAY/RESET stacked left of CLK/RST jacks
- *   Control strip: Encoder A | RAND, BACK, CLR | Encoder B
- *   Below control strip: 2×8 step button grid (centered under LCD)
- *
- * Spacing rules:
- *   - Small buttons use BTN_CC (10.7mm) center-to-center spacing
- *   - Transport buttons (RESET/PLAY/RAND) are flex-width × RECT_BTN_H, fill control strip
- *   - Buttons need ≥ BTN_CC/2 clearance from LCD, encoders, jacks, panel edges
- *   - Labels are purely cosmetic: absolute-positioned, bold, zero layout impact
- *   - Step buttons use same BTN_CC (10.7mm) center-to-center as all panel buttons
+ * Layout origin (0,0) = top-left of physical panel.
+ * Every component is absolutely positioned at its JSON (x_mm, y_mm) center.
  */
 
 // ── Panel layout from shared config (single source of truth) ──────
-// Physical dimensions in mm, converted to px via SCALE.
-// panel-layout.json is also consumed by hardware/scripts/ for PCB generation.
 import panelLayout from '../../../../panel-layout.json'
 
 const C = panelLayout.constants
@@ -26,20 +15,19 @@ const SCALE = 4.5 // px per mm — rendering concern, not in JSON
 
 const HP_PX = 5.08 * SCALE
 const MODULE_3U_H = panelLayout.panel.height_mm * SCALE
-const RAIL_ZONE = C.rail_zone_mm * SCALE
+const MODULE_W = panelLayout.panel.width_mm * SCALE
+const _RAIL_ZONE = C.rail_zone_mm * SCALE
 const MOUNT_SLOT_W = C.mount_slot_w_mm * SCALE
 const MOUNT_SLOT_H = C.mount_slot_h_mm * SCALE
-const MOUNT_X = C.mount_offset_x_mm * SCALE
-const MOUNT_Y = C.mount_offset_y_mm * SCALE
 const JACK_D = C.jack_diameter_mm * SCALE
 const JACK_HOLE = C.jack_hole_mm * SCALE
-const JACK_SPACING = C.jack_spacing_mm * SCALE
+const _JACK_SPACING = C.jack_spacing_mm * SCALE
 const ENCODER_D = C.encoder_diameter_mm * SCALE
 const BTN_D = C.btn_diameter_mm * SCALE
 const BTN_CC = C.btn_cc_mm * SCALE
 const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
-const STEP_BTN_CC = C.step_btn_cc_mm * SCALE
 const RECT_BTN_H = C.rect_btn_height_mm * SCALE
+const RECT_BTN_W = 10.0 * SCALE // transport button width
 
 const USB_C_W = C.usb_c_w_mm * SCALE
 const USB_C_H = C.usb_c_h_mm * SCALE
@@ -47,18 +35,11 @@ const SD_SLOT_W = C.sd_slot_w_mm * SCALE
 const SD_SLOT_H = C.sd_slot_h_mm * SCALE
 
 const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
-const _LCD_CLEARANCE = 3.0 * SCALE
+const _COMPONENT_GAP = Math.round(BTN_CC / 2)
 
-const COMPONENT_GAP = Math.round(BTN_CC / 2)
-
-// Derived
-const JACK_GAP = JACK_SPACING - JACK_D
-const OUTPUT_JACK_SPACING = C.output_jack_spacing_mm * SCALE
-const BTN_GAP = BTN_CC - BTN_D
-const _STEP_GAP = STEP_BTN_CC - STEP_BTN_D
-const LCD_BEZEL_W = Math.round(C.lcd_canvas_w_mm * SCALE) + 2 * Math.round(C.lcd_padding_mm * SCALE) + 4
-const STEP_ROW_W = 8 * STEP_BTN_D + 7 * BTN_GAP
-const STEP_GRID_LEFT = BTN_D + COMPONENT_GAP + Math.round((LCD_BEZEL_W - STEP_ROW_W) / 2)
+// Control strip button widths (evenly fill space between encoders)
+const CTRL_BTN_W = 20.0 * SCALE
+const CTRL_BTN_RAND_W = 26.0 * SCALE
 
 // Neighbor module images
 const NEIGHBORS = {
@@ -93,6 +74,74 @@ export interface FaceplateElements {
   encoderB: HTMLDivElement
 }
 
+/** Place an element at (x_mm, y_mm) center using absolute positioning */
+function placeAt(el: HTMLElement, x_mm: number, y_mm: number): void {
+  el.style.position = 'absolute'
+  el.style.left = `${x_mm * SCALE}px`
+  el.style.top = `${y_mm * SCALE}px`
+  el.style.transform = 'translate(-50%, -50%)'
+}
+
+/** Create a circle button and place it at JSON coordinates */
+function createCircleBtn(
+  panel: HTMLElement,
+  className: string,
+  x_mm: number,
+  y_mm: number,
+  label?: string,
+  labelPos: 'above' | 'below' = 'above',
+): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.className = `circle-btn ${className}`
+  if (label) {
+    const lbl = document.createElement('span')
+    lbl.className = `btn-label label-${labelPos}`
+    lbl.textContent = label
+    btn.appendChild(lbl)
+  }
+  placeAt(btn, x_mm, y_mm)
+  panel.appendChild(btn)
+  return btn
+}
+
+/** Create a jack element and place it at JSON coordinates */
+function createJack(
+  panel: HTMLElement,
+  x_mm: number,
+  y_mm: number,
+  label?: string,
+  labelPos: 'above' | 'below' = 'above',
+): HTMLDivElement {
+  const cell = document.createElement('div')
+  cell.className = 'jack-cell'
+  cell.innerHTML = `
+    ${label ? `<span class="btn-label label-${labelPos}">${label}</span>` : ''}
+    <div class="jack"><div class="jack-hole"></div></div>
+  `
+  placeAt(cell, x_mm, y_mm)
+  panel.appendChild(cell)
+  return cell
+}
+
+/** Create a large rectangular button and place it at JSON coordinates */
+function createLargeBtn(
+  panel: HTMLElement,
+  className: string,
+  x_mm: number,
+  y_mm: number,
+  icon: string,
+  text: string,
+  width: number,
+): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.className = `large-btn ${className}`
+  btn.innerHTML = `<span class="btn-icon">${icon}</span><span class="btn-text">${text}</span>`
+  btn.style.width = `${width}px`
+  placeAt(btn, x_mm, y_mm)
+  panel.appendChild(btn)
+  return btn
+}
+
 /** Create the full rack DOM structure and append to body */
 export function createFaceplate(): FaceplateElements {
   const root = document.createElement('div')
@@ -105,100 +154,7 @@ export function createFaceplate(): FaceplateElements {
 
       <div class="module-column">
         <div id="module-panel">
-          <div class="screw screw-tl"></div>
-          <div class="screw screw-tr"></div>
-          <div class="screw screw-bl"></div>
-          <div class="screw screw-br"></div>
-
           <div class="panel-title">REQUENCER</div>
-
-          <div class="module-content">
-            <!-- MAIN AREA: everything except jacks -->
-            <div class="main-area">
-              <!-- TOP SECTION: track col | LCD | right cols -->
-              <div class="top-section">
-                <div class="track-col" id="track-btn-group"></div>
-
-                <div class="lcd-bezel">
-                  <div class="lcd-mask">
-                    <canvas id="lcd-canvas"></canvas>
-                  </div>
-                </div>
-
-                <div class="right-col" id="subtrack-col"></div>
-                <div class="right-col" id="feature-col"></div>
-              </div>
-
-              <!-- CONTROL STRIP: enc A | BACK RAND CLR | enc B -->
-              <div class="control-strip">
-                <div class="encoder-cell">
-                  <span class="btn-label label-above">A</span>
-                  <div class="encoder" id="encoder-a">
-                    <div class="encoder-cap">
-                      <div class="encoder-indicator"></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="control-strip-btns" id="control-strip-btns"></div>
-                <div class="encoder-cell">
-                  <span class="btn-label label-above">B</span>
-                  <div class="encoder" id="encoder-b">
-                    <div class="encoder-cap">
-                      <div class="encoder-indicator"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- STEP GRID 2×8 -->
-              <div class="step-grid" id="step-grid"></div>
-
-              <!-- CONNECTORS: under encoder B, between steps and jacks -->
-              <div class="connector-zone">
-                <div class="connector usb-c">
-                  <span class="connector-label">USB</span>
-                  <div class="connector-body usb-c-body">
-                    <div class="usb-c-port"></div>
-                  </div>
-                </div>
-                <div class="connector sd-slot">
-                  <span class="connector-label">SD</span>
-                  <div class="connector-body sd-slot-body">
-                    <div class="sd-slot-opening"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- JACK ZONE: right side, spans full height -->
-            <div class="zone-divider"></div>
-            <div class="jack-zone">
-              <div class="utility-jacks">
-                <div class="jack-row-3" id="util-row-play">
-                  <div class="jack-cell"><span class="btn-label label-above">CLK IN</span><div class="jack"><div class="jack-hole"></div></div></div>
-                  <div class="jack-cell"><span class="btn-label label-above">CLK OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
-                </div>
-                <div class="jack-row-3" id="util-row-reset">
-                  <div class="jack-cell"><span class="btn-label label-above">RST IN</span><div class="jack"><div class="jack-hole"></div></div></div>
-                  <div class="jack-cell"><span class="btn-label label-above">RST OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
-                </div>
-                <div class="jack-row-3" id="util-row-midi">
-                  <div class="jack-row-3-spacer"></div>
-                  <div class="jack-cell"><span class="btn-label label-above">MIDI IN</span><div class="jack"><div class="jack-hole"></div></div></div>
-                  <div class="jack-cell"><span class="btn-label label-above">MIDI OUT</span><div class="jack"><div class="jack-hole"></div></div></div>
-                </div>
-              </div>
-              <div class="jack-grid" id="jack-grid">
-                <div class="jack-grid-row cv-row">
-                  <div class="jack-cell"><div class="jack"><div class="jack-hole"></div></div><span class="btn-label label-below">A</span></div>
-                  <div class="jack-cell"><div class="jack"><div class="jack-hole"></div></div><span class="btn-label label-below">B</span></div>
-                  <div class="jack-cell"><div class="jack"><div class="jack-hole"></div></div><span class="btn-label label-below">C</span></div>
-                  <div class="jack-cell"><div class="jack"><div class="jack-hole"></div></div><span class="btn-label label-below">D</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div class="branding">VILE TENSOR</div>
         </div>
       </div>
@@ -216,147 +172,185 @@ export function createFaceplate(): FaceplateElements {
 
   document.body.appendChild(root)
 
-  // --- Generate track buttons (T1-T4) ---
-  const trackBtnGroup = root.querySelector('#track-btn-group') as HTMLDivElement
+  const modulePanel = root.querySelector('#module-panel') as HTMLDivElement
+
+  // --- Mounting slots from JSON ---
+  for (const slot of panelLayout.mounting_slots) {
+    const screw = document.createElement('div')
+    screw.className = 'screw'
+    placeAt(screw, slot.x_mm, slot.y_mm)
+    modulePanel.appendChild(screw)
+  }
+
+  // --- LCD bezel from lcd_cutout center ---
+  const lcd = panelLayout.lcd_cutout
+  const lcdBezel = document.createElement('div')
+  lcdBezel.className = 'lcd-bezel'
+  lcdBezel.innerHTML = `<div class="lcd-mask"><canvas id="lcd-canvas"></canvas></div>`
+  // Position at top-left corner (no translate)
+  const lcdPad = C.lcd_padding_mm * SCALE
+  const bezelW = lcd.width_mm * SCALE + 2 * lcdPad + 4
+  const bezelH = lcd.height_mm * SCALE + 2 * lcdPad + 4
+  lcdBezel.style.position = 'absolute'
+  lcdBezel.style.left = `${lcd.center_x_mm * SCALE - bezelW / 2}px`
+  lcdBezel.style.top = `${lcd.center_y_mm * SCALE - bezelH / 2}px`
+  lcdBezel.style.width = `${bezelW}px`
+  lcdBezel.style.height = `${bezelH}px`
+  modulePanel.appendChild(lcdBezel)
+
+  // --- Track buttons (T1-T4) ---
   const trackBtns: HTMLButtonElement[] = []
-  for (let i = 0; i < 4; i++) {
-    const btn = document.createElement('button')
-    btn.className = 'circle-btn track-btn'
-    btn.dataset.track = String(i)
-    const label = document.createElement('span')
-    label.className = 'btn-label label-above'
-    label.textContent = `${i + 1}`
-    btn.appendChild(label)
-    trackBtnGroup.appendChild(btn)
+  for (const entry of panelLayout.buttons.track) {
+    const btn = createCircleBtn(modulePanel, 'track-btn', entry.x_mm, entry.y_mm, entry.label)
+    btn.dataset.track = String(trackBtns.length)
     trackBtns.push(btn)
   }
 
-  // --- TBD button (below T4) ---
-  const tbdBtn = document.createElement('button')
-  tbdBtn.className = 'circle-btn tbd-btn'
-  const tbdLabel = document.createElement('span')
-  tbdLabel.className = 'btn-label label-above'
-  tbdLabel.textContent = 'TBD'
-  tbdBtn.appendChild(tbdLabel)
-  trackBtnGroup.appendChild(tbdBtn)
+  // --- TBD button ---
+  const tbd = panelLayout.buttons.tbd
+  const tbdBtn = createCircleBtn(modulePanel, 'tbd-btn', tbd.x_mm, tbd.y_mm, tbd.label)
 
-  // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) + PAT ---
-  const subtrackCol = root.querySelector('#subtrack-col') as HTMLDivElement
+  // --- Subtrack buttons (GATE, PITCH, VEL, MOD) ---
   const subtrackBtns: HTMLButtonElement[] = []
-  const subtrackLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
-  for (let i = 0; i < 4; i++) {
-    const btn = document.createElement('button')
-    btn.className = 'circle-btn subtrack-btn'
-    btn.dataset.index = String(i)
-    const label = document.createElement('span')
-    label.className = 'btn-label label-above'
-    label.textContent = subtrackLabels[i]
-    btn.appendChild(label)
-    subtrackCol.appendChild(btn)
+  for (const entry of panelLayout.buttons.subtrack) {
+    const btn = createCircleBtn(modulePanel, 'subtrack-btn', entry.x_mm, entry.y_mm, entry.label)
+    btn.dataset.index = String(subtrackBtns.length)
     subtrackBtns.push(btn)
   }
 
-  const patBtn = document.createElement('button')
-  patBtn.className = 'circle-btn pat-btn'
-  const patLabel = document.createElement('span')
-  patLabel.className = 'btn-label label-above'
-  patLabel.textContent = 'PAT'
-  patBtn.appendChild(patLabel)
-  subtrackCol.appendChild(patBtn)
+  // --- PAT button ---
+  const pat = panelLayout.buttons.pat
+  const patBtn = createCircleBtn(modulePanel, 'pat-btn', pat.x_mm, pat.y_mm, pat.label)
 
-  // --- Generate feature buttons (MUTE, ROUTE, DIV/LEN) — overlay-only column ---
-  const featureCol = root.querySelector('#feature-col') as HTMLDivElement
+  // --- Feature buttons ---
   const featureBtns: HTMLButtonElement[] = []
-  const featureLabels = ['MUTE', 'ROUTE', 'DRIFT', 'TRNS', 'VAR']
-  for (let i = 0; i < featureLabels.length; i++) {
-    const btn = document.createElement('button')
-    btn.className = 'circle-btn feature-btn'
-    btn.dataset.index = String(i)
-    const label = document.createElement('span')
-    label.className = 'btn-label label-above'
-    label.textContent = featureLabels[i]
-    btn.appendChild(label)
-    featureCol.appendChild(btn)
+  for (const entry of panelLayout.buttons.feature) {
+    const btn = createCircleBtn(modulePanel, 'feature-btn', entry.x_mm, entry.y_mm, entry.label)
+    btn.dataset.index = String(featureBtns.length)
     featureBtns.push(btn)
   }
 
-  // --- Generate step grid (2 rows of 8) ---
-  const stepGrid = root.querySelector('#step-grid') as HTMLDivElement
-  const stepBtns: HTMLButtonElement[] = []
-  for (let row = 0; row < 2; row++) {
-    const rowEl = document.createElement('div')
-    rowEl.className = 'step-row'
-    for (let col = 0; col < 8; col++) {
-      const idx = row * 8 + col
-      const btn = document.createElement('button')
-      btn.className = 'circle-btn step-btn'
-      btn.dataset.step = String(idx)
-      btn.dataset.track = '0' // default, updated by LED state
-      rowEl.appendChild(btn)
-      stepBtns.push(btn)
-    }
-    stepGrid.appendChild(rowEl)
-  }
+  // --- Encoders ---
+  const encAData = panelLayout.encoders[0]
+  const encBData = panelLayout.encoders[1]
 
-  // --- Generate transport buttons in jack zone (PLAY, RESET) ---
-  const utilRowPlay = root.querySelector('#util-row-play') as HTMLDivElement
-  const playBtn = document.createElement('button')
-  playBtn.className = 'large-btn transport-btn play-btn jack-zone-btn'
-  playBtn.innerHTML = '<span class="btn-icon">▶</span><span class="btn-text">PLAY</span>'
-  utilRowPlay.insertBefore(playBtn, utilRowPlay.firstChild)
-
-  const utilRowReset = root.querySelector('#util-row-reset') as HTMLDivElement
-  const resetBtn = document.createElement('button')
-  resetBtn.className = 'large-btn transport-btn jack-zone-btn'
-  resetBtn.innerHTML = '<span class="btn-icon">◀◀</span><span class="btn-text">RESET</span>'
-  utilRowReset.insertBefore(resetBtn, utilRowReset.firstChild)
-
-  // --- SETTINGS button in jack zone ---
-  const utilRowMidi = root.querySelector('#util-row-midi') as HTMLDivElement
-  const settingsBtn = document.createElement('button')
-  settingsBtn.className = 'large-btn transport-btn jack-zone-btn'
-  settingsBtn.innerHTML = '<span class="btn-icon">⚙</span><span class="btn-text">SET</span>'
-  const spacer = utilRowMidi.querySelector('.jack-row-3-spacer')
-  if (spacer) utilRowMidi.replaceChild(settingsBtn, spacer)
-
-  // --- Generate control strip buttons (RAND, BACK, CLR) ---
-  const controlStripBtns = root.querySelector('#control-strip-btns') as HTMLDivElement
-
-  const backBtn = document.createElement('button')
-  backBtn.className = 'large-btn back-btn'
-  backBtn.innerHTML = '<span class="btn-icon">◁</span><span class="btn-text">BACK</span>'
-  controlStripBtns.appendChild(backBtn)
-
-  const randBtn = document.createElement('button')
-  randBtn.className = 'large-btn rand-btn'
-  randBtn.innerHTML = '<span class="btn-icon">⚄</span><span class="btn-text">RAND</span>'
-  controlStripBtns.appendChild(randBtn)
-
-  const clrBtn = document.createElement('button')
-  clrBtn.className = 'large-btn clr-btn'
-  clrBtn.innerHTML = '<span class="btn-icon">✕</span><span class="btn-text">CLR</span>'
-  controlStripBtns.appendChild(clrBtn)
-
-  // --- Generate output jack rows (OUT 1-4) ---
-  const jackGrid = root.querySelector('#jack-grid') as HTMLDivElement
-  const cvRow = jackGrid.querySelector('.cv-row') as HTMLDivElement
-  const outColLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
-
-  for (let t = 0; t < 4; t++) {
-    const row = document.createElement('div')
-    row.className = 'jack-grid-row out-row'
-    row.innerHTML = [0, 1, 2, 3]
-      .map(
-        (c) => `
-      <div class="jack-cell">
-        ${t === 0 ? `<span class="btn-label label-above">${outColLabels[c]}</span>` : ''}
-        <div class="jack"><div class="jack-hole"></div></div>
+  function createEncoder(panel: HTMLElement, data: { x_mm: number; y_mm: number; label: string }): HTMLDivElement {
+    const wrapper = document.createElement('div')
+    wrapper.className = 'encoder-cell'
+    wrapper.innerHTML = `
+      <span class="btn-label label-above">${data.label}</span>
+      <div class="encoder" id="encoder-${data.label.toLowerCase()}">
+        <div class="encoder-cap">
+          <div class="encoder-indicator"></div>
+        </div>
       </div>
-    `,
-      )
-      .join('')
-    jackGrid.insertBefore(row, cvRow)
+    `
+    placeAt(wrapper, data.x_mm, data.y_mm)
+    panel.appendChild(wrapper)
+    return wrapper.querySelector('.encoder') as HTMLDivElement
   }
+
+  const encoderA = createEncoder(modulePanel, encAData)
+  const encoderB = createEncoder(modulePanel, encBData)
+
+  // --- Control strip buttons (BACK, RAND, CLR) ---
+  const ctrlStrip = panelLayout.buttons.control_strip
+  const backBtn = createLargeBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, '◁', 'BACK', CTRL_BTN_W)
+  const randBtn = createLargeBtn(
+    modulePanel,
+    'rand-btn',
+    ctrlStrip[1].x_mm,
+    ctrlStrip[1].y_mm,
+    '⚄',
+    'RAND',
+    CTRL_BTN_RAND_W,
+  )
+  const clrBtn = createLargeBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, '✕', 'CLR', CTRL_BTN_W)
+
+  // --- Step buttons (2 rows of 8) ---
+  const stepBtns: HTMLButtonElement[] = []
+  for (const entry of panelLayout.buttons.step) {
+    const btn = document.createElement('button')
+    btn.className = 'circle-btn step-btn'
+    btn.dataset.step = String(stepBtns.length)
+    btn.dataset.track = '0'
+    placeAt(btn, entry.x_mm, entry.y_mm)
+    modulePanel.appendChild(btn)
+    stepBtns.push(btn)
+  }
+
+  // --- Transport buttons (PLAY, RESET, SETTINGS) ---
+  const transportData = panelLayout.buttons.transport
+  const playBtn = createLargeBtn(
+    modulePanel,
+    'transport-btn play-btn jack-zone-btn',
+    transportData[0].x_mm,
+    transportData[0].y_mm,
+    '▶',
+    'PLAY',
+    RECT_BTN_W,
+  )
+  const resetBtn = createLargeBtn(
+    modulePanel,
+    'transport-btn jack-zone-btn',
+    transportData[1].x_mm,
+    transportData[1].y_mm,
+    '◀◀',
+    'RESET',
+    RECT_BTN_W,
+  )
+  const settingsBtn = createLargeBtn(
+    modulePanel,
+    'transport-btn jack-zone-btn',
+    transportData[2].x_mm,
+    transportData[2].y_mm,
+    '⚙',
+    'SET',
+    RECT_BTN_W,
+  )
+
+  // --- Utility jacks (CLK, RST, MIDI pairs) ---
+  for (const jack of panelLayout.jacks.utility) {
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
+  }
+
+  // --- Output jacks (4×4 grid: GATE/PITCH/VEL/MOD per track) ---
+  const outColLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
+  for (const jack of panelLayout.jacks.output) {
+    // Only show column label on first track
+    const label = jack.track === 1 ? outColLabels[['gate', 'pitch', 'vel', 'mod'].indexOf(jack.row)] : undefined
+    createJack(modulePanel, jack.x_mm, jack.y_mm, label)
+  }
+
+  // --- CV input jacks ---
+  for (const jack of panelLayout.jacks.cv_input) {
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label, 'below')
+  }
+
+  // --- Connectors (USB-C, SD) ---
+  const usbData = panelLayout.connectors.usb_c
+  const usbEl = document.createElement('div')
+  usbEl.className = 'connector usb-c'
+  usbEl.innerHTML = `
+    <span class="connector-label">USB</span>
+    <div class="connector-body usb-c-body">
+      <div class="usb-c-port"></div>
+    </div>
+  `
+  placeAt(usbEl, usbData.x_mm, usbData.y_mm)
+  modulePanel.appendChild(usbEl)
+
+  const sdData = panelLayout.connectors.sd_card
+  const sdEl = document.createElement('div')
+  sdEl.className = 'connector sd-slot'
+  sdEl.innerHTML = `
+    <span class="connector-label">SD</span>
+    <div class="connector-body sd-slot-body">
+      <div class="sd-slot-opening"></div>
+    </div>
+  `
+  placeAt(sdEl, sdData.x_mm, sdData.y_mm)
+  modulePanel.appendChild(sdEl)
 
   // Ruler ticks
   requestAnimationFrame(() => generateRulerTicks(root))
@@ -376,8 +370,8 @@ export function createFaceplate(): FaceplateElements {
     patBtn,
     tbdBtn,
     settingsBtn,
-    encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
-    encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
+    encoderA,
+    encoderB,
   }
 }
 
@@ -390,19 +384,18 @@ export function setupMobileViewport(): void {
     if (!panel) return
 
     if (isMobile) {
-      const mainArea = panel.querySelector('.main-area') as HTMLElement
-      if (!mainArea) return
-      // Reset transform to measure natural width
-      panel.style.transform = ''
-      const visibleWidth = mainArea.offsetLeft + mainArea.offsetWidth + mainArea.offsetLeft
-      const scale = window.innerWidth / visibleWidth
-      const scaledH = panel.offsetHeight * scale
+      // Scale to fit the main area (everything left of jack zone)
+      // Rightmost main-area component: encoder B center + half diameter
+      const mainAreaRightMM = panelLayout.encoders[1].x_mm + C.encoder_diameter_mm / 2 + C.component_gap_mm
+      const mainAreaWidth = mainAreaRightMM * SCALE
+      const scale = window.innerWidth / mainAreaWidth
+      const scaledH = MODULE_3U_H * scale
       const topMargin = Math.max(0, (window.innerHeight - scaledH) / 2)
       panel.style.transform = `scale(${scale})`
       panel.style.marginLeft = '0'
       panel.style.marginTop = `${topMargin}px`
       // Compensate for transform not affecting document flow
-      panel.style.marginBottom = `${panel.offsetHeight * (scale - 1)}px`
+      panel.style.marginBottom = `${MODULE_3U_H * (scale - 1)}px`
     } else {
       panel.style.transform = ''
       panel.style.marginLeft = ''
@@ -536,17 +529,15 @@ const PANEL_CSS = `
     align-items: stretch;
   }
 
-  /* ── Module panel — true 3U with rail clearance ── */
+  /* ── Module panel — true 3U, absolute positioning container ── */
   #module-panel {
+    width: ${MODULE_W}px;
     height: ${MODULE_3U_H}px;
     background: linear-gradient(180deg, #2a2a2e 0%, #252528 50%, #222226 100%);
     border: 2px solid #3a3a3e;
-    padding: ${RAIL_ZONE}px ${COMPONENT_GAP}px;
     position: relative;
     user-select: none;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    display: flex;
-    flex-direction: column;
   }
 
   .panel-title {
@@ -574,153 +565,6 @@ const PANEL_CSS = `
     z-index: 5;
   }
 
-  /* ── Module content: main area + jacks ── */
-  .module-content {
-    display: flex;
-    gap: 0;
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* ── Main area: all controls except jacks ── */
-  .main-area {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    position: relative;
-  }
-
-  /* ── Top section: track col | LCD | right button cols ── */
-  .top-section {
-    display: flex;
-    align-items: flex-start; /* top-align button columns */
-    gap: ${COMPONENT_GAP}px;   /* clearance between columns and LCD */
-  }
-
-  /* ── Button columns (track, subtrack, feature) ── */
-  .track-col,
-  .right-col {
-    display: flex;
-    flex-direction: column;
-    gap: ${BTN_GAP}px;         /* BTN_CC - BTN_D = proper center-to-center */
-    flex-shrink: 0;
-  }
-
-  /* ── Zone divider ── */
-  .zone-divider {
-    width: 1px;
-    background: linear-gradient(180deg, transparent 5%, #444 50%, transparent 95%);
-    margin: 0 ${Math.round(COMPONENT_GAP * 0.6)}px;
-    align-self: stretch;
-  }
-
-  /* ── Jack zone: spans full panel height ── */
-  .jack-zone {
-    display: flex;
-    flex-direction: column;
-    gap: ${JACK_GAP}px;
-    flex-shrink: 0;
-    width: ${4 * JACK_SPACING}px;
-  }
-
-  /* ── LCD bezel ── */
-  .lcd-bezel {
-    background: #1a1a1a;
-    border-radius: 2px;
-    padding: 2px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
-    flex-shrink: 0;
-  }
-
-  .lcd-mask {
-    background: #000;
-    padding: ${2.0 * SCALE}px;
-    border-radius: 1px;
-  }
-
-  #lcd-canvas {
-    display: block;
-    width: ${73.44 * SCALE}px;
-    height: ${48.96 * SCALE}px;
-    border-radius: 1px;
-    image-rendering: pixelated;
-  }
-
-  /* ── Control strip: transport + RAND + encoders ── */
-  .control-strip {
-    display: flex;
-    align-items: center;
-    gap: ${COMPONENT_GAP}px;
-    margin-top: ${COMPONENT_GAP}px;
-  }
-
-  .control-strip-btns {
-    display: flex;
-    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
-    align-items: center;
-    flex: 1;
-  }
-
-  .encoder-cell {
-    position: relative;          /* for absolute label */
-    flex-shrink: 0;
-  }
-
-  /* ── Encoder knob ── */
-  .encoder {
-    width: ${ENCODER_D}px;
-    height: ${ENCODER_D}px;
-    border-radius: 50%;
-    position: relative;
-    cursor: grab;
-    flex-shrink: 0;
-    background: conic-gradient(
-      from 0deg,
-      #3a3a3a 0%, #2e2e2e 8%, #3c3c3c 16%, #2a2a2a 24%,
-      #383838 32%, #2c2c2c 40%, #3a3a3a 48%, #2e2e2e 56%,
-      #3c3c3c 64%, #2a2a2a 72%, #383838 80%, #2c2c2c 88%, #3a3a3a 100%
-    );
-    border: 1px solid #1a1a1a;
-    box-shadow:
-      0 3px 8px rgba(0,0,0,0.6),
-      0 1px 2px rgba(0,0,0,0.4),
-      inset 0 0.5px 0 rgba(255,255,255,0.08);
-  }
-  .encoder:active { cursor: grabbing; }
-
-  .encoder-cap {
-    position: absolute;
-    top: 6%; left: 6%;
-    width: 88%; height: 88%;
-    border-radius: 50%;
-    background: linear-gradient(165deg, #2a2a2a 0%, #1a1a1a 60%, #222 100%);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 -0.5px 0 rgba(255,255,255,0.05);
-  }
-
-  .encoder-indicator {
-    position: absolute;
-    top: 4%; left: calc(50% - 1px);
-    width: 2px; height: 40%;
-    background: #ddd;
-    border-radius: 1px;
-    transform-origin: center bottom;
-  }
-
-  /* ── Step button grid (2×8) ── */
-  .step-grid {
-    display: flex;
-    flex-direction: column;
-    gap: ${BTN_GAP}px;
-    margin-top: ${COMPONENT_GAP}px;
-    margin-left: ${STEP_GRID_LEFT}px;
-  }
-
-  .step-row {
-    display: flex;
-    gap: ${BTN_GAP}px;
-  }
-
   /* ══════════════════════════════════════════
      BUTTON STYLES
      ══════════════════════════════════════════ */
@@ -732,7 +576,7 @@ const PANEL_CSS = `
     border-radius: 50%;
     border: 1px solid rgba(0,0,0,0.5);
     cursor: pointer;
-    position: relative;      /* anchor for absolute labels */
+    position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -743,13 +587,18 @@ const PANEL_CSS = `
       0 0.5px 0 rgba(255,255,255,0.06) inset;
     transition: background 0.1s, box-shadow 0.1s, transform 0.05s;
   }
-  .circle-btn:active { transform: scale(0.92); box-shadow: 0 0.5px 1px rgba(0,0,0,0.3); }
+  .circle-btn:active { transform: translate(-50%, -50%) scale(0.92); box-shadow: 0 0.5px 1px rgba(0,0,0,0.3); }
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
 
-  /* ── Large buttons (RESET, PLAY, RAND) — Bitbox-style frosted translucent caps ── */
+  /* Step buttons use smaller diameter */
+  .step-btn {
+    width: ${STEP_BTN_D}px;
+    height: ${STEP_BTN_D}px;
+  }
+
+  /* ── Large buttons — Bitbox-style frosted translucent caps ── */
   .large-btn {
-    flex: 1;
     height: ${RECT_BTN_H}px;
     border-radius: ${0.5 * SCALE}px;
     border: 1px solid rgba(255,255,255,0.25);
@@ -773,7 +622,7 @@ const PANEL_CSS = `
     gap: 2px;
   }
   .large-btn:active {
-    transform: scale(0.97) translateY(1px);
+    transform: translate(-50%, -50%) scale(0.97) translateY(1px);
     background: linear-gradient(180deg,
       rgba(190,190,200,0.80) 0%,
       rgba(175,175,185,0.70) 40%,
@@ -796,9 +645,8 @@ const PANEL_CSS = `
     line-height: 1;
   }
 
-  /* RAND button — wider + subtly brighter than siblings */
+  /* RAND button — subtly brighter than siblings */
   .rand-btn {
-    flex: 1.5;
     background: linear-gradient(180deg,
       rgba(235,235,240,0.90) 0%,
       rgba(218,218,225,0.80) 40%,
@@ -833,13 +681,6 @@ const PANEL_CSS = `
     border-color: rgba(233,69,96,0.5);
   }
 
-  .jack-zone-btn {
-    flex: none;
-    height: ${RECT_BTN_H}px;
-    width: 100%;
-    justify-self: stretch;
-  }
-
   /* Step buttons — LED glow states */
   .step-btn { background: #444; }
   .step-btn.led-on { background: #e94560; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(233,69,96,0.5), 0 0 16px rgba(233,69,96,0.2); }
@@ -857,8 +698,6 @@ const PANEL_CSS = `
   .subtrack-btn, .feature-btn, .pat-btn, .tbd-btn { background: #555; }
   .subtrack-btn:active, .feature-btn:active, .pat-btn:active, .tbd-btn:active { background: #777; }
   .subtrack-btn.active, .feature-btn.active, .pat-btn.active, .tbd-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
-
-  /* Transport buttons — styled by .large-btn, these are overrides only */
 
   /* ══════════════════════════════════════════
      LABELS — purely cosmetic, zero layout impact
@@ -942,59 +781,44 @@ const PANEL_CSS = `
     border: 1px solid #333;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05);
     z-index: 10;
+    transform: translate(-50%, -50%);
   }
-  .screw-tl { top: ${MOUNT_Y}px; left: ${MOUNT_X}px; transform: translate(-50%, -50%); }
-  .screw-tr { top: ${MOUNT_Y}px; right: ${MOUNT_X}px; transform: translate(50%, -50%); }
-  .screw-bl { bottom: ${MOUNT_Y}px; left: ${MOUNT_X}px; transform: translate(-50%, 50%); }
-  .screw-br { bottom: ${MOUNT_Y}px; right: ${MOUNT_X}px; transform: translate(50%, 50%); }
+
+  /* ══════════════════════════════════════════
+     LCD BEZEL
+     ══════════════════════════════════════════ */
+
+  .lcd-bezel {
+    background: #1a1a1a;
+    border-radius: 2px;
+    padding: 2px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  .lcd-mask {
+    background: #000;
+    padding: ${2.0 * SCALE}px;
+    border-radius: 1px;
+  }
+
+  #lcd-canvas {
+    display: block;
+    width: ${73.44 * SCALE}px;
+    height: ${48.96 * SCALE}px;
+    border-radius: 1px;
+    image-rendering: pixelated;
+  }
 
   /* ══════════════════════════════════════════
      JACKS
      ══════════════════════════════════════════ */
 
-  .utility-jacks {
-    display: flex;
-    flex-direction: column;
-    gap: ${JACK_GAP}px;
-  }
-
-  .jack-row-2 {
-    display: grid;
-    grid-template-columns: repeat(2, ${JACK_SPACING}px);
-    align-items: center;
-    justify-items: center;
-  }
-
-  .jack-row-3 {
-    display: grid;
-    grid-template-columns: 1fr repeat(2, ${JACK_SPACING}px);
-    align-items: center;
-    justify-items: center;
-  }
-
-  .jack-row-3-spacer {
-    width: 100%;
-  }
-
-  .jack-grid {
-    display: flex;
-    flex-direction: column;
-    gap: ${OUTPUT_JACK_SPACING - JACK_D}px;
-  }
-
-  .jack-grid-row {
-    display: grid;
-    grid-template-columns: repeat(4, ${JACK_SPACING}px);
-    align-items: center;
-    justify-items: center;
-    position: relative;
-  }
-
   .jack-cell {
     display: flex;
     flex-direction: column;
     align-items: center;
-    position: relative;        /* anchor for absolute labels */
+    position: absolute;
+    transform: translate(-50%, -50%);
   }
 
   .jack {
@@ -1027,60 +851,60 @@ const PANEL_CSS = `
   }
 
   /* ══════════════════════════════════════════
-     RULER
+     ENCODERS
      ══════════════════════════════════════════ */
 
-  .ruler {
+  .encoder-cell {
+    position: absolute;
+    transform: translate(-50%, -50%);
+  }
+
+  .encoder {
+    width: ${ENCODER_D}px;
+    height: ${ENCODER_D}px;
+    border-radius: 50%;
     position: relative;
-    height: 40px;
-    overflow: visible;
-    width: 100vw;
-    margin-top: 22px;
+    cursor: grab;
+    flex-shrink: 0;
+    background: conic-gradient(
+      from 0deg,
+      #3a3a3a 0%, #2e2e2e 8%, #3c3c3c 16%, #2a2a2a 24%,
+      #383838 32%, #2c2c2c 40%, #3a3a3a 48%, #2e2e2e 56%,
+      #3c3c3c 64%, #2a2a2a 72%, #383838 80%, #2c2c2c 88%, #3a3a3a 100%
+    );
+    border: 1px solid #1a1a1a;
+    box-shadow:
+      0 3px 8px rgba(0,0,0,0.6),
+      0 1px 2px rgba(0,0,0,0.4),
+      inset 0 0.5px 0 rgba(255,255,255,0.08);
   }
-  .ruler-track { position: relative; height: 16px; margin-left: 28px; }
-  .ruler-label {
-    position: absolute; left: -28px; top: 0;
-    font-size: 7px; color: #555; letter-spacing: 1px; line-height: 16px;
+  .encoder:active { cursor: grabbing; }
+
+  .encoder-cap {
+    position: absolute;
+    top: 6%; left: 6%;
+    width: 88%; height: 88%;
+    border-radius: 50%;
+    background: linear-gradient(165deg, #2a2a2a 0%, #1a1a1a 60%, #222 100%);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 -0.5px 0 rgba(255,255,255,0.05);
   }
-  .ruler-bracket {
-    position: absolute; top: 0; height: 2px;
-    background: #555; border-left: 1px solid #777; border-right: 1px solid #777;
+
+  .encoder-indicator {
+    position: absolute;
+    top: 4%; left: calc(50% - 1px);
+    width: 2px; height: 40%;
+    background: #ddd;
+    border-radius: 1px;
+    transform-origin: center bottom;
   }
-  .ruler-bracket::before, .ruler-bracket::after {
-    content: ''; position: absolute; top: -2px; width: 1px; height: 6px; background: #777;
-  }
-  .ruler-bracket::before { left: 0; }
-  .ruler-bracket::after { right: 0; }
-  .ruler-module-label {
-    position: absolute; top: -14px; transform: translateX(-50%);
-    font-size: 9px; font-weight: 600; color: #888; letter-spacing: 1px; white-space: nowrap;
-  }
-  .ruler-tick { position: absolute; top: 4px; width: 1px; background: #3a3a3e; }
-  .ruler-tick.major { height: 10px; background: #555; }
-  .ruler-tick.minor { height: 6px; background: #3a3a3e; }
-  .ruler-tick.dim-tick { opacity: 0.4; }
-  .tick-label {
-    position: absolute; top: -1px; left: 3px;
-    font-size: 7px; color: #555; white-space: nowrap; line-height: 10px;
-  }
-  .dim-tick .tick-label { opacity: 0.5; }
 
   /* ══════════════════════════════════════════
      CONNECTORS (USB-C, SD card)
      ══════════════════════════════════════════ */
 
-  .connector-zone {
-    position: absolute;
-    bottom: ${RAIL_ZONE + 4}px;
-    right: ${Math.round(COMPONENT_GAP * 0.5)}px;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-end;
-    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
-    z-index: 5;
-  }
-
   .connector {
+    position: absolute;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1136,10 +960,49 @@ const PANEL_CSS = `
   }
 
   /* ══════════════════════════════════════════
+     RULER
+     ══════════════════════════════════════════ */
+
+  .ruler {
+    position: relative;
+    height: 40px;
+    overflow: visible;
+    width: 100vw;
+    margin-top: 22px;
+  }
+  .ruler-track { position: relative; height: 16px; margin-left: 28px; }
+  .ruler-label {
+    position: absolute; left: -28px; top: 0;
+    font-size: 7px; color: #555; letter-spacing: 1px; line-height: 16px;
+  }
+  .ruler-bracket {
+    position: absolute; top: 0; height: 2px;
+    background: #555; border-left: 1px solid #777; border-right: 1px solid #777;
+  }
+  .ruler-bracket::before, .ruler-bracket::after {
+    content: ''; position: absolute; top: -2px; width: 1px; height: 6px; background: #777;
+  }
+  .ruler-bracket::before { left: 0; }
+  .ruler-bracket::after { right: 0; }
+  .ruler-module-label {
+    position: absolute; top: -14px; transform: translateX(-50%);
+    font-size: 9px; font-weight: 600; color: #888; letter-spacing: 1px; white-space: nowrap;
+  }
+  .ruler-tick { position: absolute; top: 4px; width: 1px; background: #3a3a3e; }
+  .ruler-tick.major { height: 10px; background: #555; }
+  .ruler-tick.minor { height: 6px; background: #3a3a3e; }
+  .ruler-tick.dim-tick { opacity: 0.4; }
+  .tick-label {
+    position: absolute; top: -1px; left: 3px;
+    font-size: 7px; color: #555; white-space: nowrap; line-height: 10px;
+  }
+  .dim-tick .tick-label { opacity: 0.5; }
+
+  /* ══════════════════════════════════════════
      TOUCH / MOBILE
      ══════════════════════════════════════════ */
 
-  .circle-btn, .encoder {
+  .circle-btn, .encoder, .large-btn {
     touch-action: none;
   }
 
@@ -1170,7 +1033,6 @@ const PANEL_CSS = `
 
     #module-panel {
       transform-origin: top left;
-      width: max-content;
     }
 
     .rack-wrapper,
