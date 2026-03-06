@@ -4,8 +4,7 @@
  * TS only handles I/O glue (clock, audio, MIDI, keyboard, panel).
  */
 
-import type { NoteEvent } from './types'
-import type { ClockSource } from './types'
+import type { ClockSource, NoteEvent } from './types'
 
 // biome-ignore lint/suspicious/noExplicitAny: WASM module types not available at compile time
 type WasmSequencerInstance = any
@@ -155,7 +154,12 @@ export function syncPlayheadsFromWasm(transport: any): void {
 
 const SUBTRACK_MAP: Record<string, number> = { gate: 0, pitch: 1, velocity: 2, mod: 3 }
 const FEATURE_MAP: Record<string, number> = {
-  mute: 0, route: 1, rand: 2, mutate: 3, transpose: 4, variation: 5,
+  mute: 0,
+  route: 1,
+  rand: 2,
+  mutate: 3,
+  transpose: 4,
+  variation: 5,
 }
 
 /** Forward a TS ControlEvent to the Rust mode machine via WASM. */
@@ -164,7 +168,7 @@ export function forwardEvent(event: import('../ui/hw-types').ControlEvent): void
   const seq = wasmSeq
 
   // Update system tick for CLR timeout
-  seq.set_system_tick(Math.floor(performance.now()) & 0xFFFFFFFF)
+  seq.set_system_tick(Math.floor(performance.now()) & 0xffffffff)
 
   switch (event.type) {
     case 'encoder-a-turn':
@@ -274,7 +278,7 @@ export function getWasmScreenMode(): number {
 /** Check and cancel CLR timeout in WASM mode. */
 export function checkWasmClrTimeout(): void {
   if (!wasmSeq) return
-  wasmSeq.set_system_tick(Math.floor(performance.now()) & 0xFFFFFFFF)
+  wasmSeq.set_system_tick(Math.floor(performance.now()) & 0xffffffff)
   wasmSeq.check_clr_timeout()
 }
 

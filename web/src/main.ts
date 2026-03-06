@@ -23,17 +23,17 @@ import {
   importWasmLibrary,
   importWasmState,
   initWasm,
-  resetWasmSequencer,
   isWasmReady,
   renderWasmLcd,
+  resetWasmSequencer,
   syncPlayheadsFromWasm,
   wasmTick,
 } from './engine/wasm-adapter'
-import { clearLibrary, clearState, loadLibrary, loadState, saveLibrary, saveState } from './io/persistence'
 import { DrumMachine } from './io/drum-machine'
 import { MIDIClockIn } from './io/midi-clock-in'
 import { MIDIClockOut } from './io/midi-clock-out'
 import { MIDIOutput } from './io/midi-output'
+import { clearLibrary, clearState, loadLibrary, loadState, saveLibrary, saveState } from './io/persistence'
 import { ToneClock } from './io/tone-clock'
 import { ToneOutput } from './io/tone-output'
 import { createDebugMenu } from './ui/debug-menu'
@@ -152,7 +152,7 @@ const midiClockIn = new MIDIClockIn({
 
 /** Track current clock source to detect changes */
 let activeClockSource: ClockSource = transport.clockSource
-let midiInputDeviceIndex = 0
+const midiInputDeviceIndex = 0
 // biome-ignore lint/suspicious/noExplicitAny: MIDI device list
 let midiInputDevices: any[] = []
 
@@ -223,6 +223,49 @@ function syncClockSource() {
 // --- Control Event Handler ---
 let _playStopInProgress = false
 
+function handleTransportStop() {
+  if (clock.playing) clock.stop()
+  midiClockIn.stopListening()
+  output.releaseAll()
+  midi.panic()
+  midiClockOut.sendStop()
+  transport.playing = false
+  if (isWasmReady()) {
+    getWasmSequencer().set_playing(false)
+  }
+}
+
+async function handleTransportStart() {
+  await Tone.start()
+  await midi.init()
+  shareMIDIAccess()
+  refreshMIDIDevices()
+
+  if (transport.clockSource === 'midi') {
+    const inputDevice = midiInputDevices[midiInputDeviceIndex]
+    if (inputDevice) midiClockIn.startListening(inputDevice.id)
+    transport.playing = true
+  } else {
+    await clock.start()
+    transport.playing = true
+  }
+  if (isWasmReady()) {
+    const seq = getWasmSequencer()
+    seq.set_bpm(transport.bpm)
+    seq.set_playing(true)
+    seq.reset_playheads()
+  }
+}
+
+function checkClockSourceChange() {
+  if (!isWasmReady()) return
+  const newSource = getWasmClockSource()
+  if (newSource !== transport.clockSource) {
+    transport.clockSource = newSource
+    syncClockSource()
+  }
+}
+
 onControlEvent(async (event: ControlEvent) => {
   if (event.type === 'play-stop') {
     if (_playStopInProgress) return
@@ -230,61 +273,38 @@ onControlEvent(async (event: ControlEvent) => {
     try {
       const isPlaying = clock.playing || transport.playing
       if (isPlaying) {
-        if (clock.playing) clock.stop()
-        midiClockIn.stopListening()
-        output.releaseAll()
-        midi.panic()
-        midiClockOut.sendStop()
-        transport.playing = false
-        if (isWasmReady()) {
-          getWasmSequencer().set_playing(false)
-        }
+        handleTransportStop()
       } else {
-        await Tone.start()
-        await midi.init()
-        shareMIDIAccess()
-        refreshMIDIDevices()
-
-        if (transport.clockSource === 'midi') {
-          const inputDevice = midiInputDevices[midiInputDeviceIndex]
-          if (inputDevice) midiClockIn.startListening(inputDevice.id)
-          transport.playing = true
-        } else {
-          await clock.start()
-          transport.playing = true
-        }
-        if (isWasmReady()) {
-          const seq = getWasmSequencer()
-          seq.set_bpm(transport.bpm)
-          seq.set_playing(true)
-          seq.reset_playheads()
-        }
+        await handleTransportStart()
       }
     } finally {
       _playStopInProgress = false
     }
-    // Also forward to Rust so it knows play state
     forwardEvent(event)
     return
   }
 
   forwardEvent(event)
-
-  // Check if clock source changed (settings screen)
-  if (isWasmReady()) {
-    const newSource = getWasmClockSource()
-    if (newSource !== transport.clockSource) {
-      transport.clockSource = newSource
-      syncClockSource()
-    }
-  }
+  checkClockSourceChange()
 })
 
 // --- Screen mode → ScreenMode string mapping ---
 const SCREEN_MODES: ScreenMode[] = [
-  'home', 'gate-edit', 'pitch-edit', 'vel-edit', 'mod-edit',
-  'mute-edit', 'route', 'rand', 'mutate-edit', 'transpose-edit',
-  'variation-edit', 'settings', 'pattern', 'pattern-load', 'name-entry',
+  'home',
+  'gate-edit',
+  'pitch-edit',
+  'vel-edit',
+  'mod-edit',
+  'mute-edit',
+  'route',
+  'rand',
+  'mutate-edit',
+  'transpose-edit',
+  'variation-edit',
+  'settings',
+  'pattern',
+  'pattern-load',
+  'name-entry',
 ]
 
 // --- Shortcut Hints ---
@@ -315,53 +335,42 @@ hintEl.style.cssText = `
 const ruler = panel.root.querySelector('.ruler')
 panel.root.insertBefore(hintEl, ruler)
 
-// --- Render Loop ---
-function render(): void {
-  if (!isWasmReady()) {
-    requestAnimationFrame(render)
-    return
-  }
-
-  // Read BPM from Rust (encoder may have changed it)
+// --- Render Helpers ---
+function syncTransportFromWasm() {
   const wasmBpm = getWasmBpm()
   if (wasmBpm !== clock.bpm) {
     clock.bpm = wasmBpm
     transport.bpm = wasmBpm
   }
-
-  // Sync playing state from clock (internal mode)
   if (transport.clockSource === 'internal') {
     transport.playing = clock.playing
   }
-
-  // Sync MIDI config from Rust (settings screen may have changed it)
   midiEnabled = getWasmMidiEnabled()
   midiClockOutEnabled = getWasmMidiClockOut()
   for (let i = 0; i < 4; i++) {
     midiConfigs[i].channel = getWasmMidiChannel(i)
   }
+}
 
-  // Render LCD via Rust
-  renderWasmLcd(lcdCtx)
-  checkWasmClrTimeout()
+function mapPlayLed(mode: string): 'off' | 'on' | 'pulse' {
+  if (mode === 'flash') return 'pulse'
+  if (mode === 'on') return 'on'
+  return 'off'
+}
 
-  // CLR pending visual on panel button
+function updatePanelFromWasm() {
   panel.clrBtn.classList.toggle('clr-pending', getWasmClrPending())
 
-  // Update panel LEDs from Rust mode machine
   const wasmLeds = getWasmLedState()
   if (wasmLeds) {
-    const ledState = {
+    updateLEDs({
       steps: wasmLeds.steps as Array<'off' | 'on' | 'dim' | 'flash'>,
       tracks: wasmLeds.tracks,
-      play: wasmLeds.play === 'flash' ? 'pulse' as const : wasmLeds.play === 'on' ? 'on' as const : 'off' as const,
-    }
-    updateLEDs(ledState)
+      play: mapPlayLed(wasmLeds.play),
+    })
   }
 
-  // Update mode indicators on subtrack/feature buttons
   const modeIndex = getWasmScreenMode()
-  // Auto-save when navigating to home screen
   if (modeIndex === 0 && prevScreenMode !== 0) {
     const stateBytes = exportWasmState()
     if (stateBytes.length > 0) saveState(stateBytes)
@@ -371,12 +380,22 @@ function render(): void {
   }
   prevScreenMode = modeIndex
   const modeName = SCREEN_MODES[modeIndex] ?? 'home'
-  // Construct minimal UIState for updateModeIndicators
   const minimalUi = { mode: modeName } as import('./ui/hw-types').UIState
   updateModeIndicators(panel.subtrackBtns, panel.featureBtns, panel.randBtn, panel.patBtn, minimalUi)
-
-  // Update shortcut hints
   hintEl.textContent = SHORTCUT_HINTS[modeName] ?? ''
+}
+
+// --- Render Loop ---
+function render(): void {
+  if (!isWasmReady()) {
+    requestAnimationFrame(render)
+    return
+  }
+
+  syncTransportFromWasm()
+  renderWasmLcd(lcdCtx)
+  checkWasmClrTimeout()
+  updatePanelFromWasm()
 
   requestAnimationFrame(render)
 }

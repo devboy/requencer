@@ -10,7 +10,9 @@ const LIBRARY_KEY = 'requencer:library'
 try {
   localStorage.removeItem('requencer:patterns')
   localStorage.removeItem('requencer:presets')
-} catch { /* */ }
+} catch {
+  /* */
+}
 
 /** Encode bytes to base64 string for localStorage. */
 function toBase64(bytes: Uint8Array): string {
@@ -68,9 +70,17 @@ export function loadLibrary(): Uint8Array | null {
 }
 
 export function clearState(): void {
-  try { localStorage.removeItem(STATE_KEY) } catch { /* */ }
+  try {
+    localStorage.removeItem(STATE_KEY)
+  } catch {
+    /* */
+  }
 }
 
 export function clearLibrary(): void {
-  try { localStorage.removeItem(LIBRARY_KEY) } catch { /* */ }
+  try {
+    localStorage.removeItem(LIBRARY_KEY)
+  } catch {
+    /* */
+  }
 }

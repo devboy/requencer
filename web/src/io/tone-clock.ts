@@ -1,4 +1,5 @@
 import * as Tone from 'tone'
+
 const PPQN = 24
 const TICKS_PER_STEP = PPQN / 4 // = 6
 
