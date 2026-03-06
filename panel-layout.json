@@ -142,20 +142,22 @@
     "usb_c": {
       "id": "usb_c",
       "label": "USB",
-      "x_mm": 7.83,
-      "y_mm": 115.00,
-      "width_mm": 9.0,
-      "height_mm": 3.5,
-      "notes": "USB-C receptacle for firmware programming and debug"
+      "x_mm": 107.30,
+      "y_mm": 91.00,
+      "width_mm": 3.5,
+      "height_mm": 9.0,
+      "rotation_deg": 90,
+      "notes": "USB-C receptacle rotated 90° under encoder B"
     },
     "sd_card": {
       "id": "sd_card",
       "label": "SD",
-      "x_mm": 25.00,
-      "y_mm": 115.00,
-      "width_mm": 12.0,
-      "height_mm": 2.5,
-      "notes": "Micro SD push-push slot for preset import/export"
+      "x_mm": 107.30,
+      "y_mm": 103.00,
+      "width_mm": 2.5,
+      "height_mm": 12.0,
+      "rotation_deg": 90,
+      "notes": "Micro SD push-push slot rotated 90° under encoder B"
     }
   }
 }

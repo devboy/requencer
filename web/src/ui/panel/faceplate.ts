@@ -1069,18 +1069,20 @@ const PANEL_CSS = `
 
   .connector-zone {
     position: absolute;
-    bottom: ${RAIL_ZONE + 2}px;
-    left: ${COMPONENT_GAP}px;
+    top: ${76.36 * SCALE + ENCODER_D / 2 + 4}px;
+    right: ${COMPONENT_GAP + 18}px;
     display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: ${COMPONENT_GAP}px;
     z-index: 5;
   }
 
   .connector {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
   }
 
   .connector-label {
@@ -1090,10 +1092,11 @@ const PANEL_CSS = `
     letter-spacing: 0.5px;
   }
 
+  /* Rotated 90°: swap W↔H */
   .usb-c-body {
-    width: ${USB_C_W}px;
-    height: ${USB_C_H}px;
-    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
+    width: ${USB_C_H}px;
+    height: ${USB_C_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
     border-radius: ${USB_C_H * 0.4}px;
     border: 1px solid #555;
     display: flex;
@@ -1103,17 +1106,17 @@ const PANEL_CSS = `
   }
 
   .usb-c-port {
-    width: ${USB_C_W * 0.65}px;
-    height: ${USB_C_H * 0.45}px;
+    width: ${USB_C_H * 0.45}px;
+    height: ${USB_C_W * 0.65}px;
     background: #1a1a1a;
     border-radius: ${USB_C_H * 0.18}px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
   }
 
   .sd-slot-body {
-    width: ${SD_SLOT_W}px;
-    height: ${SD_SLOT_H}px;
-    background: linear-gradient(180deg, #888 0%, #666 50%, #777 100%);
+    width: ${SD_SLOT_H}px;
+    height: ${SD_SLOT_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
     border-radius: 2px;
     border: 1px solid #555;
     display: flex;
@@ -1123,8 +1126,8 @@ const PANEL_CSS = `
   }
 
   .sd-slot-opening {
-    width: ${SD_SLOT_W * 0.75}px;
-    height: ${SD_SLOT_H * 0.5}px;
+    width: ${SD_SLOT_H * 0.5}px;
+    height: ${SD_SLOT_W * 0.75}px;
     background: #1a1a1a;
     border-radius: 1px;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
