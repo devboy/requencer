@@ -1,0 +1,28 @@
+# 74HCT125D — Quad Bus Buffer (3-state) with TTL-compatible inputs
+# Used as 3.3V → 5V level shifter for DAC SPI bus
+# HCT family: VIH = 2.0V (accepts 3.3V logic), outputs are 5V CMOS
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component _74HCT125D:
+    trait is_atomic_part<manufacturer="Nexperia", partnumber="74HCT125D", footprint="SOIC-14", symbol="74HCT125D.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C5613", manufacturer="Nexperia", partno="74HCT125D">
+
+    signal OE1_N ~ pin 1    # Output enable 1 (active low)
+    signal A1 ~ pin 2       # Input 1
+    signal Y1 ~ pin 3       # Output 1
+    signal OE2_N ~ pin 4    # Output enable 2 (active low)
+    signal A2 ~ pin 5       # Input 2
+    signal Y2 ~ pin 6       # Output 2
+    signal GND ~ pin 7      # Ground
+    signal Y3 ~ pin 8       # Output 3
+    signal A3 ~ pin 9       # Input 3
+    signal OE3_N ~ pin 10   # Output enable 3 (active low)
+    signal Y4 ~ pin 11      # Output 4
+    signal A4 ~ pin 12      # Input 4
+    signal OE4_N ~ pin 13   # Output enable 4 (active low)
+    signal VCC ~ pin 14     # Power (5V)

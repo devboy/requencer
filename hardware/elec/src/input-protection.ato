@@ -24,10 +24,10 @@ module InputProtection:
 
     # Voltage divider: 10k/(10k+22k) = 0.31× → 10V → 3.1V
     r_top = new Resistor
-    r_top.resistance = 22kohm +/- 5%
+    r_top.resistance = 22kohm +/- 1%
 
     r_bottom = new Resistor
-    r_bottom.resistance = 10kohm +/- 5%
+    r_bottom.resistance = 10kohm +/- 1%
 
     input ~ r_top.unnamed[0]
     r_top.unnamed[1] ~ output

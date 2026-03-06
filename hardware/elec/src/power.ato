@@ -1,6 +1,10 @@
 # Power Supply Block
 # Eurorack ±12V → regulated +5V and +3.3V
 # Reverse polarity protection, bypass capacitors
+#
+# PGA2350 has its own 3.3V regulator (300mA) fed from +5V via Schottky in mcu.ato
+# The board +3.3V rail powers: shift registers, LCD, MIDI, input protection
+# The board +5V rail powers: LED drivers, DAC analog, clock output buffers, PGA2350 VB
 
 import Resistor
 import Capacitor
@@ -17,7 +21,6 @@ module PowerSupply:
     signal v5v         # +5V regulated rail
     signal v3v3        # +3.3V regulated rail
     signal gnd         # Common ground
-    signal pico_vsys   # Pico VSYS (3.3V via Schottky)
 
     # Eurorack power connector
     header = new EurorackPowerHeader
@@ -41,7 +44,6 @@ module PowerSupply:
     d_pos.cathode ~ v12p
 
     # -12V: protected -12V = diode cathode ← anode ← header
-    # (reversed for negative rail protection)
     header.NEG12V_1 ~ d_neg.cathode
     header.NEG12V_2 ~ d_neg.cathode
     d_neg.anode ~ v12n
@@ -80,6 +82,8 @@ module PowerSupply:
     c_5v_out_hf.unnamed[1] ~ gnd
 
     # --- +3.3V Regulator (AMS1117-3.3) ---
+    # Powers board peripherals: shift registers, LCD, MIDI, input protection
+    # PGA2350 has its own internal 3.3V regulator for MCU core
     reg_3v3 = new AMS1117_3V3
     reg_3v3.VIN ~ v12p
     reg_3v3.GND ~ gnd
@@ -100,9 +104,3 @@ module PowerSupply:
     c_3v3_out_hf.capacitance = 100nF +/- 20%
     c_3v3_out_hf.unnamed[0] ~ v3v3
     c_3v3_out_hf.unnamed[1] ~ gnd
-
-    # --- Pico VSYS via Schottky ---
-    # Schottky diode allows USB power to coexist with eurorack power
-    d_vsys = new Diode
-    d_vsys.anode ~ v3v3
-    d_vsys.cathode ~ pico_vsys

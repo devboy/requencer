@@ -1,111 +1,271 @@
-# MCU Block — Raspberry Pi Pico 2 (RP2350)
-# Castellated pad module with all GPIO assignments
+# MCU Block — Pimoroni PGA2350 (RP2350B)
+# 48 GPIO Pin Grid Array module with 16MB flash + 8MB PSRAM
+# USB-C on front panel, SD card on front panel, dedicated DAC SPI bus
 
 import Capacitor
+import Resistor
+import Diode
 
-from "../../parts/RaspberryPiPico2/RaspberryPiPico2.ato" import RaspberryPiPico2
+from "../../parts/PGA2350/PGA2350.ato" import PGA2350
+from "../../parts/USB_C_Receptacle/USB_C_Receptacle.ato" import USB_C_Receptacle
+from "../../parts/MicroSD_Slot/MicroSD_Slot.ato" import MicroSD_Slot
+from "../../parts/PRTR5V0U2X/PRTR5V0U2X.ato" import PRTR5V0U2X
+from "../../parts/TactileSwitch/TactileSwitch.ato" import TactileSwitch
 
-module PicoMCU:
+module PGA2350_MCU:
     # Power
-    signal vsys
+    signal v5v         # +5V from power supply (for VB input via Schottky)
+    signal v3v3        # +3.3V from PGA2350 onboard regulator
     signal gnd
-    signal v3v3_out  # Pico's onboard 3.3V output (unused, we supply externally)
 
-    # SPI bus (shared by LCD, DAC1, DAC2)
-    signal spi_mosi   # GP0 — SPI0 TX
-    signal spi_sck    # GP2 — SPI0 SCK
+    # SPI0 bus (display + SD card)
+    signal spi0_mosi   # GP0 — SPI0 TX
+    signal spi0_sck    # GP2 — SPI0 SCK
+    signal spi0_miso   # GP23 — SPI0 RX (SD card reads)
 
     # LCD control
-    signal lcd_cs     # GP1
-    signal lcd_dc     # GP3
-    signal lcd_bl     # GP5 — backlight PWM
+    signal lcd_cs      # GP1
+    signal lcd_dc      # GP3
+    signal lcd_bl      # GP5 — backlight PWM
 
-    # Reset output (GP4, freed from LCD RST which now uses RC circuit)
-    signal rst_out    # GP4
+    # SD card
+    signal sd_cs       # GP24
+
+    # SPI1 bus (dedicated DAC bus — no contention with display)
+    signal spi1_mosi   # GP30 — SPI1 TX
+    signal spi1_sck    # GP31 — SPI1 SCK
 
     # DAC chip selects
-    signal dac1_cs    # GP6
-    signal dac2_cs    # GP7
+    signal dac1_cs     # GP32
+    signal dac2_cs     # GP33
+
+    # Reset output
+    signal rst_out     # GP4
 
     # Button scan (74HC165 chain)
-    signal btn_clk    # GP8
-    signal btn_latch  # GP9
-    signal btn_data   # GP10
+    signal btn_clk     # GP8
+    signal btn_latch   # GP9
+    signal btn_data    # GP10
 
     # LED driver (TLC5947 chain)
-    signal led_sin    # GP11
-    signal led_sclk   # GP12
-    signal led_xlat   # GP13
-    signal led_blank  # GP14
+    signal led_sin     # GP11
+    signal led_sclk    # GP12
+    signal led_xlat    # GP13
+    signal led_blank   # GP14
 
     # Encoder A
-    signal enc_a_a    # GP15
-    signal enc_a_b    # GP16
-    signal enc_a_sw   # GP17
+    signal enc_a_a     # GP15
+    signal enc_a_b     # GP16
+    signal enc_a_sw    # GP17
 
     # Encoder B
-    signal enc_b_a    # GP18
-    signal enc_b_b    # GP19
-    signal enc_b_sw   # GP20
+    signal enc_b_a     # GP18
+    signal enc_b_b     # GP19
+    signal enc_b_sw    # GP20
 
     # MIDI UART
-    signal midi_tx    # GP21 — UART0 TX
-    signal midi_rx    # GP22 — UART0 RX
+    signal midi_tx     # GP21 — UART0 TX
+    signal midi_rx     # GP22 — UART0 RX
 
     # Clock/Reset I/O
-    signal clk_in     # GP26
-    signal rst_in     # GP27
-    signal clk_out    # GP28
+    signal clk_in      # GP26 (ADC0)
+    signal rst_in      # GP27 (ADC1)
+    signal clk_out     # GP28 (ADC2)
 
-    # Note: GP23-GP25 are NOT available on Pico 2 module
-    # (GP23=SMPS, GP24=VBUS detect, GP25=onboard LED)
-    # Settings button uses shift register chain (SR5) instead
+    # CV Inputs (now connected! RP2350B ADC4-7)
+    signal cv_a        # GP40 (ADC4)
+    signal cv_b        # GP41 (ADC5)
+    signal cv_c        # GP42 (ADC6)
+    signal cv_d        # GP43 (ADC7)
 
-    # --- Pico 2 module ---
-    pico = new RaspberryPiPico2
+    # --- PGA2350 module ---
+    pga = new PGA2350
 
     # Power connections
-    pico.VSYS ~ vsys
-    pico.GND1 ~ gnd
-    pico.GND2 ~ gnd
-    pico.GND3 ~ gnd
-    pico.GND4 ~ gnd
-    pico.GND5 ~ gnd
-    pico.GND6 ~ gnd
-    pico.GND7 ~ gnd
-    pico.GND8 ~ gnd
-    pico.V3V3_OUT ~ v3v3_out
+    # VB gets 5V through Schottky (OR'd with USB VBUS)
+    d_vb = new Diode
+    d_vb.anode ~ v5v
+    d_vb.cathode ~ pga.VB
 
-    # Bypass cap on VSYS
-    c_vsys = new Capacitor
-    c_vsys.capacitance = 100nF +/- 20%
-    c_vsys.unnamed[0] ~ vsys
-    c_vsys.unnamed[1] ~ gnd
+    # 3.3V output from PGA2350 onboard regulator
+    pga.V3V3 ~ v3v3
 
-    # GPIO assignments
-    pico.GP0 ~ spi_mosi
-    pico.GP1 ~ lcd_cs
-    pico.GP2 ~ spi_sck
-    pico.GP3 ~ lcd_dc
-    pico.GP4 ~ rst_out
-    pico.GP5 ~ lcd_bl
-    pico.GP6 ~ dac1_cs
-    pico.GP7 ~ dac2_cs
-    pico.GP8 ~ btn_clk
-    pico.GP9 ~ btn_latch
-    pico.GP10 ~ btn_data
-    pico.GP11 ~ led_sin
-    pico.GP12 ~ led_sclk
-    pico.GP13 ~ led_xlat
-    pico.GP14 ~ led_blank
-    pico.GP15 ~ enc_a_a
-    pico.GP16 ~ enc_a_b
-    pico.GP17 ~ enc_a_sw
-    pico.GP18 ~ enc_b_a
-    pico.GP19 ~ enc_b_b
-    pico.GP20 ~ enc_b_sw
-    pico.GP21 ~ midi_tx
-    pico.GP22 ~ midi_rx
-    pico.GP26_ADC0 ~ clk_in
-    pico.GP27_ADC1 ~ rst_in
-    pico.GP28_ADC2 ~ clk_out
+    # Ground
+    pga.GND1 ~ gnd
+    pga.GND2 ~ gnd
+    pga.GND3 ~ gnd
+    pga.GND4 ~ gnd
+    pga.GND5 ~ gnd
+    pga.GND6 ~ gnd
+
+    # Bypass caps
+    c_vb = new Capacitor
+    c_vb.capacitance = 10uF +/- 20%
+    c_vb.unnamed[0] ~ pga.VB
+    c_vb.unnamed[1] ~ gnd
+
+    c_3v3 = new Capacitor
+    c_3v3.capacitance = 100nF +/- 20%
+    c_3v3.unnamed[0] ~ v3v3
+    c_3v3.unnamed[1] ~ gnd
+
+    c_3v3_bulk = new Capacitor
+    c_3v3_bulk.capacitance = 10uF +/- 20%
+    c_3v3_bulk.unnamed[0] ~ v3v3
+    c_3v3_bulk.unnamed[1] ~ gnd
+
+    # --- USB-C Connector (front panel) ---
+    usb = new USB_C_Receptacle
+
+    # USB data lines: PGA2350 ↔ USB-C via 27Ω series resistors
+    r_dp = new Resistor
+    r_dp.resistance = 27ohm +/- 5%
+    r_dm = new Resistor
+    r_dm.resistance = 27ohm +/- 5%
+
+    pga.USB_DP ~ r_dp.unnamed[0]
+    r_dp.unnamed[1] ~ usb.DP
+    pga.USB_DM ~ r_dm.unnamed[0]
+    r_dm.unnamed[1] ~ usb.DM
+
+    # CC pull-downs (5.1kΩ — required for USB-C device mode)
+    r_cc1 = new Resistor
+    r_cc1.resistance = 5.1kohm +/- 1%
+    r_cc1.unnamed[0] ~ usb.CC1
+    r_cc1.unnamed[1] ~ gnd
+
+    r_cc2 = new Resistor
+    r_cc2.resistance = 5.1kohm +/- 1%
+    r_cc2.unnamed[0] ~ usb.CC2
+    r_cc2.unnamed[1] ~ gnd
+
+    # USB VBUS → PGA2350 VB via Schottky (OR'd with eurorack 5V)
+    d_usb = new Diode
+    d_usb.anode ~ usb.VBUS
+    d_usb.cathode ~ pga.VB
+
+    usb.GND ~ gnd
+    usb.SHIELD ~ gnd
+
+    # ESD protection on USB data lines
+    esd = new PRTR5V0U2X
+    esd.IO1 ~ usb.DM
+    esd.IO2 ~ usb.DP
+    esd.VCC ~ usb.VBUS
+    esd.GND ~ gnd
+
+    # --- BOOTSEL Switch ---
+    # Small tactile switch pulls BS pin to GND for bootloader entry
+    sw_bootsel = new TactileSwitch
+    sw_bootsel.PIN1 ~ pga.BS
+    sw_bootsel.PIN2 ~ gnd
+
+    # BS pull-up to 3.3V (default: not in bootloader)
+    r_bs = new Resistor
+    r_bs.resistance = 10kohm +/- 5%
+    r_bs.unnamed[0] ~ v3v3
+    r_bs.unnamed[1] ~ pga.BS
+
+    # --- Micro SD Card Slot (front panel) ---
+    sd_slot = new MicroSD_Slot
+
+    sd_slot.MOSI ~ spi0_mosi
+    sd_slot.MISO ~ spi0_miso
+    sd_slot.SCK ~ spi0_sck
+    sd_slot.CS ~ sd_cs
+    sd_slot.VCC ~ v3v3
+    sd_slot.GND ~ gnd
+    sd_slot.SHIELD ~ gnd
+
+    # SD card detect pull-up (active low when card inserted)
+    signal sd_detect   # GP25
+    r_cd = new Resistor
+    r_cd.resistance = 10kohm +/- 5%
+    r_cd.unnamed[0] ~ v3v3
+    r_cd.unnamed[1] ~ sd_slot.CD
+    sd_slot.CD ~ sd_detect
+
+    # SD card decoupling
+    c_sd = new Capacitor
+    c_sd.capacitance = 100nF +/- 20%
+    c_sd.unnamed[0] ~ v3v3
+    c_sd.unnamed[1] ~ gnd
+
+    # --- SWD Debug Header (3-pin, on main PCB) ---
+    # Not a panel component — accessible when module is removed from rack
+    signal swd_clk
+    signal swd_dio
+    pga.SWCLK ~ swd_clk
+    pga.SWDIO ~ swd_dio
+
+    # --- GPIO assignments ---
+
+    # SPI0: Display + SD card
+    pga.GP0 ~ spi0_mosi
+    pga.GP1 ~ lcd_cs
+    pga.GP2 ~ spi0_sck
+    pga.GP3 ~ lcd_dc
+    pga.GP5 ~ lcd_bl
+    pga.GP23 ~ spi0_miso
+    pga.GP24 ~ sd_cs
+
+    # Reset output
+    pga.GP4 ~ rst_out
+
+    # SPI1: DACs (dedicated bus)
+    pga.GP30 ~ spi1_mosi
+    pga.GP31 ~ spi1_sck
+    pga.GP32 ~ dac1_cs
+    pga.GP33 ~ dac2_cs
+
+    # Button scanning
+    pga.GP8 ~ btn_clk
+    pga.GP9 ~ btn_latch
+    pga.GP10 ~ btn_data
+
+    # LED drivers
+    pga.GP11 ~ led_sin
+    pga.GP12 ~ led_sclk
+    pga.GP13 ~ led_xlat
+    pga.GP14 ~ led_blank
+
+    # Encoders
+    pga.GP15 ~ enc_a_a
+    pga.GP16 ~ enc_a_b
+    pga.GP17 ~ enc_a_sw
+    pga.GP18 ~ enc_b_a
+    pga.GP19 ~ enc_b_b
+    pga.GP20 ~ enc_b_sw
+
+    # MIDI
+    pga.GP21 ~ midi_tx
+    pga.GP22 ~ midi_rx
+
+    # Clock/Reset I/O
+    pga.GP26_ADC0 ~ clk_in
+    pga.GP27_ADC1 ~ rst_in
+    pga.GP28_ADC2 ~ clk_out
+
+    # CV Inputs (ADC4-7 on RP2350B)
+    pga.GP40_ADC4 ~ cv_a
+    pga.GP41_ADC5 ~ cv_b
+    pga.GP42_ADC6 ~ cv_c
+    pga.GP43_ADC7 ~ cv_d
+
+    # SD card detect
+    pga.GP25 ~ sd_detect
+
+    # --- RUN pin pull-up (prevents spurious resets from noise) ---
+    r_run = new Resistor
+    r_run.resistance = 10kohm +/- 5%
+    r_run.unnamed[0] ~ v3v3
+    r_run.unnamed[1] ~ pga.RUN
+
+    # --- ADC_VREF decoupling (clean reference for CV input ADC channels) ---
+    c_aref = new Capacitor
+    c_aref.capacitance = 100nF +/- 20%
+    c_aref.unnamed[0] ~ pga.ADC_VREF
+    c_aref.unnamed[1] ~ gnd
+
+    # Spare GPIO: GP6, GP7, GP29, GP34-39, GP44-47
+    # Left unconnected for future expansion

@@ -1,0 +1,15 @@
+# Tactile Switch — Small momentary pushbutton
+# Used for BOOTSEL (BS pin pull-to-GND)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component TactileSwitch:
+    trait is_atomic_part<manufacturer="C&K", partnumber="PTS645SM43SMTR92", footprint="SW_SPST_PTS645.kicad_mod", symbol="SW_Push.kicad_sym">
+    trait has_designator_prefix<prefix="SW">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C221880", manufacturer="C&K", partno="PTS645SM43SMTR92">
+
+    signal PIN1 ~ pin 1
+    signal PIN2 ~ pin 2

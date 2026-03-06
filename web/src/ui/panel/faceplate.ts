@@ -41,6 +41,11 @@ const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
 const STEP_BTN_CC = C.step_btn_cc_mm * SCALE
 const RECT_BTN_H = C.rect_btn_height_mm * SCALE
 
+const USB_C_W = C.usb_c_w_mm * SCALE
+const USB_C_H = C.usb_c_h_mm * SCALE
+const SD_SLOT_W = C.sd_slot_w_mm * SCALE
+const SD_SLOT_H = C.sd_slot_h_mm * SCALE
+
 const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
 const _LCD_CLEARANCE = 3.0 * SCALE
 
@@ -82,6 +87,7 @@ export interface FaceplateElements {
   backBtn: HTMLButtonElement
   clrBtn: HTMLButtonElement
   patBtn: HTMLButtonElement
+  tbdBtn: HTMLButtonElement
   settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
@@ -146,6 +152,22 @@ export function createFaceplate(): FaceplateElements {
 
               <!-- STEP GRID 2×8 -->
               <div class="step-grid" id="step-grid"></div>
+
+              <!-- CONNECTORS: under encoder B, between steps and jacks -->
+              <div class="connector-zone">
+                <div class="connector usb-c">
+                  <span class="connector-label">USB</span>
+                  <div class="connector-body usb-c-body">
+                    <div class="usb-c-port"></div>
+                  </div>
+                </div>
+                <div class="connector sd-slot">
+                  <span class="connector-label">SD</span>
+                  <div class="connector-body sd-slot-body">
+                    <div class="sd-slot-opening"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- JACK ZONE: right side, spans full height -->
@@ -208,6 +230,15 @@ export function createFaceplate(): FaceplateElements {
     trackBtnGroup.appendChild(btn)
     trackBtns.push(btn)
   }
+
+  // --- TBD button (below T4) ---
+  const tbdBtn = document.createElement('button')
+  tbdBtn.className = 'circle-btn tbd-btn'
+  const tbdLabel = document.createElement('span')
+  tbdLabel.className = 'btn-label label-above'
+  tbdLabel.textContent = 'TBD'
+  tbdBtn.appendChild(tbdLabel)
+  trackBtnGroup.appendChild(tbdBtn)
 
   // --- Generate subtrack buttons (GATE, PTCH, VEL, MOD) + PAT ---
   const subtrackCol = root.querySelector('#subtrack-col') as HTMLDivElement
@@ -343,6 +374,7 @@ export function createFaceplate(): FaceplateElements {
     backBtn,
     clrBtn,
     patBtn,
+    tbdBtn,
     settingsBtn,
     encoderA: root.querySelector('#encoder-a') as HTMLDivElement,
     encoderB: root.querySelector('#encoder-b') as HTMLDivElement,
@@ -556,6 +588,7 @@ const PANEL_CSS = `
     flex-direction: column;
     flex: 1;
     min-width: 0;
+    position: relative;
   }
 
   /* ── Top section: track col | LCD | right button cols ── */
@@ -820,10 +853,10 @@ const PANEL_CSS = `
   .track-btn.led-on[data-track="2"] { background: #5aaa6e; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,170,110,0.5), 0 0 16px rgba(90,170,110,0.2); }
   .track-btn.led-on[data-track="3"] { background: #5aabb4; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,171,180,0.5), 0 0 16px rgba(90,171,180,0.2); }
 
-  /* Subtrack/feature/pat buttons */
-  .subtrack-btn, .feature-btn, .pat-btn { background: #555; }
-  .subtrack-btn:active, .feature-btn:active, .pat-btn:active { background: #777; }
-  .subtrack-btn.active, .feature-btn.active, .pat-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  /* Subtrack/feature/pat/tbd buttons */
+  .subtrack-btn, .feature-btn, .pat-btn, .tbd-btn { background: #555; }
+  .subtrack-btn:active, .feature-btn:active, .pat-btn:active, .tbd-btn:active { background: #777; }
+  .subtrack-btn.active, .feature-btn.active, .pat-btn.active, .tbd-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* Transport buttons — styled by .large-btn, these are overrides only */
 
@@ -1031,6 +1064,76 @@ const PANEL_CSS = `
     font-size: 7px; color: #555; white-space: nowrap; line-height: 10px;
   }
   .dim-tick .tick-label { opacity: 0.5; }
+
+  /* ══════════════════════════════════════════
+     CONNECTORS (USB-C, SD card)
+     ══════════════════════════════════════════ */
+
+  .connector-zone {
+    position: absolute;
+    bottom: ${RAIL_ZONE + 4}px;
+    right: ${Math.round(COMPONENT_GAP * 0.5)}px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: ${Math.round(COMPONENT_GAP * 0.5)}px;
+    z-index: 5;
+  }
+
+  .connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .connector-label {
+    font-size: ${Math.round(SILK_TEXT * 0.7)}px;
+    font-weight: 600;
+    color: #666;
+    letter-spacing: 0.5px;
+  }
+
+  /* Vertical (portrait): swap W↔H */
+  .usb-c-body {
+    width: ${USB_C_H}px;
+    height: ${USB_C_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
+    border-radius: ${USB_C_H * 0.4}px;
+    border: 1px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.15);
+  }
+
+  .usb-c-port {
+    width: ${USB_C_H * 0.45}px;
+    height: ${USB_C_W * 0.65}px;
+    background: #1a1a1a;
+    border-radius: ${USB_C_H * 0.18}px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  .sd-slot-body {
+    width: ${SD_SLOT_H}px;
+    height: ${SD_SLOT_W}px;
+    background: linear-gradient(90deg, #888 0%, #666 50%, #777 100%);
+    border-radius: 2px;
+    border: 1px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.15);
+  }
+
+  .sd-slot-opening {
+    width: ${SD_SLOT_H * 0.5}px;
+    height: ${SD_SLOT_W * 0.75}px;
+    background: #1a1a1a;
+    border-radius: 1px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  }
 
   /* ══════════════════════════════════════════
      TOUCH / MOBILE
