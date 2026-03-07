@@ -1,148 +1,400 @@
-// #![no_std]
-// #![no_main]
-
-//! Requencer firmware — RP2350 embedded target.
+//! Requencer firmware — RP2350 (PGA2350) embedded target.
 //!
-//! Structured stub for the hardware platform. Storage is intentionally
-//! left as a stub until we decide on SD card vs internal flash.
-//!
-//! ## Hardware Components (to be implemented)
-//! - **Display**: ST7796 480x320 TFT via SPI (DrawTarget for renderer)
-//! - **DAC**: DAC8568 8-channel 16-bit DAC for CV output (4x pitch + 4x mod)
-//! - **ADC**: External clock/reset input detection
-//! - **GPIO**: 16 step buttons + 4 track buttons via shift registers
-//! - **Encoders**: 2x rotary encoders with push (navigation + value edit)
-//! - **MIDI**: UART-based MIDI in/out
-//! - **Storage**: TBD (SD card or internal flash)
-//!
-//! ## Architecture
-//! The firmware runs a main loop that:
-//! 1. Scans inputs (buttons, encoders, clock, MIDI)
-//! 2. Updates engine state via `requencer_engine`
-//! 3. Renders display via `requencer_renderer`
-//! 4. Outputs CV/gate via DAC
-//! 5. Sends MIDI messages
-//!
-//! The no_std/no_main attributes and HAL dependencies will be
-//! added when we start firmware development with embassy or RTIC.
+//! Embassy async runtime driving all hardware peripherals.
+//! Generic drivers come from the lib; this file wires them to
+//! concrete embassy-rp types and defines async tasks.
 
-/// Hardware abstraction modules (stubs).
-#[allow(dead_code)]
-mod hw {
-    /// Display driver stub — ST7796 480x320 TFT via SPI.
-    pub mod display {
-        /// Initialize SPI display. Returns a DrawTarget-compatible handle.
-        pub fn init() {
-            // TODO: SPI init, ST7796 init sequence, backlight PWM
-        }
-    }
+#![no_std]
+#![no_main]
 
-    /// DAC8568 8-channel CV output stub.
-    pub mod dac {
-        /// Set a DAC channel voltage (0-65535 → 0-10V).
-        pub fn set_channel(_channel: u8, _value: u16) {
-            // TODO: SPI transaction to DAC8568
-        }
+extern crate alloc;
 
-        /// Convert MIDI note to DAC value (1V/oct).
-        /// Assumes DAC8568 in unipolar 0-10V mode (0=0V, 65535=10V).
-        /// Reference: C0 (MIDI 12) = 0V, C1 (MIDI 24) = 1V, ..., C8 (MIDI 108) = 8V.
-        /// Notes below MIDI 12 clamp to 0V. Notes above MIDI 127 clamp to ~9.58V.
-        pub fn note_to_dac(note: u8) -> u16 {
-            let semitones_above_c0 = (note as i16 - 12).max(0) as f32;
-            let volts = semitones_above_c0 / 12.0; // 1V per octave
-            let normalized = (volts / 10.0).min(1.0);
-            (normalized * 65535.0) as u16
-        }
-    }
+use embedded_alloc::LlffHeap as Heap;
 
-    /// Button/encoder input scanning stub.
-    pub mod input {
-        /// Scan shift registers for button state. Returns 20-bit mask.
-        pub fn scan_buttons() -> u32 {
-            // TODO: shift register clock/data/latch sequence
-            0
-        }
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
 
-        /// Read encoder delta since last call. Returns (enc_a_delta, enc_b_delta).
-        pub fn read_encoders() -> (i8, i8) {
-            // TODO: quadrature decoding via GPIO interrupts or polling
-            (0, 0)
-        }
-    }
+// Hardware-only modules (not in lib — depend on embassy/mipidsi)
+mod display;
+mod midi;
+mod cv_input;
 
-    /// External clock/reset input stub.
-    pub mod clock {
-        /// Check if external clock pulse detected since last call.
-        pub fn clock_pulse() -> bool {
-            // TODO: GPIO edge detection
-            false
-        }
+// Re-export lib modules for local use
+use requencer_firmware::{buttons, clock_io, dac, encoders, leds, pins, tick};
 
-        /// Check if reset pulse detected since last call.
-        pub fn reset_pulse() -> bool {
-            // TODO: GPIO edge detection
-            false
-        }
-    }
+use defmt::*;
+use embassy_executor::Spawner;
+use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_rp::spi::{self, Spi};
+use embassy_rp::uart;
+use embassy_rp::{bind_interrupts, peripherals};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel::Channel;
+use embassy_sync::mutex::Mutex;
+use embassy_time::{Delay, Duration, Timer};
+use requencer_engine::input::ControlEvent;
+use requencer_engine::sequencer::tick as engine_tick;
+use requencer_engine::types::SequencerState;
+use requencer_renderer::types::UiState;
+use static_cell::StaticCell;
 
-    /// UART MIDI I/O stub.
-    pub mod midi {
-        /// Send a MIDI message (3 bytes).
-        pub fn send(_bytes: &[u8]) {
-            // TODO: UART TX at 31250 baud
-        }
+use {defmt_rtt as _, panic_probe as _};
 
-        /// Read next MIDI byte if available.
-        pub fn read_byte() -> Option<u8> {
-            // TODO: UART RX buffer
-            None
-        }
-    }
+bind_interrupts!(struct Irqs {
+    UART1_IRQ => uart::InterruptHandler<peripherals::UART1>;
+});
 
-    /// Storage stub — TBD (SD card or internal flash).
-    pub mod storage {
-        /// Save pattern data to storage.
-        pub fn save_pattern(_slot: u8, _data: &[u8]) -> bool {
-            // Stub: storage backend not yet decided
-            false
-        }
+/// Shared state between tasks (engine + UI).
+pub struct SharedState {
+    pub sequencer: SequencerState,
+    pub ui: UiState,
+    pub system_tick: u32,
+}
 
-        /// Load pattern data from storage.
-        pub fn load_pattern(_slot: u8, _buf: &mut [u8]) -> bool {
-            // Stub: storage backend not yet decided
-            false
-        }
+// ── Type aliases for concrete driver instances ─────────────────────
 
-        /// Check if storage is available.
-        pub fn is_available() -> bool {
-            false
+type DacDriver = dac::Dac<
+    Spi<'static, peripherals::SPI1, embassy_rp::spi::Blocking>,
+    Output<'static>,
+    Output<'static>,
+>;
+
+type ButtonScannerDriver = buttons::ButtonScanner<
+    Output<'static>,
+    Output<'static>,
+    Input<'static>,
+>;
+
+type LedDriverType = leds::LedDriver<
+    Output<'static>,
+    Output<'static>,
+    Output<'static>,
+    Output<'static>,
+>;
+
+type ClockOutputDriver = clock_io::ClockOutput<Output<'static>, Output<'static>>;
+
+// ── Static allocations ──────────────────────────────────────────────
+
+static STATE: StaticCell<Mutex<CriticalSectionRawMutex, SharedState>> = StaticCell::new();
+static EVENT_CHANNEL: StaticCell<Channel<CriticalSectionRawMutex, ControlEvent, 16>> =
+    StaticCell::new();
+static MIDI_CHANNEL: StaticCell<Channel<CriticalSectionRawMutex, midi::MidiInput, 8>> =
+    StaticCell::new();
+static DAC: StaticCell<Mutex<CriticalSectionRawMutex, DacDriver>> = StaticCell::new();
+static CLOCK_OUT: StaticCell<Mutex<CriticalSectionRawMutex, ClockOutputDriver>> =
+    StaticCell::new();
+static LED_DRIVER: StaticCell<Mutex<CriticalSectionRawMutex, LedDriverType>> = StaticCell::new();
+
+// ── Embassy async tasks ─────────────────────────────────────────────
+
+#[embassy_executor::task]
+async fn button_task(
+    mut scanner: ButtonScannerDriver,
+    event_tx: &'static Channel<CriticalSectionRawMutex, ControlEvent, 16>,
+) {
+    loop {
+        let events = scanner.scan();
+        for ev in events {
+            event_tx.send(ev).await;
         }
+        Timer::after(Duration::from_micros(pins::BUTTON_SCAN_US)).await;
     }
 }
 
-fn main() {
-    // This will become no_main with embassy or RTIC.
-    // For now, demonstrate the intended structure:
+#[embassy_executor::task]
+async fn encoder_task(
+    enc_a_phase_a: Input<'static>,
+    enc_a_phase_b: Input<'static>,
+    enc_a_sw: Input<'static>,
+    enc_b_phase_a: Input<'static>,
+    enc_b_phase_b: Input<'static>,
+    enc_b_sw: Input<'static>,
+    event_tx: &'static Channel<CriticalSectionRawMutex, ControlEvent, 16>,
+) {
+    let mut dec_a = encoders::QuadratureDecoder::new();
+    let mut dec_b = encoders::QuadratureDecoder::new();
+    let mut sw_a_prev = false;
+    let mut sw_b_prev = false;
 
-    // 1. Init hardware
-    hw::display::init();
+    loop {
+        let delta_a = dec_a.update(enc_a_phase_a.is_high(), enc_a_phase_b.is_high());
+        let delta_b = dec_b.update(enc_b_phase_a.is_high(), enc_b_phase_b.is_high());
 
-    // 2. Create engine state
-    let _state = requencer_engine::types::SequencerState::new();
-    let _ui = requencer_renderer::types::UiState::default();
+        if delta_a != 0 {
+            event_tx
+                .send(ControlEvent::EncoderATurn { delta: delta_a })
+                .await;
+        }
+        let sw_a = enc_a_sw.is_low(); // active low
+        if sw_a && !sw_a_prev {
+            event_tx.send(ControlEvent::EncoderAPush).await;
+        }
+        sw_a_prev = sw_a;
 
-    // 3. Main loop would be:
-    // loop {
-    //     let buttons = hw::input::scan_buttons();
-    //     let (enc_a, enc_b) = hw::input::read_encoders();
-    //     let ext_clock = hw::clock::clock_pulse();
-    //     let ext_reset = hw::clock::reset_pulse();
-    //
-    //     // Update UI state from inputs
-    //     // Update engine state
-    //     // Render to display
-    //     // Output CV via DAC
-    //     // Send MIDI
-    // }
+        if delta_b != 0 {
+            event_tx
+                .send(ControlEvent::EncoderBTurn { delta: delta_b })
+                .await;
+        }
+        let sw_b = enc_b_sw.is_low();
+        if sw_b && !sw_b_prev {
+            event_tx.send(ControlEvent::EncoderBPush).await;
+        }
+        sw_b_prev = sw_b;
+
+        Timer::after(Duration::from_micros(pins::ENCODER_POLL_US)).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn led_task(
+    led_driver: &'static Mutex<CriticalSectionRawMutex, LedDriverType>,
+    state_mutex: &'static Mutex<CriticalSectionRawMutex, SharedState>,
+) {
+    let mut flash_counter: u8 = 0;
+    loop {
+        let led_state;
+        let selected_track;
+        {
+            let shared = state_mutex.lock().await;
+            led_state =
+                requencer_engine::mode_machine::get_led_state(&shared.ui, &shared.sequencer);
+            selected_track = shared.ui.selected_track;
+        }
+        {
+            let mut driver = led_driver.lock().await;
+            flash_counter += 1;
+            if flash_counter >= 8 {
+                flash_counter = 0;
+                driver.toggle_flash();
+            }
+            driver.apply_state(&led_state, selected_track);
+            driver.flush();
+        }
+        Timer::after(Duration::from_millis(pins::LED_UPDATE_MS)).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn tick_task(
+    state_mutex: &'static Mutex<CriticalSectionRawMutex, SharedState>,
+    dac_mutex: &'static Mutex<CriticalSectionRawMutex, DacDriver>,
+    clock_out_mutex: &'static Mutex<CriticalSectionRawMutex, ClockOutputDriver>,
+) {
+    let mut clock_toggle = false;
+    loop {
+        let (events, bpm, playing);
+        {
+            let mut shared = state_mutex.lock().await;
+            if shared.sequencer.transport.playing {
+                events = engine_tick(&mut shared.sequencer);
+                bpm = shared.sequencer.transport.bpm;
+                playing = true;
+            } else {
+                events = [None, None, None, None];
+                bpm = shared.sequencer.transport.bpm;
+                playing = false;
+            }
+        }
+        {
+            let mut dac = dac_mutex.lock().await;
+            dac.output_events(&events);
+        }
+        if playing {
+            let mut clk = clock_out_mutex.lock().await;
+            if clock_toggle {
+                clk.pulse_clock();
+            } else {
+                clk.release_clock();
+            }
+            clock_toggle = !clock_toggle;
+        }
+        let period = tick::tick_period_us(bpm);
+        Timer::after(Duration::from_micros(period)).await;
+    }
+}
+
+// ── Entry point ─────────────────────────────────────────────────────
+
+#[embassy_executor::main]
+async fn main(spawner: Spawner) {
+    info!("Requencer firmware starting...");
+
+    // Initialize heap allocator (16 KB)
+    {
+        use core::mem::MaybeUninit;
+        const HEAP_SIZE: usize = 16 * 1024;
+        static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
+        #[allow(static_mut_refs)]
+        unsafe {
+            HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_SIZE);
+        }
+    }
+
+    let p = embassy_rp::init(Default::default());
+
+    // ── SPI0: Display ────────────────────────────────────────────────
+    let mut spi0_config = spi::Config::default();
+    spi0_config.frequency = 62_500_000;
+    let spi0 = Spi::new_blocking(
+        p.SPI0,
+        p.PIN_2,  // SCK
+        p.PIN_23, // MOSI (RP2350 SPI0 TX)
+        p.PIN_0,  // MISO (RP2350 SPI0 RX)
+        spi0_config,
+    );
+    let lcd_cs = Output::new(p.PIN_1, Level::High);
+    let lcd_dc = Output::new(p.PIN_3, Level::Low);
+    let mut disp = display::init(spi0, lcd_dc, lcd_cs, Delay);
+    info!("Display initialized");
+
+    let bl_config = embassy_rp::pwm::Config::default();
+    let mut bl_pwm = embassy_rp::pwm::Pwm::new_output_b(p.PWM_SLICE2, p.PIN_5, bl_config.clone());
+    display::set_backlight(&mut bl_pwm, 80);
+
+    // ── SPI1: DACs ───────────────────────────────────────────────────
+    let mut spi1_config = spi::Config::default();
+    spi1_config.frequency = 50_000_000;
+    let spi1 = Spi::new_blocking_txonly(p.SPI1, p.PIN_30, p.PIN_31, spi1_config);
+    let dac1_cs = Output::new(p.PIN_32, Level::High);
+    let dac2_cs = Output::new(p.PIN_33, Level::High);
+    let mut dac_driver = dac::Dac::new(spi1, dac1_cs, dac2_cs);
+    dac_driver.init();
+    info!("DAC initialized");
+
+    // ── Button scanning (74HC165) ────────────────────────────────────
+    let btn_clk = Output::new(p.PIN_8, Level::Low);
+    let btn_latch = Output::new(p.PIN_9, Level::High);
+    let btn_data = Input::new(p.PIN_10, Pull::None);
+    let scanner = buttons::ButtonScanner::new(btn_clk, btn_latch, btn_data);
+
+    // ── Encoders ─────────────────────────────────────────────────────
+    let enc_a_a = Input::new(p.PIN_15, Pull::Up);
+    let enc_a_b = Input::new(p.PIN_16, Pull::Up);
+    let enc_a_sw = Input::new(p.PIN_17, Pull::Up);
+    let enc_b_a = Input::new(p.PIN_18, Pull::Up);
+    let enc_b_b = Input::new(p.PIN_19, Pull::Up);
+    let enc_b_sw = Input::new(p.PIN_22, Pull::Up);
+
+    // ── LEDs (TLC5947) ───────────────────────────────────────────────
+    let led_sin = Output::new(p.PIN_11, Level::Low);
+    let led_sclk = Output::new(p.PIN_12, Level::Low);
+    let led_xlat = Output::new(p.PIN_13, Level::Low);
+    let led_blank = Output::new(p.PIN_14, Level::High);
+    let led_driver = leds::LedDriver::new(led_sin, led_sclk, led_xlat, led_blank);
+
+    // ── MIDI (UART1) ─────────────────────────────────────────────────
+    let mut uart_config = uart::Config::default();
+    uart_config.baudrate = pins::MIDI_BAUD;
+    let uart1 = uart::Uart::new(
+        p.UART1,
+        p.PIN_20,
+        p.PIN_21,
+        Irqs,
+        p.DMA_CH2,
+        p.DMA_CH3,
+        uart_config,
+    );
+    let (midi_uart_tx, midi_uart_rx) = uart1.split();
+    let midi_tx = midi::MidiTx::new(midi_uart_tx);
+    let midi_rx = midi::MidiRx::new(midi_uart_rx);
+
+    // ── Clock/Reset I/O ──────────────────────────────────────────────
+    let clk_in = Input::new(p.PIN_26, Pull::Down);
+    let rst_in = Input::new(p.PIN_27, Pull::Down);
+    let clk_out = Output::new(p.PIN_28, Level::High);
+    let rst_out = Output::new(p.PIN_4, Level::High);
+    let _clock_input = clock_io::ClockInput::new(clk_in, rst_in);
+    let clock_output = clock_io::ClockOutput::new(clk_out, rst_out);
+
+    // ── Shared state ─────────────────────────────────────────────────
+    let mut seq_state = SequencerState::new();
+    seq_state.apply_default_presets();
+
+    let state = STATE.init(Mutex::new(SharedState {
+        sequencer: seq_state,
+        ui: UiState::default(),
+        system_tick: 0,
+    }));
+    let event_channel = EVENT_CHANNEL.init(Channel::new());
+    let midi_channel = MIDI_CHANNEL.init(Channel::new());
+    let dac_ref = DAC.init(Mutex::new(dac_driver));
+    let clock_out_ref = CLOCK_OUT.init(Mutex::new(clock_output));
+    let led_ref = LED_DRIVER.init(Mutex::new(led_driver));
+
+    info!("All peripherals initialized");
+
+    // ── Spawn tasks ──────────────────────────────────────────────────
+    spawner.spawn(button_task(scanner, event_channel)).unwrap();
+    spawner
+        .spawn(encoder_task(
+            enc_a_a, enc_a_b, enc_a_sw, enc_b_a, enc_b_b, enc_b_sw, event_channel,
+        ))
+        .unwrap();
+    spawner.spawn(led_task(led_ref, state)).unwrap();
+    spawner
+        .spawn(tick_task(state, dac_ref, clock_out_ref))
+        .unwrap();
+    spawner
+        .spawn(midi::midi_rx_task(midi_rx, midi_channel))
+        .unwrap();
+
+    info!("Tasks spawned, entering main loop");
+
+    // ── Main loop: event dispatch + display ──────────────────────────
+    let mut system_tick: u32 = 0;
+    let mut _midi_tx = midi_tx;
+
+    loop {
+        while let Ok(event) = event_channel.try_receive() {
+            let mut shared = state.lock().await;
+            shared.system_tick = system_tick;
+            let SharedState {
+                ref mut ui,
+                ref mut sequencer,
+                ..
+            } = *shared;
+            requencer_engine::mode_machine::dispatch(ui, sequencer, event, system_tick);
+        }
+
+        while let Ok(midi_event) = midi_channel.try_receive() {
+            let mut shared = state.lock().await;
+            match midi_event {
+                midi::MidiInput::Clock => {
+                    if matches!(
+                        shared.sequencer.transport.clock_source,
+                        requencer_engine::types::ClockSource::Midi
+                    ) {
+                        let events = engine_tick(&mut shared.sequencer);
+                        let mut dac = dac_ref.lock().await;
+                        dac.output_events(&events);
+                    }
+                }
+                midi::MidiInput::Start => {
+                    shared.sequencer.transport.playing = true;
+                    shared.sequencer.reset_playheads();
+                }
+                midi::MidiInput::Stop => {
+                    shared.sequencer.transport.playing = false;
+                }
+                midi::MidiInput::Continue => {
+                    shared.sequencer.transport.playing = true;
+                }
+            }
+        }
+
+        {
+            let mut shared = state.lock().await;
+            requencer_engine::mode_machine::check_clr_timeout(&mut shared.ui, system_tick);
+        }
+
+        {
+            let shared = state.lock().await;
+            requencer_renderer::render(&mut disp, &shared.sequencer, &shared.ui);
+        }
+
+        system_tick += 1;
+        Timer::after(Duration::from_millis(pins::DISPLAY_REFRESH_MS)).await;
+    }
 }

@@ -1,5 +1,9 @@
 [workspace]
 members = ["crates/*"]
+# Exclude firmware from default operations (cargo test, cargo check) because it
+# requires the thumbv8m.main-none-eabihf target. Build explicitly with:
+#   cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf
+exclude = ["crates/firmware"]
 resolver = "2"
 
 [workspace.dependencies]

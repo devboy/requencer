@@ -192,14 +192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "requencer-firmware"
-version = "0.1.0"
-dependencies = [
- "requencer-engine",
- "requencer-renderer",
-]
-
-[[package]]
 name = "requencer-renderer"
 version = "0.1.0"
 dependencies = [

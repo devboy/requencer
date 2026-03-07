@@ -3,10 +3,60 @@ name = "requencer-firmware"
 version = "0.1.0"
 edition = "2021"
 
-# Firmware won't build without the ARM target toolchain installed.
-# Install with: rustup target add thumbv8m.main-none-eabihf
-# Build with: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf
+# Build binary: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf
+# Or from crates/firmware/: cargo build --release (picks up .cargo/config.toml)
+# Run lib tests: cd crates/firmware && cargo test --lib --target x86_64-unknown-linux-gnu
 
+[lib]
+name = "requencer_firmware"
+path = "src/lib.rs"
+
+[[bin]]
+name = "requencer-firmware"
+path = "src/main.rs"
+
+# ── Always-available dependencies (pure logic + HAL traits) ──────────
 [dependencies]
 requencer-engine = { path = "../engine", default-features = false }
+embedded-hal = "1.0"
+heapless = { version = "0.8", features = ["serde"] }
+
+# ── ARM-only dependencies (embassy + hardware HAL) ───────────────────
+[target.'cfg(target_arch = "arm")'.dependencies]
 requencer-renderer = { path = "../renderer", default-features = false }
+
+# Embassy async runtime
+embassy-executor = { version = "0.9", features = ["arch-cortex-m", "executor-thread", "defmt"] }
+embassy-rp = { version = "0.9", features = ["defmt", "time-driver", "critical-section-impl", "rp235xb"] }
+embassy-time = { version = "0.5", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-sync = { version = "0.7", features = ["defmt"] }
+embassy-futures = "0.1"
+embassy-embedded-hal = { version = "0.5", features = ["defmt"] }
+
+# Embedded HAL extras
+embedded-hal-async = "1.0"
+embedded-hal-bus = { version = "0.2", features = ["async"] }
+
+# Display
+mipidsi = "0.8"
+display-interface-spi = "0.5"
+
+# Graphics
+embedded-graphics-core = "0.4"
+embedded-graphics = "0.8"
+
+# Runtime
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.7"
+panic-probe = { version = "0.3", features = ["print-defmt"] }
+defmt = "1"
+defmt-rtt = "1"
+
+# Utilities
+static_cell = "2"
+portable-atomic = { version = "1.5", features = ["critical-section"] }
+embedded-alloc = "0.6"
+
+# ── Test dependencies (host only) ───────────────────────────────────
+[dev-dependencies]
+embedded-hal-mock = { version = "0.11", default-features = false, features = ["eh1"] }

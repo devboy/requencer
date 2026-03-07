@@ -1,5 +1,5 @@
 .PHONY: all test build clean dev lint flash \
-	test-rust test-web \
+	test-rust test-web test-firmware \
 	build-wasm build-web build-firmware \
 	lint-rust lint-web \
 	hw-build hw-footprints hw-faceplate hw-place hw-route hw-export hw-all hw-clean \
@@ -10,13 +10,16 @@ all: test
 
 # === Tests ===
 
-test: test-rust test-web
+test: test-rust test-web test-firmware
 
 test-rust:
 	cargo test --workspace
 
 test-web:
 	cd web && npm test
+
+test-firmware:
+	cd crates/firmware && cargo test --lib --target x86_64-unknown-linux-gnu
 
 # === Builds ===
 

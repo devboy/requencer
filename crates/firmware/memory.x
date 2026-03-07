@@ -1,0 +1,7 @@
+/* RP2350B memory map (PGA2350: 16MB flash, 520KB SRAM, 8MB PSRAM) */
+MEMORY {
+    BOOT2 : ORIGIN = 0x10000000, LENGTH = 0x100
+    FLASH : ORIGIN = 0x10000100, LENGTH = 16384K - 0x100
+    RAM   : ORIGIN = 0x20000000, LENGTH = 520K
+    /* PSRAM at 0x11000000 (8MB) — not mapped here, accessed via QMI */
+}
