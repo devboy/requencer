@@ -13,8 +13,10 @@
 //! SPI0 = display + SD card (shared, firmware-arbitrated).
 //! SPI1 = DACs (dedicated bus, via 74HCT125 level shifter, zero contention).
 
-#![no_std]
-#![no_main]
+// On embedded target: full firmware binary.
+// On host: empty stub — lib tests run via `cargo test --lib`, binary is a no-op.
+#![cfg_attr(target_os = "none", no_std)]
+#![cfg_attr(target_os = "none", no_main)]
 
 #[allow(dead_code)]
 mod buttons;
@@ -24,36 +26,60 @@ mod cv_input;
 mod cv_output;
 #[allow(dead_code)]
 mod dac;
+#[cfg(target_os = "none")]
 mod display;
 mod encoders;
+#[cfg(target_os = "none")]
 mod leds;
 #[allow(dead_code)]
 mod midi;
+#[cfg(target_os = "none")]
 #[allow(dead_code)]
 mod pins;
 #[allow(dead_code)]
 mod storage;
 
+// Host stub: empty main so `cargo test --workspace` can compile the binary target.
+#[cfg(not(target_os = "none"))]
+fn main() {}
+
+#[cfg(target_os = "none")]
 use defmt::*;
+#[cfg(target_os = "none")]
 use defmt_rtt as _;
+#[cfg(target_os = "none")]
 use embassy_executor::Spawner;
+#[cfg(target_os = "none")]
 use embassy_rp::adc;
+#[cfg(target_os = "none")]
 use embassy_rp::gpio::{Input, Level, Output, Pull};
+#[cfg(target_os = "none")]
 use embassy_rp::spi::{self, Spi};
+#[cfg(target_os = "none")]
 use embassy_rp::uart;
+#[cfg(target_os = "none")]
 use embassy_rp::watchdog::Watchdog;
+#[cfg(target_os = "none")]
 use embassy_time::{Duration, Instant};
+#[cfg(target_os = "none")]
 use panic_probe as _;
 
+#[cfg(target_os = "none")]
 use requencer_engine::clock_divider::TICKS_PER_STEP;
+#[cfg(target_os = "none")]
 use requencer_engine::input::ControlEvent;
+#[cfg(target_os = "none")]
 use requencer_engine::mode_machine;
+#[cfg(target_os = "none")]
 use requencer_engine::sequencer;
+#[cfg(target_os = "none")]
 use requencer_engine::types::{ClockSource, SequencerState};
+#[cfg(target_os = "none")]
 use requencer_engine::ui_types::UiState;
 
 // ── Main entry point ───────────────────────────────────────────────
 
+#[cfg(target_os = "none")]
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     info!("Requencer firmware starting");
@@ -562,6 +588,7 @@ async fn main(_spawner: Spawner) {
 }
 
 /// Process a single engine tick: run sequencer, update DACs, send MIDI, pulse clock.
+#[cfg(target_os = "none")]
 #[allow(clippy::too_many_arguments)]
 fn process_tick(
     state: &mut SequencerState,

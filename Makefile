@@ -13,8 +13,7 @@ all: test
 test: test-rust test-web
 
 test-rust:
-	cargo test -p requencer-engine -p requencer-renderer -p requencer-web
-	cargo test -p requencer-firmware --lib
+	cargo test --workspace
 
 test-web:
 	cd web && npm test

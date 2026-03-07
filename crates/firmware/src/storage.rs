@@ -14,6 +14,7 @@
 //! is shared with the display — the caller must ensure exclusive access
 //! by not flushing the display during SD operations.
 
+#[cfg(target_os = "none")]
 use embassy_rp::gpio::{Input, Output};
 
 /// Re-export from engine for convenience.
@@ -96,11 +97,13 @@ impl embedded_sdmmc::TimeSource for FirmwareTime {
 }
 
 /// SD card storage handle.
+#[cfg(target_os = "none")]
 pub struct SdStorage<'a> {
     cs: Output<'a>,
     detect: Input<'a>,
 }
 
+#[cfg(target_os = "none")]
 impl<'a> SdStorage<'a> {
     pub fn new(cs: Output<'a>, detect: Input<'a>) -> Self {
         Self { cs, detect }
