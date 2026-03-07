@@ -35,6 +35,16 @@ Your 3-hour hang is almost certainly a **FreeRouting v2.1.0 bug**, not expected 
 
 7. **Maintainer stepping back**: The sole developer/maintainer announced stepping back from active development after v2.1.0, noting 61 hours invested in this release alone. Future bug fixes are uncertain.
 
+### Why v2.1.0 Hangs Specifically
+
+In v2.1.0, **prior improvement thresholds were removed** "for more consistent behavior." This means the optimizer phase no longer has a built-in convergence check — it will keep running optimization passes even when improvements are negligible. Combined with the `-mp` CLI bug (where the pass limit may not be respected in headless mode), this creates a situation where FreeRouting enters the optimization phase and never exits.
+
+The routing process has two phases:
+1. **Routing phase** — controlled by `-mp` (max passes)
+2. **Optimization phase** — controlled by `-oit` (improvement threshold, default removed in v2.1.0)
+
+Your board likely completes routing but then enters optimization and loops indefinitely.
+
 ### The `tail -30` Problem
 
 Your autoroute script pipes FreeRouting output through `tail -30`:
@@ -82,6 +92,17 @@ FreeRouting itself provides:
 - **API service**: `api.freerouting.app/v1` (beta) — cloud-based routing
 - **Python client**: `freerouting-client` pip package
 - **JSON output**: Routing scores, completion percentage, via count — useful for CI quality gates
+
+### KiCad CI/CD Best Practices
+
+The standard approach for KiCad CI/CD (without autorouting) uses [KiBot](https://github.com/INTI-CMNB/KiBot):
+- GitHub Action: `INTI-CMNB/KiBot@v2` with config YAML
+- Generates: Gerbers, BOM, placement files, 3D renders, DRC reports
+- Docker images: `ghcr.io/inti-cmnb/kicad9_auto:dev`
+- Example: [kicad-ci-test-spora](https://github.com/INTI-CMNB/kicad-ci-test-spora) — 3 workflows, 4 jobs each (ERC, DRC, schematic, fabrication)
+- **Does NOT include autorouting** — treats routing as a design activity, not CI
+
+Blog: [KiCad 9 CI/CD with GitLab](https://sschueller.github.io/posts/ci-cd-with-kicad-2025/) covers semantic versioning, date/version injection into schematics before KiBot runs.
 
 ### Atopile Projects
 
@@ -209,40 +230,45 @@ Add `-oit 5` to stop optimization when improvement drops below 5% per pass.
 
 ## Part 4: Alternative Autorouters
 
-### Open Source
+### Summary Table
 
-| Router | Pros | Cons |
-|--------|------|------|
-| **FreeRouting v1.9.0** | Most stable, best benchmarks | Old, no new features |
-| **FreeRouting v2.0.1** | Reasonable stability | Some CLI bugs |
-| **FreeRouting v2.1.0** | Docker/API support, scoring | Regression bugs, hangs |
-| **[Topological Router (KiCad built-in)](https://docs.kicad.org/9.0/en/pcbnew/pcbnew.html)** | Integrated, fast for simple routes | Interactive only, not headless |
+| Router | Open Source | CLI/Headless | Speed | CI-Friendly | Cost |
+|--------|-----------|-------------|-------|-------------|------|
+| **FreeRouting v1.9.0** | Yes | Yes | Slow-Medium | Docker available | Free |
+| **FreeRouting v2.1.0** | Yes | Yes (buggy) | Unpredictable | Docker available | Free |
+| **OrthoRoute** | Yes (MIT) | Yes | Fast (GPU) | Needs NVIDIA GPU | Free |
+| **DeepPCB** | No | Cloud API | ~5 min | Yes | $1/credit |
+| **tscircuit** | Yes (MIT) | Yes (Node.js) | Unknown | Yes | Free |
+| **TopoR** | No | No (GUI only) | Fast | No | Free (≤650 pins) |
+| **FreeRouting API** | N/A | Cloud API | Varies | Yes | Free (beta) |
 
-### Commercial (with CLI/headless support)
+### Open Source Options
 
-| Router | Notes |
-|--------|-------|
-| **Altium autorouter** | Part of Altium Designer, no standalone CLI |
-| **PADS/Xpedition (Siemens)** | Enterprise, batch mode available |
-| **Cadence Allegro PCB Router** | Enterprise, Tcl scripting for automation |
-| **[Topological Autorouter by JITX](https://www.jitx.com/)** | Code-driven PCB design (similar to atopile), includes routing |
+**FreeRouting v1.9.0** — Most stable, best benchmarks in community testing. No infinite loop bugs. Recommended for immediate use. Download: [v1.9.0 release](https://github.com/freerouting/freerouting/releases/tag/v1.9.0)
 
-### Cloud/Service-Based
+**[OrthoRoute](https://github.com/bbenchoff/OrthoRoute)** (MIT) — GPU-accelerated Manhattan-lattice PathFinder router using NVIDIA CUDA (CuPy). A KiCad plugin with headless mode for CI. Routed an 8,192-airwire backplane in 41 hours on an A100 (vs FreeRouting's projected month). A 512-net board routes in ~2 minutes. Requires NVIDIA GPU with VRAM proportional to board complexity (~nodes/200,000 = GB needed). Not practical for standard CI runners but interesting for self-hosted GPU runners.
 
-| Service | Notes |
-|---------|-------|
-| **FreeRouting API** | `api.freerouting.app/v1`, beta, cloud routing |
-| **JLCPCB** | No autorouting service (they accept Gerbers only) |
-| **PCBWay** | No autorouting service |
-| **EasyEDA** | Has autorouter, but no API access |
+**[tscircuit autorouter](https://github.com/tscircuit/tscircuit-autorouter)** (MIT) — TypeScript/Node.js autorouter. Part of the tscircuit ecosystem (React-based circuit design). Uses `SimpleRouteJson` format. Includes benchmarking datasets. Still early stage — community notes it's "not very well baked" for complex boards. Active development at [blog.autorouting.com](https://blog.autorouting.com).
 
-### Recommendation: FreeRouting v1.9.0
+### Cloud/Commercial Options
 
-For your use case (automated CI with a 255-component board), **downgrade to FreeRouting v1.9.0**:
-- Most stable version per community consensus
-- Better routing quality in benchmarks
-- No infinite loop bugs
-- Download: [v1.9.0 release](https://github.com/freerouting/freerouting/releases/tag/v1.9.0)
+**[DeepPCB](https://deeppcb.ai/)** — AI-powered (reinforcement learning) cloud autorouter by InstaDeep, running on Google Cloud. Supports up to 8 layers, 1,200 connections, 1,000 components. Routes in ~5 minutes for typical boards. Generates DRC-clean layouts. Accepts DSN/SES formats. **Pricing:** $1/credit (2 min compute), $95/100 credits. Free trial available. **This is the most promising CI-friendly alternative** — fast, predictable runtime, no local compute needed.
+
+**FreeRouting API** — `api.freerouting.app/v1`, beta. Python client: `pip install freerouting-client`. Offloads routing to cloud. Pricing not published. Useful for CI but unclear reliability/SLA.
+
+**TopoR** — Topological router by Eremex with unique free-angle routing (not limited to 45/90°). Excellent via minimization. Supports DSN/SES exchange with KiCad. Windows GUI only, no CLI — not CI-friendly. Free version limited to 650 pins.
+
+**EasyEDA** — Built into JLCPCB's EDA tool. Cloud autorouter but no standalone API. Not usable in CI.
+
+**JLCPCB / PCBWay** — No autorouting service (accept Gerbers only).
+
+**Commercial EDA (Altium, Cadence, Siemens)** — All have autorouters but none offer straightforward headless CLI suitable for CI/CD.
+
+### Recommendation
+
+**Immediate:** Downgrade to **FreeRouting v1.9.0** — solves the hang, free, drop-in replacement.
+
+**Worth evaluating:** **DeepPCB** — if the free trial produces good results on your board, $1/route is very reasonable for CI and gives predictable ~5 min runtime. Could replace FreeRouting entirely.
 
 ---
 
