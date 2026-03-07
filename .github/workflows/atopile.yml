@@ -43,21 +43,6 @@ jobs:
       - name: Generate faceplate PCB
         run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
 
-      - name: Run DRC (informational)
-        continue-on-error: true
-        run: |
-          docker run --rm -v "$PWD":/work -w /work/hardware "$HW_IMAGE" bash -c '
-            PCB="elec/layout/default/default.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
-              echo "DRC complete (see report for details)"
-            else
-              echo "PCB file not found, skipping DRC"
-            fi
-          '
-
-      # --- Full pipeline ---
-
       - name: Place components
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
@@ -74,6 +59,18 @@ jobs:
             if [ -f "$PCB" ]; then
               chmod +x hardware/scripts/autoroute.sh
               hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
+            fi
+          '
+
+      - name: Run DRC
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/routed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
+              echo "DRC complete (see report for details)"
+            else
+              echo "Routed PCB not found, skipping DRC"
             fi
           '
 
