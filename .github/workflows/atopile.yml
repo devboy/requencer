@@ -31,10 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull or build hardware tools image
-        run: |
-          docker pull "$HW_IMAGE" 2>/dev/null || \
-          docker build -t "$HW_IMAGE" hardware/docker/
+      - name: Build hardware tools image
+        run: docker build -t "$HW_IMAGE" hardware/docker/
 
       - name: Print tool versions
         run: |
