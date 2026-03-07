@@ -2,12 +2,14 @@
 # LCSC: C5613
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component _74HC165D:
+    trait is_atomic_part<manufacturer="Nexperia", partnumber="74HC165D,653", footprint="SOIC-16.kicad_mod", symbol="74HC165D.kicad_sym">
     trait has_designator_prefix<prefix="U">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C5613", manufacturer="NXP", partno="74HC165D">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C5613", manufacturer="Nexperia", partno="74HC165D">
 
     signal SH_LD ~ pin 1
     signal CLK ~ pin 2

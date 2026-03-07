@@ -47,6 +47,10 @@ jobs:
             pip list 2>/dev/null || pip3 list 2>/dev/null || true
           '
 
+      # --- Preflight: fast local validation ---
+      - name: Preflight checks
+        run: python3 hardware/scripts/preflight_check.py
+
       # --- Stage 1: Compile .ato → KiCad ---
       - name: Build hardware
         run: |
