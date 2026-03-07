@@ -49,6 +49,9 @@ jobs:
             grep "No pickers and no footprint" ato-build.log
             exit 1
           fi
+          # Show what ato actually produced
+          echo "=== ato build output files ==="
+          ls -laR hardware/elec/layout/default/
           # Verify expected outputs exist
           if [ ! -f "$PCB_SRC" ]; then
             echo "::error::ato build did not produce PCB: $PCB_SRC"
