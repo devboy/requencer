@@ -1,0 +1,16 @@
+# 2N7002 — 60V 300mA N-Channel MOSFET, SOT-23
+# LCSC: C8545
+# Logic-level gate (Vgs_th 1-2.5V) — works with 3.3V drive
+# Used for LCD backlight switching
+
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
+component _2N7002:
+    trait has_designator_prefix<prefix="Q">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C8545", manufacturer="Changjiang Electronics", partno="2N7002">
+
+    signal gate ~ pin 1
+    signal source ~ pin 2
+    signal drain ~ pin 3

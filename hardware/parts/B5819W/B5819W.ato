@@ -1,0 +1,14 @@
+# B5819W — 1A 40V Schottky Barrier Diode, SOD-123
+# LCSC: C8598
+# Used for power OR-ing (eurorack 5V / USB VBUS → PGA2350 VB)
+
+#pragma experiment("TRAITS")
+import has_designator_prefix
+import has_part_picked
+
+component B5819W:
+    trait has_designator_prefix<prefix="D">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C8598", manufacturer="Changjiang Electronics", partno="B5819W SL">
+
+    signal cathode ~ pin 1
+    signal anode ~ pin 2

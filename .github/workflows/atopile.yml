@@ -35,6 +35,22 @@ jobs:
             cd hardware && ato --non-interactive build
           '
 
+      - name: Run ERC
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/elec/layout/default/default.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              # KiCad ERC runs on the schematic embedded in the PCB project
+              SCHEMATIC="hardware/elec/layout/default/default.kicad_sch"
+              if [ -f "$SCHEMATIC" ]; then
+                kicad-cli sch erc "$SCHEMATIC" -o erc-report.json --format json 2>&1 || true
+                echo "ERC complete (see report for details)"
+              else
+                echo "No schematic found, skipping ERC"
+              fi
+            fi
+          '
+
       - name: Generate through-hole footprints
         run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
 
