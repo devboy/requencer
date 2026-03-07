@@ -39,9 +39,11 @@ RUN case "${TARGETARCH}" in \
 ENV PATH="/opt/java/bin:${PATH}"
 
 # ── Layer 3: FreeRouting JAR ─────────────────────────────────────────
-# Architecture-independent, changes rarely.
+# Using v2.0.1 — supports --gui.enabled=false for true headless CI.
+# v2.1.0 has routing regressions and infinite-loop bugs (see #461, #513).
+# v1.9.0 benchmarks better but lacks headless mode (pops up GUI).
 RUN wget -q -O /opt/freerouting.jar \
-    https://github.com/freerouting/freerouting/releases/download/v2.1.0/freerouting-2.1.0.jar
+    https://github.com/freerouting/freerouting/releases/download/v2.0.1/freerouting-2.0.1.jar
 
 # ── Layer 4: uv + Python 3.14 + atopile ─────────────────────────────
 # atopile 0.14.x requires Python >=3.14. We use uv to install a

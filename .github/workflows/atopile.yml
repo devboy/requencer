@@ -60,6 +60,7 @@ jobs:
           '
 
       - name: Autoroute
+        timeout-minutes: 45
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             PCB="hardware/build/placed.kicad_pcb"

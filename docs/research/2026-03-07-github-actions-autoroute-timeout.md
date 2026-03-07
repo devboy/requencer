@@ -266,7 +266,7 @@ Add `-oit 5` to stop optimization when improvement drops below 5% per pass.
 
 ### Recommendation
 
-**Immediate:** Downgrade to **FreeRouting v1.9.0** — solves the hang, free, drop-in replacement.
+**Immediate:** Downgrade to **FreeRouting v2.0.1** — solves the hang, has `--gui.enabled=false` for true headless CI, routes reliably. (v1.9.0 benchmarks slightly better but lacks headless mode.)
 
 **Worth evaluating:** **DeepPCB** — if the free trial produces good results on your board, $1/route is very reasonable for CI and gives predictable ~5 min runtime. Could replace FreeRouting entirely.
 
@@ -276,7 +276,7 @@ Add `-oit 5` to stop optimization when improvement drops below 5% per pass.
 
 ### Immediate Fix (Stop the 3-Hour Hang)
 
-1. **Downgrade FreeRouting to v1.9.0** in `hardware/docker/Dockerfile`
+1. **Downgrade FreeRouting to v2.0.1** in `hardware/docker/Dockerfile` (has `--gui.enabled=false` for headless CI)
 2. **Add `timeout` to autoroute.sh:**
    ```bash
    timeout 1800 "$JAVA" ... -jar "$FREEROUTING_JAR" ... -mp 20
