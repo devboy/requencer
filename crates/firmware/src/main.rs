@@ -72,7 +72,7 @@ async fn main(_spawner: Spawner) {
     // RP2350 SPI0 function assignments: GP2=CLK, GP3=MOSI, GP0=MISO
     // Note: PCB schematic says GP0=MOSI, GP3=DC but RP2350 GPIO function
     // select requires GP3=MOSI. Schematic needs updating before manufacture.
-    let spi0 = Spi::new_blocking(
+    let mut spi0 = Spi::new_blocking(
         p.SPI0,
         p.PIN_2,  // SCK
         p.PIN_3,  // MOSI (TX to LCD + SD)
@@ -84,8 +84,8 @@ async fn main(_spawner: Spawner) {
     let lcd_dc = Output::new(p.PIN_7, Level::Low);
     let lcd_backlight = Output::new(p.PIN_5, Level::Low);
 
-    let mut display_hw = display::Display::new(spi0, lcd_cs, lcd_dc, lcd_backlight);
-    display_hw.init().await;
+    let mut display_hw = display::Display::new(lcd_cs, lcd_dc, lcd_backlight);
+    display_hw.init(&mut spi0).await;
 
     // SD card pins
     let sd_cs = Output::new(p.PIN_24, Level::High);
@@ -176,7 +176,7 @@ async fn main(_spawner: Spawner) {
     if sd_storage.is_card_present() {
         info!("SD card detected, attempting state restore");
         let mut buf = [0u8; storage::STATE_BUF_SIZE];
-        if let Some(len) = sd_storage.load_state(&mut buf) {
+        if let Some(len) = sd_storage.load_state(&mut spi0, &mut buf) {
             match requencer_engine::storage::deserialize_state(&buf[..len]) {
                 Ok(restored) => {
                     state = restored;
@@ -202,9 +202,16 @@ async fn main(_spawner: Spawner) {
 
     let mut system_tick: u32 = 0;
     let mut last_frame = Instant::now();
-    let mut last_tick = Instant::now();
     let mut last_scan = Instant::now();
     let mut last_enc = Instant::now();
+    let mut last_save = Instant::now();
+    let mut state_dirty = false; // Track if state changed since last save
+
+    // Drift-compensating tick scheduler: tracks when the next tick *should* fire.
+    // Unlike `last_tick + interval`, this accumulates the exact interval so late
+    // ticks don't push subsequent ticks later (eliminates cumulative drift).
+    let mut next_tick_at = Instant::now();
+    let mut was_playing = false;
 
     // Clock output pulse: set high on step boundary, clear after 5ms
     let mut clock_pulse_end: Option<Instant> = None;
@@ -216,6 +223,12 @@ async fn main(_spawner: Spawner) {
 
         // ── 1. Engine tick (BPM-driven, external clock, or MIDI clock) ──
 
+        // Reset tick scheduler on play start to avoid burst of catch-up ticks
+        if state.transport.playing && !was_playing {
+            next_tick_at = now;
+        }
+        was_playing = state.transport.playing;
+
         let tick_interval_us = if state.transport.clock_source == ClockSource::Internal {
             60_000_000u64 / (state.transport.bpm as u64 * TICKS_PER_STEP as u64)
         } else {
@@ -224,9 +237,7 @@ async fn main(_spawner: Spawner) {
 
         let should_tick = if state.transport.playing {
             match state.transport.clock_source {
-                ClockSource::Internal => {
-                    now.duration_since(last_tick).as_micros() >= tick_interval_us
-                }
+                ClockSource::Internal => now >= next_tick_at,
                 ClockSource::External => clock_io.clock_pulse(),
                 ClockSource::Midi => false, // MIDI clock handled in MIDI parse section
             }
@@ -235,7 +246,12 @@ async fn main(_spawner: Spawner) {
         };
 
         if should_tick {
-            last_tick = now;
+            // Advance by exact interval (drift-compensating)
+            next_tick_at += Duration::from_micros(tick_interval_us);
+            // If we fell behind by >100ms (e.g. SD card save stall), reset to now
+            if now.duration_since(next_tick_at).as_millis() > 100 {
+                next_tick_at = now;
+            }
             process_tick(
                 &mut state, &mut dac, &mut midi_out, &mut clock_io,
                 &mut gate_state, &midi_channels, &mut clock_pulse_end, now,
@@ -266,7 +282,27 @@ async fn main(_spawner: Spawner) {
             let mut btn_events = heapless::Vec::<ControlEvent, 8>::new();
             button_scanner.scan(&mut btn_events);
             for ev in btn_events {
+                let was_playing = state.transport.playing;
                 mode_machine::dispatch(&mut ui, &mut state, ev, system_tick);
+                state_dirty = true;
+
+                // Send MIDI transport messages when play state changes
+                if state.transport.playing != was_playing {
+                    if state.transport.playing {
+                        if state.transport.master_tick == 0 {
+                            midi_out.send_start();
+                        } else {
+                            midi_out.send_continue();
+                        }
+                    } else {
+                        midi_out.send_stop();
+                        midi_out.all_notes_off(&midi_channels);
+                        for i in 0..4 {
+                            dac.set_dac1_channel(i, 0);
+                            gate_state[i as usize] = false;
+                        }
+                    }
+                }
             }
         }
 
@@ -277,7 +313,26 @@ async fn main(_spawner: Spawner) {
             let mut enc_events = heapless::Vec::<ControlEvent, 8>::new();
             encoder_pair.poll(&mut enc_events);
             for ev in enc_events {
+                let was_playing = state.transport.playing;
                 mode_machine::dispatch(&mut ui, &mut state, ev, system_tick);
+                state_dirty = true;
+
+                if state.transport.playing != was_playing {
+                    if state.transport.playing {
+                        if state.transport.master_tick == 0 {
+                            midi_out.send_start();
+                        } else {
+                            midi_out.send_continue();
+                        }
+                    } else {
+                        midi_out.send_stop();
+                        midi_out.all_notes_off(&midi_channels);
+                        for i in 0..4 {
+                            dac.set_dac1_channel(i, 0);
+                            gate_state[i as usize] = false;
+                        }
+                    }
+                }
             }
         }
 
@@ -335,17 +390,35 @@ async fn main(_spawner: Spawner) {
             last_frame = now;
 
             requencer_renderer::render(&mut framebuffer, &state, &ui);
-            display_hw.flush(&framebuffer);
+            display_hw.flush(&mut spi0, &framebuffer);
 
             let led_state = mode_machine::get_led_state(&ui, &state);
             led_driver.update(&led_state, ui.selected_track);
         }
 
-        // ── 8. Feed watchdog ───────────────────────────────────────
+        // ── 8. Periodic state save (every 30s if changed) ────────
+
+        if state_dirty && now.duration_since(last_save).as_secs() >= 30 {
+            last_save = now;
+            state_dirty = false;
+
+            if sd_storage.is_card_present() && !state.transport.playing {
+                // Only save when stopped to avoid timing disruption
+                let mut buf = [0u8; storage::STATE_BUF_SIZE];
+                if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
+                    let len = bytes.len();
+                    if sd_storage.save_state(&mut spi0, &buf[..len]) {
+                        info!("State auto-saved to SD card");
+                    }
+                }
+            }
+        }
+
+        // ── 9. Feed watchdog ───────────────────────────────────────
 
         watchdog.feed();
 
-        // ── 9. Yield to embassy executor ───────────────────────────
+        // ── 10. Yield to embassy executor ──────────────────────────
 
         embassy_futures::yield_now().await;
     }

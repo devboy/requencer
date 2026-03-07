@@ -76,8 +76,12 @@ mod cmd {
 }
 
 #[cfg(target_os = "none")]
+type Spi0 = Spi<'static, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>;
+
+/// ST7796 display driver. Does not own the SPI bus — callers pass `&mut Spi0`
+/// so the bus can be shared with the SD card (both on SPI0, never simultaneously).
+#[cfg(target_os = "none")]
 pub struct Display<'a> {
-    spi: Spi<'a, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>,
     cs: Output<'a>,
     dc: Output<'a>,
     backlight: Output<'a>,
@@ -86,67 +90,61 @@ pub struct Display<'a> {
 #[cfg(target_os = "none")]
 impl<'a> Display<'a> {
     pub fn new(
-        spi: Spi<'a, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>,
         cs: Output<'a>,
         dc: Output<'a>,
         backlight: Output<'a>,
     ) -> Self {
-        Self {
-            spi,
-            cs,
-            dc,
-            backlight,
-        }
+        Self { cs, dc, backlight }
     }
 
     /// Send a command byte (DC low).
-    fn write_cmd(&mut self, cmd: u8) {
+    fn write_cmd(&mut self, spi: &mut Spi0, cmd: u8) {
         self.dc.set_low();
         self.cs.set_low();
-        if self.spi.blocking_write(&[cmd]).is_err() {
+        if spi.blocking_write(&[cmd]).is_err() {
             defmt::warn!("Display SPI cmd write failed");
         }
         self.cs.set_high();
     }
 
     /// Send data bytes (DC high).
-    fn write_data(&mut self, data: &[u8]) {
+    fn write_data(&mut self, spi: &mut Spi0, data: &[u8]) {
         self.dc.set_high();
         self.cs.set_low();
-        if self.spi.blocking_write(data).is_err() {
+        if spi.blocking_write(data).is_err() {
             defmt::warn!("Display SPI data write failed");
         }
         self.cs.set_high();
     }
 
     /// Send a command followed by data.
-    fn write_cmd_data(&mut self, cmd: u8, data: &[u8]) {
-        self.write_cmd(cmd);
-        self.write_data(data);
+    fn write_cmd_data(&mut self, spi: &mut Spi0, cmd: u8, data: &[u8]) {
+        self.write_cmd(spi, cmd);
+        self.write_data(spi, data);
     }
 
     /// Initialize the ST7796 display.
-    pub async fn init(&mut self) {
+    pub async fn init(&mut self, spi: &mut Spi0) {
         info!("ST7796: initializing display");
 
         // Hardware reset would go here if we had a RST pin
         // Software reset
-        self.write_cmd(cmd::SWRESET);
+        self.write_cmd(spi, cmd::SWRESET);
         Timer::after_millis(150).await;
 
         // Sleep out
-        self.write_cmd(cmd::SLPOUT);
+        self.write_cmd(spi, cmd::SLPOUT);
         Timer::after_millis(60).await;
 
         // Pixel format: 16bpp (RGB565)
-        self.write_cmd_data(cmd::COLMOD, &[0x55]);
+        self.write_cmd_data(spi, cmd::COLMOD, &[0x55]);
 
         // Memory access control: landscape mode (MY=0, MX=1, MV=1)
         // This gives us 480 wide × 320 tall
-        self.write_cmd_data(cmd::MADCTL, &[0x60]);
+        self.write_cmd_data(spi, cmd::MADCTL, &[0x60]);
 
         // Display on
-        self.write_cmd(cmd::DISPON);
+        self.write_cmd(spi, cmd::DISPON);
         Timer::after_millis(20).await;
 
         // Backlight on
@@ -156,9 +154,10 @@ impl<'a> Display<'a> {
     }
 
     /// Set the drawing window to full screen.
-    fn set_address_window(&mut self) {
+    fn set_address_window(&mut self, spi: &mut Spi0) {
         // Column address (0 to WIDTH-1)
         self.write_cmd_data(
+            spi,
             cmd::CASET,
             &[
                 0,
@@ -169,6 +168,7 @@ impl<'a> Display<'a> {
         );
         // Row address (0 to HEIGHT-1)
         self.write_cmd_data(
+            spi,
             cmd::RASET,
             &[
                 0,
@@ -181,9 +181,9 @@ impl<'a> Display<'a> {
 
     /// Flush the framebuffer to the display via SPI.
     /// Transfers scanline-by-scanline to limit SRAM buffer requirements.
-    pub fn flush(&mut self, fb: &Framebuffer) {
-        self.set_address_window();
-        self.write_cmd(cmd::RAMWR);
+    pub fn flush(&mut self, spi: &mut Spi0, fb: &Framebuffer) {
+        self.set_address_window(spi);
+        self.write_cmd(spi, cmd::RAMWR);
 
         // Transfer in scanlines — each scanline is 480 pixels × 2 bytes = 960 bytes
         self.dc.set_high();
@@ -202,7 +202,7 @@ impl<'a> Display<'a> {
                 line_buf[i * 2] = (px >> 8) as u8;
                 line_buf[i * 2 + 1] = (px & 0xFF) as u8;
             }
-            if self.spi.blocking_write(&line_buf).is_err() {
+            if spi.blocking_write(&line_buf).is_err() {
                 defmt::warn!("Display SPI scanline write failed at y={}", y);
                 break; // Don't spam 320 warnings
             }
