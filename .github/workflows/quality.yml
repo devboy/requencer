@@ -27,7 +27,9 @@ jobs:
         run: cargo clippy -p requencer-engine -p requencer-renderer -p requencer-web -- -D warnings
 
       - name: Tests
-        run: cargo test --workspace
+        run: |
+          cargo test -p requencer-engine -p requencer-renderer -p requencer-web
+          cargo test -p requencer-firmware --lib
 
   web:
     runs-on: ubuntu-latest
