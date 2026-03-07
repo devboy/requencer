@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Autoroute a KiCad PCB using Freerouting (headless, all native ARM).
+# Autoroute a KiCad PCB using Freerouting (headless).
 #
 # Usage: ./autoroute.sh <input.kicad_pcb> [output.kicad_pcb]
 #
@@ -96,8 +96,8 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
   exit 1
 fi
 
-# Step 2: Run Freerouting headless (native ARM Java)
-echo "Step 2: Running Freerouting (headless, native ARM)..."
+# Step 2: Run Freerouting headless
+echo "Step 2: Running Freerouting (headless)..."
 "$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
   -de "$WORK_DIR/board.dsn" \
   -do "$WORK_DIR/board.ses" \
@@ -130,33 +130,3 @@ print(f"  Tracks: {len(board.GetTracks())}")
 PYEOF
 
 echo "=== Autorouting complete: $OUTPUT_PCB ==="
-
-# Step 4: Export gerbers from routed board
-echo "Step 4: Exporting gerbers..."
-GERBER_DIR="$(dirname "$OUTPUT_PCB")/gerbers"
-mkdir -p "$GERBER_DIR"
-"$KICAD_CLI" pcb export gerbers \
-  "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Gerber export failed (non-critical)"
-
-"$KICAD_CLI" pcb export drill \
-  "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Drill export failed (non-critical)"
-
-echo "  Gerbers in: $GERBER_DIR"
-
-# Step 5: Run DRC
-echo "Step 5: Running DRC..."
-"$KICAD_CLI" pcb drc \
-  "$OUTPUT_PCB" -o "$WORK_DIR/drc-report.json" --format json 2>&1 || true
-
-if [ -f "$WORK_DIR/drc-report.json" ]; then
-  python3 -c "
-import json
-with open('$WORK_DIR/drc-report.json') as f:
-    r = json.load(f)
-v = len(r.get('violations', []))
-u = len(r.get('unconnected', []))
-print(f'  DRC: {v} violations, {u} unconnected')
-" 2>&1 || true
-fi
-
-echo "=== Done ==="
