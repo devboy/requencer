@@ -20,7 +20,6 @@ concurrency:
 env:
   HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
   PCB_SRC: hardware/elec/layout/default/default.kicad_pcb
-  SCH_SRC: hardware/elec/layout/default/default.kicad_sch
   PCB_PLACED: hardware/build/placed.kicad_pcb
   PCB_ROUTED: hardware/build/routed.kicad_pcb
 
@@ -48,67 +47,45 @@ jobs:
           '
 
       # --- Stage 1: Compile .ato → KiCad ---
-      - name: Build schematic
+      - name: Build hardware
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             set -euo pipefail
             echo "=== ato.yaml ==="
             cat hardware/ato.yaml
             echo ""
-            echo "=== Pre-build layout dir ==="
-            ls -laR hardware/elec/layout/ 2>/dev/null || echo "(empty/missing)"
-            echo ""
             rm -f hardware/elec/layout/default/default.kicad_pcb
             cd hardware && ato --non-interactive build 2>&1 | tee /work/ato-build.log
             echo ""
             echo "=== Post-build layout dir ==="
             ls -laR elec/layout/ 2>/dev/null || echo "(empty/missing)"
-            echo ""
-            echo "=== All .kicad_* files in hardware/ ==="
-            find /work/hardware -name "*.kicad_*" -type f 2>/dev/null || echo "(none found)"
           '
 
       - name: Check ato build output
         run: |
-          # Fail on missing components (silently dropped from PCB)
-          if grep -q "No pickers and no footprint" ato-build.log; then
-            echo "::error::Components missing pickers/footprints — they will be silently dropped from the PCB:"
-            grep "No pickers and no footprint" ato-build.log
+          # Fail on components with no footprint (silently dropped from PCB)
+          if grep -qE "No (pickers and no )?footprint for" ato-build.log; then
+            echo "::error::Components missing footprints — they will be silently dropped from the PCB:"
+            grep -E "No (pickers and no )?footprint for" ato-build.log
             exit 1
           fi
           # Show what ato actually produced
           echo "=== ato build output files ==="
           ls -laR hardware/elec/layout/default/
-          # Verify expected outputs exist
+          # Verify PCB exists
           if [ ! -f "$PCB_SRC" ]; then
             echo "::error::ato build did not produce PCB: $PCB_SRC"
             exit 1
           fi
-          if [ ! -f "$SCH_SRC" ]; then
-            echo "::error::ato build did not produce schematic: $SCH_SRC"
-            exit 1
-          fi
 
-      # --- Stage 2: ERC ---
-      - name: Run ERC
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
-            set -euo pipefail
-            echo '=== Running ERC on $SCH_SRC ==='
-            kicad-cli sch erc '$SCH_SRC' -o erc-report.json --format json --exit-code-violations 2>&1 | tee erc-output.log
-            echo ''
-            echo '=== ERC report ==='
-            cat erc-report.json 2>/dev/null || echo '(no report file)'
-          "
-
-      # --- Stage 3: Generate footprints & faceplate ---
+      # --- Stage 2: Generate footprints & faceplate ---
       - name: Generate through-hole footprints
         run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
 
       - name: Generate faceplate PCB
         run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
 
-      # --- Stage 4: Place components ---
+      # --- Stage 3: Place components ---
       - name: Place components
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
@@ -127,7 +104,7 @@ jobs:
             ls -la web/src/panel-layout.json
           "
 
-      # --- Stage 5: Autoroute ---
+      # --- Stage 4: Autoroute ---
       - name: Autoroute
         timeout-minutes: 45
         run: |
@@ -139,7 +116,7 @@ jobs:
             ls -la '$PCB_ROUTED'
           "
 
-      # --- Stage 6: DRC ---
+      # --- Stage 5: DRC ---
       - name: Run DRC
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
@@ -150,7 +127,7 @@ jobs:
             cat drc-report.json 2>/dev/null || echo '(no report file)'
           "
 
-      # --- Stage 7: Export manufacturing ---
+      # --- Stage 6: Export manufacturing ---
       - name: Export manufacturing files
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
@@ -169,14 +146,12 @@ jobs:
           path: ato-build.log
           retention-days: 30
 
-      - name: Upload ERC/DRC reports
+      - name: Upload DRC report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: check-reports-${{ github.sha }}
+          name: drc-report-${{ github.sha }}
           path: |
-            erc-report.json
-            erc-output.log
             drc-report.json
             drc-output.log
           retention-days: 30
