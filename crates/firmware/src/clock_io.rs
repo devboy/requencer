@@ -80,9 +80,13 @@ impl<'a> ClockIo<'a> {
     }
 
     /// Pulse reset output (via NPN inverter).
+    /// Pulse width: ~10µs (safe for eurorack clock/reset inputs).
     pub fn pulse_reset_out(&mut self) {
-        self.reset_out.set_low(); // Inverted: low = 5V output
-        cortex_m::asm::delay(1500); // ~10µs pulse at 150MHz
+        // RP2350B runs at 150MHz. delay() counts CPU cycles.
+        // 150MHz × 10µs = 1500 cycles.
+        const RESET_PULSE_CYCLES: u32 = 1500;
+        self.reset_out.set_low(); // Inverted: low GPIO = 5V output
+        cortex_m::asm::delay(RESET_PULSE_CYCLES);
         self.reset_out.set_high();
     }
 }

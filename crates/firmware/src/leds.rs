@@ -132,9 +132,24 @@ impl<'a> LedDriver<'a> {
         }
 
         // Subtrack LEDs (4 subtracks × RGB, channels 60-71)
-        // Just light up white for now — mode machine doesn't track subtrack LEDs separately
-        // The active subtrack gets full brightness
-        // (This can be refined later based on UI state)
+        for i in 0..4usize {
+            let rgb_base = 60 + i * 3;
+            let color = match led_state.subtracks[i] {
+                LedMode::On => Rgb { r: MAX_BRIGHTNESS, g: MAX_BRIGHTNESS, b: MAX_BRIGHTNESS },
+                LedMode::Dim => Rgb { r: DIM_BRIGHTNESS, g: DIM_BRIGHTNESS, b: DIM_BRIGHTNESS },
+                LedMode::Flash => {
+                    if self.flash_on {
+                        Rgb { r: MAX_BRIGHTNESS, g: MAX_BRIGHTNESS, b: MAX_BRIGHTNESS }
+                    } else {
+                        OFF
+                    }
+                }
+                LedMode::Off => OFF,
+            };
+            self.channels[rgb_base] = color.r;
+            self.channels[rgb_base + 1] = color.g;
+            self.channels[rgb_base + 2] = color.b;
+        }
 
         // Play LED (channel 90-92 in TLC4: position 6 of 8 function buttons)
         let play_base = 72 + 6 * 3; // PLAY is bit 30, 7th button in TLC4

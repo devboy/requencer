@@ -24,4 +24,6 @@ pub enum ControlEvent {
     SettingsPress,
     ClrPress,
     PatternPress,
+    MidiNoteOn { channel: u8, note: u8, velocity: u8 },
+    MidiNoteOff { channel: u8, note: u8 },
 }

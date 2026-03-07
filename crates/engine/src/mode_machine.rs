@@ -180,6 +180,19 @@ pub fn dispatch(
         return;
     }
 
+    // --- MIDI note input → live transpose ---
+    if let ControlEvent::MidiNoteOn { note, .. } = event {
+        let t = ui.selected_track as usize;
+        // Transpose relative to C3 (MIDI 60), clamped to ±48 semitones
+        let offset = (note as i16 - 60).clamp(-48, 48) as i8;
+        engine.transpose_configs[t].semitones = offset;
+        return;
+    }
+    if let ControlEvent::MidiNoteOff { .. } = event {
+        // NoteOff currently ignored — transpose stays latched
+        return;
+    }
+
     // --- Pattern-load mode intercepts (before cross-modal handlers) ---
     if ui.mode == ScreenMode::PatternLoad {
         match event {
@@ -1795,7 +1808,23 @@ pub fn get_led_state(ui: &UiState, engine: &SequencerState) -> LedState {
     // Step LEDs
     let steps = get_step_leds(ui, engine);
 
-    LedState { steps, tracks, play }
+    // Subtrack LEDs — highlight active subtrack based on screen mode
+    let mut subtracks = [LedMode::Dim; 4];
+    let active_subtrack = match ui.mode {
+        ScreenMode::GateEdit => Some(0),
+        ScreenMode::PitchEdit => Some(1),
+        ScreenMode::VelEdit => Some(2),
+        ScreenMode::ModEdit => Some(3),
+        _ => None,
+    };
+    if let Some(idx) = active_subtrack {
+        subtracks[idx] = LedMode::On;
+    } else {
+        // No subtrack screen active — all off
+        subtracks = [LedMode::Off; 4];
+    }
+
+    LedState { steps, tracks, subtracks, play }
 }
 
 fn get_step_leds(ui: &UiState, engine: &SequencerState) -> [LedMode; 16] {
@@ -2375,5 +2404,64 @@ mod tests {
         // After randomization, some gates should be active
         let has_active = eng.tracks[0].gate.steps.iter().any(|s| s.on || s.tie);
         assert!(has_active);
+    }
+
+    // ── MIDI note input ─────────────────────────────────────────────
+
+    #[test]
+    fn midi_note_on_sets_transpose() {
+        let (mut ui, mut eng) = default_state();
+        ui.selected_track = 1;
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOn { channel: 0, note: 72, velocity: 100 });
+        assert_eq!(eng.transpose_configs[1].semitones, 12); // C4 = +12 from C3
+    }
+
+    #[test]
+    fn midi_note_on_c3_zero_transpose() {
+        let (mut ui, mut eng) = default_state();
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOn { channel: 0, note: 60, velocity: 100 });
+        assert_eq!(eng.transpose_configs[0].semitones, 0);
+    }
+
+    #[test]
+    fn midi_note_on_clamps_low() {
+        let (mut ui, mut eng) = default_state();
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOn { channel: 0, note: 0, velocity: 100 });
+        assert_eq!(eng.transpose_configs[0].semitones, -48);
+    }
+
+    #[test]
+    fn midi_note_on_clamps_high() {
+        let (mut ui, mut eng) = default_state();
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOn { channel: 0, note: 127, velocity: 100 });
+        assert_eq!(eng.transpose_configs[0].semitones, 48);
+    }
+
+    #[test]
+    fn midi_note_off_leaves_transpose_latched() {
+        let (mut ui, mut eng) = default_state();
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOn { channel: 0, note: 65, velocity: 100 });
+        d(&mut ui, &mut eng, ControlEvent::MidiNoteOff { channel: 0, note: 65 });
+        assert_eq!(eng.transpose_configs[0].semitones, 5); // F3 = +5
+    }
+
+    // ── Subtrack LED state ──────────────────────────────────────────
+
+    #[test]
+    fn subtrack_leds_highlight_active_gate() {
+        let (mut ui, eng) = default_state();
+        ui.mode = ScreenMode::GateEdit;
+        let leds = get_led_state(&ui, &eng);
+        assert_eq!(leds.subtracks[0], LedMode::On);
+        assert_eq!(leds.subtracks[1], LedMode::Dim);
+        assert_eq!(leds.subtracks[2], LedMode::Dim);
+        assert_eq!(leds.subtracks[3], LedMode::Dim);
+    }
+
+    #[test]
+    fn subtrack_leds_all_off_on_home() {
+        let (ui, eng) = default_state();
+        let leds = get_led_state(&ui, &eng);
+        assert_eq!(leds.subtracks, [LedMode::Off; 4]);
     }
 }

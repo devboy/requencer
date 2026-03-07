@@ -66,6 +66,8 @@ impl Default for DropdownState {
 pub struct LedState {
     pub steps: [LedMode; 16],
     pub tracks: [bool; 4],
+    /// Subtrack LEDs: Gate, Pitch, Velocity, Mod (matches UiSubtrack order).
+    pub subtracks: [LedMode; 4],
     pub play: LedMode,
 }
 
@@ -82,6 +84,7 @@ impl Default for LedState {
         Self {
             steps: [LedMode::Off; 16],
             tracks: [false; 4],
+            subtracks: [LedMode::Off; 4],
             play: LedMode::Off,
         }
     }

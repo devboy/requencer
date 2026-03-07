@@ -323,6 +323,18 @@ async fn main(_spawner: Spawner) {
                             dac.set_dac1_channel(i, 0);
                             gate_state[i as usize] = false;
                         }
+                        // Save state immediately on stop (natural save point)
+                        if sd_storage.is_card_present() {
+                            let mut buf = [0u8; storage::STATE_BUF_SIZE];
+                            if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
+                                let len = bytes.len();
+                                if sd_storage.save_state(&mut spi0, &buf[..len]) {
+                                    info!("State saved on transport stop");
+                                    last_save = now;
+                                    state_dirty = false;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -397,12 +409,18 @@ async fn main(_spawner: Spawner) {
                     info!("MIDI Continue received");
                 }
                 midi::MidiMessage::NoteOn { channel, note, velocity } => {
-                    // MIDI note input: could be used for live transpose or step recording
-                    // Currently logged — engine ControlEvent doesn't have MIDI note variants yet
-                    debug!("MIDI NoteOn ch={} note={} vel={}", channel, note, velocity);
+                    mode_machine::dispatch(
+                        &mut ui, &mut state,
+                        ControlEvent::MidiNoteOn { channel, note, velocity },
+                        system_tick,
+                    );
                 }
                 midi::MidiMessage::NoteOff { channel, note } => {
-                    debug!("MIDI NoteOff ch={} note={}", channel, note);
+                    mode_machine::dispatch(
+                        &mut ui, &mut state,
+                        ControlEvent::MidiNoteOff { channel, note },
+                        system_tick,
+                    );
                 }
                 midi::MidiMessage::ControlChange { channel, cc, value } => {
                     debug!("MIDI CC ch={} cc={} val={}", channel, cc, value);
@@ -431,14 +449,14 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // ── 8. Periodic state save (every 30s if changed) ────────
+        // ── 8. Periodic state save (every 10s if changed, while stopped) ─
+        // Save more frequently to minimize data loss on unexpected reset.
+        // Only saves while stopped to avoid timing disruption during playback.
 
-        if state_dirty && now.duration_since(last_save).as_secs() >= 30 {
-            last_save = now;
-            state_dirty = false;
-
+        if state_dirty && now.duration_since(last_save).as_secs() >= 10 {
             if sd_storage.is_card_present() && !state.transport.playing {
-                // Only save when stopped to avoid timing disruption
+                last_save = now;
+                state_dirty = false;
                 let mut buf = [0u8; storage::STATE_BUF_SIZE];
                 if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
                     let len = bytes.len();
