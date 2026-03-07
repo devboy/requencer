@@ -61,6 +61,7 @@ jobs:
             echo ""
             rm -f hardware/elec/layout/default/default.kicad_pcb
             cd hardware
+            ato --non-interactive sync
             ato --non-interactive build 2>&1 | tee /work/ato-build.log
             echo ""
             echo "=== Post-build layout dir ==="
