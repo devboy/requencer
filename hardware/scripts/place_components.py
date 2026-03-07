@@ -60,6 +60,10 @@ def place_components(input_pcb, output_pcb=None):
 
     board = pcbnew.LoadBoard(input_pcb)
 
+    # Enable 4 copper layers (F.Cu, In1.Cu, In2.Cu, B.Cu)
+    # 2 layers is insufficient for 255 components / 319 nets at this density
+    board.SetCopperLayerCount(4)
+
     # Set board outline (PCB is smaller than faceplate — fits between rails)
     w_mm = pcb_dims["width_mm"]
     h_mm = pcb_dims["height_mm"]

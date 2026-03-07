@@ -3,10 +3,12 @@
 # Input: up to 18V, Output: 3.3V, 1A max
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component AMS1117_3V3:
+    trait is_atomic_part<manufacturer="AMS", partnumber="AMS1117-3.3", footprint="SOT-223.kicad_mod", symbol="AMS1117-3.3.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C6186", manufacturer="AMS", partno="AMS1117-3.3">
 

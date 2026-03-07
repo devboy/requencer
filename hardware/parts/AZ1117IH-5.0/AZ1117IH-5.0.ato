@@ -3,10 +3,12 @@
 # Input: up to 15V, Output: 5.0V, 1A max
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component AZ1117_5V0:
+    trait is_atomic_part<manufacturer="Diodes Inc", partnumber="AZ1117IH-5.0TRG1", footprint="SOT-223.kicad_mod", symbol="AZ1117IH-5.0.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C108496", manufacturer="Diodes Inc", partno="AZ1117IH-5.0TRG1">
 

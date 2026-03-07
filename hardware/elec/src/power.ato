@@ -8,10 +8,9 @@
 
 import Resistor
 import Capacitor
-import Diode
-
 from "../../parts/AMS1117-3.3/AMS1117-3.3.ato" import AMS1117_3V3
 from "../../parts/AZ1117IH-5.0/AZ1117IH-5.0.ato" import AZ1117_5V0
+from "../../parts/B5819W/B5819W.ato" import B5819W
 from "../../parts/EurorackPowerHeader/EurorackPowerHeader.ato" import EurorackPowerHeader
 
 module PowerSupply:
@@ -35,8 +34,8 @@ module PowerSupply:
 
     # --- Reverse polarity protection ---
     # Schottky diodes on +12V and -12V rails
-    d_pos = new Diode
-    d_neg = new Diode
+    d_pos = new B5819W
+    d_neg = new B5819W
 
     # +12V: header → diode anode → cathode = protected +12V
     header.POS12V_1 ~ d_pos.anode

@@ -3,10 +3,12 @@
 # Internal 2.5V reference, SPI interface, gain=2 mode → 0–5V output
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component DAC8568SPMR:
+    trait is_atomic_part<manufacturer="TI", partnumber="DAC8568SPMR", footprint="TSSOP-16.kicad_mod", symbol="DAC8568SPMR.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C524819", manufacturer="TI", partno="DAC8568SPMR">
 

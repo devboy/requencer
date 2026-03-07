@@ -4,9 +4,8 @@
 
 import Resistor
 import Capacitor
-import Diode
-
 from "../../parts/6N138/6N138.ato" import _6N138
+from "../../parts/B5819W/B5819W.ato" import B5819W
 from "../../parts/PJ301M12/PJ301M12.ato" import PJ301M12
 
 module MIDIInterface:
@@ -50,7 +49,7 @@ module MIDIInterface:
     opto = new _6N138
 
     # Input protection diode (reverse polarity across opto LED)
-    d_protect = new Diode
+    d_protect = new B5819W
 
     r_in = new Resistor
     r_in.resistance = 220ohm +/- 5%

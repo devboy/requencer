@@ -4,8 +4,8 @@
 
 import Capacitor
 import Resistor
-import Diode
 
+from "../../parts/B5819W/B5819W.ato" import B5819W
 from "../../parts/PGA2350/PGA2350.ato" import PGA2350
 from "../../parts/USB_C_Receptacle/USB_C_Receptacle.ato" import USB_C_Receptacle
 from "../../parts/MicroSD_Slot/MicroSD_Slot.ato" import MicroSD_Slot
@@ -83,7 +83,7 @@ module PGA2350_MCU:
 
     # Power connections
     # VB gets 5V through Schottky (OR'd with USB VBUS)
-    d_vb = new Diode
+    d_vb = new B5819W
     d_vb.anode ~ v5v
     d_vb.cathode ~ pga.VB
 
@@ -140,7 +140,7 @@ module PGA2350_MCU:
     r_cc2.unnamed[1] ~ gnd
 
     # USB VBUS → PGA2350 VB via Schottky (OR'd with eurorack 5V)
-    d_usb = new Diode
+    d_usb = new B5819W
     d_usb.anode ~ usb.VBUS
     d_usb.cathode ~ pga.VB
 

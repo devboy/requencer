@@ -3,7 +3,7 @@
 
 import Resistor
 import Capacitor
-import MOSFET
+from "../../parts/2N7002/2N7002.ato" import _2N7002
 from "../../parts/PinHeader1x9/PinHeader1x9.ato" import PinHeader1x9
 
 module DisplayConnector:
@@ -25,7 +25,7 @@ module DisplayConnector:
     # VCC, GND, CS, RESET, DC, MOSI, SCK, LED (backlight), MISO (unused)
 
     # Backlight MOSFET — N-channel switches backlight cathode to GND
-    q_bl = new MOSFET
+    q_bl = new _2N7002
 
     # Gate resistor (limits inrush)
     r_gate = new Resistor

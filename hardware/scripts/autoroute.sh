@@ -97,13 +97,32 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
 fi
 
 # Step 2: Run Freerouting headless
-echo "Step 2: Running Freerouting (headless)..."
-"$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
+# --router.max_passes: max routing passes (long-form — -mp is ignored in headless mode, see
+#   https://github.com/freerouting/freerouting/issues/376)
+# -mt: thread count (2 for CI runners, match core count locally)
+# -dct 0: auto-dismiss any dialogs immediately
+# timeout: hard kill to prevent infinite loops
+FREEROUTING_MP="${FREEROUTING_MP:-20}"
+FREEROUTING_MT="${FREEROUTING_MT:-2}"
+FREEROUTING_TIMEOUT="${FREEROUTING_TIMEOUT:-3600}"
+echo "Step 2: Running Freerouting (headless, mp=$FREEROUTING_MP, mt=$FREEROUTING_MT, timeout=${FREEROUTING_TIMEOUT}s)..."
+timeout "$FREEROUTING_TIMEOUT" \
+  "$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
+  --gui.enabled=false \
   -de "$WORK_DIR/board.dsn" \
   -do "$WORK_DIR/board.ses" \
   -dr "$WORK_DIR/board.rules" \
-  -mp 20 \
-  2>&1 | tail -30
+  --router.max_passes="$FREEROUTING_MP" \
+  -mt "$FREEROUTING_MT" \
+  -dct 0 \
+  2>&1 || {
+    EXIT_CODE=$?
+    if [ "$EXIT_CODE" -eq 124 ]; then
+      echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s"
+    else
+      echo "WARNING: Freerouting exited with code $EXIT_CODE"
+    fi
+  }
 
 if [ ! -f "$WORK_DIR/board.ses" ]; then
   echo "ERROR: Freerouting did not produce a .ses file"
