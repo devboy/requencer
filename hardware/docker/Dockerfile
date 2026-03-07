@@ -56,12 +56,6 @@ RUN uv python install 3.14 && \
 # Put uv tool bin on PATH so `ato` is available
 ENV PATH="/root/.local/bin:${PATH}"
 
-# ── Layer 5: Patch atopile to fail on missing footprints ───────────
-# atopile silently drops components without footprints. This patch
-# turns the warning into a RuntimeError so CI catches it immediately.
-COPY patch-strict-picker.py /tmp/patch-strict-picker.py
-RUN python3 /tmp/patch-strict-picker.py && rm /tmp/patch-strict-picker.py
-
 # ── Environment for scripts (Linux paths) ────────────────────────────
 ENV KICAD_PYTHON=python3
 ENV KICAD_PYPATH=""

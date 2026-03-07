@@ -52,8 +52,6 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             set -euo pipefail
-            # Apply strict picker patch at runtime (in case Docker image is stale)
-            python3 /work/hardware/docker/patch-strict-picker.py
             echo "=== ato.yaml ==="
             cat hardware/ato.yaml
             echo ""
@@ -66,20 +64,27 @@ jobs:
 
       - name: Check ato build output
         run: |
+          # Display all warnings from the build
+          if grep -cE "^\s*•" ato-build.log > /dev/null 2>&1; then
+            echo "=== ato build warnings ==="
+            grep -E "^\s*•" ato-build.log || true
+            echo ""
+          fi
+
           # Fail on components with no footprint (silently dropped from PCB)
           if grep -qE "No (pickers and no )?footprint for" ato-build.log; then
             echo "::error::Components missing footprints — they will be silently dropped from the PCB:"
             grep -E "No (pickers and no )?footprint for" ato-build.log
             exit 1
           fi
-          # Show what ato actually produced
-          echo "=== ato build output files ==="
-          ls -laR hardware/elec/layout/default/
+
           # Verify PCB exists
           if [ ! -f "$PCB_SRC" ]; then
             echo "::error::ato build did not produce PCB: $PCB_SRC"
             exit 1
           fi
+          echo "=== PCB output ==="
+          ls -la "$PCB_SRC"
 
       # --- Stage 2: Generate footprints & faceplate ---
       - name: Generate through-hole footprints
@@ -140,15 +145,7 @@ jobs:
             ls -laR hardware/build/manufacturing/
           "
 
-      # --- Always upload logs/reports for debugging ---
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ato-build-log
-          path: ato-build.log
-          retention-days: 30
-
+      # --- Upload reports for debugging ---
       - name: Upload DRC report
         if: always()
         uses: actions/upload-artifact@v4
