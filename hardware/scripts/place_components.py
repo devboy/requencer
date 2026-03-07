@@ -164,8 +164,8 @@ def place_components(input_pcb, output_pcb=None):
     step_x = layout["buttons"]["step"][0]["x_mm"]
     center_x = panel["width_mm"] / 2
 
-    # Pico module centered
-    place("mcu.pico", center_x, 40, front=False)
+    # MCU module centered (PGA2350)
+    place("mcu.pga", center_x, 40, front=False)
 
     # Power header near bottom
     place("power.header", 10, 120)

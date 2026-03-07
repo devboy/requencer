@@ -5,13 +5,18 @@ on:
     branches: [main]
     paths:
       - 'hardware/**'
+      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
       - 'panel-layout.json'
   pull_request:
     paths:
       - 'hardware/**'
+      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
       - 'panel-layout.json'
+
+env:
+  HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
 
 jobs:
   build:
@@ -20,77 +25,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup atopile
-        uses: atopile/setup-atopile@v1
-        with:
-          ato-config: hardware/ato.yaml
-
-      # --- Main PCB ---
+      - name: Pull or build hardware tools image
+        run: |
+          docker pull "$HW_IMAGE" 2>/dev/null || \
+          docker build -t "$HW_IMAGE" hardware/docker/
 
       - name: Build schematic
-        working-directory: hardware
-        run: ato build
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            rm -f hardware/elec/layout/default/default.kicad_pcb
+            cd hardware && ato --non-interactive build
+          '
 
       - name: Generate through-hole footprints
-        run: python3 hardware/scripts/generate_footprints.py
-
-      - name: Run DRC (verification)
-        working-directory: hardware
-        run: |
-          PCB="elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
-            if [ -f drc-report.json ]; then
-              python3 -c "
-          import json
-          with open('drc-report.json') as f:
-              r = json.load(f)
-          v = len(r.get('violations', []))
-          u = len(r.get('unconnected', []))
-          print(f'DRC: {v} violations, {u} unconnected')
-          "
-            fi
-          else
-            echo "PCB file not found, skipping DRC"
-          fi
-
-      # --- Faceplate ---
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
 
       - name: Generate faceplate PCB
-        run: python3 hardware-faceplate/scripts/generate_faceplate.py
-
-      # --- Full pipeline (main branch only) ---
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
 
       - name: Place components
-        if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            python3 hardware/scripts/place_components.py "$PCB"
-          else
-            echo "PCB not found, skipping placement"
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/elec/layout/default/default.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              python3 hardware/scripts/place_components.py "$PCB" hardware/build/placed.kicad_pcb
+            fi
+          '
 
       - name: Autoroute
-        if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            chmod +x hardware/scripts/autoroute.sh
-            hardware/scripts/autoroute.sh "$PCB"
-          else
-            echo "PCB not found, skipping autoroute"
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/placed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              chmod +x hardware/scripts/autoroute.sh
+              hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
+            fi
+          '
+
+      - name: Run DRC
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/routed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
+              echo "DRC complete (see report for details)"
+            else
+              echo "Routed PCB not found, skipping DRC"
+            fi
+          '
 
       - name: Export manufacturing files
-        if: github.ref == 'refs/heads/main'
         run: |
-          PCB="hardware/elec/layout/default/default.kicad_pcb"
-          if [ -f "$PCB" ]; then
-            python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/manufacturing
-          else
-            echo "PCB not found, skipping manufacturing export"
-          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/routed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
+            fi
+          '
 
       - name: Upload KiCad output
         if: github.ref == 'refs/heads/main'
@@ -106,6 +97,6 @@ jobs:
         with:
           name: manufacturing-${{ github.sha }}
           path: |
-            hardware/manufacturing/
+            hardware/build/manufacturing/
             hardware-faceplate/elec/layout/
           retention-days: 90

@@ -8,7 +8,7 @@ import has_designator_prefix
 import has_part_picked
 
 component _74HCT125D:
-    trait is_atomic_part<manufacturer="Nexperia", partnumber="74HCT125D", footprint="SOIC-14", symbol="74HCT125D.kicad_sym">
+    trait is_atomic_part<manufacturer="Nexperia", partnumber="74HCT125D", footprint="SOIC-14.kicad_mod", symbol="74HCT125D.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C5613", manufacturer="Nexperia", partno="74HCT125D">
 

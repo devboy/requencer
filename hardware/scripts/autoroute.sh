@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Autoroute a KiCad PCB using Freerouting (headless, all native ARM).
+# Autoroute a KiCad PCB using Freerouting (headless).
 #
 # Usage: ./autoroute.sh <input.kicad_pcb> [output.kicad_pcb]
 #
@@ -17,20 +17,25 @@ OUTPUT_PCB="${2:-$INPUT_PCB}"
 WORK_DIR="$(mktemp -d)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Tool paths
-KICAD_PYTHON="/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3"
-KICAD_PYPATH="/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages"
-KICAD_FWPATH="/Applications/KiCad/KiCad.app/Contents/Frameworks"
-JAVA="/opt/homebrew/opt/openjdk/bin/java"
-FREEROUTING_JAR="$SCRIPT_DIR/../tools/freerouting.jar"
+# Tool paths (env vars with macOS defaults)
+KICAD_PYTHON="${KICAD_PYTHON:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3}"
+KICAD_PYPATH="${KICAD_PYPATH:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages}"
+KICAD_FWPATH="${KICAD_FWPATH:-/Applications/KiCad/KiCad.app/Contents/Frameworks}"
+KICAD_CLI="${KICAD_CLI:-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli}"
+JAVA="${JAVA:-/opt/homebrew/opt/openjdk/bin/java}"
+FREEROUTING_JAR="${FREEROUTING_JAR:-$SCRIPT_DIR/../tools/freerouting.jar}"
 
-# Verify tools exist
-for tool in "$KICAD_PYTHON" "$JAVA" "$FREEROUTING_JAR"; do
-  if [ ! -f "$tool" ]; then
-    echo "ERROR: Missing tool: $tool"
+# Verify tools exist (check as command for executables, file for JAR)
+for cmd in "$KICAD_PYTHON" "$JAVA" "$KICAD_CLI"; do
+  if ! command -v "$cmd" &>/dev/null && [ ! -f "$cmd" ]; then
+    echo "ERROR: Missing tool: $cmd"
     exit 1
   fi
 done
+if [ ! -f "$FREEROUTING_JAR" ]; then
+  echo "ERROR: Missing FreeRouting JAR: $FREEROUTING_JAR"
+  exit 1
+fi
 
 cleanup() { rm -rf "$WORK_DIR"; }
 trap cleanup EXIT
@@ -91,8 +96,8 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
   exit 1
 fi
 
-# Step 2: Run Freerouting headless (native ARM Java)
-echo "Step 2: Running Freerouting (headless, native ARM)..."
+# Step 2: Run Freerouting headless
+echo "Step 2: Running Freerouting (headless)..."
 "$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
   -de "$WORK_DIR/board.dsn" \
   -do "$WORK_DIR/board.ses" \
@@ -125,33 +130,3 @@ print(f"  Tracks: {len(board.GetTracks())}")
 PYEOF
 
 echo "=== Autorouting complete: $OUTPUT_PCB ==="
-
-# Step 4: Export gerbers from routed board
-echo "Step 4: Exporting gerbers..."
-GERBER_DIR="$(dirname "$OUTPUT_PCB")/gerbers"
-mkdir -p "$GERBER_DIR"
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export gerbers \
-  "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Gerber export failed (non-critical)"
-
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export drill \
-  "$OUTPUT_PCB" -o "$GERBER_DIR/" 2>&1 || echo "  Drill export failed (non-critical)"
-
-echo "  Gerbers in: $GERBER_DIR"
-
-# Step 5: Run DRC
-echo "Step 5: Running DRC..."
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb drc \
-  "$OUTPUT_PCB" -o "$WORK_DIR/drc-report.json" --format json 2>&1 || true
-
-if [ -f "$WORK_DIR/drc-report.json" ]; then
-  python3 -c "
-import json
-with open('$WORK_DIR/drc-report.json') as f:
-    r = json.load(f)
-v = len(r.get('violations', []))
-u = len(r.get('unconnected', []))
-print(f'  DRC: {v} violations, {u} unconnected')
-" 2>&1 || true
-fi
-
-echo "=== Done ==="
