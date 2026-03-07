@@ -88,6 +88,17 @@ jobs:
             echo "Lock file unchanged or not present, skipping commit"
           fi
 
+      - name: Print lock file (for manual commit on branches)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          if [ -f hardware/ato-lock.yaml ]; then
+            echo "=== ato-lock.yaml ==="
+            cat hardware/ato-lock.yaml
+            echo "=== end ==="
+          else
+            echo "No lock file generated"
+          fi
+
       - name: Check ato build output
         run: |
           # Display all warnings from the build
