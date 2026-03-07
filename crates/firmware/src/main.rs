@@ -192,7 +192,7 @@ async fn main(_spawner: Spawner) {
     let mut state = SequencerState::new();
     state.apply_default_presets();
 
-    // Try to load saved state from SD card
+    // Try to load saved state and library from SD card
     if sd_storage.is_card_present() {
         info!("SD card detected, attempting state restore");
         let mut buf = [0u8; storage::STATE_BUF_SIZE];
@@ -204,6 +204,21 @@ async fn main(_spawner: Spawner) {
                 }
                 Err(_) => {
                     warn!("SD state file corrupt, using defaults");
+                }
+            }
+        }
+
+        // Load pattern library (patterns + user presets)
+        let mut lib_buf = [0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
+        if let Some(len) = sd_storage.load_library(&mut spi0, &mut lib_buf) {
+            match requencer_engine::storage::deserialize_library(&lib_buf[..len]) {
+                Ok((patterns, presets)) => {
+                    info!("Library restored: {} patterns, {} presets", patterns.len(), presets.len());
+                    state.saved_patterns = patterns;
+                    state.user_presets = presets;
+                }
+                Err(_) => {
+                    warn!("SD library file corrupt, using defaults");
                 }
             }
         }
@@ -229,6 +244,7 @@ async fn main(_spawner: Spawner) {
     let mut last_enc = Instant::now();
     let mut last_save = Instant::now();
     let mut state_dirty = false; // Track if state changed since last save
+    let mut library_dirty = false; // Track if patterns/presets changed since last save
 
     // Drift-compensating tick scheduler: tracks when the next tick *should* fire.
     // Unlike `last_tick + interval`, this accumulates the exact interval so late
@@ -330,8 +346,14 @@ async fn main(_spawner: Spawner) {
             button_scanner.scan(&mut btn_events);
             for ev in btn_events {
                 let was_playing = state.transport.playing;
+                let lib_before = (state.saved_patterns.len(), state.user_presets.len());
                 mode_machine::dispatch(&mut ui, &mut state, ev, system_tick);
                 state_dirty = true;
+                // Detect library changes (pattern save/delete, preset save/delete)
+                let lib_after = (state.saved_patterns.len(), state.user_presets.len());
+                if lib_after != lib_before {
+                    library_dirty = true;
+                }
 
                 // Send MIDI transport messages when play state changes
                 if state.transport.playing != was_playing {
@@ -349,7 +371,7 @@ async fn main(_spawner: Spawner) {
                             dac.set_dac1_channel(i, 0);
                             gate_state[i as usize] = false;
                         }
-                        // Save state immediately on stop (natural save point)
+                        // Save state + library immediately on stop (natural save point)
                         if sd_storage.is_card_present() {
                             let mut buf = [0u8; storage::STATE_BUF_SIZE];
                             if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
@@ -358,6 +380,18 @@ async fn main(_spawner: Spawner) {
                                     info!("State saved on transport stop");
                                     last_save = now;
                                     state_dirty = false;
+                                }
+                            }
+                            if library_dirty {
+                                let mut lib_buf = [0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
+                                if let Ok(bytes) = requencer_engine::storage::serialize_library(
+                                    &state.saved_patterns, &state.user_presets, &mut lib_buf,
+                                ) {
+                                    let len = bytes.len();
+                                    if sd_storage.save_library(&mut spi0, &lib_buf[..len]) {
+                                        info!("Library saved on transport stop");
+                                        library_dirty = false;
+                                    }
                                 }
                             }
                         }
@@ -378,8 +412,13 @@ async fn main(_spawner: Spawner) {
             encoder_pair.poll(&mut enc_events);
             for ev in enc_events {
                 let was_playing = state.transport.playing;
+                let lib_before = (state.saved_patterns.len(), state.user_presets.len());
                 mode_machine::dispatch(&mut ui, &mut state, ev, system_tick);
                 state_dirty = true;
+                let lib_after = (state.saved_patterns.len(), state.user_presets.len());
+                if lib_after != lib_before {
+                    library_dirty = true;
+                }
 
                 if state.transport.playing != was_playing {
                     if state.transport.playing {
@@ -481,16 +520,32 @@ async fn main(_spawner: Spawner) {
         // Save more frequently to minimize data loss on unexpected reset.
         // Only saves while stopped to avoid timing disruption during playback.
 
-        if state_dirty && now.duration_since(last_save).as_secs() >= 10 {
+        if now.duration_since(last_save).as_secs() >= 10 {
             if sd_storage.is_card_present() && !state.transport.playing {
-                last_save = now;
-                state_dirty = false;
-                let mut buf = [0u8; storage::STATE_BUF_SIZE];
-                if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
-                    let len = bytes.len();
-                    if sd_storage.save_state(&mut spi0, &buf[..len]) {
-                        info!("State auto-saved to SD card");
+                if state_dirty {
+                    let mut buf = [0u8; storage::STATE_BUF_SIZE];
+                    if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
+                        let len = bytes.len();
+                        if sd_storage.save_state(&mut spi0, &buf[..len]) {
+                            info!("State auto-saved to SD card");
+                            state_dirty = false;
+                        }
                     }
+                }
+                if library_dirty {
+                    let mut lib_buf = [0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
+                    if let Ok(bytes) = requencer_engine::storage::serialize_library(
+                        &state.saved_patterns, &state.user_presets, &mut lib_buf,
+                    ) {
+                        let len = bytes.len();
+                        if sd_storage.save_library(&mut spi0, &lib_buf[..len]) {
+                            info!("Library auto-saved to SD card");
+                            library_dirty = false;
+                        }
+                    }
+                }
+                if !state_dirty && !library_dirty {
+                    last_save = now;
                 }
             }
         }
