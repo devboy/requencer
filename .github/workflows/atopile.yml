@@ -15,6 +15,10 @@ on:
 
 env:
   HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
+  PCB_SRC: hardware/elec/layout/default/default.kicad_pcb
+  SCH_SRC: hardware/elec/layout/default/default.kicad_sch
+  PCB_PLACED: hardware/build/placed.kicad_pcb
+  PCB_ROUTED: hardware/build/routed.kicad_pcb
 
 jobs:
   build:
@@ -28,21 +32,93 @@ jobs:
           docker pull "$HW_IMAGE" 2>/dev/null || \
           docker build -t "$HW_IMAGE" hardware/docker/
 
+      # --- Stage 1: Compile .ato → KiCad ---
       - name: Build schematic
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            set -euo pipefail
             rm -f hardware/elec/layout/default/default.kicad_pcb
             cd hardware && ato --non-interactive build 2>&1 | tee /work/ato-build.log
           '
 
-      - name: Check for missing components
+      - name: Check ato build output
         run: |
+          # Fail on missing components (silently dropped from PCB)
           if grep -q "No pickers and no footprint" ato-build.log; then
             echo "::error::Components missing pickers/footprints — they will be silently dropped from the PCB:"
             grep "No pickers and no footprint" ato-build.log
             exit 1
           fi
+          # Verify expected outputs exist
+          if [ ! -f "$PCB_SRC" ]; then
+            echo "::error::ato build did not produce PCB: $PCB_SRC"
+            exit 1
+          fi
+          if [ ! -f "$SCH_SRC" ]; then
+            echo "::warning::ato build did not produce schematic: $SCH_SRC (ERC will be skipped)"
+          fi
 
+      # --- Stage 2: ERC (if schematic exists) ---
+      - name: Run ERC
+        run: |
+          if [ ! -f "$SCH_SRC" ]; then
+            echo "::warning::No schematic found, skipping ERC"
+            exit 0
+          fi
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            kicad-cli sch erc '$SCH_SRC' -o erc-report.json --format json --exit-code-violations 2>&1 | tee erc-output.log
+          "
+
+      # --- Stage 3: Generate footprints & faceplate ---
+      - name: Generate through-hole footprints
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
+
+      - name: Generate faceplate PCB
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
+
+      # --- Stage 4: Place components ---
+      - name: Place components
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            python3 hardware/scripts/place_components.py '$PCB_SRC' '$PCB_PLACED'
+          "
+
+      - name: Export layout JSON
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            python3 hardware/scripts/export_layout.py '$PCB_PLACED' hardware/component-map.json web/src/panel-layout.json
+          "
+
+      # --- Stage 5: Autoroute ---
+      - name: Autoroute
+        timeout-minutes: 45
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            chmod +x hardware/scripts/autoroute.sh
+            hardware/scripts/autoroute.sh '$PCB_PLACED' '$PCB_ROUTED'
+          "
+
+      # --- Stage 6: DRC ---
+      - name: Run DRC
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            kicad-cli pcb drc '$PCB_ROUTED' -o drc-report.json --format json --exit-code-violations 2>&1 | tee drc-output.log
+          "
+
+      # --- Stage 7: Export manufacturing ---
+      - name: Export manufacturing files
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+            set -euo pipefail
+            python3 hardware/scripts/export_manufacturing.py '$PCB_ROUTED' hardware/build/manufacturing
+          "
+
+      # --- Always upload logs/reports for debugging ---
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,62 +127,20 @@ jobs:
           path: ato-build.log
           retention-days: 30
 
-      - name: Generate through-hole footprints
-        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
+      - name: Upload ERC/DRC reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-reports-${{ github.sha }}
+          path: |
+            erc-report.json
+            erc-output.log
+            drc-report.json
+            drc-output.log
+          retention-days: 30
+          if-no-files-found: ignore
 
-      - name: Generate faceplate PCB
-        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
-
-      - name: Place components
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/elec/layout/default/default.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              python3 hardware/scripts/place_components.py "$PCB" hardware/build/placed.kicad_pcb
-            fi
-          '
-
-      - name: Export layout JSON
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/build/placed.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              python3 hardware/scripts/export_layout.py "$PCB" hardware/component-map.json web/src/panel-layout.json
-            fi
-          '
-
-      - name: Autoroute
-        timeout-minutes: 45
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/build/placed.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              chmod +x hardware/scripts/autoroute.sh
-              hardware/scripts/autoroute.sh "$PCB" hardware/build/routed.kicad_pcb
-            fi
-          '
-
-      - name: Run DRC
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/build/routed.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              kicad-cli pcb drc "$PCB" -o drc-report.json --format json 2>&1 || true
-              echo "DRC complete (see report for details)"
-            else
-              echo "Routed PCB not found, skipping DRC"
-            fi
-          '
-
-      - name: Export manufacturing files
-        run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/build/routed.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
-            fi
-          '
-
+      # --- Upload artifacts on main ---
       - name: Upload placed PCB
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
