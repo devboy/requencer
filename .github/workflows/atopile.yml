@@ -55,16 +55,13 @@ jobs:
             exit 1
           fi
           if [ ! -f "$SCH_SRC" ]; then
-            echo "::warning::ato build did not produce schematic: $SCH_SRC (ERC will be skipped)"
+            echo "::error::ato build did not produce schematic: $SCH_SRC"
+            exit 1
           fi
 
-      # --- Stage 2: ERC (if schematic exists) ---
+      # --- Stage 2: ERC ---
       - name: Run ERC
         run: |
-          if [ ! -f "$SCH_SRC" ]; then
-            echo "::warning::No schematic found, skipping ERC"
-            exit 0
-          fi
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
             kicad-cli sch erc '$SCH_SRC' -o erc-report.json --format json --exit-code-violations 2>&1 | tee erc-output.log
