@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - 'hardware/**'
-      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
   pull_request:
     paths:
       - 'hardware/**'
-      - '!hardware/docker/**'
       - 'hardware-faceplate/**'
 
 concurrency:
@@ -51,6 +49,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             set -euo pipefail
+            # Apply strict picker patch at runtime (in case Docker image is stale)
+            python3 /work/hardware/docker/patch-strict-picker.py
             echo "=== ato.yaml ==="
             cat hardware/ato.yaml
             echo ""
