@@ -3,10 +3,53 @@ name = "requencer-firmware"
 version = "0.1.0"
 edition = "2021"
 
-# Firmware won't build without the ARM target toolchain installed.
-# Install with: rustup target add thumbv8m.main-none-eabihf
-# Build with: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf
+# Firmware targets the RP2350B (PGA2350 module, Cortex-M33).
+# Install toolchain: rustup target add thumbv8m.main-none-eabihf
+# Build: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf --release
+# Test pure logic on host: cargo test -p requencer-firmware --lib --target x86_64-unknown-linux-gnu
 
+# Host-compatible dependencies (used in both firmware and tests)
 [dependencies]
 requencer-engine = { path = "../engine", default-features = false }
+embedded-graphics-core = { workspace = true }
+embedded-graphics = { workspace = true }
+heapless = { workspace = true }
+libm = "0.2"
+
+# ARM-only dependencies (firmware target only)
+[target.'cfg(target_os = "none")'.dependencies]
 requencer-renderer = { path = "../renderer", default-features = false }
+
+# Embassy (RP2350)
+embassy-executor = { version = "0.7", features = ["arch-cortex-m", "executor-thread"] }
+embassy-rp = { version = "0.4", features = ["rp235xb"] }
+embassy-time = { version = "0.4" }
+embassy-sync = { version = "0.7" }
+embassy-embedded-hal = { version = "0.3" }
+embassy-futures = { version = "0.1" }
+
+# Embedded HAL
+embedded-hal = "1.0"
+embedded-hal-async = "1.0"
+embedded-hal-bus = { version = "0.3", features = ["async"] }
+
+# Display
+mipidsi = "0.9"
+display-interface-spi = "0.5"
+
+# SD card
+embedded-sdmmc = { version = "0.8", default-features = false, features = ["defmt-log"] }
+
+# Runtime
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+panic-probe = { version = "0.3", features = ["print-defmt"] }
+defmt = "0.3"
+defmt-rtt = "0.4"
+
+# Static cell for shared resources
+static_cell = "2"
+portable-atomic = { version = "1", features = ["critical-section"] }
+
+[features]
+default = []

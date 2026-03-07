@@ -169,10 +169,12 @@ mod tests {
 
     #[test]
     fn scale_serde_round_trip() {
-        use postcard::{from_bytes, to_allocvec};
+        use postcard::from_bytes;
         for (i, scale) in Scales::ALL.iter().enumerate() {
-            let bytes = to_allocvec(scale).unwrap();
-            let restored: Scale = from_bytes(&bytes).unwrap();
+            let mut buf = [0u8; 256];
+            let bytes = postcard::to_slice(scale, &mut buf).unwrap();
+            let len = bytes.len();
+            let restored: Scale = from_bytes(&buf[..len]).unwrap();
             assert_eq!(restored.name, Scales::ALL[i].name);
             assert_eq!(restored.intervals, Scales::ALL[i].intervals);
         }

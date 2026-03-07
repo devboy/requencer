@@ -7,4 +7,4 @@ embedded-graphics-core = "0.4"
 embedded-graphics = "0.8"
 heapless = { version = "0.8", features = ["serde"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
-postcard = { version = "1", default-features = false, features = ["alloc"] }
+postcard = { version = "1", default-features = false }

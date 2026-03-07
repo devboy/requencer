@@ -856,9 +856,11 @@ mod tests {
             .stack_size(16 * 1024 * 1024)
             .spawn(|| {
                 let state = Box::new(SequencerState::new());
-                let bytes = postcard::to_allocvec(&*state).unwrap();
+                let mut buf = vec![0u8; 64 * 1024];
+                let bytes = postcard::to_slice(&*state, &mut buf).unwrap();
+                let len = bytes.len();
                 let restored: Box<SequencerState> =
-                    Box::new(postcard::from_bytes(&bytes).unwrap());
+                    Box::new(postcard::from_bytes(&buf[..len]).unwrap());
                 assert_eq!(*state, *restored);
             })
             .unwrap()
