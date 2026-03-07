@@ -60,11 +60,15 @@ export function createFootprintOverlay(): void {
   // Panel outline
   parts.push(svgRect(0, 0, W, H, '#00cccc', '6,3'))
 
-  // Rail zone lines
-  const railTop = mm(C.rail_zone_mm)
-  const railBot = mm(panelLayout.panel.height_mm - C.rail_zone_mm)
-  parts.push(svgLine(0, railTop, W, railTop, '#cccc00', '5,3'))
-  parts.push(svgLine(0, railBot, W, railBot, '#cccc00', '5,3'))
+  // PCB outline (board between rails, smaller than faceplate)
+  const pcb = (panelLayout as any).pcb
+  if (pcb) {
+    parts.push(svgRect(
+      mm(pcb.origin_x_mm), mm(pcb.origin_y_mm),
+      mm(pcb.width_mm), mm(pcb.height_mm),
+      '#cccc00', '5,3',
+    ))
+  }
 
   // LCD cutout
   const lcd = panelLayout.lcd_cutout

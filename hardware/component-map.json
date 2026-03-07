@@ -10,9 +10,9 @@
   "pcb": {
     "_note": "Main PCB is smaller than faceplate — sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
-    "height_mm": 104.0,
+    "height_mm": 106.5,
     "origin_x_mm": 2.0,
-    "origin_y_mm": 7.0
+    "origin_y_mm": 10.5
   },
 
   "constants": {
@@ -44,7 +44,7 @@
 
   "lcd_cutout": {
     "center_x_mm": 54.78,
-    "center_y_mm": 36.89,
+    "center_y_mm": 39.89,
     "width_mm": 73.44,
     "height_mm": 48.96
   },
@@ -82,8 +82,8 @@
     "usb_c": {
       "id": "usb_c",
       "label": "USB",
-      "x_mm": 120.00,
-      "y_mm": 101.39,
+      "x_mm": 104.50,
+      "y_mm": 108.39,
       "width_mm": 3.5,
       "height_mm": 9.0,
       "notes": "USB-C receptacle, vertical portrait, between step grid and jacks"
@@ -91,8 +91,8 @@
     "sd_card": {
       "id": "sd_card",
       "label": "SD",
-      "x_mm": 124.50,
-      "y_mm": 101.39,
+      "x_mm": 111.00,
+      "y_mm": 108.39,
       "width_mm": 2.5,
       "height_mm": 12.0,
       "notes": "Micro SD push-push slot, vertical portrait, between step grid and jacks"
@@ -133,7 +133,6 @@
     "buttons.btn_t2":       { "group": "buttons.track",    "id": "t2",    "label": "2",     "type": "button" },
     "buttons.btn_t3":       { "group": "buttons.track",    "id": "t3",    "label": "3",     "type": "button" },
     "buttons.btn_t4":       { "group": "buttons.track",    "id": "t4",    "label": "4",     "type": "button" },
-    "buttons.btn_tbd":      { "group": "buttons.tbd",      "id": "tbd",   "label": "TBD",   "type": "button" },
 
     "buttons.btn_gate":     { "group": "buttons.subtrack", "id": "gate",  "label": "GATE",  "type": "button" },
     "buttons.btn_pitch":    { "group": "buttons.subtrack", "id": "pitch", "label": "PITCH", "type": "button" },
@@ -174,10 +173,14 @@
 
   "non_pcb_components": {
     "_note": "Components with panel positions but no atopile address (not yet in schematic or UI-only)",
+    "buttons.tbd": {
+      "_todo": "Move back to components once TBD is placed in KiCad PCB at correct position (track column, 5th row)",
+      "id": "tbd", "label": "TBD", "x_mm": 7.83, "y_mm": 62.3, "type": "button"
+    },
     "buttons.control_strip": [
-      { "id": "back", "label": "BACK", "x_mm": 36.26, "y_mm": 76.36, "type": "button" },
-      { "id": "rand", "label": "RAND", "x_mm": 59.94, "y_mm": 76.36, "type": "button" },
-      { "id": "clr",  "label": "CLR",  "x_mm": 83.62, "y_mm": 76.36, "type": "button" }
+      { "id": "back", "label": "BACK", "x_mm": 36.26, "y_mm": 83.36, "type": "button" },
+      { "id": "rand", "label": "RAND", "x_mm": 59.94, "y_mm": 83.36, "type": "button" },
+      { "id": "clr",  "label": "CLR",  "x_mm": 83.62, "y_mm": 83.36, "type": "button" }
     ]
   }
 }

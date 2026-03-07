@@ -90,9 +90,10 @@ def export_layout(pcb_path, map_path, output_path):
     buttons_step = collect_group("buttons.step")
     buttons_transport = collect_group("buttons.transport")
 
-    # Single-item groups
+    # Single-item groups — TBD from non_pcb_components until placed in KiCad
     tbd_list = collect_group("buttons.tbd")
-    tbd = tbd_list[0] if tbd_list else {"id": "tbd", "label": "TBD", "x_mm": 0, "y_mm": 0}
+    tbd_fallback = comp_map.get("non_pcb_components", {}).get("buttons.tbd", {"id": "tbd", "label": "TBD", "x_mm": 0, "y_mm": 0})
+    tbd = tbd_list[0] if tbd_list else tbd_fallback
 
     pat_list = collect_group("buttons.pat")
     pat = pat_list[0] if pat_list else {"id": "pat", "label": "PAT", "x_mm": 0, "y_mm": 0}
@@ -106,6 +107,7 @@ def export_layout(pcb_path, map_path, output_path):
     # Assemble output
     output = {
         "panel": comp_map["panel"],
+        "pcb": comp_map["pcb"],
         "constants": comp_map["constants"],
         "lcd_cutout": comp_map["lcd_cutout"],
         "mounting_slots": comp_map["mounting_slots"],
