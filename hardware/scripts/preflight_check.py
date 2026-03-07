@@ -143,6 +143,35 @@ def check_ato_imports(hw_root: Path) -> list[str]:
     return errors
 
 
+def check_missing_atomic_part(hw_root: Path) -> list[str]:
+    """Flag parts that have has_part_picked but no is_atomic_part.
+
+    atopile's LCSC picker often can't resolve footprints for less-common
+    packages. Parts without is_atomic_part will silently get no footprint
+    and fail at BOM export after the slow pick phase.
+    """
+    errors = []
+    parts_dir = hw_root / "parts"
+    if not parts_dir.exists():
+        return errors
+
+    for ato_file in parts_dir.rglob("*.ato"):
+        content = ato_file.read_text()
+        has_picked = "has_part_picked" in content
+        has_atomic = "is_atomic_part" in content
+        has_pins = "~ pin" in content
+
+        if has_picked and has_pins and not has_atomic:
+            part_name = ato_file.parent.name
+            errors.append(
+                f"{ato_file.relative_to(hw_root)}: "
+                f"has has_part_picked but no is_atomic_part — "
+                f"add footprint/symbol files and is_atomic_part trait"
+            )
+
+    return errors
+
+
 def main():
     hw_root = find_hardware_root()
     print(f"Hardware root: {hw_root}")
@@ -153,6 +182,7 @@ def main():
         ("Pin count vs footprint pads", check_pin_count_matches_footprint),
         ("Duplicate LCSC part numbers", check_duplicate_lcsc),
         ("Required imports", check_ato_imports),
+        ("Parts missing is_atomic_part", check_missing_atomic_part),
     ]
 
     for name, check_fn in checks:

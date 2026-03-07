@@ -3,10 +3,12 @@
 # ±18V max supply, rail-to-rail output, no phase reversal
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component OPA4172ID:
+    trait is_atomic_part<manufacturer="TI", partnumber="OPA4172IPWR", footprint="TSSOP-14.kicad_mod", symbol="OPA4172ID.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C1849436", manufacturer="TI", partno="OPA4172IPWR">
 

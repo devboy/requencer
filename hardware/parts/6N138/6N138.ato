@@ -3,10 +3,12 @@
 # Used for MIDI input isolation
 
 #pragma experiment("TRAITS")
+import is_atomic_part
 import has_designator_prefix
 import has_part_picked
 
 component _6N138:
+    trait is_atomic_part<manufacturer="Vishay", partnumber="6N138", footprint="DIP-8.kicad_mod", symbol="6N138.kicad_sym">
     trait has_designator_prefix<prefix="U">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C571211", manufacturer="Vishay", partno="6N138">
 
