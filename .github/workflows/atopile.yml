@@ -60,7 +60,7 @@ jobs:
             cat hardware/ato.yaml
             echo ""
             rm -f hardware/elec/layout/default/default.kicad_pcb
-            cd hardware && ato --non-interactive build 2>&1 | tee /work/ato-build.log
+            cd hardware && ato --non-interactive build --keep-picked-parts 2>&1 | tee /work/ato-build.log
             echo ""
             echo "=== Post-build layout dir ==="
             ls -laR elec/layout/ 2>/dev/null || echo "(empty/missing)"
