@@ -20,6 +20,8 @@
 mod buttons;
 mod clock_io;
 #[allow(dead_code)]
+mod cv_input;
+#[allow(dead_code)]
 mod dac;
 mod display;
 mod encoders;
@@ -34,6 +36,7 @@ mod storage;
 use defmt::*;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
+use embassy_rp::adc;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 use embassy_rp::spi::{self, Spi};
 use embassy_rp::uart;
@@ -160,12 +163,28 @@ async fn main(_spawner: Spawner) {
     info!("MIDI UART initialized at 31250 baud");
 
     // ── Clock/Reset I/O ────────────────────────────────────────────
+    // Clock and reset inputs use interrupt-driven edge detection via spawned tasks.
+    // This ensures no clock pulses are missed regardless of main loop latency.
 
     let clock_in = Input::new(p.PIN_26, Pull::Down);
     let reset_in = Input::new(p.PIN_27, Pull::Down);
+    _spawner.spawn(clock_io::clock_input_task(clock_in)).unwrap();
+    _spawner.spawn(clock_io::reset_input_task(reset_in)).unwrap();
+
     let clock_out = Output::new(p.PIN_28, Level::High); // Inverted: high GPIO = low output
     let reset_out = Output::new(p.PIN_4, Level::High);
-    let mut clock_io = clock_io::ClockIo::new(clock_in, reset_in, clock_out, reset_out);
+    let mut clock_io = clock_io::ClockIo::new(clock_out, reset_out);
+    info!("Clock/Reset I/O initialized (interrupt-driven input)");
+
+    // ── CV Inputs (ADC4-7 on RP2350B) ─────────────────────────────
+
+    let adc_hw = adc::Adc::new_blocking(p.ADC, adc::Config::default());
+    let cv_a = adc::Channel::new_pin(p.PIN_40, Pull::None);
+    let cv_b = adc::Channel::new_pin(p.PIN_41, Pull::None);
+    let cv_c = adc::Channel::new_pin(p.PIN_42, Pull::None);
+    let cv_d = adc::Channel::new_pin(p.PIN_43, Pull::None);
+    let mut cv_reader = cv_input::CvReader::new(adc_hw, cv_a, cv_b, cv_c, cv_d);
+    info!("CV inputs initialized (ADC4-7)");
 
     // ── Engine state ───────────────────────────────────────────────
 
@@ -215,6 +234,9 @@ async fn main(_spawner: Spawner) {
 
     // Clock output pulse: set high on step boundary, clear after 5ms
     let mut clock_pulse_end: Option<Instant> = None;
+
+    // Chunked display flush state — one chunk per main loop iteration
+    let mut flush_state: Option<display::FlushState> = None;
 
     // ── Main loop ──────────────────────────────────────────────────
 
@@ -306,10 +328,14 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // ── 5. Poll encoders (every 1ms = 1 kHz) ──────────────────
+        // ── 5. Poll encoders + CV inputs (every 1ms = 1 kHz) ──────
 
         if now.duration_since(last_enc).as_millis() >= 1 {
             last_enc = now;
+
+            // Sample CV inputs (smoothed, change-detected)
+            cv_reader.sample_all();
+
             let mut enc_events = heapless::Vec::<ControlEvent, 8>::new();
             encoder_pair.poll(&mut enc_events);
             for ev in enc_events {
@@ -384,16 +410,25 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // ── 7. Render display (~30 fps) ────────────────────────────
+        // ── 7. Render display (~30 fps, chunked flush) ──────────────
+        // Flush is split into 16-scanline chunks (~240µs each) to allow
+        // engine ticks to fire between chunks, reducing worst-case jitter.
 
-        if now.duration_since(last_frame).as_millis() >= 33 {
+        if now.duration_since(last_frame).as_millis() >= 33 && flush_state.is_none() {
             last_frame = now;
 
             requencer_renderer::render(&mut framebuffer, &state, &ui);
-            display_hw.flush(&mut spi0, &framebuffer);
+            flush_state = Some(display_hw.flush_begin(&mut spi0));
 
             let led_state = mode_machine::get_led_state(&ui, &state);
             led_driver.update(&led_state, ui.selected_track);
+        }
+
+        // Continue flushing one chunk per loop iteration
+        if let Some(ref mut fs) = flush_state {
+            if !display_hw.flush_next_chunk(&mut spi0, &framebuffer, fs) {
+                flush_state = None;
+            }
         }
 
         // ── 8. Periodic state save (every 30s if changed) ────────

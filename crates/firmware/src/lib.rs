@@ -10,6 +10,8 @@
 #![cfg_attr(not(test), no_std)]
 
 pub mod buttons;
+pub mod clock_io;
+pub mod cv_input;
 pub mod dac;
 pub mod display;
 pub mod encoders;

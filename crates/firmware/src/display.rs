@@ -75,6 +75,12 @@ mod cmd {
     pub const RAMWR: u8 = 0x2C;
 }
 
+/// State for chunked display flush. Tracks which scanline band to send next.
+#[cfg(target_os = "none")]
+pub struct FlushState {
+    next_y: usize,
+}
+
 #[cfg(target_os = "none")]
 type Spi0 = Spi<'static, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>;
 
@@ -179,22 +185,18 @@ impl<'a> Display<'a> {
         );
     }
 
-    /// Flush the framebuffer to the display via SPI.
-    /// Transfers scanline-by-scanline to limit SRAM buffer requirements.
-    pub fn flush(&mut self, spi: &mut Spi0, fb: &Framebuffer) {
-        self.set_address_window(spi);
-        self.write_cmd(spi, cmd::RAMWR);
+    /// Number of scanlines per flush chunk. At 62.5 MHz SPI, each scanline
+    /// takes ~15µs to transfer. 16 lines = ~240µs blocking per chunk,
+    /// giving the main loop ~20 opportunities per frame to service ticks.
+    const CHUNK_LINES: usize = 16;
 
-        // Transfer in scanlines — each scanline is 480 pixels × 2 bytes = 960 bytes
-        self.dc.set_high();
-        self.cs.set_low();
-
-        // We send the framebuffer in chunks to avoid needing a huge byte buffer.
-        // Each pixel is already u16 big-endian in the framebuffer.
+    /// Flush a band of scanlines [y_start, y_end) to the display.
+    /// Returns false if an SPI write failed (caller should stop flushing).
+    fn flush_band(&mut self, spi: &mut Spi0, fb: &Framebuffer, y_start: usize, y_end: usize) -> bool {
         const LINE_PIXELS: usize = WIDTH as usize;
         let mut line_buf = [0u8; LINE_PIXELS * 2];
 
-        for y in 0..HEIGHT as usize {
+        for y in y_start..y_end {
             let start = y * LINE_PIXELS;
             let end = start + LINE_PIXELS;
             for (i, &px) in fb.pixels[start..end].iter().enumerate() {
@@ -204,11 +206,47 @@ impl<'a> Display<'a> {
             }
             if spi.blocking_write(&line_buf).is_err() {
                 defmt::warn!("Display SPI scanline write failed at y={}", y);
-                break; // Don't spam 320 warnings
+                return false;
             }
         }
+        true
+    }
 
-        self.cs.set_high();
+    /// Begin a chunked flush: send address window + RAMWR command, assert CS.
+    /// Returns a FlushState to pass to flush_next_chunk.
+    pub fn flush_begin(&mut self, spi: &mut Spi0) -> FlushState {
+        self.set_address_window(spi);
+        self.write_cmd(spi, cmd::RAMWR);
+        self.dc.set_high();
+        self.cs.set_low();
+        FlushState { next_y: 0 }
+    }
+
+    /// Flush the next chunk of scanlines. Returns true if more chunks remain.
+    /// Call from the main loop between tick processing to reduce blocking.
+    pub fn flush_next_chunk(&mut self, spi: &mut Spi0, fb: &Framebuffer, state: &mut FlushState) -> bool {
+        if state.next_y >= HEIGHT as usize {
+            self.cs.set_high();
+            return false;
+        }
+        let y_end = (state.next_y + Self::CHUNK_LINES).min(HEIGHT as usize);
+        if !self.flush_band(spi, fb, state.next_y, y_end) {
+            self.cs.set_high();
+            return false;
+        }
+        state.next_y = y_end;
+        if state.next_y >= HEIGHT as usize {
+            self.cs.set_high();
+            return false;
+        }
+        true
+    }
+
+    /// Blocking flush — transfers entire framebuffer at once.
+    /// Use flush_begin + flush_next_chunk for non-blocking chunked transfers.
+    pub fn flush(&mut self, spi: &mut Spi0, fb: &Framebuffer) {
+        let mut state = self.flush_begin(spi);
+        while self.flush_next_chunk(spi, fb, &mut state) {}
     }
 }
 
