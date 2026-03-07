@@ -56,10 +56,9 @@ jobs:
             fi
           '
 
-      # --- Full pipeline (main branch only) ---
+      # --- Full pipeline ---
 
       - name: Place components
-        if: github.ref == 'refs/heads/main'
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             PCB="hardware/elec/layout/default/default.kicad_pcb"
@@ -69,7 +68,6 @@ jobs:
           '
 
       - name: Autoroute
-        if: github.ref == 'refs/heads/main'
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             PCB="hardware/build/placed.kicad_pcb"
@@ -80,7 +78,6 @@ jobs:
           '
 
       - name: Export manufacturing files
-        if: github.ref == 'refs/heads/main'
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             PCB="hardware/build/routed.kicad_pcb"
