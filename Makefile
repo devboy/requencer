@@ -3,6 +3,7 @@
 	build-wasm build-web build-firmware \
 	lint-rust lint-web \
 	hw-build hw-footprints hw-faceplate hw-place hw-route hw-export hw-all hw-clean \
+	hw-export-layout hw-fetch-pcb \
 	hw-docker-build hw-docker hw-all-inner
 
 all: test
@@ -63,6 +64,15 @@ hw-faceplate:
 
 hw-place:
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/export_layout.py \
+		$(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
+
+hw-export-layout:
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/export_layout.py \
+		$(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
+
+hw-fetch-pcb:
+	gh run download --name placed-pcb-latest -D hardware/build/
 
 hw-route:
 	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
@@ -91,6 +101,7 @@ hw-all-inner:
 	python3 hardware/scripts/generate_footprints.py
 	python3 hardware-faceplate/scripts/generate_faceplate.py
 	python3 hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	python3 hardware/scripts/export_layout.py $(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
 	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
 	python3 hardware/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
 	@echo "=== Hardware pipeline complete (Docker) ==="

@@ -8,7 +8,7 @@
  */
 
 // ── Panel layout from shared config (single source of truth) ──────
-import panelLayout from '../../../../panel-layout.json'
+import panelLayout from '../../panel-layout.json'
 
 const C = panelLayout.constants
 const SCALE = 4.5 // px per mm — rendering concern, not in JSON

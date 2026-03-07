@@ -1,0 +1,574 @@
+{
+  "panel": {
+    "width_hp": 36,
+    "width_mm": 181.88,
+    "height_mm": 127.5
+  },
+  "pcb": {
+    "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
+    "width_mm": 177.88,
+    "height_mm": 106.5,
+    "origin_x_mm": 2.0,
+    "origin_y_mm": 10.5
+  },
+  "constants": {
+    "rail_zone_mm": 10.0,
+    "component_gap_mm": 5.33,
+    "btn_diameter_mm": 5.0,
+    "btn_cc_mm": 10.7,
+    "step_btn_diameter_mm": 4.5,
+    "step_btn_cc_mm": 10.2,
+    "jack_diameter_mm": 10.0,
+    "jack_hole_mm": 3.5,
+    "jack_spacing_mm": 14.0,
+    "output_jack_spacing_mm": 12.4,
+    "encoder_diameter_mm": 14.5,
+    "rect_btn_height_mm": 10.0,
+    "mount_slot_w_mm": 7.0,
+    "mount_slot_h_mm": 3.5,
+    "mount_offset_x_mm": 7.5,
+    "mount_offset_y_mm": 3.0,
+    "lcd_canvas_w_mm": 73.44,
+    "lcd_canvas_h_mm": 48.96,
+    "lcd_padding_mm": 2.0,
+    "silk_text_mm": 2.2,
+    "usb_c_w_mm": 9.0,
+    "usb_c_h_mm": 3.5,
+    "sd_slot_w_mm": 12.0,
+    "sd_slot_h_mm": 2.5
+  },
+  "lcd_cutout": {
+    "center_x_mm": 54.78,
+    "center_y_mm": 39.89,
+    "width_mm": 73.44,
+    "height_mm": 48.96
+  },
+  "mounting_slots": [
+    {
+      "id": "tl",
+      "x_mm": 7.5,
+      "y_mm": 3.0
+    },
+    {
+      "id": "tr",
+      "x_mm": 174.38,
+      "y_mm": 3.0
+    },
+    {
+      "id": "bl",
+      "x_mm": 7.5,
+      "y_mm": 124.5
+    },
+    {
+      "id": "br",
+      "x_mm": 174.38,
+      "y_mm": 124.5
+    }
+  ],
+  "buttons": {
+    "track": [
+      {
+        "id": "t1",
+        "x_mm": 7.83,
+        "y_mm": 19.5,
+        "label": "1"
+      },
+      {
+        "id": "t2",
+        "x_mm": 7.83,
+        "y_mm": 30.2,
+        "label": "2"
+      },
+      {
+        "id": "t3",
+        "x_mm": 7.83,
+        "y_mm": 40.9,
+        "label": "3"
+      },
+      {
+        "id": "t4",
+        "x_mm": 7.83,
+        "y_mm": 51.6,
+        "label": "4"
+      }
+    ],
+    "tbd": {
+      "_todo": "Move back to components once TBD is placed in KiCad PCB at correct position (track column, 5th row)",
+      "id": "tbd",
+      "label": "TBD",
+      "x_mm": 7.83,
+      "y_mm": 62.3,
+      "type": "button"
+    },
+    "subtrack": [
+      {
+        "id": "gate",
+        "x_mm": 101.72,
+        "y_mm": 19.5,
+        "label": "GATE"
+      },
+      {
+        "id": "pitch",
+        "x_mm": 101.72,
+        "y_mm": 30.2,
+        "label": "PITCH"
+      },
+      {
+        "id": "vel",
+        "x_mm": 101.72,
+        "y_mm": 40.9,
+        "label": "VEL"
+      },
+      {
+        "id": "mod",
+        "x_mm": 101.72,
+        "y_mm": 51.6,
+        "label": "MOD"
+      }
+    ],
+    "pat": {
+      "id": "pat",
+      "x_mm": 101.72,
+      "y_mm": 62.3,
+      "label": "PAT"
+    },
+    "feature": [
+      {
+        "id": "mute",
+        "x_mm": 112.05,
+        "y_mm": 19.5,
+        "label": "MUTE"
+      },
+      {
+        "id": "route",
+        "x_mm": 112.05,
+        "y_mm": 30.2,
+        "label": "ROUTE"
+      },
+      {
+        "id": "drift",
+        "x_mm": 112.05,
+        "y_mm": 40.9,
+        "label": "DRIFT"
+      },
+      {
+        "id": "trns",
+        "x_mm": 112.05,
+        "y_mm": 51.6,
+        "label": "TRNS"
+      },
+      {
+        "id": "var",
+        "x_mm": 112.05,
+        "y_mm": 62.3,
+        "label": "VAR"
+      }
+    ],
+    "step": [
+      {
+        "id": "step1",
+        "x_mm": 19.07,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step2",
+        "x_mm": 29.27,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step3",
+        "x_mm": 39.47,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step4",
+        "x_mm": 49.67,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step5",
+        "x_mm": 59.87,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step6",
+        "x_mm": 70.07,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step7",
+        "x_mm": 80.27,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step8",
+        "x_mm": 90.47,
+        "y_mm": 98.19
+      },
+      {
+        "id": "step9",
+        "x_mm": 19.07,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step10",
+        "x_mm": 29.27,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step11",
+        "x_mm": 39.47,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step12",
+        "x_mm": 49.67,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step13",
+        "x_mm": 59.87,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step14",
+        "x_mm": 70.07,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step15",
+        "x_mm": 80.27,
+        "y_mm": 108.39
+      },
+      {
+        "id": "step16",
+        "x_mm": 90.47,
+        "y_mm": 108.39
+      }
+    ],
+    "transport": [
+      {
+        "id": "play",
+        "x_mm": 135.55,
+        "y_mm": 22.0,
+        "label": "PLAY"
+      },
+      {
+        "id": "reset",
+        "x_mm": 135.55,
+        "y_mm": 36.0,
+        "label": "RESET"
+      },
+      {
+        "id": "settings",
+        "x_mm": 135.55,
+        "y_mm": 50.0,
+        "label": "SET"
+      }
+    ],
+    "control_strip": [
+      {
+        "id": "back",
+        "label": "BACK",
+        "x_mm": 36.26,
+        "y_mm": 83.36,
+        "type": "button"
+      },
+      {
+        "id": "rand",
+        "label": "RAND",
+        "x_mm": 59.94,
+        "y_mm": 83.36,
+        "type": "button"
+      },
+      {
+        "id": "clr",
+        "label": "CLR",
+        "x_mm": 83.62,
+        "y_mm": 83.36,
+        "type": "button"
+      }
+    ]
+  },
+  "encoders": [
+    {
+      "id": "enc_a",
+      "x_mm": 12.58,
+      "y_mm": 83.36,
+      "label": "A"
+    },
+    {
+      "id": "enc_b",
+      "x_mm": 107.3,
+      "y_mm": 83.36,
+      "label": "B"
+    }
+  ],
+  "jacks": {
+    "utility": [
+      {
+        "id": "clk_in",
+        "x_mm": 156.55,
+        "y_mm": 22.0,
+        "label": "CLK IN"
+      },
+      {
+        "id": "clk_out",
+        "x_mm": 170.55,
+        "y_mm": 22.0,
+        "label": "CLK OUT"
+      },
+      {
+        "id": "rst_in",
+        "x_mm": 156.55,
+        "y_mm": 36.0,
+        "label": "RST IN"
+      },
+      {
+        "id": "rst_out",
+        "x_mm": 170.55,
+        "y_mm": 36.0,
+        "label": "RST OUT"
+      },
+      {
+        "id": "midi_in",
+        "x_mm": 156.55,
+        "y_mm": 50.0,
+        "label": "MIDI IN"
+      },
+      {
+        "id": "midi_out",
+        "x_mm": 170.55,
+        "y_mm": 50.0,
+        "label": "MIDI OUT"
+      }
+    ],
+    "output": [
+      {
+        "id": "gate1",
+        "x_mm": 128.55,
+        "y_mm": 64.0,
+        "label": "G1",
+        "row": "gate",
+        "track": 1
+      },
+      {
+        "id": "gate2",
+        "x_mm": 142.55,
+        "y_mm": 64.0,
+        "label": "G2",
+        "row": "gate",
+        "track": 2
+      },
+      {
+        "id": "gate3",
+        "x_mm": 156.55,
+        "y_mm": 64.0,
+        "label": "G3",
+        "row": "gate",
+        "track": 3
+      },
+      {
+        "id": "gate4",
+        "x_mm": 170.55,
+        "y_mm": 64.0,
+        "label": "G4",
+        "row": "gate",
+        "track": 4
+      },
+      {
+        "id": "pitch1",
+        "x_mm": 128.55,
+        "y_mm": 76.4,
+        "label": "P1",
+        "row": "pitch",
+        "track": 1
+      },
+      {
+        "id": "pitch2",
+        "x_mm": 142.55,
+        "y_mm": 76.4,
+        "label": "P2",
+        "row": "pitch",
+        "track": 2
+      },
+      {
+        "id": "pitch3",
+        "x_mm": 156.55,
+        "y_mm": 76.4,
+        "label": "P3",
+        "row": "pitch",
+        "track": 3
+      },
+      {
+        "id": "pitch4",
+        "x_mm": 170.55,
+        "y_mm": 76.4,
+        "label": "P4",
+        "row": "pitch",
+        "track": 4
+      },
+      {
+        "id": "vel1",
+        "x_mm": 128.55,
+        "y_mm": 88.8,
+        "label": "V1",
+        "row": "vel",
+        "track": 1
+      },
+      {
+        "id": "vel2",
+        "x_mm": 142.55,
+        "y_mm": 88.8,
+        "label": "V2",
+        "row": "vel",
+        "track": 2
+      },
+      {
+        "id": "vel3",
+        "x_mm": 156.55,
+        "y_mm": 88.8,
+        "label": "V3",
+        "row": "vel",
+        "track": 3
+      },
+      {
+        "id": "vel4",
+        "x_mm": 170.55,
+        "y_mm": 88.8,
+        "label": "V4",
+        "row": "vel",
+        "track": 4
+      },
+      {
+        "id": "mod1",
+        "x_mm": 128.55,
+        "y_mm": 101.2,
+        "label": "M1",
+        "row": "mod",
+        "track": 1
+      },
+      {
+        "id": "mod2",
+        "x_mm": 142.55,
+        "y_mm": 101.2,
+        "label": "M2",
+        "row": "mod",
+        "track": 2
+      },
+      {
+        "id": "mod3",
+        "x_mm": 156.55,
+        "y_mm": 101.2,
+        "label": "M3",
+        "row": "mod",
+        "track": 3
+      },
+      {
+        "id": "mod4",
+        "x_mm": 170.55,
+        "y_mm": 101.2,
+        "label": "M4",
+        "row": "mod",
+        "track": 4
+      }
+    ],
+    "cv_input": [
+      {
+        "id": "cv_a",
+        "x_mm": 128.55,
+        "y_mm": 113.6,
+        "label": "A"
+      },
+      {
+        "id": "cv_b",
+        "x_mm": 142.55,
+        "y_mm": 113.6,
+        "label": "B"
+      },
+      {
+        "id": "cv_c",
+        "x_mm": 156.55,
+        "y_mm": 113.6,
+        "label": "C"
+      },
+      {
+        "id": "cv_d",
+        "x_mm": 170.55,
+        "y_mm": 113.6,
+        "label": "D"
+      }
+    ]
+  },
+  "connectors": {
+    "usb_c": {
+      "id": "usb_c",
+      "label": "USB",
+      "x_mm": 104.5,
+      "y_mm": 108.39,
+      "width_mm": 3.5,
+      "height_mm": 9.0,
+      "notes": "USB-C receptacle, vertical portrait, between step grid and jacks"
+    },
+    "sd_card": {
+      "id": "sd_card",
+      "label": "SD",
+      "x_mm": 111.0,
+      "y_mm": 108.39,
+      "width_mm": 2.5,
+      "height_mm": 12.0,
+      "notes": "Micro SD push-push slot, vertical portrait, between step grid and jacks"
+    }
+  },
+  "footprints": {
+    "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
+    "pj398sm": {
+      "description": "Thonkiconn PJ398SM 3.5mm mono jack",
+      "drill_mm": 6.0,
+      "body": {
+        "x1": -4.0,
+        "y1": -7.0,
+        "x2": 7.0,
+        "y2": 3.0
+      },
+      "courtyard": {
+        "x1": -4.0,
+        "y1": -7.0,
+        "x2": 7.0,
+        "y2": 3.0
+      }
+    },
+    "tc002_rgb": {
+      "description": "Well Buying TC002 RGB tactile switch",
+      "drill_mm": 3.2,
+      "body": {
+        "x1": -3.5,
+        "y1": -3.5,
+        "x2": 3.5,
+        "y2": 3.5
+      },
+      "courtyard": {
+        "x1": -4.5,
+        "y1": -4.5,
+        "x2": 4.5,
+        "y2": 4.5
+      }
+    },
+    "ec11e": {
+      "description": "Alps EC11E rotary encoder with push switch",
+      "drill_mm": 7.0,
+      "body": {
+        "x1": -6.5,
+        "y1": -6.5,
+        "x2": 6.5,
+        "y2": 6.5
+      },
+      "courtyard": {
+        "x1": -8.0,
+        "y1": -9.0,
+        "x2": 8.0,
+        "y2": 9.0
+      }
+    }
+  }
+}

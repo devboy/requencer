@@ -29,6 +29,8 @@
 - `make flash` — Flash firmware to RP2350
 - `make hw-build` — Build Atopile schematic
 - `make hw-all` — Full hardware pipeline (build → footprints → faceplate → place → route → export)
+- `make hw-export-layout` — Export panel layout JSON from placed PCB
+- `make hw-fetch-pcb` — Fetch latest placed PCB from GitHub Actions
 
 ### Rust (from repo root)
 - `cargo test` — Run Rust tests
@@ -47,6 +49,7 @@
 - **Engine purity:** Engine modules (both Rust and TS) must have zero imports from DOM/audio/platform APIs.
 - **Immutable state:** Engine functions return new state objects, never mutate.
 - **no_std by default:** Rust crates use `#![cfg_attr(not(feature = "std"), no_std)]` — must compile for embedded.
+- **Layout source of truth:** KiCad PCB → `hardware/scripts/export_layout.py` → `web/src/panel-layout.json`. UI metadata lives in `hardware/component-map.json`.
 - **Docs:** Research goes in `docs/research/`, designs in `docs/plans/`.
 - **No commits:** Do NOT make git commits. Work on features and let the user decide when to commit or roll back.
 - **No co-authored-by:** Never add `Co-Authored-By` trailers to commit messages.
@@ -77,10 +80,15 @@ web/
     ui/              # TS: Canvas rendering
     main.ts          # Entry point
 hardware/            # Atopile: Main PCB
+  component-map.json # UI metadata keyed by atopile address (source of truth for dims)
+  scripts/
+    export_layout.py # KiCad PCB → web/src/panel-layout.json exporter
 hardware-faceplate/  # Atopile: Front panel PCB
+web/
+  src/
+    panel-layout.json # Generated layout (positions from PCB + metadata from component-map)
 docs/
   plans/             # Design documents
   research/          # Research notes
-panel-layout.json    # Shared layout source of truth (mm coords)
 Makefile             # Top-level build orchestration
 ```

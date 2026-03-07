@@ -18,11 +18,17 @@ import json
 import os
 import sys
 
-LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "panel-layout.json")
+LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "web", "src", "panel-layout.json")
+COMPONENT_MAP_PATH = os.path.join(os.path.dirname(__file__), "..", "component-map.json")
 
 
 def load_layout():
     with open(LAYOUT_PATH) as f:
+        return json.load(f)
+
+
+def load_component_map():
+    with open(COMPONENT_MAP_PATH) as f:
         return json.load(f)
 
 
@@ -44,12 +50,19 @@ def place_components(input_pcb, output_pcb=None):
 
     layout = load_layout()
     panel = layout["panel"]
+    comp_map = load_component_map()
+    pcb_dims = comp_map["pcb"]
+
+    # PCB origin offset in faceplate coordinates
+    # Faceplate coord (ox, oy) maps to PCB coord (0, 0)
+    ox = pcb_dims["origin_x_mm"]
+    oy = pcb_dims["origin_y_mm"]
 
     board = pcbnew.LoadBoard(input_pcb)
 
-    # Set board outline
-    w_mm = panel["width_mm"]
-    h_mm = panel["height_mm"]
+    # Set board outline (PCB is smaller than faceplate — fits between rails)
+    w_mm = pcb_dims["width_mm"]
+    h_mm = pcb_dims["height_mm"]
     edge_layer = board.GetLayerID("Edge.Cuts")
 
     seg_coords = [
@@ -78,13 +91,16 @@ def place_components(input_pcb, output_pcb=None):
     placed_addrs = set()
     warnings = []
 
-    def place(addr, x_mm, y_mm, front=True):
+    def place(addr, x_mm, y_mm, front=True, faceplate_coords=True):
+        """Place component. faceplate_coords=True means x/y are in faceplate space."""
         nonlocal placed
         if addr not in addr_map:
             warnings.append(addr)
             return
         fp = addr_map[addr]
-        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x_mm), pcbnew.FromMM(y_mm)))
+        px = x_mm - ox if faceplate_coords else x_mm
+        py = y_mm - oy if faceplate_coords else y_mm
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(px), pcbnew.FromMM(py)))
         if not front:
             if fp.GetLayer() == board.GetLayerID("F.Cu"):
                 fp.Flip(fp.GetPosition(), False)
@@ -160,35 +176,36 @@ def place_components(input_pcb, output_pcb=None):
     # --- SMD components (back side) ---
     # Group unplaced SMD parts by their module prefix, then lay them out
     # in functional zones on the back of the board.
-    jack_zone_x = layout["jacks"]["output"][0]["x_mm"]
-    step_x = layout["buttons"]["step"][0]["x_mm"]
-    center_x = panel["width_mm"] / 2
+    # Convert faceplate coordinates to PCB coordinates for zone references
+    jack_zone_x = layout["jacks"]["output"][0]["x_mm"] - ox
+    step_x = layout["buttons"]["step"][0]["x_mm"] - ox
+    center_x = w_mm / 2
 
     # MCU module centered (PGA2350)
-    place("mcu.pga", center_x, 40, front=False)
+    place("mcu.pga", center_x, 40, front=False, faceplate_coords=False)
 
     # Power header near bottom
-    place("power.header", 10, 120)
+    place("power.header", 10, h_mm - 3, faceplate_coords=False)
 
     # LCD header near LCD cutout (front side, below the display)
     lcd = layout.get("lcd_cutout", {})
-    lcd_x = lcd.get("center_x_mm", center_x)
-    lcd_bottom = lcd.get("center_y_mm", 37) + lcd.get("height_mm", 49) / 2 + 5
-    place("display.header", lcd_x, lcd_bottom)
+    lcd_x = lcd.get("center_x_mm", center_x + ox) - ox
+    lcd_bottom = lcd.get("center_y_mm", 37) - oy + lcd.get("height_mm", 49) / 2 + 5
+    place("display.header", lcd_x, lcd_bottom, faceplate_coords=False)
 
-    # Zone assignments: module prefix -> (center_x, start_y) on back side
+    # Zone assignments: module prefix -> (center_x, start_y) on back side (PCB coords)
     zones = {
-        "dac.":     (jack_zone_x - 10, 55),   # DAC near output jacks
-        "power.":   (15, 108),                  # Power near bottom-left
-        "buttons.": (step_x + 35, 75),          # Button support near buttons
-        "leds.":    (step_x + 35, 110),          # LED drivers near buttons
-        "midi.":    (160, 35),                   # MIDI near MIDI jacks
-        "jacks.":   (jack_zone_x + 10, 100),    # Jack protection near jacks
-        "display.": (center_x, 25),              # Display support near LCD
-        "mcu.":     (center_x, 50),              # MCU support near Pico
+        "dac.":     (jack_zone_x - 10, 45),     # DAC near output jacks
+        "power.":   (15, h_mm - 5),              # Power near bottom-left
+        "buttons.": (step_x + 35, 65),           # Button support near buttons
+        "leds.":    (step_x + 35, 95),           # LED drivers near buttons
+        "midi.":    (158, 25),                   # MIDI near MIDI jacks
+        "jacks.":   (jack_zone_x + 10, 85),     # Jack protection near jacks
+        "display.": (center_x, 20),              # Display support near LCD
+        "mcu.":     (center_x, 40),              # MCU support near Pico
     }
     # Top-level components (encoders' pullups/caps)
-    top_level_zone = (15, 65)
+    top_level_zone = (15, 55)
 
     zone_groups = {prefix: [] for prefix in zones}
     zone_groups["_top"] = []
@@ -225,7 +242,7 @@ def place_components(input_pcb, output_pcb=None):
             # Clamp to board bounds
             x = max(3, min(w_mm - 3, x))
             y = max(3, min(h_mm - 3, y))
-            place(addr, x, y, front=False)
+            place(addr, x, y, front=False, faceplate_coords=False)
 
     # Print summary
     print(f"  Placed {placed}/{len(addr_map)} components")
@@ -233,6 +250,21 @@ def place_components(input_pcb, output_pcb=None):
         print(f"  {len(warnings)} addresses not found:")
         for w in warnings:
             print(f"    - {w}")
+
+    # Validate: check all placed components are within board bounds
+    margin = 0.5  # mm minimum clearance from board edge
+    oob = []
+    for fp in board.GetFootprints():
+        pos = fp.GetPosition()
+        px = pcbnew.ToMM(pos.x)
+        py = pcbnew.ToMM(pos.y)
+        ref = fp.GetReference()
+        if px < -margin or py < -margin or px > w_mm + margin or py > h_mm + margin:
+            oob.append(f"    - {ref} at PCB ({px:.2f}, {py:.2f})")
+    if oob:
+        print(f"  WARNING: {len(oob)} components outside board bounds ({w_mm}x{h_mm}mm):")
+        for line in oob:
+            print(line)
 
     board.Save(output_pcb)
     print(f"  Saved to {output_pcb}")
