@@ -4,7 +4,6 @@
     "width_mm": 181.88,
     "height_mm": 127.5
   },
-
   "constants": {
     "rail_zone_mm": 10.0,
     "component_gap_mm": 5.33,
@@ -31,113 +30,467 @@
     "sd_slot_w_mm": 12.0,
     "sd_slot_h_mm": 2.5
   },
-
   "lcd_cutout": {
     "center_x_mm": 54.78,
     "center_y_mm": 36.89,
     "width_mm": 73.44,
     "height_mm": 48.96
   },
-
   "mounting_slots": [
-    { "id": "tl", "x_mm": 7.5, "y_mm": 3.0 },
-    { "id": "tr", "x_mm": 174.38, "y_mm": 3.0 },
-    { "id": "bl", "x_mm": 7.5, "y_mm": 124.5 },
-    { "id": "br", "x_mm": 174.38, "y_mm": 124.5 }
+    {
+      "id": "tl",
+      "x_mm": 7.5,
+      "y_mm": 3.0
+    },
+    {
+      "id": "tr",
+      "x_mm": 174.38,
+      "y_mm": 3.0
+    },
+    {
+      "id": "bl",
+      "x_mm": 7.5,
+      "y_mm": 124.5
+    },
+    {
+      "id": "br",
+      "x_mm": 174.38,
+      "y_mm": 124.5
+    }
   ],
-
   "buttons": {
     "track": [
-      { "id": "t1", "label": "1", "x_mm": 7.83, "y_mm": 12.5 },
-      { "id": "t2", "label": "2", "x_mm": 7.83, "y_mm": 23.2 },
-      { "id": "t3", "label": "3", "x_mm": 7.83, "y_mm": 33.9 },
-      { "id": "t4", "label": "4", "x_mm": 7.83, "y_mm": 44.6 }
+      {
+        "id": "t1",
+        "x_mm": 7.83,
+        "y_mm": 12.5,
+        "label": "1"
+      },
+      {
+        "id": "t2",
+        "x_mm": 7.83,
+        "y_mm": 23.2,
+        "label": "2"
+      },
+      {
+        "id": "t3",
+        "x_mm": 7.83,
+        "y_mm": 33.9,
+        "label": "3"
+      },
+      {
+        "id": "t4",
+        "x_mm": 7.83,
+        "y_mm": 44.6,
+        "label": "4"
+      }
     ],
-    "tbd": { "id": "tbd", "label": "TBD", "x_mm": 7.83, "y_mm": 55.3 },
+    "tbd": {
+      "id": "tbd",
+      "x_mm": 38.07,
+      "y_mm": 75.75,
+      "label": "TBD"
+    },
     "subtrack": [
-      { "id": "gate", "label": "GATE", "x_mm": 101.72, "y_mm": 12.5 },
-      { "id": "pitch", "label": "PITCH", "x_mm": 101.72, "y_mm": 23.2 },
-      { "id": "vel", "label": "VEL", "x_mm": 101.72, "y_mm": 33.9 },
-      { "id": "mod", "label": "MOD", "x_mm": 101.72, "y_mm": 44.6 }
+      {
+        "id": "gate",
+        "x_mm": 101.72,
+        "y_mm": 12.5,
+        "label": "GATE"
+      },
+      {
+        "id": "pitch",
+        "x_mm": 101.72,
+        "y_mm": 23.2,
+        "label": "PITCH"
+      },
+      {
+        "id": "vel",
+        "x_mm": 101.72,
+        "y_mm": 33.9,
+        "label": "VEL"
+      },
+      {
+        "id": "mod",
+        "x_mm": 101.72,
+        "y_mm": 44.6,
+        "label": "MOD"
+      }
     ],
-    "pat": { "id": "pat", "label": "PAT", "x_mm": 101.72, "y_mm": 55.3 },
+    "pat": {
+      "id": "pat",
+      "x_mm": 101.72,
+      "y_mm": 55.3,
+      "label": "PAT"
+    },
     "feature": [
-      { "id": "mute", "label": "MUTE", "x_mm": 112.05, "y_mm": 12.5 },
-      { "id": "route", "label": "ROUTE", "x_mm": 112.05, "y_mm": 23.2 },
-      { "id": "drift", "label": "DRIFT", "x_mm": 112.05, "y_mm": 33.9 },
-      { "id": "trns", "label": "TRNS", "x_mm": 112.05, "y_mm": 44.6 },
-      { "id": "var", "label": "VAR", "x_mm": 112.05, "y_mm": 55.3 }
+      {
+        "id": "mute",
+        "x_mm": 112.05,
+        "y_mm": 12.5,
+        "label": "MUTE"
+      },
+      {
+        "id": "route",
+        "x_mm": 112.05,
+        "y_mm": 23.2,
+        "label": "ROUTE"
+      },
+      {
+        "id": "drift",
+        "x_mm": 112.05,
+        "y_mm": 33.9,
+        "label": "DRIFT"
+      },
+      {
+        "id": "trns",
+        "x_mm": 112.05,
+        "y_mm": 44.6,
+        "label": "TRNS"
+      },
+      {
+        "id": "var",
+        "x_mm": 112.05,
+        "y_mm": 55.3,
+        "label": "VAR"
+      }
     ],
     "step": [
-      { "id": "step1", "x_mm": 19.07, "y_mm": 91.19 },
-      { "id": "step2", "x_mm": 29.27, "y_mm": 91.19 },
-      { "id": "step3", "x_mm": 39.47, "y_mm": 91.19 },
-      { "id": "step4", "x_mm": 49.67, "y_mm": 91.19 },
-      { "id": "step5", "x_mm": 59.87, "y_mm": 91.19 },
-      { "id": "step6", "x_mm": 70.07, "y_mm": 91.19 },
-      { "id": "step7", "x_mm": 80.27, "y_mm": 91.19 },
-      { "id": "step8", "x_mm": 90.47, "y_mm": 91.19 },
-      { "id": "step9", "x_mm": 19.07, "y_mm": 101.39 },
-      { "id": "step10", "x_mm": 29.27, "y_mm": 101.39 },
-      { "id": "step11", "x_mm": 39.47, "y_mm": 101.39 },
-      { "id": "step12", "x_mm": 49.67, "y_mm": 101.39 },
-      { "id": "step13", "x_mm": 59.87, "y_mm": 101.39 },
-      { "id": "step14", "x_mm": 70.07, "y_mm": 101.39 },
-      { "id": "step15", "x_mm": 80.27, "y_mm": 101.39 },
-      { "id": "step16", "x_mm": 90.47, "y_mm": 101.39 }
+      {
+        "id": "step1",
+        "x_mm": 19.07,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step2",
+        "x_mm": 29.27,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step3",
+        "x_mm": 39.47,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step4",
+        "x_mm": 49.67,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step5",
+        "x_mm": 59.87,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step6",
+        "x_mm": 70.07,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step7",
+        "x_mm": 80.27,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step8",
+        "x_mm": 90.47,
+        "y_mm": 91.19
+      },
+      {
+        "id": "step9",
+        "x_mm": 19.07,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step10",
+        "x_mm": 29.27,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step11",
+        "x_mm": 39.47,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step12",
+        "x_mm": 49.67,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step13",
+        "x_mm": 59.87,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step14",
+        "x_mm": 70.07,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step15",
+        "x_mm": 80.27,
+        "y_mm": 101.39
+      },
+      {
+        "id": "step16",
+        "x_mm": 90.47,
+        "y_mm": 101.39
+      }
     ],
     "transport": [
-      { "id": "play", "label": "PLAY", "x_mm": 135.55, "y_mm": 15.0 },
-      { "id": "reset", "label": "RESET", "x_mm": 135.55, "y_mm": 29.0 },
-      { "id": "settings", "label": "SET", "x_mm": 135.55, "y_mm": 43.0 }
+      {
+        "id": "play",
+        "x_mm": 135.55,
+        "y_mm": 15.0,
+        "label": "PLAY"
+      },
+      {
+        "id": "reset",
+        "x_mm": 135.55,
+        "y_mm": 29.0,
+        "label": "RESET"
+      },
+      {
+        "id": "settings",
+        "x_mm": 135.55,
+        "y_mm": 43.0,
+        "label": "SET"
+      }
     ],
     "control_strip": [
-      { "id": "back", "label": "BACK", "x_mm": 36.26, "y_mm": 76.36 },
-      { "id": "rand", "label": "RAND", "x_mm": 59.94, "y_mm": 76.36 },
-      { "id": "clr", "label": "CLR", "x_mm": 83.62, "y_mm": 76.36 }
+      {
+        "id": "back",
+        "label": "BACK",
+        "x_mm": 36.26,
+        "y_mm": 76.36,
+        "type": "button"
+      },
+      {
+        "id": "rand",
+        "label": "RAND",
+        "x_mm": 59.94,
+        "y_mm": 76.36,
+        "type": "button"
+      },
+      {
+        "id": "clr",
+        "label": "CLR",
+        "x_mm": 83.62,
+        "y_mm": 76.36,
+        "type": "button"
+      }
     ]
   },
-
   "encoders": [
-    { "id": "enc_a", "label": "A", "x_mm": 12.58, "y_mm": 76.36 },
-    { "id": "enc_b", "label": "B", "x_mm": 107.3, "y_mm": 76.36 }
+    {
+      "id": "enc_a",
+      "x_mm": 12.58,
+      "y_mm": 76.36,
+      "label": "A"
+    },
+    {
+      "id": "enc_b",
+      "x_mm": 107.3,
+      "y_mm": 76.36,
+      "label": "B"
+    }
   ],
-
   "jacks": {
     "utility": [
-      { "id": "clk_in", "label": "CLK IN", "x_mm": 156.55, "y_mm": 15.0 },
-      { "id": "clk_out", "label": "CLK OUT", "x_mm": 170.55, "y_mm": 15.0 },
-      { "id": "rst_in", "label": "RST IN", "x_mm": 156.55, "y_mm": 29.0 },
-      { "id": "rst_out", "label": "RST OUT", "x_mm": 170.55, "y_mm": 29.0 },
-      { "id": "midi_in", "label": "MIDI IN", "x_mm": 156.55, "y_mm": 43.0 },
-      { "id": "midi_out", "label": "MIDI OUT", "x_mm": 170.55, "y_mm": 43.0 }
+      {
+        "id": "clk_in",
+        "x_mm": 156.55,
+        "y_mm": 15.0,
+        "label": "CLK IN"
+      },
+      {
+        "id": "clk_out",
+        "x_mm": 170.55,
+        "y_mm": 15.0,
+        "label": "CLK OUT"
+      },
+      {
+        "id": "rst_in",
+        "x_mm": 156.55,
+        "y_mm": 29.0,
+        "label": "RST IN"
+      },
+      {
+        "id": "rst_out",
+        "x_mm": 170.55,
+        "y_mm": 29.0,
+        "label": "RST OUT"
+      },
+      {
+        "id": "midi_in",
+        "x_mm": 156.55,
+        "y_mm": 43.0,
+        "label": "MIDI IN"
+      },
+      {
+        "id": "midi_out",
+        "x_mm": 170.55,
+        "y_mm": 43.0,
+        "label": "MIDI OUT"
+      }
     ],
     "output": [
-      { "id": "gate1", "label": "G1", "x_mm": 128.55, "y_mm": 57.0, "row": "gate", "track": 1 },
-      { "id": "gate2", "label": "G2", "x_mm": 142.55, "y_mm": 57.0, "row": "gate", "track": 2 },
-      { "id": "gate3", "label": "G3", "x_mm": 156.55, "y_mm": 57.0, "row": "gate", "track": 3 },
-      { "id": "gate4", "label": "G4", "x_mm": 170.55, "y_mm": 57.0, "row": "gate", "track": 4 },
-      { "id": "pitch1", "label": "P1", "x_mm": 128.55, "y_mm": 69.4, "row": "pitch", "track": 1 },
-      { "id": "pitch2", "label": "P2", "x_mm": 142.55, "y_mm": 69.4, "row": "pitch", "track": 2 },
-      { "id": "pitch3", "label": "P3", "x_mm": 156.55, "y_mm": 69.4, "row": "pitch", "track": 3 },
-      { "id": "pitch4", "label": "P4", "x_mm": 170.55, "y_mm": 69.4, "row": "pitch", "track": 4 },
-      { "id": "vel1", "label": "V1", "x_mm": 128.55, "y_mm": 81.8, "row": "vel", "track": 1 },
-      { "id": "vel2", "label": "V2", "x_mm": 142.55, "y_mm": 81.8, "row": "vel", "track": 2 },
-      { "id": "vel3", "label": "V3", "x_mm": 156.55, "y_mm": 81.8, "row": "vel", "track": 3 },
-      { "id": "vel4", "label": "V4", "x_mm": 170.55, "y_mm": 81.8, "row": "vel", "track": 4 },
-      { "id": "mod1", "label": "M1", "x_mm": 128.55, "y_mm": 94.2, "row": "mod", "track": 1 },
-      { "id": "mod2", "label": "M2", "x_mm": 142.55, "y_mm": 94.2, "row": "mod", "track": 2 },
-      { "id": "mod3", "label": "M3", "x_mm": 156.55, "y_mm": 94.2, "row": "mod", "track": 3 },
-      { "id": "mod4", "label": "M4", "x_mm": 170.55, "y_mm": 94.2, "row": "mod", "track": 4 }
+      {
+        "id": "gate1",
+        "x_mm": 128.55,
+        "y_mm": 57.0,
+        "label": "G1",
+        "row": "gate",
+        "track": 1
+      },
+      {
+        "id": "gate2",
+        "x_mm": 142.55,
+        "y_mm": 57.0,
+        "label": "G2",
+        "row": "gate",
+        "track": 2
+      },
+      {
+        "id": "gate3",
+        "x_mm": 156.55,
+        "y_mm": 57.0,
+        "label": "G3",
+        "row": "gate",
+        "track": 3
+      },
+      {
+        "id": "gate4",
+        "x_mm": 170.55,
+        "y_mm": 57.0,
+        "label": "G4",
+        "row": "gate",
+        "track": 4
+      },
+      {
+        "id": "pitch1",
+        "x_mm": 128.55,
+        "y_mm": 69.4,
+        "label": "P1",
+        "row": "pitch",
+        "track": 1
+      },
+      {
+        "id": "pitch2",
+        "x_mm": 142.55,
+        "y_mm": 69.4,
+        "label": "P2",
+        "row": "pitch",
+        "track": 2
+      },
+      {
+        "id": "pitch3",
+        "x_mm": 156.55,
+        "y_mm": 69.4,
+        "label": "P3",
+        "row": "pitch",
+        "track": 3
+      },
+      {
+        "id": "pitch4",
+        "x_mm": 170.55,
+        "y_mm": 69.4,
+        "label": "P4",
+        "row": "pitch",
+        "track": 4
+      },
+      {
+        "id": "vel1",
+        "x_mm": 128.55,
+        "y_mm": 81.8,
+        "label": "V1",
+        "row": "vel",
+        "track": 1
+      },
+      {
+        "id": "vel2",
+        "x_mm": 142.55,
+        "y_mm": 81.8,
+        "label": "V2",
+        "row": "vel",
+        "track": 2
+      },
+      {
+        "id": "vel3",
+        "x_mm": 156.55,
+        "y_mm": 81.8,
+        "label": "V3",
+        "row": "vel",
+        "track": 3
+      },
+      {
+        "id": "vel4",
+        "x_mm": 170.55,
+        "y_mm": 81.8,
+        "label": "V4",
+        "row": "vel",
+        "track": 4
+      },
+      {
+        "id": "mod1",
+        "x_mm": 128.55,
+        "y_mm": 94.2,
+        "label": "M1",
+        "row": "mod",
+        "track": 1
+      },
+      {
+        "id": "mod2",
+        "x_mm": 142.55,
+        "y_mm": 94.2,
+        "label": "M2",
+        "row": "mod",
+        "track": 2
+      },
+      {
+        "id": "mod3",
+        "x_mm": 156.55,
+        "y_mm": 94.2,
+        "label": "M3",
+        "row": "mod",
+        "track": 3
+      },
+      {
+        "id": "mod4",
+        "x_mm": 170.55,
+        "y_mm": 94.2,
+        "label": "M4",
+        "row": "mod",
+        "track": 4
+      }
     ],
     "cv_input": [
-      { "id": "cv_a", "label": "A", "x_mm": 128.55, "y_mm": 106.6 },
-      { "id": "cv_b", "label": "B", "x_mm": 142.55, "y_mm": 106.6 },
-      { "id": "cv_c", "label": "C", "x_mm": 156.55, "y_mm": 106.6 },
-      { "id": "cv_d", "label": "D", "x_mm": 170.55, "y_mm": 106.6 }
+      {
+        "id": "cv_a",
+        "x_mm": 128.55,
+        "y_mm": 106.6,
+        "label": "A"
+      },
+      {
+        "id": "cv_b",
+        "x_mm": 142.55,
+        "y_mm": 106.6,
+        "label": "B"
+      },
+      {
+        "id": "cv_c",
+        "x_mm": 156.55,
+        "y_mm": 106.6,
+        "label": "C"
+      },
+      {
+        "id": "cv_d",
+        "x_mm": 170.55,
+        "y_mm": 106.6,
+        "label": "D"
+      }
     ]
   },
-
   "connectors": {
     "usb_c": {
       "id": "usb_c",
@@ -158,26 +511,55 @@
       "notes": "Micro SD push-push slot, vertical portrait, between step grid and jacks"
     }
   },
-
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
       "description": "Thonkiconn PJ398SM 3.5mm mono jack",
       "drill_mm": 6.0,
-      "body": { "x1": -4.0, "y1": -7.0, "x2": 7.0, "y2": 3.0 },
-      "courtyard": { "x1": -4.0, "y1": -7.0, "x2": 7.0, "y2": 3.0 }
+      "body": {
+        "x1": -4.0,
+        "y1": -7.0,
+        "x2": 7.0,
+        "y2": 3.0
+      },
+      "courtyard": {
+        "x1": -4.0,
+        "y1": -7.0,
+        "x2": 7.0,
+        "y2": 3.0
+      }
     },
     "tc002_rgb": {
       "description": "Well Buying TC002 RGB tactile switch",
       "drill_mm": 3.2,
-      "body": { "x1": -3.5, "y1": -3.5, "x2": 3.5, "y2": 3.5 },
-      "courtyard": { "x1": -4.5, "y1": -4.5, "x2": 4.5, "y2": 4.5 }
+      "body": {
+        "x1": -3.5,
+        "y1": -3.5,
+        "x2": 3.5,
+        "y2": 3.5
+      },
+      "courtyard": {
+        "x1": -4.5,
+        "y1": -4.5,
+        "x2": 4.5,
+        "y2": 4.5
+      }
     },
     "ec11e": {
       "description": "Alps EC11E rotary encoder with push switch",
       "drill_mm": 7.0,
-      "body": { "x1": -6.5, "y1": -6.5, "x2": 6.5, "y2": 6.5 },
-      "courtyard": { "x1": -8.0, "y1": -9.0, "x2": 8.0, "y2": 9.0 }
+      "body": {
+        "x1": -6.5,
+        "y1": -6.5,
+        "x2": 6.5,
+        "y2": 6.5
+      },
+      "courtyard": {
+        "x1": -8.0,
+        "y1": -9.0,
+        "x2": 8.0,
+        "y2": 9.0
+      }
     }
   }
 }

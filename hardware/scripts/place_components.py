@@ -251,6 +251,21 @@ def place_components(input_pcb, output_pcb=None):
         for w in warnings:
             print(f"    - {w}")
 
+    # Validate: check all placed components are within board bounds
+    margin = 0.5  # mm minimum clearance from board edge
+    oob = []
+    for fp in board.GetFootprints():
+        pos = fp.GetPosition()
+        px = pcbnew.ToMM(pos.x)
+        py = pcbnew.ToMM(pos.y)
+        ref = fp.GetReference()
+        if px < -margin or py < -margin or px > w_mm + margin or py > h_mm + margin:
+            oob.append(f"    - {ref} at PCB ({px:.2f}, {py:.2f})")
+    if oob:
+        print(f"  WARNING: {len(oob)} components outside board bounds ({w_mm}x{h_mm}mm):")
+        for line in oob:
+            print(line)
+
     board.Save(output_pcb)
     print(f"  Saved to {output_pcb}")
 
