@@ -21,6 +21,12 @@ pub struct QuadratureState {
     sub_steps: i8,
 }
 
+impl Default for QuadratureState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuadratureState {
     pub const fn new() -> Self {
         Self {
@@ -72,6 +78,12 @@ pub struct ButtonDebounce {
     stable_count: u8,
     /// Last debounced state (true = pressed).
     debounced: bool,
+}
+
+impl Default for ButtonDebounce {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ButtonDebounce {

@@ -135,6 +135,12 @@ pub struct DebounceState {
     pub hold_emitted: [bool; NUM_BITS],
 }
 
+impl Default for DebounceState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebounceState {
     pub fn new() -> Self {
         Self {

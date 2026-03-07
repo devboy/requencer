@@ -92,10 +92,18 @@ impl<'a> ClockIo<'a> {
 }
 
 /// Pure edge detector for host testing (no hardware GPIO).
+#[allow(dead_code)]
 pub struct EdgeDetector {
     prev: bool,
 }
 
+impl Default for EdgeDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[allow(dead_code)]
 impl EdgeDetector {
     pub const fn new() -> Self {
         Self { prev: false }

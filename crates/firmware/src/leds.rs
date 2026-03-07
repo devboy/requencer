@@ -122,12 +122,12 @@ impl<'a> LedDriver<'a> {
         }
 
         // Track LEDs (4 tracks × RGB, channels 48-59)
-        for i in 0..4usize {
+        for (i, color) in TRACK_COLORS.iter().enumerate() {
             let rgb_base = 48 + i * 3;
             if led_state.tracks[i] {
-                self.channels[rgb_base] = TRACK_COLORS[i].r;
-                self.channels[rgb_base + 1] = TRACK_COLORS[i].g;
-                self.channels[rgb_base + 2] = TRACK_COLORS[i].b;
+                self.channels[rgb_base] = color.r;
+                self.channels[rgb_base + 1] = color.g;
+                self.channels[rgb_base + 2] = color.b;
             }
         }
 

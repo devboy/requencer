@@ -46,6 +46,12 @@ pub struct MidiParser {
     expected_len: usize,
 }
 
+impl Default for MidiParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MidiParser {
     pub const fn new() -> Self {
         Self {
@@ -62,9 +68,9 @@ impl MidiParser {
         match byte {
             status::CLOCK => return Some(MidiMessage::Clock),
             status::START => return Some(MidiMessage::Start),
-            status::STOP => return Some(MidiMessage::Stop),
             status::CONTINUE => return Some(MidiMessage::Continue),
-            0xF8..=0xFF => return None, // other real-time, ignore
+            status::STOP => return Some(MidiMessage::Stop),
+            0xF9 | 0xFD..=0xFF => return None, // other real-time, ignore
             _ => {}
         }
 

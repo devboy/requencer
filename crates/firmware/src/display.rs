@@ -27,6 +27,12 @@ pub struct Framebuffer {
     pixels: [u16; PIXEL_COUNT],
 }
 
+impl Default for Framebuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Framebuffer {
     pub const fn new() -> Self {
         Self {
@@ -244,6 +250,7 @@ impl<'a> Display<'a> {
 
     /// Blocking flush — transfers entire framebuffer at once.
     /// Use flush_begin + flush_next_chunk for non-blocking chunked transfers.
+    #[allow(dead_code)]
     pub fn flush(&mut self, spi: &mut Spi0, fb: &Framebuffer) {
         let mut state = self.flush_begin(spi);
         while self.flush_next_chunk(spi, fb, &mut state) {}

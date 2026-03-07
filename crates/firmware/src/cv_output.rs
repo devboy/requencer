@@ -99,7 +99,7 @@ impl CvOutputProcessor {
         let ch = &mut self.channels[output];
 
         // Calculate samples in this step window
-        ch.step_samples = (step_duration_us as u64 * self.render_rate as u64 / 1_000_000) as u32;
+        ch.step_samples = (step_duration_us * self.render_rate as u64 / 1_000_000) as u32;
         if ch.step_samples == 0 {
             ch.step_samples = 1;
         }

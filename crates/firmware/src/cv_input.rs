@@ -57,6 +57,12 @@ pub struct CvChannel {
     prev_value: u16,
 }
 
+impl Default for CvChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CvChannel {
     pub const fn new() -> Self {
         Self {
@@ -80,11 +86,7 @@ impl CvChannel {
     /// Returns Some(new_value) if changed, None otherwise.
     pub fn changed(&mut self, threshold: u16) -> Option<u16> {
         let current = (self.smoothed >> 8) as u16;
-        let diff = if current > self.prev_value {
-            current - self.prev_value
-        } else {
-            self.prev_value - current
-        };
+        let diff = current.abs_diff(self.prev_value);
         if diff >= threshold {
             self.prev_value = current;
             Some(current)
@@ -97,6 +99,12 @@ impl CvChannel {
 /// Four CV input channels with smoothing.
 pub struct CvInputs {
     pub channels: [CvChannel; 4],
+}
+
+impl Default for CvInputs {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CvInputs {

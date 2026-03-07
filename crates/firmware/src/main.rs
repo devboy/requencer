@@ -520,33 +520,34 @@ async fn main(_spawner: Spawner) {
         // Save more frequently to minimize data loss on unexpected reset.
         // Only saves while stopped to avoid timing disruption during playback.
 
-        if now.duration_since(last_save).as_secs() >= 10 {
-            if sd_storage.is_card_present() && !state.transport.playing {
-                if state_dirty {
-                    let mut buf = [0u8; storage::STATE_BUF_SIZE];
-                    if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
-                        let len = bytes.len();
-                        if sd_storage.save_state(&mut spi0, &buf[..len]) {
-                            info!("State auto-saved to SD card");
-                            state_dirty = false;
-                        }
+        if now.duration_since(last_save).as_secs() >= 10
+            && sd_storage.is_card_present()
+            && !state.transport.playing
+        {
+            if state_dirty {
+                let mut buf = [0u8; storage::STATE_BUF_SIZE];
+                if let Ok(bytes) = requencer_engine::storage::serialize_state(&state, &mut buf) {
+                    let len = bytes.len();
+                    if sd_storage.save_state(&mut spi0, &buf[..len]) {
+                        info!("State auto-saved to SD card");
+                        state_dirty = false;
                     }
                 }
-                if library_dirty {
-                    let mut lib_buf = [0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
-                    if let Ok(bytes) = requencer_engine::storage::serialize_library(
-                        &state.saved_patterns, &state.user_presets, &mut lib_buf,
-                    ) {
-                        let len = bytes.len();
-                        if sd_storage.save_library(&mut spi0, &lib_buf[..len]) {
-                            info!("Library auto-saved to SD card");
-                            library_dirty = false;
-                        }
+            }
+            if library_dirty {
+                let mut lib_buf = [0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
+                if let Ok(bytes) = requencer_engine::storage::serialize_library(
+                    &state.saved_patterns, &state.user_presets, &mut lib_buf,
+                ) {
+                    let len = bytes.len();
+                    if sd_storage.save_library(&mut spi0, &lib_buf[..len]) {
+                        info!("Library auto-saved to SD card");
+                        library_dirty = false;
                     }
                 }
-                if !state_dirty && !library_dirty {
-                    last_save = now;
-                }
+            }
+            if !state_dirty && !library_dirty {
+                last_save = now;
             }
         }
 
@@ -561,6 +562,7 @@ async fn main(_spawner: Spawner) {
 }
 
 /// Process a single engine tick: run sequencer, update DACs, send MIDI, pulse clock.
+#[allow(clippy::too_many_arguments)]
 fn process_tick(
     state: &mut SequencerState,
     cv_proc: &mut cv_output::CvOutputProcessor,
@@ -591,7 +593,7 @@ fn process_tick(
     midi_out.send_events(&events, midi_channels);
 
     // Clock output: 5ms pulse on step boundaries
-    if state.transport.master_tick % (TICKS_PER_STEP as u64) == 0 {
+    if state.transport.master_tick.is_multiple_of(TICKS_PER_STEP as u64) {
         clock_io.set_clock_out(true);
         *clock_pulse_end = Some(now + Duration::from_millis(5));
     }
