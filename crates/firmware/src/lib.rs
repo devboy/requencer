@@ -12,6 +12,7 @@
 pub mod buttons;
 pub mod clock_io;
 pub mod cv_input;
+pub mod cv_output;
 pub mod dac;
 pub mod display;
 pub mod encoders;

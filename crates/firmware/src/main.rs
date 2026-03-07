@@ -21,6 +21,7 @@ mod buttons;
 mod clock_io;
 #[allow(dead_code)]
 mod cv_input;
+mod cv_output;
 #[allow(dead_code)]
 mod dac;
 mod display;
@@ -212,6 +213,9 @@ async fn main(_spawner: Spawner) {
     let mut framebuffer = display::Framebuffer::new();
     let mut gate_state = [false; 4];
 
+    // CV output processor: runs at 4kHz to interpolate gate length, ratchets, slide, slew
+    let mut cv_proc = cv_output::CvOutputProcessor::new(4000);
+
     // MIDI channel assignment: outputs 0-3 → MIDI channels 1-4
     let midi_channels: [u8; 4] = [0, 1, 2, 3];
 
@@ -234,6 +238,9 @@ async fn main(_spawner: Spawner) {
 
     // Clock output pulse: set high on step boundary, clear after 5ms
     let mut clock_pulse_end: Option<Instant> = None;
+
+    // CV output render rate: 4kHz = 250µs interval
+    let mut last_cv_render = Instant::now();
 
     // Chunked display flush state — one chunk per main loop iteration
     let mut flush_state: Option<display::FlushState> = None;
@@ -275,7 +282,7 @@ async fn main(_spawner: Spawner) {
                 next_tick_at = now;
             }
             process_tick(
-                &mut state, &mut dac, &mut midi_out, &mut clock_io,
+                &mut state, &mut cv_proc, &mut midi_out, &mut clock_io,
                 &mut gate_state, &midi_channels, &mut clock_pulse_end, now,
             );
             system_tick = system_tick.wrapping_add(1);
@@ -287,6 +294,24 @@ async fn main(_spawner: Spawner) {
             if now >= end_time {
                 clock_io.set_clock_out(false);
                 clock_pulse_end = None;
+            }
+        }
+
+        // ── 2b. CV output render (4kHz = every 250µs) ──────────────
+        // Runs the CV output processor to interpolate gate length, ratchets,
+        // pitch slide, and mod slew between step boundaries.
+
+        if now.duration_since(last_cv_render).as_micros() >= 250 {
+            last_cv_render = now;
+            cv_proc.render_tick();
+
+            // Write interpolated values to DACs
+            for i in 0..4u8 {
+                let ch = &cv_proc.channels[i as usize];
+                dac.set_dac1_channel(i, ch.gate_dac);         // DAC1 CH A-D: Gate
+                dac.set_dac1_channel(i + 4, ch.pitch_dac);    // DAC1 CH E-H: Pitch
+                dac.set_dac2_channel(i, ch.velocity_dac);     // DAC2 CH A-D: Velocity
+                dac.set_dac2_channel(i + 4, ch.mod_dac);      // DAC2 CH E-H: Mod
             }
         }
 
@@ -319,7 +344,8 @@ async fn main(_spawner: Spawner) {
                     } else {
                         midi_out.send_stop();
                         midi_out.all_notes_off(&midi_channels);
-                        for i in 0..4 {
+                        cv_proc.all_off();
+                        for i in 0..4u8 {
                             dac.set_dac1_channel(i, 0);
                             gate_state[i as usize] = false;
                         }
@@ -365,7 +391,8 @@ async fn main(_spawner: Spawner) {
                     } else {
                         midi_out.send_stop();
                         midi_out.all_notes_off(&midi_channels);
-                        for i in 0..4 {
+                        cv_proc.all_off();
+                        for i in 0..4u8 {
                             dac.set_dac1_channel(i, 0);
                             gate_state[i as usize] = false;
                         }
@@ -384,7 +411,7 @@ async fn main(_spawner: Spawner) {
                     {
                         // MIDI clock → engine tick
                         process_tick(
-                            &mut state, &mut dac, &mut midi_out, &mut clock_io,
+                            &mut state, &mut cv_proc, &mut midi_out, &mut clock_io,
                             &mut gate_state, &midi_channels, &mut clock_pulse_end, now,
                         );
                         system_tick = system_tick.wrapping_add(1);
@@ -398,7 +425,8 @@ async fn main(_spawner: Spawner) {
                 midi::MidiMessage::Stop => {
                     state.transport.playing = false;
                     midi_out.all_notes_off(&midi_channels);
-                    for i in 0..4 {
+                    cv_proc.all_off();
+                    for i in 0..4u8 {
                         dac.set_dac1_channel(i, 0);
                         gate_state[i as usize] = false;
                     }
@@ -480,7 +508,7 @@ async fn main(_spawner: Spawner) {
 /// Process a single engine tick: run sequencer, update DACs, send MIDI, pulse clock.
 fn process_tick(
     state: &mut SequencerState,
-    dac: &mut dac::DacOutput<'_>,
+    cv_proc: &mut cv_output::CvOutputProcessor,
     midi_out: &mut midi::MidiOut<'_>,
     clock_io: &mut clock_io::ClockIo<'_>,
     gate_state: &mut [bool; 4],
@@ -490,8 +518,16 @@ fn process_tick(
 ) {
     let events = sequencer::tick(state);
 
-    // Output to DACs
-    dac.update_from_events(&events, gate_state);
+    // Feed events to CV output processor (replaces direct DAC writes)
+    // Step duration = tick_interval * TICKS_PER_STEP (in µs)
+    let tick_interval_us = 60_000_000u64 / (state.transport.bpm as u64 * TICKS_PER_STEP as u64);
+    let step_duration_us = tick_interval_us * TICKS_PER_STEP as u64;
+    for (i, event) in events.iter().enumerate() {
+        if let Some(ev) = event {
+            gate_state[i] = ev.gate;
+            cv_proc.note_on(i, ev, step_duration_us);
+        }
+    }
 
     // Output MIDI
     if state.midi_clock_out {
