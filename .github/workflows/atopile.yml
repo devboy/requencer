@@ -7,13 +7,11 @@ on:
       - 'hardware/**'
       - '!hardware/docker/**'
       - 'hardware-faceplate/**'
-      - 'panel-layout.json'
   pull_request:
     paths:
       - 'hardware/**'
       - '!hardware/docker/**'
       - 'hardware-faceplate/**'
-      - 'panel-layout.json'
 
 env:
   HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
@@ -52,6 +50,15 @@ jobs:
             fi
           '
 
+      - name: Export layout JSON
+        run: |
+          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
+            PCB="hardware/build/placed.kicad_pcb"
+            if [ -f "$PCB" ]; then
+              python3 hardware/scripts/export_layout.py "$PCB" hardware/component-map.json web/src/panel-layout.json
+            fi
+          '
+
       - name: Autoroute
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
@@ -82,6 +89,15 @@ jobs:
               python3 hardware/scripts/export_manufacturing.py "$PCB" hardware/build/manufacturing
             fi
           '
+
+      - name: Upload placed PCB
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: placed-pcb-latest
+          path: hardware/build/placed.kicad_pcb
+          retention-days: 90
+          overwrite: true
 
       - name: Upload KiCad output
         if: github.ref == 'refs/heads/main'

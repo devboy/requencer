@@ -273,9 +273,23 @@ def generate_faceplate(layout, output_path):
     pcb.write(output_path)
 
 
+def load_faceplate_layout(layout_path, comp_map_path):
+    """Load layout, overriding panel dims and mounting from component-map if available."""
+    layout = load_layout(layout_path)
+    if os.path.exists(comp_map_path):
+        comp_map = load_layout(comp_map_path)
+        # Override panel dimensions with corrected eurorack values
+        layout["panel"] = comp_map["panel"]
+        layout["constants"] = comp_map["constants"]
+        layout["mounting_slots"] = comp_map["mounting_slots"]
+        print(f"  Using dimensions from: {comp_map_path}")
+    return layout
+
+
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    layout_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "panel-layout.json")
+    layout_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "web", "src", "panel-layout.json")
+    comp_map_path = os.path.join(repo_root, "hardware", "component-map.json")
     output_path = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "elec", "layout", "faceplate.kicad_pcb",
@@ -287,7 +301,7 @@ def main():
     print(f"  Layout: {layout_path}")
     print(f"  Output: {output_path}")
 
-    layout = load_layout(layout_path)
+    layout = load_faceplate_layout(layout_path, comp_map_path)
     generate_faceplate(layout, output_path)
 
     print(f"\n=== Faceplate PCB ready: {output_path} ===")

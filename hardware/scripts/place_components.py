@@ -18,11 +18,17 @@ import json
 import os
 import sys
 
-LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "panel-layout.json")
+LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "web", "src", "panel-layout.json")
+COMPONENT_MAP_PATH = os.path.join(os.path.dirname(__file__), "..", "component-map.json")
 
 
 def load_layout():
     with open(LAYOUT_PATH) as f:
+        return json.load(f)
+
+
+def load_component_map():
+    with open(COMPONENT_MAP_PATH) as f:
         return json.load(f)
 
 
@@ -44,12 +50,14 @@ def place_components(input_pcb, output_pcb=None):
 
     layout = load_layout()
     panel = layout["panel"]
+    comp_map = load_component_map()
+    pcb_dims = comp_map["pcb"]
 
     board = pcbnew.LoadBoard(input_pcb)
 
-    # Set board outline
-    w_mm = panel["width_mm"]
-    h_mm = panel["height_mm"]
+    # Set board outline (PCB is smaller than faceplate — fits between rails)
+    w_mm = pcb_dims["width_mm"]
+    h_mm = pcb_dims["height_mm"]
     edge_layer = board.GetLayerID("Edge.Cuts")
 
     seg_coords = [
@@ -162,13 +170,13 @@ def place_components(input_pcb, output_pcb=None):
     # in functional zones on the back of the board.
     jack_zone_x = layout["jacks"]["output"][0]["x_mm"]
     step_x = layout["buttons"]["step"][0]["x_mm"]
-    center_x = panel["width_mm"] / 2
+    center_x = w_mm / 2
 
     # MCU module centered (PGA2350)
     place("mcu.pga", center_x, 40, front=False)
 
     # Power header near bottom
-    place("power.header", 10, 120)
+    place("power.header", 10, h_mm - 3)
 
     # LCD header near LCD cutout (front side, below the display)
     lcd = layout.get("lcd_cutout", {})
@@ -179,7 +187,7 @@ def place_components(input_pcb, output_pcb=None):
     # Zone assignments: module prefix -> (center_x, start_y) on back side
     zones = {
         "dac.":     (jack_zone_x - 10, 55),   # DAC near output jacks
-        "power.":   (15, 108),                  # Power near bottom-left
+        "power.":   (15, h_mm - 5),               # Power near bottom-left
         "buttons.": (step_x + 35, 75),          # Button support near buttons
         "leds.":    (step_x + 35, 110),          # LED drivers near buttons
         "midi.":    (160, 35),                   # MIDI near MIDI jacks

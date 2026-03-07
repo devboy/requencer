@@ -10,7 +10,7 @@
  * Toggle via debug menu. Hidden by default.
  */
 
-import panelLayout from '../../../../panel-layout.json'
+import panelLayout from '../../panel-layout.json'
 
 const SCALE = 4.5 // px per mm
 const C = panelLayout.constants
