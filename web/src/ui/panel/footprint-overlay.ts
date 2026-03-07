@@ -23,10 +23,6 @@ function svgRect(x: number, y: number, w: number, h: number, color: string, dash
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" stroke="${color}" stroke-dasharray="${dash}" fill="none" stroke-width="1" opacity="0.6"/>`
 }
 
-function svgLine(x1: number, y1: number, x2: number, y2: number, color: string, dash = '5,3'): string {
-  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-dasharray="${dash}" stroke-width="1" opacity="0.5"/>`
-}
-
 function svgOval(cx: number, cy: number, rx: number, ry: number, color: string, dash = '3,3'): string {
   return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" stroke="${color}" stroke-dasharray="${dash}" fill="none" stroke-width="1" opacity="0.6"/>`
 }
@@ -61,13 +57,11 @@ export function createFootprintOverlay(): void {
   parts.push(svgRect(0, 0, W, H, '#00cccc', '6,3'))
 
   // PCB outline (board between rails, smaller than faceplate)
-  const pcb = (panelLayout as any).pcb
+  const pcb = (panelLayout as Record<string, unknown>).pcb as
+    | { origin_x_mm: number; origin_y_mm: number; width_mm: number; height_mm: number }
+    | undefined
   if (pcb) {
-    parts.push(svgRect(
-      mm(pcb.origin_x_mm), mm(pcb.origin_y_mm),
-      mm(pcb.width_mm), mm(pcb.height_mm),
-      '#cccc00', '5,3',
-    ))
+    parts.push(svgRect(mm(pcb.origin_x_mm), mm(pcb.origin_y_mm), mm(pcb.width_mm), mm(pcb.height_mm), '#cccc00', '5,3'))
   }
 
   // LCD cutout
