@@ -139,10 +139,18 @@ jobs:
           "
 
       # --- Stage 4: Autoroute ---
+      # PRs: fast routing (4 passes, 30 min timeout) for connectivity check
+      # main: thorough routing (20 passes, 60 min timeout) for production quality
       - name: Autoroute
-        timeout-minutes: 45
+        timeout-minutes: ${{ github.ref == 'refs/heads/main' && 75 || 45 }}
+        env:
+          FREEROUTING_MP: ${{ github.ref == 'refs/heads/main' && '20' || '4' }}
+          FREEROUTING_TIMEOUT: ${{ github.ref == 'refs/heads/main' && '3600' || '1800' }}
         run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
+          docker run --rm -v "$PWD":/work -w /work \
+            -e FREEROUTING_MP="$FREEROUTING_MP" \
+            -e FREEROUTING_TIMEOUT="$FREEROUTING_TIMEOUT" \
+            "$HW_IMAGE" bash -c "
             set -euo pipefail
             chmod +x hardware/scripts/autoroute.sh
             hardware/scripts/autoroute.sh '$PCB_PLACED' '$PCB_ROUTED'

@@ -97,13 +97,14 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
 fi
 
 # Step 2: Run Freerouting headless
-# -mp: max routing passes (20 for quality, reduce for speed)
+# --router.max_passes: max routing passes (long-form — -mp is ignored in headless mode, see
+#   https://github.com/freerouting/freerouting/issues/376)
 # -mt: thread count (2 for CI runners, match core count locally)
 # -dct 0: auto-dismiss any dialogs immediately
-# timeout: hard kill after 30 minutes to prevent infinite loops
+# timeout: hard kill to prevent infinite loops
 FREEROUTING_MP="${FREEROUTING_MP:-20}"
 FREEROUTING_MT="${FREEROUTING_MT:-2}"
-FREEROUTING_TIMEOUT="${FREEROUTING_TIMEOUT:-1800}"
+FREEROUTING_TIMEOUT="${FREEROUTING_TIMEOUT:-3600}"
 echo "Step 2: Running Freerouting (headless, mp=$FREEROUTING_MP, mt=$FREEROUTING_MT, timeout=${FREEROUTING_TIMEOUT}s)..."
 timeout "$FREEROUTING_TIMEOUT" \
   "$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
@@ -111,7 +112,7 @@ timeout "$FREEROUTING_TIMEOUT" \
   -de "$WORK_DIR/board.dsn" \
   -do "$WORK_DIR/board.ses" \
   -dr "$WORK_DIR/board.rules" \
-  -mp "$FREEROUTING_MP" \
+  --router.max_passes="$FREEROUTING_MP" \
   -mt "$FREEROUTING_MT" \
   -dct 0 \
   2>&1 || {
