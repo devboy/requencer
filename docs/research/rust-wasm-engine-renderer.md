@@ -851,30 +851,32 @@ Rust on Cortex-M33 compiles to the same ARM instructions as C/C++. With `--relea
 
 ## 10. Migration Strategy
 
-### Phase 1: Engine Port
-1. Port `types.ts` → `crates/engine/src/types.rs`
-2. Port `rng.ts` → `rng.rs` (verify identical output with TS tests)
-3. Port `clock-divider.ts` → `clock.rs`
-4. Port `euclidean.ts`, `scales.ts` → direct translations
-5. Port `randomizer.ts` → `randomizer.rs`
-6. Port `lfo.ts` → `lfo.rs`
-7. Port `sequencer.ts` → `sequencer.rs` (the big one)
-8. Port `routing.ts`, `variation.ts`, `mutator.ts`, `arpeggiator.ts`
-9. **Validate**: Run TS tests and Rust tests with identical seeds, verify identical output
+### Phase 1: Engine Port ✅ COMPLETE (126 tests passing)
+1. ✅ Port `types.ts` → `crates/engine/src/types.rs`
+2. ✅ Port `rng.ts` → `rng.rs` (verify identical output with TS tests)
+3. ✅ Port `clock-divider.ts` → `clock.rs`
+4. ✅ Port `euclidean.ts`, `scales.ts` → direct translations
+5. ✅ Port `randomizer.ts` → `randomizer.rs`
+6. ✅ Port `lfo.ts` → `lfo.rs`
+7. ✅ Port `sequencer.ts` → `sequencer.rs` (the big one)
+8. ✅ Port `routing.ts`, `variation.ts`, `mutator.ts`, `arpeggiator.ts`
+9. Validate: Cross-language test vector matching still TODO (see rust-engine-remaining-todos.md)
 
-### Phase 2: Renderer Port
+### Phase 2: Renderer Port — NOT STARTED
+Renderer remains in TypeScript (`web/src/ui/`). Rust renderer crate (`crates/renderer/`) exists but is not yet ported.
 1. Define color palette in RGB565
 2. Port screen layouts (home, gate-edit, pitch-edit, etc.)
 3. Implement `CanvasTarget` for browser
 4. Validate visual output matches current Canvas 2D rendering
 
-### Phase 3: WASM Integration
-1. Wire up `wasm-bindgen` entry point
-2. Connect to existing Tone.js audio (JS side)
-3. Connect Web MIDI
-4. Replace TS engine with WASM engine in the web app
+### Phase 3: WASM Integration ✅ COMPLETE
+1. ✅ Wire up `wasm-bindgen` entry point (`crates/web/src/lib.rs`)
+2. ✅ Connect to existing Tone.js audio (JS side via `wasm-adapter.ts`)
+3. ✅ Connect Web MIDI
+4. ✅ Replace TS engine with WASM engine in the web app (`main.ts` uses WASM exclusively)
 
-### Phase 4: Firmware
+### Phase 4: Firmware — NOT STARTED
+See [firmware implementation plan](../plans/2026-03-06-firmware-implementation.md) for detailed roadmap.
 1. Hardware bring-up: Pico 2 + ST7796 display + shift registers
 2. Wire up `mipidsi` display driver
 3. Implement input scanning (shift registers, encoder)
@@ -907,15 +909,15 @@ Rust on Cortex-M33 compiles to the same ARM instructions as C/C++. With `--relea
 
 ## 12. Open Questions
 
-1. **State ownership in tick()**: Should we return a new state (like TS) or mutate in place? Returning new state is cleaner but means copying ~10 KB per tick. At 960 ticks/sec on RP2350, that's ~9.6 MB/s of memcpy — well within bandwidth but worth benchmarking.
+1. **State ownership in tick()**: ✅ RESOLVED — Mutate in place chosen. The Rust engine uses `&mut self` style with the WASM adapter managing state ownership.
 
-2. **Font choice**: `embedded-graphics` built-in fonts are adequate but limited. Should we use a custom bitmap font that matches the current web rendering more closely? Tools like `bdf-to-embedded-graphics` can convert any BDF font.
+2. **Font choice**: Open — `embedded-graphics` built-in fonts are adequate but limited. Should we use a custom bitmap font that matches the current web rendering more closely? Tools like `bdf-to-embedded-graphics` can convert any BDF font.
 
-3. **WASM binary size**: With `wasm-opt -Oz`, expect ~100-200 KB for engine+renderer. Acceptable for web, but worth tracking.
+3. **WASM binary size**: Open — With `wasm-opt -Oz`, expect ~100-200 KB for engine+renderer. Acceptable for web, but worth tracking.
 
-4. **Dual-core usage on RP2350**: Core 0 runs engine + input scanning, Core 1 runs display rendering? Or single-core with interrupt-driven input? Need to prototype both.
+4. **Dual-core usage on RP2350**: Open — Core 0 runs engine + input scanning, Core 1 runs display rendering? Or single-core with interrupt-driven input? Need to prototype both. Embassy framework chosen for async task scheduling (see firmware implementation plan).
 
-5. **PSRAM**: The RP2350B variant supports external QSPI PSRAM (up to 16 MB). If we ever need more memory (e.g., sample playback, more tracks), this is an upgrade path without changing the MCU.
+5. **PSRAM**: ✅ RESOLVED — Using PGA2350 which supports external QSPI PSRAM (up to 16 MB). Available as an upgrade path for sample playback or more tracks.
 
 ---
 

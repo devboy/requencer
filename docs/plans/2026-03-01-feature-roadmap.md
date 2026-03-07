@@ -53,7 +53,7 @@ Chord-tone walking mode with up/down/triangle/random directions, configurable oc
 Full MOD editing screen with two views: MOD SEQ (per-step value + slew bar graph) and MOD LFO (animated waveform preview with 7 editable parameters).
 
 ### 8. Smart Gate Generation — Removed
-Multi-bar phrase patterns proved untestable in prototype context. Replaced by 4 single-bar gate modes (random, euclidean, sync, cluster) which are more musically useful. See [gate modes redesign](2026-03-03-gate-modes-redesign.md).
+Multi-bar phrase patterns proved untestable in prototype context. Replaced by 4 single-bar gate modes (random, euclidean, sync, cluster) which are more musically useful. See [gate modes redesign](../archive/2026-03-03-gate-modes-redesign.md).
 
 ### 9. MOD as LFO ✅
 6 waveforms (sine, triangle, saw, square, slew-random, S+H), synced or free-running.
@@ -62,7 +62,7 @@ Multi-bar phrase patterns proved untestable in prototype context. Replaced by 4 
 
 ---
 
-## Tier 4 — Connectivity
+## Tier 4 — Connectivity ✅
 
 ### 10. Web MIDI Output ✅
 Per-output MIDI channel selection, note/CC output, ratchet subdivision support.

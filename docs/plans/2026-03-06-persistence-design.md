@@ -1,5 +1,7 @@
 # Persistence via Postcard Serialization
 
+**Status (2026-03-07):** Web persistence implemented — localStorage via WASM/postcard working. Firmware storage (SD card / flash) remains future work.
+
 ## Goal
 
 Persist sequencer state and pattern/preset library across browser sessions via WASM + localStorage. Rust owns all serialization (postcard, no_std). TS handles storage I/O only. Firmware gets serialization for free (future: write same bytes to SD/flash).

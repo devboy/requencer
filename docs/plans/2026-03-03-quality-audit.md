@@ -37,9 +37,9 @@ Measured on Apple Silicon (M-series), Node 20, vitest 4.0.18.
 
 ## Refactoring Opportunities
 
-### mode-machine.ts (2,306 lines) — HIGH PRIORITY
+### mode-machine.ts (2,306 lines) — HIGH PRIORITY — NOT YET DONE
 
-The largest file in the codebase. Currently a single function with a mode switch at the top and per-mode handlers inline. Mechanical extraction opportunity:
+The largest file in the codebase. Currently a single function with a mode switch at the top and per-mode handlers inline. Mechanical extraction opportunity (as of 2026-03-07, this split has not been performed yet):
 
 **Proposed:** Split into `src/ui/mode-machine/` directory:
 - `index.ts` — dispatch function, shared state helpers
