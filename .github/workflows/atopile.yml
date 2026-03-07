@@ -60,11 +60,33 @@ jobs:
             cat hardware/ato.yaml
             echo ""
             rm -f hardware/elec/layout/default/default.kicad_pcb
-            cd hardware && ato --non-interactive build --keep-picked-parts 2>&1 | tee /work/ato-build.log
+            cd hardware
+            if [ -f ato-lock.yaml ]; then
+              echo "Lock file found — using --frozen"
+              ato --non-interactive build --frozen 2>&1 | tee /work/ato-build.log
+            else
+              echo "No lock file — building with --keep-picked-parts"
+              ato --non-interactive build --keep-picked-parts 2>&1 | tee /work/ato-build.log
+            fi
             echo ""
             echo "=== Post-build layout dir ==="
             ls -laR elec/layout/ 2>/dev/null || echo "(empty/missing)"
           '
+
+      - name: Commit lock file if new
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -f hardware/ato-lock.yaml ] && ! git diff --quiet hardware/ato-lock.yaml 2>/dev/null || \
+             [ -f hardware/ato-lock.yaml ] && ! git ls-files --error-unmatch hardware/ato-lock.yaml >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add hardware/ato-lock.yaml
+            git commit -m "chore: commit ato-lock.yaml from CI build"
+            git push
+            echo "::notice::Committed ato-lock.yaml — future builds will use --frozen"
+          else
+            echo "Lock file unchanged or not present, skipping commit"
+          fi
 
       - name: Check ato build output
         run: |
