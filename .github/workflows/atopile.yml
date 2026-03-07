@@ -32,13 +32,36 @@ jobs:
           docker pull "$HW_IMAGE" 2>/dev/null || \
           docker build -t "$HW_IMAGE" hardware/docker/
 
+      - name: Print tool versions
+        run: |
+          docker run --rm "$HW_IMAGE" bash -c '
+            echo "=== Tool versions ==="
+            ato --version || echo "ato: version flag not supported"
+            kicad-cli version || echo "kicad-cli: version flag not supported"
+            python3 --version
+            echo "=== Installed Python packages ==="
+            pip list 2>/dev/null || pip3 list 2>/dev/null || true
+          '
+
       # --- Stage 1: Compile .ato → KiCad ---
       - name: Build schematic
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             set -euo pipefail
+            echo "=== ato.yaml ==="
+            cat hardware/ato.yaml
+            echo ""
+            echo "=== Pre-build layout dir ==="
+            ls -laR hardware/elec/layout/ 2>/dev/null || echo "(empty/missing)"
+            echo ""
             rm -f hardware/elec/layout/default/default.kicad_pcb
             cd hardware && ato --non-interactive build 2>&1 | tee /work/ato-build.log
+            echo ""
+            echo "=== Post-build layout dir ==="
+            ls -laR elec/layout/ 2>/dev/null || echo "(empty/missing)"
+            echo ""
+            echo "=== All .kicad_* files in hardware/ ==="
+            find /work/hardware -name "*.kicad_*" -type f 2>/dev/null || echo "(none found)"
           '
 
       - name: Check ato build output
@@ -67,7 +90,11 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
+            echo '=== Running ERC on $SCH_SRC ==='
             kicad-cli sch erc '$SCH_SRC' -o erc-report.json --format json --exit-code-violations 2>&1 | tee erc-output.log
+            echo ''
+            echo '=== ERC report ==='
+            cat erc-report.json 2>/dev/null || echo '(no report file)'
           "
 
       # --- Stage 3: Generate footprints & faceplate ---
@@ -83,6 +110,8 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
             python3 hardware/scripts/place_components.py '$PCB_SRC' '$PCB_PLACED'
+            echo '=== Placed PCB ==='
+            ls -la '$PCB_PLACED'
           "
 
       - name: Export layout JSON
@@ -90,6 +119,8 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
             python3 hardware/scripts/export_layout.py '$PCB_PLACED' hardware/component-map.json web/src/panel-layout.json
+            echo '=== Exported layout ==='
+            ls -la web/src/panel-layout.json
           "
 
       # --- Stage 5: Autoroute ---
@@ -100,6 +131,8 @@ jobs:
             set -euo pipefail
             chmod +x hardware/scripts/autoroute.sh
             hardware/scripts/autoroute.sh '$PCB_PLACED' '$PCB_ROUTED'
+            echo '=== Routed PCB ==='
+            ls -la '$PCB_ROUTED'
           "
 
       # --- Stage 6: DRC ---
@@ -108,6 +141,9 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
             kicad-cli pcb drc '$PCB_ROUTED' -o drc-report.json --format json --exit-code-violations 2>&1 | tee drc-output.log
+            echo ''
+            echo '=== DRC report ==='
+            cat drc-report.json 2>/dev/null || echo '(no report file)'
           "
 
       # --- Stage 7: Export manufacturing ---
@@ -116,6 +152,8 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
             python3 hardware/scripts/export_manufacturing.py '$PCB_ROUTED' hardware/build/manufacturing
+            echo '=== Manufacturing output ==='
+            ls -laR hardware/build/manufacturing/
           "
 
       # --- Always upload logs/reports for debugging ---
