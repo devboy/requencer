@@ -40,6 +40,11 @@ def export_layout(pcb_path, map_path, output_path):
 
     components = comp_map["components"]
 
+    # PCB origin offset — convert PCB coords back to faceplate coords
+    pcb_dims = comp_map["pcb"]
+    ox = pcb_dims.get("origin_x_mm", 0)
+    oy = pcb_dims.get("origin_y_mm", 0)
+
     # Track which addresses were found/missing
     found = 0
     missing = []
@@ -49,7 +54,7 @@ def export_layout(pcb_path, map_path, output_path):
         if addr in positions:
             found += 1
             x, y = positions[addr]
-            return round(x, 2), round(y, 2)
+            return round(x + ox, 2), round(y + oy, 2)
         missing.append(addr)
         return None, None
 

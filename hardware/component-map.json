@@ -8,9 +8,11 @@
   },
 
   "pcb": {
-    "_note": "Main PCB is smaller than faceplate — sits between rails, inset from edges",
+    "_note": "Main PCB is smaller than faceplate — sits between rails, inset from edges. origin_x/y is where PCB (0,0) sits in faceplate coordinates.",
     "width_mm": 177.88,
-    "height_mm": 106.0
+    "height_mm": 106.0,
+    "origin_x_mm": 2.0,
+    "origin_y_mm": 10.75
   },
 
   "constants": {
