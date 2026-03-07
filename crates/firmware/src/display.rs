@@ -4,9 +4,13 @@
 //! After rendering via the renderer crate, the framebuffer is flushed to the
 //! display over SPI using scanline DMA transfers.
 
+#[cfg(target_os = "none")]
 use defmt::info;
+#[cfg(target_os = "none")]
 use embassy_rp::gpio::Output;
+#[cfg(target_os = "none")]
 use embassy_rp::spi::Spi;
+#[cfg(target_os = "none")]
 use embassy_time::Timer;
 use embedded_graphics_core::pixelcolor::raw::RawU16;
 use embedded_graphics_core::pixelcolor::Rgb565;
@@ -59,7 +63,7 @@ impl OriginDimensions for Framebuffer {
     }
 }
 
-/// ST7796 command bytes.
+#[cfg(target_os = "none")]
 mod cmd {
     pub const SWRESET: u8 = 0x01;
     pub const SLPOUT: u8 = 0x11;
@@ -71,7 +75,7 @@ mod cmd {
     pub const RAMWR: u8 = 0x2C;
 }
 
-/// Hardware display handle — manages the SPI bus, CS, and DC pins.
+#[cfg(target_os = "none")]
 pub struct Display<'a> {
     spi: Spi<'a, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>,
     cs: Output<'a>,
@@ -79,6 +83,7 @@ pub struct Display<'a> {
     backlight: Output<'a>,
 }
 
+#[cfg(target_os = "none")]
 impl<'a> Display<'a> {
     pub fn new(
         spi: Spi<'a, embassy_rp::peripherals::SPI0, embassy_rp::spi::Blocking>,
@@ -197,5 +202,119 @@ impl<'a> Display<'a> {
         }
 
         self.cs.set_high();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_graphics_core::pixelcolor::Rgb565;
+
+    #[test]
+    fn framebuffer_dimensions() {
+        let fb = Framebuffer::new();
+        assert_eq!(fb.size(), Size::new(480, 320));
+    }
+
+    #[test]
+    fn framebuffer_initial_state_is_black() {
+        let fb = Framebuffer::new();
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn framebuffer_draw_single_pixel() {
+        let mut fb = Framebuffer::new();
+        let color = Rgb565::new(31, 63, 31); // White
+        let pixel = Pixel(Point::new(10, 20), color);
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+
+        let idx = 20 * WIDTH as usize + 10;
+        let raw = RawU16::from(color).into_inner();
+        assert_eq!(fb.pixels[idx], raw);
+    }
+
+    #[test]
+    fn framebuffer_draw_origin() {
+        let mut fb = Framebuffer::new();
+        let color = Rgb565::new(31, 0, 0); // Red
+        let pixel = Pixel(Point::new(0, 0), color);
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+        assert_ne!(fb.pixels[0], 0);
+    }
+
+    #[test]
+    fn framebuffer_draw_last_pixel() {
+        let mut fb = Framebuffer::new();
+        let color = Rgb565::new(0, 63, 0); // Green
+        let pixel = Pixel(Point::new(479, 319), color);
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+
+        let idx = 319 * 480 + 479;
+        assert_ne!(fb.pixels[idx], 0);
+    }
+
+    #[test]
+    fn framebuffer_clips_negative_x() {
+        let mut fb = Framebuffer::new();
+        let pixel = Pixel(Point::new(-1, 0), Rgb565::new(31, 0, 0));
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+        // Should not crash, and no pixel should be written
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn framebuffer_clips_negative_y() {
+        let mut fb = Framebuffer::new();
+        let pixel = Pixel(Point::new(0, -1), Rgb565::new(31, 0, 0));
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn framebuffer_clips_beyond_width() {
+        let mut fb = Framebuffer::new();
+        let pixel = Pixel(Point::new(480, 0), Rgb565::new(31, 0, 0));
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn framebuffer_clips_beyond_height() {
+        let mut fb = Framebuffer::new();
+        let pixel = Pixel(Point::new(0, 320), Rgb565::new(31, 0, 0));
+        fb.draw_iter(core::iter::once(pixel)).unwrap();
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn framebuffer_multiple_pixels() {
+        let mut fb = Framebuffer::new();
+        let red = Rgb565::new(31, 0, 0);
+        let green = Rgb565::new(0, 63, 0);
+        let pixels = [
+            Pixel(Point::new(0, 0), red),
+            Pixel(Point::new(100, 100), green),
+        ];
+        fb.draw_iter(pixels.into_iter()).unwrap();
+
+        assert_ne!(fb.pixels[0], 0);
+        assert_ne!(fb.pixels[100 * 480 + 100], 0);
+        // Other pixels should still be 0
+        assert_eq!(fb.pixels[1], 0);
+    }
+
+    #[test]
+    fn framebuffer_pixel_index_calculation() {
+        // Verify that pixel at (x, y) maps to index y * WIDTH + x
+        let mut fb = Framebuffer::new();
+        let color = Rgb565::new(31, 63, 31);
+        for x in [0, 1, 239, 479] {
+            for y in [0, 1, 159, 319] {
+                fb.draw_iter(core::iter::once(Pixel(Point::new(x, y), color))).unwrap();
+                let idx = y as usize * WIDTH as usize + x as usize;
+                assert_ne!(fb.pixels[idx], 0, "pixel ({}, {}) not set at index {}", x, y, idx);
+            }
+        }
     }
 }

@@ -7,12 +7,14 @@
 //! Hardware has 10kΩ pull-ups + 100nF caps (~1ms RC time constant).
 //! Firmware debounce: ~30ms for push, quadrature state machine for rotation.
 
+#[cfg(target_os = "none")]
 use embassy_rp::gpio::Input;
+#[cfg(target_os = "none")]
 use requencer_engine::input::ControlEvent;
 
 /// Quadrature state machine for one encoder.
 /// Tracks gray code transitions to determine direction.
-struct QuadratureState {
+pub struct QuadratureState {
     prev_a: bool,
     prev_b: bool,
     /// Accumulated sub-detent steps (4 edges per detent for EC11E).
@@ -20,7 +22,7 @@ struct QuadratureState {
 }
 
 impl QuadratureState {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             prev_a: false,
             prev_b: false,
@@ -29,7 +31,7 @@ impl QuadratureState {
     }
 
     /// Update with new A/B readings. Returns delta detents (-1, 0, or +1).
-    fn update(&mut self, a: bool, b: bool) -> i32 {
+    pub fn update(&mut self, a: bool, b: bool) -> i32 {
         let prev = (self.prev_a as u8) << 1 | self.prev_b as u8;
         let curr = (a as u8) << 1 | b as u8;
         self.prev_a = a;
@@ -65,7 +67,7 @@ impl QuadratureState {
 }
 
 /// Push button debounce state.
-struct ButtonDebounce {
+pub struct ButtonDebounce {
     /// How many consecutive reads the button has been in the target state.
     stable_count: u8,
     /// Last debounced state (true = pressed).
@@ -73,7 +75,7 @@ struct ButtonDebounce {
 }
 
 impl ButtonDebounce {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             stable_count: 0,
             debounced: false,
@@ -82,7 +84,7 @@ impl ButtonDebounce {
 
     /// Update with a raw reading. Returns Some(true) on press, Some(false) on release.
     /// Debounce threshold: 6 reads at ~1kHz polling ≈ 6ms (hardware RC + firmware).
-    fn update(&mut self, pressed: bool) -> Option<bool> {
+    pub fn update(&mut self, pressed: bool) -> Option<bool> {
         if pressed != self.debounced {
             self.stable_count += 1;
             if self.stable_count >= 6 {
@@ -98,6 +100,7 @@ impl ButtonDebounce {
 }
 
 /// Encoder pair — two encoders (A and B) with rotation + push.
+#[cfg(target_os = "none")]
 pub struct EncoderPair<'a> {
     enc_a_phase_a: Input<'a>,
     enc_a_phase_b: Input<'a>,
@@ -111,6 +114,7 @@ pub struct EncoderPair<'a> {
     btn_b: ButtonDebounce,
 }
 
+#[cfg(target_os = "none")]
 impl<'a> EncoderPair<'a> {
     pub fn new(
         enc_a_phase_a: Input<'a>,
@@ -166,6 +170,157 @@ impl<'a> EncoderPair<'a> {
             if pressed {
                 let _ = events.push(ControlEvent::EncoderBPush);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── QuadratureState tests ─────────────────────────────────────────
+
+    #[test]
+    fn quad_no_change_returns_zero() {
+        let mut q = QuadratureState::new();
+        assert_eq!(q.update(false, false), 0);
+        assert_eq!(q.update(false, false), 0);
+    }
+
+    #[test]
+    fn quad_cw_full_detent() {
+        let mut q = QuadratureState::new();
+        // CW sequence: 00 → 01 → 11 → 10 → 00 (4 edges = 1 detent)
+        assert_eq!(q.update(false, true), 0);  // 00→01
+        assert_eq!(q.update(true, true), 0);   // 01→11
+        assert_eq!(q.update(true, false), 0);  // 11→10
+        assert_eq!(q.update(false, false), 1); // 10→00 → detent!
+    }
+
+    #[test]
+    fn quad_ccw_full_detent() {
+        let mut q = QuadratureState::new();
+        // CCW sequence: 00 → 10 → 11 → 01 → 00 (4 edges = 1 detent)
+        assert_eq!(q.update(true, false), 0);   // 00→10
+        assert_eq!(q.update(true, true), 0);    // 10→11
+        assert_eq!(q.update(false, true), 0);   // 11→01
+        assert_eq!(q.update(false, false), -1); // 01→00 → detent!
+    }
+
+    #[test]
+    fn quad_two_cw_detents() {
+        let mut q = QuadratureState::new();
+        // Two full CW rotations
+        for i in 0..2 {
+            let r1 = q.update(false, true);
+            let r2 = q.update(true, true);
+            let r3 = q.update(true, false);
+            let r4 = q.update(false, false);
+            // Only the 4th edge of each detent should produce output
+            assert_eq!(r1, 0);
+            assert_eq!(r2, 0);
+            assert_eq!(r3, 0);
+            assert_eq!(r4, 1, "detent {} should emit +1", i);
+        }
+    }
+
+    #[test]
+    fn quad_direction_reversal() {
+        let mut q = QuadratureState::new();
+        // Start CW: 2 edges
+        q.update(false, true);  // 00→01 (+1 sub)
+        q.update(true, true);   // 01→11 (+1 sub)
+
+        // Reverse to CCW: 2 edges back
+        q.update(false, true);  // 11→01 (-1 sub)
+        q.update(false, false); // 01→00 (-1 sub)
+        // sub_steps should be back to 0, no detent emitted
+
+        // Now do full CCW detent from 00
+        assert_eq!(q.update(true, false), 0);   // 00→10
+        assert_eq!(q.update(true, true), 0);    // 10→11
+        assert_eq!(q.update(false, true), 0);   // 11→01
+        assert_eq!(q.update(false, false), -1); // 01→00 → detent!
+    }
+
+    #[test]
+    fn quad_invalid_transition_ignored() {
+        let mut q = QuadratureState::new();
+        // Jump from 00 to 11 — skipped edge, should be ignored
+        assert_eq!(q.update(true, true), 0);
+        // sub_steps should still be 0
+    }
+
+    #[test]
+    fn quad_same_state_no_output() {
+        let mut q = QuadratureState::new();
+        // Reading same state repeatedly
+        for _ in 0..100 {
+            assert_eq!(q.update(true, false), 0);
+        }
+    }
+
+    // ── ButtonDebounce tests ──────────────────────────────────────────
+
+    #[test]
+    fn debounce_initial_state_not_pressed() {
+        let db = ButtonDebounce::new();
+        assert!(!db.debounced);
+    }
+
+    #[test]
+    fn debounce_press_after_threshold() {
+        let mut db = ButtonDebounce::new();
+        // 5 readings not enough
+        for _ in 0..5 {
+            assert!(db.update(true).is_none());
+        }
+        // 6th reading triggers
+        assert_eq!(db.update(true), Some(true));
+    }
+
+    #[test]
+    fn debounce_release_after_threshold() {
+        let mut db = ButtonDebounce::new();
+        // Press first
+        for _ in 0..6 {
+            db.update(true);
+        }
+        assert!(db.debounced);
+
+        // Release
+        for _ in 0..5 {
+            assert!(db.update(false).is_none());
+        }
+        assert_eq!(db.update(false), Some(false));
+    }
+
+    #[test]
+    fn debounce_bouncy_press_resets() {
+        let mut db = ButtonDebounce::new();
+        // 4 presses
+        for _ in 0..4 {
+            db.update(true);
+        }
+        // One bounce back to released
+        db.update(false);
+        // Counter resets — need another 6 to trigger
+        for _ in 0..5 {
+            assert!(db.update(true).is_none());
+        }
+        assert_eq!(db.update(true), Some(true));
+    }
+
+    #[test]
+    fn debounce_stable_state_no_events() {
+        let mut db = ButtonDebounce::new();
+        // Press
+        for _ in 0..6 {
+            db.update(true);
+        }
+        // Continued pressing should produce no events
+        for _ in 0..100 {
+            assert!(db.update(true).is_none());
         }
     }
 }

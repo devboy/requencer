@@ -6,10 +6,18 @@ edition = "2021"
 # Firmware targets the RP2350B (PGA2350 module, Cortex-M33).
 # Install toolchain: rustup target add thumbv8m.main-none-eabihf
 # Build: cargo build -p requencer-firmware --target thumbv8m.main-none-eabihf --release
+# Test pure logic on host: cargo test -p requencer-firmware --lib --target x86_64-unknown-linux-gnu
 
+# Host-compatible dependencies (used in both firmware and tests)
 [dependencies]
-# Our crates (no_std)
 requencer-engine = { path = "../engine", default-features = false }
+embedded-graphics-core = { workspace = true }
+embedded-graphics = { workspace = true }
+heapless = { workspace = true }
+libm = "0.2"
+
+# ARM-only dependencies (firmware target only)
+[target.'cfg(target_os = "none")'.dependencies]
 requencer-renderer = { path = "../renderer", default-features = false }
 
 # Embassy (RP2350)
@@ -35,16 +43,6 @@ cortex-m-rt = "0.7"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 defmt = "0.3"
 defmt-rtt = "0.4"
-
-# Embedded graphics (for DrawTarget in framebuffer)
-embedded-graphics-core = { workspace = true }
-embedded-graphics = { workspace = true }
-
-# no_std math
-libm = "0.2"
-
-# Collections
-heapless = { workspace = true }
 
 # Allocator for no_std (required by postcard alloc feature in engine crate)
 embedded-alloc = "0.6"
