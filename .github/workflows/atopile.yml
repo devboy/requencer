@@ -32,24 +32,24 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             rm -f hardware/elec/layout/default/default.kicad_pcb
-            cd hardware && ato --non-interactive build
+            cd hardware && ato --non-interactive build 2>&1 | tee /work/ato-build.log
           '
 
-      - name: Run ERC
+      - name: Check for missing components
         run: |
-          docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
-            PCB="hardware/elec/layout/default/default.kicad_pcb"
-            if [ -f "$PCB" ]; then
-              # KiCad ERC runs on the schematic embedded in the PCB project
-              SCHEMATIC="hardware/elec/layout/default/default.kicad_sch"
-              if [ -f "$SCHEMATIC" ]; then
-                kicad-cli sch erc "$SCHEMATIC" -o erc-report.json --format json 2>&1 || true
-                echo "ERC complete (see report for details)"
-              else
-                echo "No schematic found, skipping ERC"
-              fi
-            fi
-          '
+          if grep -q "No pickers and no footprint" ato-build.log; then
+            echo "::error::Components missing pickers/footprints — they will be silently dropped from the PCB:"
+            grep "No pickers and no footprint" ato-build.log
+            exit 1
+          fi
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ato-build-log
+          path: ato-build.log
+          retention-days: 30
 
       - name: Generate through-hole footprints
         run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
