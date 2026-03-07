@@ -103,7 +103,9 @@ impl<'a> Display<'a> {
     fn write_cmd(&mut self, cmd: u8) {
         self.dc.set_low();
         self.cs.set_low();
-        let _ = self.spi.blocking_write(&[cmd]);
+        if self.spi.blocking_write(&[cmd]).is_err() {
+            defmt::warn!("Display SPI cmd write failed");
+        }
         self.cs.set_high();
     }
 
@@ -111,7 +113,9 @@ impl<'a> Display<'a> {
     fn write_data(&mut self, data: &[u8]) {
         self.dc.set_high();
         self.cs.set_low();
-        let _ = self.spi.blocking_write(data);
+        if self.spi.blocking_write(data).is_err() {
+            defmt::warn!("Display SPI data write failed");
+        }
         self.cs.set_high();
     }
 
@@ -198,7 +202,10 @@ impl<'a> Display<'a> {
                 line_buf[i * 2] = (px >> 8) as u8;
                 line_buf[i * 2 + 1] = (px & 0xFF) as u8;
             }
-            let _ = self.spi.blocking_write(&line_buf);
+            if self.spi.blocking_write(&line_buf).is_err() {
+                defmt::warn!("Display SPI scanline write failed at y={}", y);
+                break; // Don't spam 320 warnings
+            }
         }
 
         self.cs.set_high();

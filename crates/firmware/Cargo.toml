@@ -44,9 +44,6 @@ panic-probe = { version = "0.3", features = ["print-defmt"] }
 defmt = "0.3"
 defmt-rtt = "0.4"
 
-# Allocator for no_std (required by postcard alloc feature in engine crate)
-embedded-alloc = "0.6"
-
 # Static cell for shared resources
 static_cell = "2"
 portable-atomic = { version = "1", features = ["critical-section"] }

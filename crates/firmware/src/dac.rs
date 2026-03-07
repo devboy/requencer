@@ -95,13 +95,17 @@ impl<'a> DacOutput<'a> {
 
     fn write_dac1(&mut self, word: &[u8; 4]) {
         self.cs1.set_low();
-        let _ = self.spi.blocking_write(word);
+        if self.spi.blocking_write(word).is_err() {
+            defmt::warn!("DAC1 SPI write failed");
+        }
         self.cs1.set_high();
     }
 
     fn write_dac2(&mut self, word: &[u8; 4]) {
         self.cs2.set_low();
-        let _ = self.spi.blocking_write(word);
+        if self.spi.blocking_write(word).is_err() {
+            defmt::warn!("DAC2 SPI write failed");
+        }
         self.cs2.set_high();
     }
 

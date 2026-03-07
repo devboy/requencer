@@ -157,7 +157,9 @@ impl<'a> MidiOut<'a> {
     }
 
     fn send(&mut self, bytes: &[u8]) {
-        let _ = self.tx.blocking_write(bytes);
+        if self.tx.blocking_write(bytes).is_err() {
+            defmt::warn!("MIDI UART TX failed");
+        }
     }
 
     pub fn send_clock(&mut self) {

@@ -16,13 +16,6 @@
 #![no_std]
 #![no_main]
 
-extern crate alloc;
-
-use embedded_alloc::LlffHeap as Heap;
-
-#[global_allocator]
-static HEAP: Heap = Heap::empty();
-
 #[allow(dead_code)]
 mod buttons;
 mod clock_io;
@@ -44,7 +37,8 @@ use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 use embassy_rp::spi::{self, Spi};
 use embassy_rp::uart;
-use embassy_time::Instant;
+use embassy_rp::watchdog::Watchdog;
+use embassy_time::{Duration, Instant};
 use panic_probe as _;
 
 use requencer_engine::clock_divider::TICKS_PER_STEP;
@@ -54,33 +48,21 @@ use requencer_engine::sequencer;
 use requencer_engine::types::{ClockSource, SequencerState};
 use requencer_engine::ui_types::UiState;
 
-use static_cell::StaticCell;
-
-// ── Shared state via static cells ──────────────────────────────────
-
-/// Event queue: input tasks push events, main loop consumes them.
-static EVENT_CHANNEL: StaticCell<embassy_sync::channel::Channel<
-    embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
-    ControlEvent,
-    32,
->> = StaticCell::new();
-
 // ── Main entry point ───────────────────────────────────────────────
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    // Initialize heap allocator (16 KB — used by postcard alloc for serialization)
-    {
-        use core::mem::MaybeUninit;
-        const HEAP_SIZE: usize = 16 * 1024;
-        static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
-        #[allow(static_mut_refs)]
-        unsafe { HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_SIZE) }
-    }
-
     info!("Requencer firmware starting");
 
     let p = embassy_rp::init(Default::default());
+
+    // ── Watchdog (8 second timeout) ─────────────────────────────────
+    // Resets the processor if the main loop stalls for > 8 seconds.
+    // Fed at the end of each main loop iteration.
+    let mut watchdog = Watchdog::new(p.WATCHDOG);
+    watchdog.pause_on_debug(true); // Don't reset while debugging
+    watchdog.start(Duration::from_secs(8));
+    info!("Watchdog started (8s timeout)");
 
     // ── SPI0: Display + SD card (shared bus) ───────────────────────
 
@@ -90,9 +72,6 @@ async fn main(_spawner: Spawner) {
     // RP2350 SPI0 function assignments: GP2=CLK, GP3=MOSI, GP0=MISO
     // Note: PCB schematic says GP0=MOSI, GP3=DC but RP2350 GPIO function
     // select requires GP3=MOSI. Schematic needs updating before manufacture.
-    // Using correct RP2350 pin functions here:
-    //   GP2 = SPI0_SCK, GP3 = SPI0_MOSI (TX), GP0 = SPI0_MISO (RX)
-    //   GP1 = LCD CS (GPIO), GP7 = LCD DC (GPIO, moved from GP3), GP5 = backlight
     let spi0 = Spi::new_blocking(
         p.SPI0,
         p.PIN_2,  // SCK
@@ -102,16 +81,16 @@ async fn main(_spawner: Spawner) {
     );
 
     let lcd_cs = Output::new(p.PIN_1, Level::High);
-    let lcd_dc = Output::new(p.PIN_7, Level::Low); // Moved to GP7 (spare) since GP3 is SPI0_MOSI
+    let lcd_dc = Output::new(p.PIN_7, Level::Low);
     let lcd_backlight = Output::new(p.PIN_5, Level::Low);
 
     let mut display_hw = display::Display::new(spi0, lcd_cs, lcd_dc, lcd_backlight);
     display_hw.init().await;
 
-    // SD card pins (storage module)
+    // SD card pins
     let sd_cs = Output::new(p.PIN_24, Level::High);
     let sd_detect = Input::new(p.PIN_25, Pull::Up);
-    let _sd_storage = storage::SdStorage::new(sd_cs, sd_detect);
+    let mut sd_storage = storage::SdStorage::new(sd_cs, sd_detect);
 
     // ── SPI1: DACs (dedicated bus, via 74HCT125) ───────────────────
 
@@ -169,7 +148,6 @@ async fn main(_spawner: Spawner) {
     uart_config.baudrate = 31250;
 
     // UART1: GP20=TX, GP21=RX (RP2350 function select for UART1)
-    // Note: PCB schematic says GP21/GP22 but RP2350 requires GP20/GP21 for UART1.
     let uart = uart::Uart::new_blocking(
         p.UART1,
         p.PIN_20, // TX (MIDI OUT via 220Ω)
@@ -189,22 +167,28 @@ async fn main(_spawner: Spawner) {
     let reset_out = Output::new(p.PIN_4, Level::High);
     let mut clock_io = clock_io::ClockIo::new(clock_in, reset_in, clock_out, reset_out);
 
-    // ── Event channel ──────────────────────────────────────────────
-
-    let _event_channel = EVENT_CHANNEL.init(embassy_sync::channel::Channel::new());
-
-    // ── Spawn input tasks ──────────────────────────────────────────
-
-    // We pass the hardware into static cells so spawned tasks can own them.
-    // For simplicity in this initial implementation, we run everything
-    // in the main loop rather than spawning separate tasks. This avoids
-    // the complexity of static lifetime requirements for spawned tasks.
-    // The main loop runs fast enough for all timing requirements.
-
     // ── Engine state ───────────────────────────────────────────────
 
     let mut state = SequencerState::new();
     state.apply_default_presets();
+
+    // Try to load saved state from SD card
+    if sd_storage.is_card_present() {
+        info!("SD card detected, attempting state restore");
+        let mut buf = [0u8; storage::STATE_BUF_SIZE];
+        if let Some(len) = sd_storage.load_state(&mut buf) {
+            match requencer_engine::storage::deserialize_state(&buf[..len]) {
+                Ok(restored) => {
+                    state = restored;
+                    info!("State restored from SD card ({} bytes)", len);
+                }
+                Err(_) => {
+                    warn!("SD state file corrupt, using defaults");
+                }
+            }
+        }
+    }
+
     let mut ui = UiState::default();
     let mut framebuffer = display::Framebuffer::new();
     let mut gate_state = [false; 4];
@@ -222,26 +206,29 @@ async fn main(_spawner: Spawner) {
     let mut last_scan = Instant::now();
     let mut last_enc = Instant::now();
 
+    // Clock output pulse: set high on step boundary, clear after 5ms
+    let mut clock_pulse_end: Option<Instant> = None;
+
     // ── Main loop ──────────────────────────────────────────────────
 
     loop {
         let now = Instant::now();
 
-        // ── 1. Engine tick (BPM-driven or external clock) ──────────
+        // ── 1. Engine tick (BPM-driven, external clock, or MIDI clock) ──
 
         let tick_interval_us = if state.transport.clock_source == ClockSource::Internal {
-            // period_µs = 60_000_000 / (BPM × TICKS_PER_STEP)
-            // At 120 BPM, 6 TPQS: 60M / (120*6) = 83333 µs per tick
             60_000_000u64 / (state.transport.bpm as u64 * TICKS_PER_STEP as u64)
         } else {
-            0 // External clock drives ticks
+            0 // External/MIDI clock drives ticks
         };
 
         let should_tick = if state.transport.playing {
-            if state.transport.clock_source == ClockSource::Internal {
-                now.duration_since(last_tick).as_micros() >= tick_interval_us
-            } else {
-                clock_io.clock_pulse()
+            match state.transport.clock_source {
+                ClockSource::Internal => {
+                    now.duration_since(last_tick).as_micros() >= tick_interval_us
+                }
+                ClockSource::External => clock_io.clock_pulse(),
+                ClockSource::Midi => false, // MIDI clock handled in MIDI parse section
             }
         } else {
             false
@@ -249,33 +236,30 @@ async fn main(_spawner: Spawner) {
 
         if should_tick {
             last_tick = now;
-            let events = sequencer::tick(&mut state);
-
-            // Output to DACs (SPI1 — dedicated bus, no contention)
-            dac.update_from_events(&events, &mut gate_state);
-
-            // Output MIDI
-            if state.midi_clock_out {
-                midi_out.send_clock();
-            }
-            midi_out.send_events(&events, &midi_channels);
-
-            // Clock output pulse
-            // Toggle on every tick for a square wave clock output
-            let clock_high = state.transport.master_tick % (TICKS_PER_STEP as u64) == 0;
-            clock_io.set_clock_out(clock_high);
-
+            process_tick(
+                &mut state, &mut dac, &mut midi_out, &mut clock_io,
+                &mut gate_state, &midi_channels, &mut clock_pulse_end, now,
+            );
             system_tick = system_tick.wrapping_add(1);
         }
 
-        // ── 2. Check external reset ────────────────────────────────
+        // ── 2. Clock output pulse end ───────────────────────────────
+
+        if let Some(end_time) = clock_pulse_end {
+            if now >= end_time {
+                clock_io.set_clock_out(false);
+                clock_pulse_end = None;
+            }
+        }
+
+        // ── 3. Check external reset ────────────────────────────────
 
         if clock_io.reset_pulse() {
             state.reset_playheads();
             clock_io.pulse_reset_out();
         }
 
-        // ── 3. Scan buttons (every 5ms = 200 Hz) ──────────────────
+        // ── 4. Scan buttons (every 5ms = 200 Hz) ──────────────────
 
         if now.duration_since(last_scan).as_millis() >= 5 {
             last_scan = now;
@@ -286,7 +270,7 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // ── 4. Poll encoders (every 1ms = 1 kHz) ──────────────────
+        // ── 5. Poll encoders (every 1ms = 1 kHz) ──────────────────
 
         if now.duration_since(last_enc).as_millis() >= 1 {
             last_enc = now;
@@ -297,56 +281,102 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // ── 5. Parse incoming MIDI ─────────────────────────────────
+        // ── 6. Parse incoming MIDI ─────────────────────────────────
 
         while let Some(msg) = midi_in.try_read() {
             match msg {
                 midi::MidiMessage::Clock => {
-                    if state.transport.clock_source == ClockSource::External {
-                        // External clock drives tick — handled above via clock_pulse
+                    if state.transport.clock_source == ClockSource::Midi
+                        && state.transport.playing
+                    {
+                        // MIDI clock → engine tick
+                        process_tick(
+                            &mut state, &mut dac, &mut midi_out, &mut clock_io,
+                            &mut gate_state, &midi_channels, &mut clock_pulse_end, now,
+                        );
+                        system_tick = system_tick.wrapping_add(1);
                     }
                 }
                 midi::MidiMessage::Start => {
                     state.transport.playing = true;
                     state.reset_playheads();
+                    info!("MIDI Start received");
                 }
                 midi::MidiMessage::Stop => {
                     state.transport.playing = false;
                     midi_out.all_notes_off(&midi_channels);
-                    // Turn off all gates
                     for i in 0..4 {
                         dac.set_dac1_channel(i, 0);
                         gate_state[i as usize] = false;
                     }
+                    info!("MIDI Stop received");
                 }
                 midi::MidiMessage::Continue => {
                     state.transport.playing = true;
+                    info!("MIDI Continue received");
                 }
-                _ => {}
+                midi::MidiMessage::NoteOn { channel, note, velocity } => {
+                    // MIDI note input: could be used for live transpose or step recording
+                    // Currently logged — engine ControlEvent doesn't have MIDI note variants yet
+                    debug!("MIDI NoteOn ch={} note={} vel={}", channel, note, velocity);
+                }
+                midi::MidiMessage::NoteOff { channel, note } => {
+                    debug!("MIDI NoteOff ch={} note={}", channel, note);
+                }
+                midi::MidiMessage::ControlChange { channel, cc, value } => {
+                    debug!("MIDI CC ch={} cc={} val={}", channel, cc, value);
+                }
             }
         }
 
-        // ── 6. Render display (~30 fps) ────────────────────────────
+        // ── 7. Render display (~30 fps) ────────────────────────────
 
         if now.duration_since(last_frame).as_millis() >= 33 {
             last_frame = now;
 
-            // Render to framebuffer using the renderer crate
             requencer_renderer::render(&mut framebuffer, &state, &ui);
-
-            // Flush framebuffer to display via SPI0
             display_hw.flush(&framebuffer);
 
-            // Update LEDs
             let led_state = mode_machine::get_led_state(&ui, &state);
             led_driver.update(&led_state, ui.selected_track);
         }
 
-        // ── 7. Yield to embassy executor ───────────────────────────
+        // ── 8. Feed watchdog ───────────────────────────────────────
 
-        // Short yield to allow other tasks and interrupts to run.
-        // In practice this loop runs at ~1kHz (limited by encoder polling).
+        watchdog.feed();
+
+        // ── 9. Yield to embassy executor ───────────────────────────
+
         embassy_futures::yield_now().await;
+    }
+}
+
+/// Process a single engine tick: run sequencer, update DACs, send MIDI, pulse clock.
+fn process_tick(
+    state: &mut SequencerState,
+    dac: &mut dac::DacOutput<'_>,
+    midi_out: &mut midi::MidiOut<'_>,
+    clock_io: &mut clock_io::ClockIo<'_>,
+    gate_state: &mut [bool; 4],
+    midi_channels: &[u8; 4],
+    clock_pulse_end: &mut Option<Instant>,
+    now: Instant,
+) {
+    let events = sequencer::tick(state);
+
+    // Output to DACs
+    dac.update_from_events(&events, gate_state);
+
+    // Output MIDI
+    if state.midi_clock_out {
+        midi_out.send_clock();
+    }
+    midi_out.send_events(&events, midi_channels);
+
+    // Clock output: 5ms pulse on step boundaries
+    if state.transport.master_tick % (TICKS_PER_STEP as u64) == 0 {
+        clock_io.set_clock_out(true);
+        *clock_pulse_end = Some(now + Duration::from_millis(5));
     }
 }
 

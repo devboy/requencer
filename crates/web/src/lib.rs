@@ -428,7 +428,11 @@ impl WasmSequencer {
 
     /// Export full sequencer state as serialized bytes.
     pub fn export_state(&self) -> Vec<u8> {
-        requencer_engine::storage::serialize_state(&self.state).unwrap_or_default()
+        let mut buf = vec![0u8; requencer_engine::storage::STATE_BUF_SIZE];
+        match requencer_engine::storage::serialize_state(&self.state, &mut buf) {
+            Ok(bytes) => bytes.to_vec(),
+            Err(_) => Vec::new(),
+        }
     }
 
     /// Import sequencer state from serialized bytes. Returns true on success.
@@ -451,11 +455,15 @@ impl WasmSequencer {
 
     /// Export saved patterns and user presets as serialized bytes.
     pub fn export_library(&self) -> Vec<u8> {
-        requencer_engine::storage::serialize_library(
+        let mut buf = vec![0u8; requencer_engine::storage::LIBRARY_BUF_SIZE];
+        match requencer_engine::storage::serialize_library(
             &self.state.saved_patterns,
             &self.state.user_presets,
-        )
-        .unwrap_or_default()
+            &mut buf,
+        ) {
+            Ok(bytes) => bytes.to_vec(),
+            Err(_) => Vec::new(),
+        }
     }
 
     /// Import saved patterns and user presets from serialized bytes. Returns true on success.

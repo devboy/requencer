@@ -1,13 +1,24 @@
 //! Serialization for persistence — state and library (patterns + presets).
-
-extern crate alloc;
-use alloc::vec::Vec;
+//!
+//! Uses `postcard::to_slice` for no-alloc serialization. Callers provide
+//! a buffer; the serialized bytes are returned as a subslice.
 
 use crate::types::{SavedPattern, SequencerState, UserPreset, MAX_SAVED};
 
-/// Serialize full sequencer state to bytes.
-pub fn serialize_state(state: &SequencerState) -> Result<Vec<u8>, postcard::Error> {
-    postcard::to_allocvec(state)
+/// Maximum serialized size for SequencerState.
+/// Measured empirically at ~48 KB; buffer includes headroom.
+pub const STATE_BUF_SIZE: usize = 64 * 1024;
+
+/// Maximum serialized size for a Library (patterns + presets).
+pub const LIBRARY_BUF_SIZE: usize = 64 * 1024;
+
+/// Serialize full sequencer state into the provided buffer.
+/// Returns the populated subslice on success.
+pub fn serialize_state<'a>(
+    state: &SequencerState,
+    buf: &'a mut [u8],
+) -> Result<&'a mut [u8], postcard::Error> {
+    postcard::to_slice(state, buf)
 }
 
 /// Deserialize sequencer state from bytes.
@@ -22,16 +33,17 @@ struct Library {
     presets: heapless::Vec<UserPreset, MAX_SAVED>,
 }
 
-/// Serialize saved patterns and user presets to bytes.
-pub fn serialize_library(
+/// Serialize saved patterns and user presets into the provided buffer.
+pub fn serialize_library<'a>(
     patterns: &heapless::Vec<SavedPattern, MAX_SAVED>,
     presets: &heapless::Vec<UserPreset, MAX_SAVED>,
-) -> Result<Vec<u8>, postcard::Error> {
+    buf: &'a mut [u8],
+) -> Result<&'a mut [u8], postcard::Error> {
     let lib = Library {
         patterns: patterns.clone(),
         presets: presets.clone(),
     };
-    postcard::to_allocvec(&lib)
+    postcard::to_slice(&lib, buf)
 }
 
 /// Deserialize patterns and presets from bytes.
@@ -51,7 +63,6 @@ pub fn deserialize_library(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::boxed::Box;
 
     /// SequencerState is large — run closures on a thread with enough stack.
     fn with_big_stack<F: FnOnce() + Send + 'static>(f: F) {
@@ -64,8 +75,10 @@ mod tests {
     fn state_round_trip() {
         with_big_stack(|| {
             let state = Box::new(SequencerState::new());
-            let bytes = serialize_state(&state).unwrap();
-            let restored = Box::new(deserialize_state(&bytes).unwrap());
+            let mut buf = vec![0u8; STATE_BUF_SIZE];
+            let bytes = serialize_state(&state, &mut buf).unwrap();
+            let len = bytes.len();
+            let restored = Box::new(deserialize_state(&buf[..len]).unwrap());
             assert_eq!(*state, *restored);
         });
     }
@@ -75,8 +88,10 @@ mod tests {
         with_big_stack(|| {
             let patterns = heapless::Vec::new();
             let presets = heapless::Vec::new();
-            let bytes = serialize_library(&patterns, &presets).unwrap();
-            let (p, u) = deserialize_library(&bytes).unwrap();
+            let mut buf = vec![0u8; LIBRARY_BUF_SIZE];
+            let bytes = serialize_library(&patterns, &presets, &mut buf).unwrap();
+            let len = bytes.len();
+            let (p, u) = deserialize_library(&buf[..len]).unwrap();
             assert!(p.is_empty());
             assert!(u.is_empty());
         });
@@ -100,8 +115,10 @@ mod tests {
                 config: crate::types::RandomConfig::default(),
             });
 
-            let bytes = serialize_library(&patterns, &presets).unwrap();
-            let (p, u) = deserialize_library(&bytes).unwrap();
+            let mut buf = vec![0u8; LIBRARY_BUF_SIZE];
+            let bytes = serialize_library(&patterns, &presets, &mut buf).unwrap();
+            let len = bytes.len();
+            let (p, u) = deserialize_library(&buf[..len]).unwrap();
             assert_eq!(p.len(), 1);
             assert_eq!(u.len(), 1);
             assert_eq!(p[0].name.as_str(), "Test");
