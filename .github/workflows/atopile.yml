@@ -13,6 +13,10 @@ on:
       - '!hardware/docker/**'
       - 'hardware-faceplate/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
   PCB_SRC: hardware/elec/layout/default/default.kicad_pcb
