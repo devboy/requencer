@@ -46,40 +46,40 @@ KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks PYTHONPATH=
 HW_IMAGE := ghcr.io/devboy/requencer-hw-tools:latest
 
 # Build artifacts
-PCB_SRC     := hardware/elec/layout/default/default.kicad_pcb
-PCB_PLACED  := hardware/build/placed.kicad_pcb
-PCB_ROUTED  := hardware/build/routed.kicad_pcb
-MFG_DIR     := hardware/build/manufacturing
+PCB_SRC     := hardware/pcb/elec/layout/default/default.kicad_pcb
+PCB_PLACED  := hardware/pcb/build/placed.kicad_pcb
+PCB_ROUTED  := hardware/pcb/build/routed.kicad_pcb
+MFG_DIR     := hardware/pcb/build/manufacturing
 
 hw-build:
 	@# Remove stale layout to avoid atopile "duplicate designator" error on rebuild
 	rm -f $(PCB_SRC) $(PCB_SRC).bak
-	cd hardware && PATH="$$HOME/.local/bin:$$PATH" ato build
+	cd hardware/pcb && PATH="$$HOME/.local/bin:$$PATH" ato build
 
 hw-footprints:
-	python3 hardware/scripts/generate_footprints.py
+	python3 hardware/pcb/scripts/generate_footprints.py
 
 hw-faceplate:
-	python3 hardware-faceplate/scripts/generate_faceplate.py
+	python3 hardware/faceplate/scripts/generate_faceplate.py
 
 hw-place:
-	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
-	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/export_layout.py \
-		$(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/pcb/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/pcb/scripts/export_layout.py \
+		$(PCB_PLACED) hardware/pcb/component-map.json web/src/panel-layout.json
 
 hw-export-layout:
-	$(KICAD_ENV) $(KICAD_PYTHON) hardware/scripts/export_layout.py \
-		$(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/pcb/scripts/export_layout.py \
+		$(PCB_PLACED) hardware/pcb/component-map.json web/src/panel-layout.json
 
 hw-fetch-pcb:
-	gh run download --name placed-pcb-latest -D hardware/build/
+	gh run download --name placed-pcb-latest -D hardware/pcb/build/
 
 hw-route:
-	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
+	hardware/pcb/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
 
 hw-export:
 	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
-	python3 hardware/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
+	python3 hardware/pcb/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
 
 # Full pipeline: each step feeds into the next
 hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
@@ -97,13 +97,13 @@ hw-docker:
 
 hw-all-inner:
 	rm -f $(PCB_SRC) $(PCB_SRC).bak
-	cd hardware && ato --non-interactive build
-	python3 hardware/scripts/generate_footprints.py
-	python3 hardware-faceplate/scripts/generate_faceplate.py
-	python3 hardware/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
-	python3 hardware/scripts/export_layout.py $(PCB_PLACED) hardware/component-map.json web/src/panel-layout.json
-	hardware/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
-	python3 hardware/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
+	cd hardware/pcb && ato --non-interactive build
+	python3 hardware/pcb/scripts/generate_footprints.py
+	python3 hardware/faceplate/scripts/generate_faceplate.py
+	python3 hardware/pcb/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	python3 hardware/pcb/scripts/export_layout.py $(PCB_PLACED) hardware/pcb/component-map.json web/src/panel-layout.json
+	hardware/pcb/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
+	python3 hardware/pcb/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
 	@echo "=== Hardware pipeline complete (Docker) ==="
 	@echo "  Routed PCB: $(PCB_ROUTED)"
 	@echo "  Manufacturing: $(MFG_DIR)/"
@@ -135,5 +135,5 @@ clean:
 	cd web && rm -rf dist pkg
 
 hw-clean:
-	rm -rf hardware/build/placed.kicad_pcb hardware/build/routed.kicad_pcb
-	rm -rf hardware/build/manufacturing hardware/build/gerbers
+	rm -rf hardware/pcb/build/placed.kicad_pcb hardware/pcb/build/routed.kicad_pcb
+	rm -rf hardware/pcb/build/manufacturing hardware/pcb/build/gerbers

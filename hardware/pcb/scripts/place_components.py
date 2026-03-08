@@ -20,7 +20,7 @@ import re
 import sys
 from collections import defaultdict
 
-LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "web", "src", "panel-layout.json")
+LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "web", "src", "panel-layout.json")
 COMPONENT_MAP_PATH = os.path.join(os.path.dirname(__file__), "..", "component-map.json")
 
 

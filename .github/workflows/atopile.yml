@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'hardware/**'
-      - 'hardware-faceplate/**'
+      - 'hardware/pcb/**'
+      - 'hardware/faceplate/**'
       - '.github/workflows/atopile.yml'
   pull_request:
     paths:
-      - 'hardware/**'
-      - 'hardware-faceplate/**'
+      - 'hardware/pcb/**'
+      - 'hardware/faceplate/**'
       - '.github/workflows/atopile.yml'
   workflow_dispatch:
 
@@ -20,9 +20,9 @@ concurrency:
 
 env:
   HW_IMAGE: ghcr.io/devboy/requencer-hw-tools:latest
-  PCB_SRC: hardware/elec/layout/default/default.kicad_pcb
-  PCB_PLACED: hardware/build/placed.kicad_pcb
-  PCB_ROUTED: hardware/build/routed.kicad_pcb
+  PCB_SRC: hardware/pcb/elec/layout/default/default.kicad_pcb
+  PCB_PLACED: hardware/pcb/build/placed.kicad_pcb
+  PCB_ROUTED: hardware/pcb/build/routed.kicad_pcb
 
 jobs:
   build:
@@ -49,7 +49,7 @@ jobs:
 
       # --- Preflight: fast local validation ---
       - name: Preflight checks
-        run: python3 hardware/scripts/preflight_check.py
+        run: python3 hardware/pcb/scripts/preflight_check.py
 
       # --- Stage 1: Compile .ato → KiCad ---
       - name: Build hardware
@@ -57,10 +57,10 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c '
             set -euo pipefail
             echo "=== ato.yaml ==="
-            cat hardware/ato.yaml
+            cat hardware/pcb/ato.yaml
             echo ""
-            rm -f hardware/elec/layout/default/default.kicad_pcb
-            cd hardware
+            rm -f hardware/pcb/elec/layout/default/default.kicad_pcb
+            cd hardware/pcb
             ato --non-interactive sync
             ato --non-interactive build 2>&1 | tee /work/ato-build.log
             echo ""
@@ -94,17 +94,17 @@ jobs:
 
       # --- Stage 2: Generate footprints & faceplate ---
       - name: Generate through-hole footprints
-        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/scripts/generate_footprints.py
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/pcb/scripts/generate_footprints.py
 
       - name: Generate faceplate PCB
-        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware-faceplate/scripts/generate_faceplate.py
+        run: docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" python3 hardware/faceplate/scripts/generate_faceplate.py
 
       # --- Stage 3: Place components ---
       - name: Place components
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
-            python3 hardware/scripts/place_components.py '$PCB_SRC' '$PCB_PLACED'
+            python3 hardware/pcb/scripts/place_components.py '$PCB_SRC' '$PCB_PLACED'
             echo '=== Placed PCB ==='
             ls -la '$PCB_PLACED'
           "
@@ -113,7 +113,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
-            python3 hardware/scripts/export_layout.py '$PCB_PLACED' hardware/component-map.json web/src/panel-layout.json
+            python3 hardware/pcb/scripts/export_layout.py '$PCB_PLACED' hardware/pcb/component-map.json web/src/panel-layout.json
             echo '=== Exported layout ==='
             ls -la web/src/panel-layout.json
           "
@@ -139,8 +139,8 @@ jobs:
             -e FREEROUTING_JAVA_OPTS="$FREEROUTING_JAVA_OPTS" \
             "$HW_IMAGE" bash -c "
             set -euo pipefail
-            chmod +x hardware/scripts/autoroute.sh
-            hardware/scripts/autoroute.sh '$PCB_PLACED' '$PCB_ROUTED'
+            chmod +x hardware/pcb/scripts/autoroute.sh
+            hardware/pcb/scripts/autoroute.sh '$PCB_PLACED' '$PCB_ROUTED'
             echo '=== Routed PCB ==='
             ls -la '$PCB_ROUTED'
           "
@@ -161,9 +161,9 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work "$HW_IMAGE" bash -c "
             set -euo pipefail
-            python3 hardware/scripts/export_manufacturing.py '$PCB_ROUTED' hardware/build/manufacturing
+            python3 hardware/pcb/scripts/export_manufacturing.py '$PCB_ROUTED' hardware/pcb/build/manufacturing
             echo '=== Manufacturing output ==='
-            ls -laR hardware/build/manufacturing/
+            ls -laR hardware/pcb/build/manufacturing/
           "
 
       # --- Upload reports for debugging ---
@@ -184,7 +184,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: placed-pcb-latest
-          path: hardware/build/placed.kicad_pcb
+          path: hardware/pcb/build/placed.kicad_pcb
           retention-days: 90
           overwrite: true
 
@@ -193,7 +193,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kicad-output-${{ github.sha }}
-          path: hardware/elec/layout/default/
+          path: hardware/pcb/elec/layout/default/
           retention-days: 90
 
       - name: Upload manufacturing files
@@ -202,6 +202,6 @@ jobs:
         with:
           name: manufacturing-${{ github.sha }}
           path: |
-            hardware/build/manufacturing/
-            hardware-faceplate/elec/layout/
+            hardware/pcb/build/manufacturing/
+            hardware/faceplate/elec/layout/
           retention-days: 90

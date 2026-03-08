@@ -15,8 +15,9 @@
 - **I/O** (`web/src/io/`) — Connects engine to browser: Tone.js clock, audio output, Web MIDI.
 - **UI** (`web/src/ui/`) — Canvas-based renderer (active, will be toggleable with Rust WASM renderer).
 
-### Hardware (`hardware/`, `hardware-faceplate/`)
-- Atopile PCB design projects for main board and faceplate.
+### Hardware (`hardware/`)
+- **pcb** (`hardware/pcb/`) — Atopile main PCB design project.
+- **faceplate** (`hardware/faceplate/`) — Atopile front panel PCB project.
 
 ## Commands
 
@@ -49,7 +50,7 @@
 - **Engine purity:** Engine modules (both Rust and TS) must have zero imports from DOM/audio/platform APIs.
 - **Immutable state:** Engine functions return new state objects, never mutate.
 - **no_std by default:** Rust crates use `#![cfg_attr(not(feature = "std"), no_std)]` — must compile for embedded.
-- **Layout source of truth:** KiCad PCB → `hardware/scripts/export_layout.py` → `web/src/panel-layout.json`. UI metadata lives in `hardware/component-map.json`.
+- **Layout source of truth:** KiCad PCB → `hardware/pcb/scripts/export_layout.py` → `web/src/panel-layout.json`. UI metadata lives in `hardware/pcb/component-map.json`.
 - **Docs:** Research goes in `docs/research/`, designs in `docs/plans/`.
 - **No commits:** Do NOT make git commits. Work on features and let the user decide when to commit or roll back.
 - **No co-authored-by:** Never add `Co-Authored-By` trailers to commit messages.
@@ -79,11 +80,13 @@ web/
     io/              # TS: Tone.js clock, audio output, MIDI
     ui/              # TS: Canvas rendering
     main.ts          # Entry point
-hardware/            # Atopile: Main PCB
-  component-map.json # UI metadata keyed by atopile address (source of truth for dims)
-  scripts/
-    export_layout.py # KiCad PCB → web/src/panel-layout.json exporter
-hardware-faceplate/  # Atopile: Front panel PCB
+hardware/
+  pcb/               # Atopile: Main PCB
+    component-map.json # UI metadata keyed by atopile address (source of truth for dims)
+    scripts/
+      export_layout.py # KiCad PCB → web/src/panel-layout.json exporter
+  faceplate/         # Atopile: Front panel PCB
+  docker/            # Docker image for hardware build tools
 web/
   src/
     panel-layout.json # Generated layout (positions from PCB + metadata from component-map)

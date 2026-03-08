@@ -287,9 +287,9 @@ def load_faceplate_layout(layout_path, comp_map_path):
 
 
 def main():
-    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     layout_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "web", "src", "panel-layout.json")
-    comp_map_path = os.path.join(repo_root, "hardware", "component-map.json")
+    comp_map_path = os.path.join(repo_root, "hardware", "pcb", "component-map.json")
     output_path = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "elec", "layout", "faceplate.kicad_pcb",
