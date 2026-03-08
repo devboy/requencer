@@ -16,7 +16,9 @@ Requires: KiCad's pcbnew Python module (available in KiCad installation or Docke
 
 import json
 import os
+import re
 import sys
+from collections import defaultdict
 
 LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "web", "src", "panel-layout.json")
 COMPONENT_MAP_PATH = os.path.join(os.path.dirname(__file__), "..", "component-map.json")
@@ -30,6 +32,121 @@ def load_layout():
 def load_component_map():
     with open(COMPONENT_MAP_PATH) as f:
         return json.load(f)
+
+
+def identify_power_nets(board):
+    """Return set of net names that are power/ground (useless for placement affinity).
+
+    Uses two heuristics:
+      1. Name patterns: gnd, vcc, vdd, 3v3, 5v, 12v, avdd, etc.
+      2. High fanout: any net connected to >15 pads is likely power.
+    """
+    power_pattern = re.compile(
+        r"(^|\W)(gnd|vcc|vdd|vss|avdd|avss|dvdd|dvss"
+        r"|v5v|v3v3|v12p|v12n|\+12v|\-12v|\+5v|\+3\.3v)"
+        r"($|\W)",
+        re.IGNORECASE,
+    )
+    power_nets = set()
+
+    # Pattern-based detection
+    netinfo = board.GetNetInfo()
+    for net in netinfo.NetsByName():
+        name = str(net)
+        if power_pattern.search(name):
+            power_nets.add(name)
+
+    # Fanout-based detection: count pads per net
+    pad_count = defaultdict(int)
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            net_name = pad.GetNetname()
+            if net_name:
+                pad_count[net_name] += 1
+    for net_name, count in pad_count.items():
+        if count > 15:
+            power_nets.add(net_name)
+
+    return power_nets
+
+
+def build_connectivity_graph(board, addrs, addr_map, power_nets):
+    """Build adjacency graph: addr -> {neighbor_addr: shared_net_count}.
+
+    Two SMD components are connected if they share at least one non-power net.
+    """
+    # Map net_name -> list of addrs that have pads on that net
+    net_to_addrs = defaultdict(set)
+    for addr in addrs:
+        fp = addr_map[addr]
+        for pad in fp.Pads():
+            net_name = pad.GetNetname()
+            if net_name and net_name not in power_nets:
+                net_to_addrs[net_name].add(addr)
+
+    # Build adjacency from shared nets
+    graph = defaultdict(lambda: defaultdict(int))
+    for net_name, connected_addrs in net_to_addrs.items():
+        addr_list = list(connected_addrs)
+        for i in range(len(addr_list)):
+            for j in range(i + 1, len(addr_list)):
+                graph[addr_list[i]][addr_list[j]] += 1
+                graph[addr_list[j]][addr_list[i]] += 1
+
+    return graph
+
+
+def connectivity_sort(addrs, graph):
+    """Order components so electrically-connected ones are adjacent.
+
+    Greedy BFS: start from the most-connected node, always visit the
+    unvisited neighbor with the strongest connection. Handles disconnected
+    subgraphs — isolated components go at the end.
+    """
+    if not addrs:
+        return []
+
+    remaining = set(addrs)
+    ordered = []
+
+    while remaining:
+        # Pick start node: most total connection weight among remaining
+        start = max(
+            remaining,
+            key=lambda a: sum(graph[a].get(n, 0) for n in remaining) if a in graph else 0,
+        )
+        remaining.remove(start)
+        ordered.append(start)
+
+        # Greedy walk: always pick the strongest unvisited neighbor
+        current = start
+        while True:
+            neighbors = {
+                n: w for n, w in graph.get(current, {}).items() if n in remaining
+            }
+            if not neighbors:
+                # No connected unvisited neighbors — check if any remaining
+                # node connects to ANY already-ordered node
+                best = None
+                best_w = 0
+                for r in remaining:
+                    for o in ordered:
+                        w = graph.get(r, {}).get(o, 0)
+                        if w > best_w:
+                            best = r
+                            best_w = w
+                if best and best_w > 0:
+                    remaining.remove(best)
+                    ordered.append(best)
+                    current = best
+                    continue
+                break
+            best_neighbor = max(neighbors, key=neighbors.get)
+            remaining.remove(best_neighbor)
+            ordered.append(best_neighbor)
+            current = best_neighbor
+
+    return ordered
 
 
 def place_components(input_pcb, output_pcb=None):
@@ -226,7 +343,16 @@ def place_components(input_pcb, output_pcb=None):
         if not assigned:
             zone_groups["_top"].append(addr)
 
-    # Place each group in a grid within its zone
+    # Build connectivity graph for netlist-aware placement
+    all_smd_addrs = []
+    for addrs in zone_groups.values():
+        all_smd_addrs.extend(addrs)
+    power_nets = identify_power_nets(board)
+    conn_graph = build_connectivity_graph(board, all_smd_addrs, addr_map, power_nets)
+    print(f"  Power nets filtered: {len(power_nets)}")
+    print(f"  Connectivity edges: {sum(len(v) for v in conn_graph.values()) // 2}")
+
+    # Place each group in a grid within its zone (connectivity-ordered)
     grid_spacing = 4.0  # mm between SMD components
     cols_per_row = 8
 
@@ -238,9 +364,15 @@ def place_components(input_pcb, output_pcb=None):
         else:
             cx, cy = zones[prefix]
 
-        for i, addr in enumerate(sorted(addrs)):
+        # Use connectivity-aware ordering instead of alphabetical sort
+        ordered = connectivity_sort(addrs, conn_graph)
+
+        for i, addr in enumerate(ordered):
             col = i % cols_per_row
             row = i // cols_per_row
+            # Serpentine: reverse direction on odd rows for better 2D locality
+            if row % 2 == 1:
+                col = cols_per_row - 1 - col
             x = cx + (col - cols_per_row / 2) * grid_spacing
             y = cy + row * grid_spacing
             # Clamp to board bounds
@@ -254,6 +386,26 @@ def place_components(input_pcb, output_pcb=None):
         print(f"  {len(warnings)} addresses not found:")
         for w in warnings:
             print(f"    - {w}")
+
+    # Estimate total wire length (Manhattan distance of non-power net connections)
+    net_pads = defaultdict(list)
+    for fp in board.GetFootprints():
+        pos = fp.GetPosition()
+        px, py = pcbnew.ToMM(pos.x), pcbnew.ToMM(pos.y)
+        for pad in fp.Pads():
+            net_name = pad.GetNetname()
+            if net_name and net_name not in power_nets:
+                net_pads[net_name].append((px, py))
+    total_wire = 0.0
+    for net_name, pads in net_pads.items():
+        if len(pads) < 2:
+            continue
+        # Sum Manhattan distance between consecutive pads (star topology estimate)
+        cx = sum(p[0] for p in pads) / len(pads)
+        cy = sum(p[1] for p in pads) / len(pads)
+        for px, py in pads:
+            total_wire += abs(px - cx) + abs(py - cy)
+    print(f"  Estimated wire length (non-power): {total_wire:.0f} mm")
 
     # Validate: check all placed components are within board bounds
     margin = 0.5  # mm minimum clearance from board edge
