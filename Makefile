@@ -90,7 +90,7 @@ hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
 # === Hardware (Docker) ===
 
 hw-docker-build:
-	docker build -t $(HW_IMAGE) hardware/pcb/docker/
+	docker build -t $(HW_IMAGE) hardware/docker/
 
 hw-docker:
 	docker run --rm -v $(PWD):/work -w /work $(HW_IMAGE) make hw-all-inner

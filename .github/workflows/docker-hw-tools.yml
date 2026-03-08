@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'hardware/pcb/docker/**'
+      - 'hardware/docker/**'
   pull_request:
     paths:
-      - 'hardware/pcb/docker/**'
+      - 'hardware/docker/**'
   workflow_dispatch:
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
-          context: hardware/pcb/docker
+          context: hardware/docker
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: |

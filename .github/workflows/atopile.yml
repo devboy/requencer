@@ -34,7 +34,7 @@ jobs:
       - name: Build hardware tools image
         run: |
           docker pull "$HW_IMAGE" 2>/dev/null || true
-          docker build --cache-from "$HW_IMAGE" -t "$HW_IMAGE" hardware/pcb/docker/
+          docker build --cache-from "$HW_IMAGE" -t "$HW_IMAGE" hardware/docker/
 
       - name: Print tool versions
         run: |

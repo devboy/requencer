@@ -85,8 +85,8 @@ hardware/
     component-map.json # UI metadata keyed by atopile address (source of truth for dims)
     scripts/
       export_layout.py # KiCad PCB → web/src/panel-layout.json exporter
-    docker/          # Docker image for hardware build tools
   faceplate/         # Atopile: Front panel PCB
+  docker/            # Docker image for hardware build tools
 web/
   src/
     panel-layout.json # Generated layout (positions from PCB + metadata from component-map)
