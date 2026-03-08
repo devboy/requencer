@@ -96,14 +96,16 @@ Regen: short press on a grid button regenerates that track×subtype.
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│  Tone.js    │────▶│   Engine     │────▶│  Tone.js    │
-│  Clock      │tick │  (pure TS)   │event│  Synths     │
+│  Tone.js    │────▶│ Rust/WASM    │────▶│  Tone.js    │
+│  Clock      │tick │  Engine      │event│  Synths     │
 └─────────────┘     └──────────────┘     └─────────────┘
                            │
                     ┌──────┴──────┐
                     │  Canvas UI  │
                     └─────────────┘
 ```
+
+> **Note (2026-03-07):** The engine is now Rust compiled to WASM (`crates/engine/` + `crates/web/`). The original TypeScript engine (`web/src/engine/`) remains in the codebase as a reference but is no longer used at runtime — `main.ts` uses the WASM engine exclusively.
 
 ## V1 Scope ✓
 

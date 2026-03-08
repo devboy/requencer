@@ -3,14 +3,14 @@
 All 5 phases of the Rust engine port are complete (126 tests passing).
 This doc tracks remaining work before the engine is production-ready.
 
-## Storage (Stubbed)
+## Storage
 
-Pattern save/restore (`patterns.rs`) works in-memory but has no persistence layer.
+Pattern save/restore (`patterns.rs`) works in-memory. Persistence via postcard + serde is implemented for the web (localStorage via WASM).
 
 - [ ] Flash storage backend for RP2350 (external SPI flash or MCU flash sectors)
-- [ ] `serde` serialization for `TrackSlotData`, `SavedPattern`, `UserPreset`
-- [ ] WASM: IndexedDB or localStorage adapter
-- [ ] Consider `postcard` crate for compact no_std-friendly binary serialization
+- [x] `serde` serialization for `TrackSlotData`, `SavedPattern`, `UserPreset` — implemented via postcard in `crates/engine/src/storage.rs`
+- [x] WASM: localStorage adapter — implemented in `web/src/io/persistence.ts` + WASM bindings
+- [x] ~~Consider `postcard` crate~~ — Using postcard for compact no_std-friendly binary serialization
 
 ## Cross-Language Validation
 
@@ -23,8 +23,8 @@ Pattern save/restore (`patterns.rs`) works in-memory but has no persistence laye
 
 ## WASM Bindings
 
-- [ ] `wasm-bindgen` wrapper for `SequencerState` and `tick()`
-- [ ] JS API to toggle between TS engine and Rust/WASM engine
+- [x] `wasm-bindgen` wrapper for `SequencerState` and `tick()` — implemented in `crates/web/src/lib.rs`, used via `web/src/engine/wasm-adapter.ts`
+- [x] JS API to toggle between TS engine and Rust/WASM engine — `main.ts` uses WASM engine exclusively; TS engine remains as reference
 - [ ] Benchmark: tick latency comparison TS vs WASM
 
 ## Firmware Integration
@@ -45,6 +45,6 @@ Pattern save/restore (`patterns.rs`) works in-memory but has no persistence laye
 
 ## Build / CI
 
-- [ ] `make test` target that runs both `cargo test` and `npm test`
+- [x] `make test` target that runs both `cargo test` and `npm test` — implemented in Makefile
 - [ ] CI: `cargo check --no-default-features` to catch accidental std usage
-- [ ] CI: `cargo clippy -- -D warnings` as gate
+- [x] CI: `cargo clippy -- -D warnings` as gate — implemented in `.github/workflows/quality.yml`

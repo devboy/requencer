@@ -1,5 +1,7 @@
 # Storage Options for Requencer
 
+**Status (2026-03-07):** Decision implemented for web (postcard + localStorage). Hardware storage (SD card + flash) pending firmware implementation. See [persistence design](../plans/2026-03-06-persistence-design.md).
+
 ## Decision: Front-Panel SD Card + Onboard Flash
 
 **Updated:** 2026-03-06 (PGA2350 migration)
