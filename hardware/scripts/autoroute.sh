@@ -97,28 +97,45 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
 fi
 
 # Step 2: Run Freerouting headless
-# --router.max_passes: max routing passes (long-form — -mp is ignored in headless mode, see
-#   https://github.com/freerouting/freerouting/issues/376)
-# -mt: thread count (2 for CI runners, match core count locally)
+#
+# Version: v2.0.1 (pinned in Dockerfile). Version constraints:
+#   v2.0.1: supports --gui.enabled=false for true headless CI.
+#           BUT: optimizer is disabled in CLI/headless mode (fix only
+#           shipped in v2.1.0). This means -oit and -mt have NO effect —
+#           the ONLY quality lever is --router.max_passes (more passes =
+#           better routing). Also, the -mp short flag is ignored in
+#           headless mode (freerouting/freerouting#376); must use the
+#           long-form --router.max_passes.
+#   v2.1.0: DO NOT UPGRADE — routing regressions and infinite-loop bugs
+#           (freerouting/freerouting #461, #513).
+#   v1.9.0: Better benchmarks but lacks headless mode (pops up GUI).
+#
+# TODO: once freerouting/freerouting #461 and #513 are resolved in a
+# future release, re-enable these flags for better optimization:
+#   -mt "$FREEROUTING_MT"    # optimization thread count
+#   -oit "$FREEROUTING_OIT"  # optimization improvement threshold (%)
+#
+# --router.max_passes: max routing passes (long-form required)
 # -dct 0: auto-dismiss any dialogs immediately
-# timeout: hard kill to prevent infinite loops
+# timeout: hard kill to prevent runaway routing
 FREEROUTING_MP="${FREEROUTING_MP:-20}"
-FREEROUTING_MT="${FREEROUTING_MT:-2}"
 FREEROUTING_TIMEOUT="${FREEROUTING_TIMEOUT:-3600}"
-echo "Step 2: Running Freerouting (headless, mp=$FREEROUTING_MP, mt=$FREEROUTING_MT, timeout=${FREEROUTING_TIMEOUT}s)..."
+# Java heap: CI free runners have 7 GB RAM — keep ≤1g there.
+# Locally you can set higher (e.g. -Xmx2g) via FREEROUTING_JAVA_OPTS.
+FREEROUTING_JAVA_OPTS="${FREEROUTING_JAVA_OPTS:--Xmx512m}"
+echo "Step 2: Running Freerouting (headless, max_passes=$FREEROUTING_MP, timeout=${FREEROUTING_TIMEOUT}s, java=$FREEROUTING_JAVA_OPTS)..."
 timeout "$FREEROUTING_TIMEOUT" \
-  "$JAVA" -Duser.language=en -jar "$FREEROUTING_JAR" \
+  "$JAVA" $FREEROUTING_JAVA_OPTS -Duser.language=en -jar "$FREEROUTING_JAR" \
   --gui.enabled=false \
   -de "$WORK_DIR/board.dsn" \
   -do "$WORK_DIR/board.ses" \
   -dr "$WORK_DIR/board.rules" \
   --router.max_passes="$FREEROUTING_MP" \
-  -mt "$FREEROUTING_MT" \
   -dct 0 \
   2>&1 || {
     EXIT_CODE=$?
     if [ "$EXIT_CODE" -eq 124 ]; then
-      echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s"
+      echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s — using partial result if available"
     else
       echo "WARNING: Freerouting exited with code $EXIT_CODE"
     fi
