@@ -2,7 +2,7 @@
 """Generate KiCad footprints (.kicad_mod) for through-hole components.
 
 Writes KiCad S-expression format directly — no external dependencies.
-Output: hardware/parts/<PartName>/<footprint>.kicad_mod
+Output: hardware/pcb/parts/<PartName>/<footprint>.kicad_mod
 
 Components:
   - PJ398SM (Thonkiconn 3.5mm mono jack)

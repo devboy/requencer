@@ -4,7 +4,7 @@
  * and panel bounds as dotted lines.
  *
  * All footprint rectangles match the KiCad fp_rect coordinates from
- * hardware/scripts/generate_footprints.py, expressed as offsets from
+ * hardware/pcb/scripts/generate_footprints.py, expressed as offsets from
  * the component center (pin 1 / origin).
  *
  * Toggle via debug menu. Hidden by default.
