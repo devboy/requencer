@@ -39,9 +39,15 @@ RUN case "${TARGETARCH}" in \
 ENV PATH="/opt/java/bin:${PATH}"
 
 # ── Layer 3: FreeRouting JAR ─────────────────────────────────────────
-# Using v2.0.1 — supports --gui.enabled=false for true headless CI.
-# v2.1.0 has routing regressions and infinite-loop bugs (see #461, #513).
-# v1.9.0 benchmarks better but lacks headless mode (pops up GUI).
+# Pinned to v2.0.1 (Nov 2024). Version rationale:
+#   v2.0.1: supports --gui.enabled=false for true headless CI.
+#           Optimizer is disabled in CLI mode (fix only shipped in v2.1.0),
+#           so only --router.max_passes affects quality. The -mp short flag
+#           is also ignored in headless (freerouting#376); use long form.
+#   v2.1.0: DO NOT UPGRADE — routing regressions (#461), infinite loops
+#           (#513), array-bounds exceptions after long runs (#473).
+#   v1.9.0: Better routing benchmarks but lacks headless mode (pops GUI).
+# TODO: re-evaluate when a post-v2.1.0 release fixes #461/#513/#473.
 RUN wget -q -O /opt/freerouting.jar \
     https://github.com/freerouting/freerouting/releases/download/v2.0.1/freerouting-2.0.1.jar
 

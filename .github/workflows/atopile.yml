@@ -119,17 +119,24 @@ jobs:
           "
 
       # --- Stage 4: Autoroute ---
-      # PRs: fast routing (4 passes, 30 min timeout) for connectivity check
-      # main: thorough routing (20 passes, 60 min timeout) for production quality
+      # Uses FreeRouting v2.0.1 (headless). In this version the optimizer is
+      # disabled in CLI mode, so --router.max_passes is the ONLY quality lever.
+      # PRs:  fast routability check (4 passes, 10 min timeout, non-blocking)
+      # main: production routing  (80 passes, 2 hr timeout, blocking)
+      # TODO: re-tune -mt/-oit once freerouting #461/#513 are fixed in a future release
       - name: Autoroute
-        timeout-minutes: ${{ github.ref == 'refs/heads/main' && 75 || 45 }}
+        timeout-minutes: ${{ github.ref == 'refs/heads/main' && 150 || 20 }}
+        continue-on-error: ${{ github.ref != 'refs/heads/main' }}
         env:
-          FREEROUTING_MP: ${{ github.ref == 'refs/heads/main' && '20' || '4' }}
-          FREEROUTING_TIMEOUT: ${{ github.ref == 'refs/heads/main' && '3600' || '1800' }}
+          FREEROUTING_MP: ${{ github.ref == 'refs/heads/main' && '80' || '4' }}
+          FREEROUTING_TIMEOUT: ${{ github.ref == 'refs/heads/main' && '7200' || '600' }}
+          # Free GitHub runners: 7 GB RAM, 2 vCPUs. Keep heap conservative.
+          FREEROUTING_JAVA_OPTS: ${{ github.ref == 'refs/heads/main' && '-Xmx1g' || '-Xmx512m' }}
         run: |
           docker run --rm -v "$PWD":/work -w /work \
             -e FREEROUTING_MP="$FREEROUTING_MP" \
             -e FREEROUTING_TIMEOUT="$FREEROUTING_TIMEOUT" \
+            -e FREEROUTING_JAVA_OPTS="$FREEROUTING_JAVA_OPTS" \
             "$HW_IMAGE" bash -c "
             set -euo pipefail
             chmod +x hardware/scripts/autoroute.sh
