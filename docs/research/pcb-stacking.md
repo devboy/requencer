@@ -387,24 +387,197 @@ When two boards share a connector, errors at the interface are invisible to sing
 - **Missing connection:** A signal assigned to the connector on one board but left floating on the other
 - **Impedance issues:** High-speed SPI signals degraded by long traces + header impedance, causing display glitches
 
-### Strategy 1: Shared Connector Module (Compile-Time Check)
+### Strategy 1: Shared Connector Module in Atopile (Compile-Time Check)
 
-Define a single `BoardConnector` atopile module in a shared location that both boards import. Both boards wire their signals to the same named pins on the same module. If one board changes a pin assignment without updating the other, atopile's net resolution will flag the conflict at build time.
+Define the board-to-board connector pinout once in a shared `.ato` file. Both the control and main board projects import this same file, so they share a single source of truth for which signal connects to which pin.
+
+#### How atopile imports work
+
+atopile resolves imports in two ways:
+1. **Relative to the source root** (`paths.src` in `ato.yaml`) — e.g., `from "power.ato" import PowerSupply`
+2. **Relative file paths** — e.g., `from "../../parts/EC11E/EC11E.ato" import EC11E` (already used in the Requencer project)
+3. **Installed packages** — via `ato add` (registry, git, or `file://./local/path`)
+
+For sharing between two local projects, there are two approaches:
+
+#### Approach A: Relative Import (simplest, no package overhead)
+
+Place the shared connector definition at a path accessible to both projects via relative imports:
 
 ```
 hardware/
   shared/
-    elec/src/
-      board-connector.ato   # Pin-to-net mapping, imported by both boards
+    board-connector.ato       # Shared pinout definition
   control/
+    ato.yaml                  # paths.src: elec/src
     elec/src/
-      control.ato           # imports ../../../shared/elec/src/board-connector.ato
+      control.ato             # from "../../../shared/board-connector.ato" import BoardConnectorControl
   main/
+    ato.yaml                  # paths.src: elec/src
     elec/src/
-      main.ato              # imports ../../../shared/elec/src/board-connector.ato
+      main.ato                # from "../../../shared/board-connector.ato" import BoardConnectorMain
 ```
 
-This is the strongest guarantee — the connector pinout is defined once and reused. Any mismatch is a build error.
+The shared file defines the connector interface — pin-to-signal mapping — and each board imports its side. Example:
+
+```ato
+# hardware/shared/board-connector.ato
+#
+# Shared board-to-board connector pinout.
+# Both control/ and main/ import from this file.
+# Changing a pin assignment here affects both boards.
+
+import ElectricSignal
+import Electrical
+import ElectricPower
+
+# Interface for the connector — defines all signals that cross between boards.
+# Each board instantiates this and wires its local signals to it.
+
+module BoardConnectorInterface:
+    # Power rails
+    power_12v = new ElectricPower
+    power_neg12v = new Electrical
+    power_5v = new ElectricPower
+    power_3v3 = new ElectricPower
+
+    # SPI0: display + SD card
+    spi0_mosi = new ElectricSignal
+    spi0_miso = new ElectricSignal
+    spi0_sck = new ElectricSignal
+    cs_lcd = new ElectricSignal
+    cs_sd = new ElectricSignal
+    lcd_dc = new ElectricSignal
+    lcd_reset = new ElectricSignal
+    lcd_bl_pwm = new ElectricSignal
+    sd_cd = new ElectricSignal
+
+    # Button shift registers
+    sr_clk = new ElectricSignal
+    sr_latch = new ElectricSignal
+    sr_data = new ElectricSignal
+
+    # LED drivers
+    led_sin = new ElectricSignal
+    led_sclk = new ElectricSignal
+    led_xlat = new ElectricSignal
+    led_blank = new ElectricSignal
+
+    # Encoders
+    enc_a_a = new ElectricSignal
+    enc_a_b = new ElectricSignal
+    enc_a_sw = new ElectricSignal
+    enc_b_a = new ElectricSignal
+    enc_b_b = new ElectricSignal
+    enc_b_sw = new ElectricSignal
+
+    # Analog: DAC outputs (16 CV lines)
+    gate1 = new ElectricSignal
+    gate2 = new ElectricSignal
+    gate3 = new ElectricSignal
+    gate4 = new ElectricSignal
+    pitch1 = new ElectricSignal
+    pitch2 = new ElectricSignal
+    pitch3 = new ElectricSignal
+    pitch4 = new ElectricSignal
+    vel1 = new ElectricSignal
+    vel2 = new ElectricSignal
+    vel3 = new ElectricSignal
+    vel4 = new ElectricSignal
+    mod1 = new ElectricSignal
+    mod2 = new ElectricSignal
+    mod3 = new ElectricSignal
+    mod4 = new ElectricSignal
+
+    # Analog: CV inputs (after protection)
+    cv_a = new ElectricSignal
+    cv_b = new ElectricSignal
+    cv_c = new ElectricSignal
+    cv_d = new ElectricSignal
+
+    # Clock/Reset I/O
+    clk_in = new ElectricSignal
+    rst_in = new ElectricSignal
+    clk_out = new ElectricSignal
+    rst_out = new ElectricSignal
+
+    # MIDI
+    midi_tx = new ElectricSignal
+    midi_rx = new ElectricSignal
+
+    # USB
+    usb_dp = new ElectricSignal
+    usb_dm = new ElectricSignal
+```
+
+Each board imports this module and wires its local signals to the interface:
+
+```ato
+# hardware/main/elec/src/main.ato
+from "../../../shared/board-connector.ato" import BoardConnectorInterface
+
+module Main:
+    connector = new BoardConnectorInterface
+
+    # Wire MCU GPIO to connector interface
+    mcu.gp0 ~ connector.spi0_mosi
+    mcu.gp23 ~ connector.spi0_miso
+    mcu.gp2 ~ connector.spi0_sck
+    mcu.gp1 ~ connector.cs_lcd
+    # ... etc
+```
+
+```ato
+# hardware/control/elec/src/control.ato
+from "../../../shared/board-connector.ato" import BoardConnectorInterface
+
+module Control:
+    connector = new BoardConnectorInterface
+
+    # Wire display SPI to connector interface
+    display.spi_mosi ~ connector.spi0_mosi
+    display.spi_miso ~ connector.spi0_miso
+    display.spi_sck ~ connector.spi0_sck
+    display.cs ~ connector.cs_lcd
+    # ... etc
+```
+
+**How this catches errors:** Both boards wire to the same named signals. If the main board wires `mcu.gp1` to `connector.cs_lcd` but the control board wires `display.cs` to `connector.cs_sd` (wrong pin), the mismatch is visible in code review because both files reference the same interface. This doesn't produce a compile error per se (each board compiles independently), but it makes the intent explicit and reviewable.
+
+**Limitation:** Since each atopile project builds independently, the compiler cannot cross-check that `main/connector.cs_lcd` and `control/connector.cs_lcd` actually land on the same physical header pin. The shared module ensures consistent *naming*, but physical pin mapping still needs a separate check (see Strategy 2).
+
+#### Approach B: Local Package Dependency (more formal)
+
+Use atopile's package manager to declare the shared module as a local dependency:
+
+```bash
+# From hardware/control/:
+ato add file://../shared
+
+# From hardware/main/:
+ato add file://../shared
+```
+
+This adds the shared module to each project's `ato.yaml` dependencies and installs it into `.ato/modules/`. The import then uses the package name instead of a relative path:
+
+```ato
+from "board-connector.ato" import BoardConnectorInterface
+```
+
+**Pro:** Cleaner imports, follows atopile conventions, dependency is tracked in `ato.yaml`.
+**Con:** Requires the shared directory to have its own `ato.yaml` (making it a proper atopile package). Each project gets a copy in `.ato/modules/` — changes to `shared/` require re-running `ato sync` in each project.
+
+#### Recommendation
+
+Use **Approach A (relative imports)** for this project. It's simpler, requires no package setup, and the relative import pattern is already used in the codebase (`../../parts/EC11E/EC11E.ato`). The shared file is a single `.ato` file, not a full package.
+
+The key guarantee is **naming consistency**: both boards use the same signal names from the same file. Physical pin-to-signal mapping is verified separately (Strategy 2).
+
+#### What the shared module does NOT do
+
+- It does **not** define physical connector footprints. Each board has its own connector component (male header on main, female socket on control) with pins wired to the interface signals.
+- It does **not** prevent each board from building in isolation. Each board compiles independently — there is no cross-board compilation step in atopile.
+- It does **not** verify that the physical pin numbering matches. Pin 1 of the male header must connect to pin 1 of the female socket — this is a physical alignment constraint verified by the netlist comparison script (Strategy 2) or by visual inspection of the pinout table.
 
 ### Strategy 2: Netlist Comparison Script (Post-Build Check)
 

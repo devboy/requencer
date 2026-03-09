@@ -10,10 +10,23 @@ See `docs/research/pcb-stacking.md` for detailed research behind these decisions
 hardware/
   faceplate/          # Existing — front panel (FR4 PCB, mechanical only)
   control/            # NEW — panel-mounted components + scanning ICs
+    ato.yaml
+    elec/
+      src/
+        control.ato   # Top-level control board module
+      layout/
   main/               # RENAME from hardware/pcb/ — MCU, DACs, power
+    ato.yaml
+    elec/
+      src/
+        main.ato      # Top-level main board module
+      layout/
+  shared/             # NEW — shared connector interface (no ato.yaml, just .ato files)
+    board-connector.ato  # BoardConnectorInterface module
+  docker/             # Existing — build tools
 ```
 
-The current `hardware/pcb/` contains all components on a single board. This plan splits it into `hardware/control/` and `hardware/main/`, connected by a board-to-board header.
+The current `hardware/pcb/` contains all components on a single board. This plan splits it into `hardware/control/` and `hardware/main/`, connected by a board-to-board header. The `hardware/shared/` directory holds the shared connector interface — a single `.ato` file imported by both boards via relative path.
 
 ---
 
@@ -127,26 +140,134 @@ The board-to-board connector is the interface contract. Errors here cause shorts
 
 #### 1. Shared Connector Module in Atopile
 
-Define a single `BoardConnector` module in a shared `.ato` file that both `control` and `main` import:
+A single `board-connector.ato` file at `hardware/shared/board-connector.ato` defines the connector interface. Both boards import it via relative path — the same pattern already used in the project for the EC11E encoder part (`from "../../parts/EC11E/EC11E.ato" import EC11E`).
 
-```
-# hardware/shared/elec/src/board-connector.ato
+**The shared file** defines a `BoardConnectorInterface` module with named signals for every connection crossing between boards:
 
-module BoardConnector:
-    """Board-to-board connector pinout definition.
-    Imported by both control and main boards to ensure pin assignments match."""
+```ato
+# hardware/shared/board-connector.ato
 
-    header_a = new PinHeader2x16
-    header_b = new PinHeader2x16
+import ElectricSignal
+import Electrical
+import ElectricPower
 
+module BoardConnectorInterface:
     # Power
-    header_a.1 ~ GND
-    header_a.2 ~ GND
-    header_a.3 ~ VCC_3V3
+    power_12v = new ElectricPower
+    power_neg12v = new Electrical
+    power_5v = new ElectricPower
+    power_3v3 = new ElectricPower
+
+    # SPI0: display + SD card
+    spi0_mosi = new ElectricSignal
+    spi0_miso = new ElectricSignal
+    spi0_sck = new ElectricSignal
+    cs_lcd = new ElectricSignal
+    cs_sd = new ElectricSignal
+    lcd_dc = new ElectricSignal
+    lcd_reset = new ElectricSignal
+    lcd_bl_pwm = new ElectricSignal
+    sd_cd = new ElectricSignal
+
+    # Button shift registers
+    sr_clk = new ElectricSignal
+    sr_latch = new ElectricSignal
+    sr_data = new ElectricSignal
+
+    # LED drivers
+    led_sin = new ElectricSignal
+    led_sclk = new ElectricSignal
+    led_xlat = new ElectricSignal
+    led_blank = new ElectricSignal
+
+    # Encoders
+    enc_a_a = new ElectricSignal
+    enc_a_b = new ElectricSignal
+    enc_a_sw = new ElectricSignal
+    enc_b_a = new ElectricSignal
+    enc_b_b = new ElectricSignal
+    enc_b_sw = new ElectricSignal
+
+    # DAC CV outputs (16 analog lines)
+    gate1 = new ElectricSignal
+    gate2 = new ElectricSignal
+    gate3 = new ElectricSignal
+    gate4 = new ElectricSignal
+    pitch1 = new ElectricSignal
+    pitch2 = new ElectricSignal
+    pitch3 = new ElectricSignal
+    pitch4 = new ElectricSignal
+    vel1 = new ElectricSignal
+    vel2 = new ElectricSignal
+    vel3 = new ElectricSignal
+    vel4 = new ElectricSignal
+    mod1 = new ElectricSignal
+    mod2 = new ElectricSignal
+    mod3 = new ElectricSignal
+    mod4 = new ElectricSignal
+
+    # CV inputs
+    cv_a = new ElectricSignal
+    cv_b = new ElectricSignal
+    cv_c = new ElectricSignal
+    cv_d = new ElectricSignal
+
+    # Clock/Reset I/O
+    clk_in = new ElectricSignal
+    rst_in = new ElectricSignal
+    clk_out = new ElectricSignal
+    rst_out = new ElectricSignal
+
+    # MIDI
+    midi_tx = new ElectricSignal
+    midi_rx = new ElectricSignal
+
+    # USB
+    usb_dp = new ElectricSignal
+    usb_dm = new ElectricSignal
+```
+
+**Each board imports and wires to this interface:**
+
+```ato
+# hardware/main/elec/src/main.ato
+from "../../../shared/board-connector.ato" import BoardConnectorInterface
+
+module Main:
+    connector = new BoardConnectorInterface
+    mcu = new PGA2350_MCU
+    dac = new DACOutputStage
+
+    # Wire MCU GPIO to connector
+    mcu.gp0 ~ connector.spi0_mosi
+    mcu.gp23 ~ connector.spi0_miso
+    mcu.gp2 ~ connector.spi0_sck
+    mcu.gp1 ~ connector.cs_lcd
+    mcu.gp24 ~ connector.cs_sd
     # ... etc
 ```
 
-Both boards import this module, guaranteeing the same net names are assigned to the same physical pins. If one board changes a pin assignment, the other board's build will fail (net mismatch).
+```ato
+# hardware/control/elec/src/control.ato
+from "../../../shared/board-connector.ato" import BoardConnectorInterface
+
+module Control:
+    connector = new BoardConnectorInterface
+    display = new DisplayConnector
+    buttons = new ButtonScanner
+
+    # Wire display to connector
+    display.spi_mosi ~ connector.spi0_mosi
+    display.spi_sck ~ connector.spi0_sck
+    display.cs ~ connector.cs_lcd
+    # ... etc
+```
+
+**What this guarantees:** Both boards use the same signal names from the same source file. Any rename or restructuring of the interface affects both boards simultaneously. Code review can verify that both boards wire the correct local signals to each interface point.
+
+**What this does NOT guarantee:** Physical pin numbering. The `BoardConnectorInterface` defines logical signals, not physical header pins. Each board still has its own physical connector component (2×16 male header on main, 2×16 female socket on control) whose pin-to-signal mapping must match. This physical mapping is verified by the netlist comparison script (Strategy 2) and the pinout table above.
+
+**Alternative: local package dependency.** Instead of relative imports, the shared directory could be declared as a local package dependency using `ato add file://../shared`. This requires `hardware/shared/` to have its own `ato.yaml`, making it a proper atopile package. The import then simplifies to `from "board-connector.ato" import BoardConnectorInterface`. This is cleaner but adds overhead — use it if the shared interface grows complex enough to warrant its own package.
 
 #### 2. Pin-by-Pin Netlist Comparison Script
 
@@ -189,9 +310,12 @@ Done in FreeCAD/Fusion 360 after STEP export:
 ### Phase 1: Project Setup
 
 1. Rename `hardware/pcb/` → `hardware/main/`
-2. Create `hardware/control/` with `ato.yaml` and directory structure
-3. Create `hardware/shared/` with board connector interface module
-4. Update `Makefile` targets for new folder names
+2. Create `hardware/control/` with `ato.yaml` (matching `requires-atopile`, `paths`, `builds` structure) and `elec/src/`, `elec/layout/` directories
+3. Create `hardware/shared/board-connector.ato` with the `BoardConnectorInterface` module (all signal names, no physical pin mapping)
+4. Add `from "../../../shared/board-connector.ato" import BoardConnectorInterface` to both `main.ato` and `control.ato`
+5. Update `Makefile` targets for new folder names (`hw-build`, `hw-all`, etc.)
+6. Update `hardware/pcb/scripts/export_layout.py` path references
+7. Update `component-map.json` location (stays with the board that has the panel-mount components — likely `hardware/control/`)
 
 ### Phase 2: Split Components
 
