@@ -217,7 +217,46 @@ module Control:
 
 See `docs/research/pcb-stacking.md` section 8.1 for the full `BoardConnectorInterface` module definition and analysis of alternative sharing approaches (relative imports, local package dependency).
 
-#### 2. Pin-by-Pin Netlist Comparison Script
+#### 2. Generated Validation Build (System-Level Check)
+
+A third build entry (`system`) wires both boards together through the connector interface, giving atopile the full circuit for end-to-end constraint checking. The module is **auto-generated** from `board-connector.ato` to stay in sync automatically.
+
+**Script:** `scripts/gen_validation.py` — parses `BoardConnectorInterface` signal names and emits `system.ato` that wires `control.connector.<sig> ~ main.connector.<sig>` for every signal.
+
+**Build entry in ato.yaml:**
+
+```yaml
+builds:
+  control:
+    entry: elec/src/control.ato:Control
+  main:
+    entry: elec/src/main.ato:Main
+  system:
+    entry: elec/src/system.ato:System   # validation only, never fabricated
+```
+
+**Makefile integration:**
+
+```makefile
+hw-gen-validation:
+	python hardware/boards/scripts/gen_validation.py
+
+hw-build: hw-gen-validation
+	cd hardware/boards && ato build
+```
+
+`system.ato` is a build artifact — either `.gitignore` it or check it in with a "do not edit" header. Adding/removing signals in `BoardConnectorInterface` automatically updates the validation build on next `make hw-build`.
+
+**What this catches that per-board builds miss:**
+- Voltage/current constraint inconsistencies across boards
+- Signals wired to the wrong internal net on one board (constraint conflict visible when atopile sees both sides)
+- Potentially unconnected signals (if atopile reports floating nets)
+
+**What it does NOT catch:** Physical pin numbering mismatches — still needs the netlist comparison script (Strategy 3).
+
+See `docs/research/pcb-stacking.md` Strategy 1b for the full generator script and detailed analysis.
+
+#### 3. Pin-by-Pin Netlist Comparison Script
 
 After building both boards, export netlists and run a script that:
 1. Extracts every net connected to each connector pin on both boards
@@ -226,7 +265,7 @@ After building both boards, export netlists and run a script that:
 
 This can be a Python script that parses KiCad `.kicad_sch` or `.kicad_pcb` files.
 
-#### 3. Unified System Schematic (Optional)
+#### 4. Unified System Schematic (Optional)
 
 Create a top-level KiCad schematic that represents the full system:
 - Control board as a hierarchical sheet with connector interface
@@ -236,14 +275,14 @@ Create a top-level KiCad schematic that represents the full system:
 
 This is extra work but provides the most complete electrical verification.
 
-#### 4. Signal Integrity Checks
+#### 5. Signal Integrity Checks
 
 For critical signals crossing the board-to-board connector:
 - **SPI buses (SPI0, SPI1):** Keep clock speed reasonable (≤20MHz through headers). Add 33Ω series termination if needed.
 - **USB D+/D-:** 90Ω differential impedance. Consider a USB hub IC or buffer if signal quality degrades through headers.
 - **Analog CV outputs:** 470Ω series resistors already in design. Verify no significant voltage drop at expected load impedance (typically 100kΩ input impedance on eurorack modules).
 
-#### 5. Physical/Mechanical Verification
+#### 6. Physical/Mechanical Verification
 
 Done in FreeCAD/Fusion 360 after STEP export:
 - Connector alignment between boards
@@ -258,12 +297,13 @@ Done in FreeCAD/Fusion 360 after STEP export:
 ### Phase 1: Project Restructure
 
 1. Rename `hardware/pcb/` → `hardware/boards/`
-2. Update `ato.yaml` to have two build entries (`control` and `main`) instead of one (`default`)
+2. Update `ato.yaml` to have three build entries (`control`, `main`, `system`) instead of one (`default`)
 3. Create `board-connector.ato` in `elec/src/` with the `BoardConnectorInterface` module
-4. Rename `requencer.ato` → keep as reference, create `control.ato` and `main.ato` as new top-level modules
-5. Update `Makefile` targets for new folder name (`hw-build`, `hw-all`, etc.)
-6. Update `scripts/export_layout.py` path references
-7. Update `component-map.json` paths if needed
+4. Create `scripts/gen_validation.py` to auto-generate `system.ato` from the connector interface
+5. Rename `requencer.ato` → keep as reference, create `control.ato` and `main.ato` as new top-level modules
+6. Update `Makefile` targets for new folder name (`hw-build`, `hw-all`, etc.) and add `hw-gen-validation` pre-step
+7. Update `scripts/export_layout.py` path references
+8. Update `component-map.json` paths if needed
 
 ### Phase 2: Split Components
 
