@@ -17,6 +17,10 @@ OUTPUT_PCB="${2:-$INPUT_PCB}"
 WORK_DIR="$(mktemp -d)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Cache directory for DSN/SES files (speeds up subsequent runs)
+CACHE_DIR="${SCRIPT_DIR}/../build/route-cache"
+mkdir -p "$CACHE_DIR"
+
 # Tool paths (env vars with macOS defaults)
 KICAD_PYTHON="${KICAD_PYTHON:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3}"
 KICAD_PYPATH="${KICAD_PYPATH:-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages}"
@@ -96,56 +100,89 @@ if [ ! -f "$WORK_DIR/board.dsn" ]; then
   exit 1
 fi
 
-# Step 2: Run Freerouting headless
+# Check DSN cache — if DSN hasn't changed, reuse cached SES
+DSN_HASH="$(shasum -a 256 "$WORK_DIR/board.dsn" | cut -d' ' -f1)"
+CACHED_SES="$CACHE_DIR/$DSN_HASH.ses"
+if [ -f "$CACHED_SES" ]; then
+  echo "  Cache HIT: reusing SES from previous run (hash: ${DSN_HASH:0:12}...)"
+  cp "$CACHED_SES" "$WORK_DIR/board.ses"
+else
+  echo "  Cache MISS: will run FreeRouting (hash: ${DSN_HASH:0:12}...)"
+fi
+
+# Step 2: Run Freerouting (skip if cached SES exists)
 #
-# Version: v2.0.1 (pinned in Dockerfile). Version constraints:
-#   v2.0.1: supports --gui.enabled=false for true headless CI.
-#           BUT: optimizer is disabled in CLI/headless mode (fix only
-#           shipped in v2.1.0). This means -oit and -mt have NO effect —
-#           the ONLY quality lever is --router.max_passes (more passes =
-#           better routing). Also, the -mp short flag is ignored in
-#           headless mode (freerouting/freerouting#376); must use the
-#           long-form --router.max_passes.
-#   v2.1.0: DO NOT UPGRADE — routing regressions and infinite-loop bugs
-#           (freerouting/freerouting #461, #513).
-#   v1.9.0: Better benchmarks but lacks headless mode (pops up GUI).
+# Two modes controlled by FREEROUTING_HEADLESS (default: true):
 #
-# TODO: once freerouting/freerouting #461 and #513 are resolved in a
-# future release, re-enable these flags for better optimization:
-#   -mt "$FREEROUTING_MT"    # optimization thread count
-#   -oit "$FREEROUTING_OIT"  # optimization improvement threshold (%)
+# Headless (CI): Uses v2.0.1 with --gui.enabled=false.
+#   Optimizer is disabled in headless mode — only --router.max_passes
+#   affects quality. -mp short flag is ignored (freerouting#376).
+#   v2.1.0: DO NOT UPGRADE — routing regressions (#461, #513).
 #
-# --router.max_passes: max routing passes (long-form required)
-# -dct 0: auto-dismiss any dialogs immediately
-# timeout: hard kill to prevent runaway routing
+# GUI (local macOS): Uses v1.9.0 for best routing quality.
+#   Optimizer fully functional: -mt for threads, -oit for improvement
+#   threshold. Pops a GUI window but routes automatically.
+#   Set FREEROUTING_HEADLESS=false and FREEROUTING_JAR to v1.9.0 JAR.
+#
 FREEROUTING_MP="${FREEROUTING_MP:-20}"
+FREEROUTING_MT="${FREEROUTING_MT:-1}"
+FREEROUTING_OIT="${FREEROUTING_OIT:-1}"
 FREEROUTING_TIMEOUT="${FREEROUTING_TIMEOUT:-3600}"
-# Java heap: CI free runners have 7 GB RAM — keep ≤1g there.
-# Locally you can set higher (e.g. -Xmx2g) via FREEROUTING_JAVA_OPTS.
+FREEROUTING_HEADLESS="${FREEROUTING_HEADLESS:-true}"
 FREEROUTING_JAVA_OPTS="${FREEROUTING_JAVA_OPTS:--Xmx512m}"
-echo "Step 2: Running Freerouting (headless, max_passes=$FREEROUTING_MP, timeout=${FREEROUTING_TIMEOUT}s, java=$FREEROUTING_JAVA_OPTS)..."
-timeout "$FREEROUTING_TIMEOUT" \
-  "$JAVA" $FREEROUTING_JAVA_OPTS -Duser.language=en -jar "$FREEROUTING_JAR" \
-  --gui.enabled=false \
-  -de "$WORK_DIR/board.dsn" \
-  -do "$WORK_DIR/board.ses" \
-  -dr "$WORK_DIR/board.rules" \
-  --router.max_passes="$FREEROUTING_MP" \
-  -dct 0 \
-  2>&1 || {
-    EXIT_CODE=$?
-    if [ "$EXIT_CODE" -eq 124 ]; then
-      echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s — using partial result if available"
-    else
-      echo "WARNING: Freerouting exited with code $EXIT_CODE"
-    fi
-  }
+
+if [ ! -f "$WORK_DIR/board.ses" ]; then
+  if [ "$FREEROUTING_HEADLESS" = "false" ]; then
+    echo "Step 2: Running Freerouting GUI (max_passes=$FREEROUTING_MP, threads=$FREEROUTING_MT, oit=$FREEROUTING_OIT, timeout=${FREEROUTING_TIMEOUT}s, java=$FREEROUTING_JAVA_OPTS)..."
+    timeout -s INT --kill-after=30 "$FREEROUTING_TIMEOUT" \
+      "$JAVA" $FREEROUTING_JAVA_OPTS -Duser.language=en -jar "$FREEROUTING_JAR" \
+      -de "$WORK_DIR/board.dsn" \
+      -do "$WORK_DIR/board.ses" \
+      -dr "$WORK_DIR/board.rules" \
+      -mp "$FREEROUTING_MP" \
+      -mt "$FREEROUTING_MT" \
+      -oit "$FREEROUTING_OIT" \
+      -dct 0 \
+      2>&1 || {
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" -eq 124 ]; then
+          echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s — using partial result if available"
+        else
+          echo "WARNING: Freerouting exited with code $EXIT_CODE"
+        fi
+      }
+  else
+    echo "Step 2: Running Freerouting headless (max_passes=$FREEROUTING_MP, timeout=${FREEROUTING_TIMEOUT}s, java=$FREEROUTING_JAVA_OPTS)..."
+    timeout -s INT --kill-after=30 "$FREEROUTING_TIMEOUT" \
+      "$JAVA" $FREEROUTING_JAVA_OPTS -Duser.language=en -jar "$FREEROUTING_JAR" \
+      --gui.enabled=false \
+      -de "$WORK_DIR/board.dsn" \
+      -do "$WORK_DIR/board.ses" \
+      -dr "$WORK_DIR/board.rules" \
+      --router.max_passes="$FREEROUTING_MP" \
+      -dct 0 \
+      2>&1 || {
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" -eq 124 ]; then
+          echo "WARNING: Freerouting timed out after ${FREEROUTING_TIMEOUT}s — using partial result if available"
+        else
+          echo "WARNING: Freerouting exited with code $EXIT_CODE"
+        fi
+      }
+  fi
+else
+  echo "Step 2: Skipped (using cached SES)"
+fi
 
 if [ ! -f "$WORK_DIR/board.ses" ]; then
   echo "ERROR: Freerouting did not produce a .ses file"
   exit 1
 fi
 echo "  SES produced: $(wc -c < "$WORK_DIR/board.ses") bytes"
+
+# Cache the SES for future runs
+cp "$WORK_DIR/board.ses" "$CACHED_SES"
+echo "  SES cached: ${DSN_HASH:0:12}..."
 
 # Step 3: Import routed SES back into KiCad PCB
 # Must use the patched board (with fixed refs matching the DSN/SES)

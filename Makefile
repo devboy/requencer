@@ -4,7 +4,8 @@
 	lint-rust lint-web \
 	hw-build hw-footprints hw-faceplate hw-place hw-route hw-export hw-all hw-clean \
 	hw-export-layout hw-fetch-pcb \
-	hw-docker-build hw-docker hw-all-inner
+	hw-docker-build hw-docker hw-docker-local hw-all-inner \
+	hw-local
 
 all: test
 
@@ -87,6 +88,29 @@ hw-all: hw-build hw-footprints hw-faceplate hw-place hw-route hw-export
 	@echo "  Routed PCB: $(PCB_ROUTED)"
 	@echo "  Manufacturing: $(MFG_DIR)/"
 
+# === Hardware (Native macOS, maxed out) ===
+# Full pipeline running natively on macOS with aggressive FreeRouting params.
+# Requires: KiCad 9 (/Applications/KiCad/), Java (brew openjdk), atopile (~/.local/bin/ato)
+
+hw-local:
+	rm -f $(PCB_SRC) $(PCB_SRC).bak
+	cd hardware/pcb && $$HOME/.local/bin/ato --non-interactive build --keep-picked-parts --keep-net-names --keep-designators
+	python3 hardware/pcb/scripts/generate_footprints.py
+	python3 hardware/faceplate/scripts/generate_faceplate.py
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/pcb/scripts/place_components.py $(PCB_SRC) $(PCB_PLACED)
+	$(KICAD_ENV) $(KICAD_PYTHON) hardware/pcb/scripts/export_layout.py \
+		$(PCB_PLACED) hardware/pcb/component-map.json web/src/panel-layout.json
+	FREEROUTING_MP=80 FREEROUTING_MT=1 FREEROUTING_OIT=1 \
+		FREEROUTING_TIMEOUT=7200 FREEROUTING_HEADLESS=false \
+		FREEROUTING_JAVA_OPTS="-Xmx32g" \
+		FREEROUTING_JAR=hardware/pcb/tools/freerouting-1.9.0.jar \
+		hardware/pcb/scripts/autoroute.sh $(PCB_PLACED) $(PCB_ROUTED)
+	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
+		python3 hardware/pcb/scripts/export_manufacturing.py $(PCB_ROUTED) $(MFG_DIR)
+	@echo "=== Hardware pipeline complete (native) ==="
+	@echo "  Routed PCB: $(PCB_ROUTED)"
+	@echo "  Manufacturing: $(MFG_DIR)/"
+
 # === Hardware (Docker) ===
 
 hw-docker-build:
@@ -94,6 +118,14 @@ hw-docker-build:
 
 hw-docker:
 	docker run --rm -v $(PWD):/work -w /work $(HW_IMAGE) make hw-all-inner
+
+hw-docker-local:
+	docker run --rm -v $(PWD):/work -w /work \
+		-e PYTHONUNBUFFERED=1 \
+		-e FREEROUTING_MP=80 \
+		-e FREEROUTING_TIMEOUT=7200 \
+		-e FREEROUTING_JAVA_OPTS="-Xmx16g" \
+		$(HW_IMAGE) make hw-all-inner
 
 hw-all-inner:
 	rm -f $(PCB_SRC) $(PCB_SRC).bak
@@ -137,3 +169,4 @@ clean:
 hw-clean:
 	rm -rf hardware/pcb/build/placed.kicad_pcb hardware/pcb/build/routed.kicad_pcb
 	rm -rf hardware/pcb/build/manufacturing hardware/pcb/build/gerbers
+	rm -rf hardware/pcb/build/route-cache

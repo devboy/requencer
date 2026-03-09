@@ -59,10 +59,35 @@ def export_bom(pcb_path, output_dir):
 
     JLCPCB BOM format:
     Comment, Designator, Footprint, LCSC Part Number
+
+    Sources (in priority order):
+    1. Atopile BOM at hardware/pcb/build/builds/default/default.bom.csv
+    2. KiCad schematic adjacent to PCB (kicad-cli sch export bom)
     """
     bom_path = os.path.join(output_dir, "jlcpcb-bom.csv")
 
-    # Use kicad-cli to export BOM fields
+    # Try atopile BOM first (has LCSC part numbers from EasyEDA picker)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ato_bom = os.path.join(script_dir, "..", "build", "builds", "default", "default.bom.csv")
+    ato_bom = os.path.normpath(ato_bom)
+
+    if os.path.exists(ato_bom):
+        print(f"  Using atopile BOM: {ato_bom}")
+        with open(ato_bom) as fin, open(bom_path, "w", newline="") as fout:
+            reader = csv.DictReader(fin)
+            writer = csv.writer(fout)
+            writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
+            for row in reader:
+                writer.writerow([
+                    row.get("Value", ""),
+                    row.get("Designator", ""),
+                    row.get("Footprint", ""),
+                    row.get("LCSC Part #", ""),
+                ])
+        print(f"  BOM: {bom_path}")
+        return bom_path
+
+    # Fallback: kicad-cli from schematic
     raw_bom = os.path.join(output_dir, "raw-bom.csv")
     schematic = pcb_path.replace(".kicad_pcb", ".kicad_sch")
 
@@ -70,30 +95,24 @@ def export_bom(pcb_path, output_dir):
         run(["kicad-cli", "sch", "export", "bom", schematic,
              "-o", raw_bom,
              "--fields", "Reference,Value,Footprint,LCSC"])
+        if os.path.exists(raw_bom):
+            with open(raw_bom) as fin, open(bom_path, "w", newline="") as fout:
+                reader = csv.DictReader(fin)
+                writer = csv.writer(fout)
+                writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
+                for row in reader:
+                    writer.writerow([
+                        row.get("Value", ""),
+                        row.get("Reference", ""),
+                        row.get("Footprint", ""),
+                        row.get("LCSC", ""),
+                    ])
+            os.remove(raw_bom)
     else:
-        print(f"  WARNING: Schematic not found at {schematic}, generating BOM from PCB")
-        # Fallback: extract from PCB footprint fields
+        print(f"  WARNING: No BOM source found (no atopile BOM, no schematic)")
         with open(bom_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
-            # Would need pcbnew API to extract fields from PCB
-            print("  BOM generation from PCB requires pcbnew API")
-        return bom_path
-
-    # Post-process into JLCPCB format
-    if os.path.exists(raw_bom):
-        with open(raw_bom) as fin, open(bom_path, "w", newline="") as fout:
-            reader = csv.DictReader(fin)
-            writer = csv.writer(fout)
-            writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
-            for row in reader:
-                writer.writerow([
-                    row.get("Value", ""),
-                    row.get("Reference", ""),
-                    row.get("Footprint", ""),
-                    row.get("LCSC", ""),
-                ])
-        os.remove(raw_bom)
 
     print(f"  BOM: {bom_path}")
     return bom_path

@@ -82,7 +82,7 @@
     "usb_c": {
       "id": "usb_c",
       "label": "USB",
-      "x_mm": 104.50,
+      "x_mm": 99.00,
       "y_mm": 108.39,
       "width_mm": 3.5,
       "height_mm": 9.0,
@@ -91,7 +91,7 @@
     "sd_card": {
       "id": "sd_card",
       "label": "SD",
-      "x_mm": 111.00,
+      "x_mm": 114.00,
       "y_mm": 108.39,
       "width_mm": 2.5,
       "height_mm": 12.0,

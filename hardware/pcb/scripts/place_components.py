@@ -43,7 +43,8 @@ def identify_power_nets(board):
     """
     power_pattern = re.compile(
         r"(^|\W)(gnd|vcc|vdd|vss|avdd|avss|dvdd|dvss"
-        r"|v5v|v3v3|v12p|v12n|\+12v|\-12v|\+5v|\+3\.3v)"
+        r"|v5v|v3v3|v12p|v12n|\+12v|\-12v|\+5v|\+3\.3v"
+        r"|hv|vsys|vbus|vref|agnd|dgnd|pgnd)"
         r"($|\W)",
         re.IGNORECASE,
     )
@@ -101,7 +102,7 @@ def connectivity_sort(addrs, graph):
 
     Greedy BFS: start from the most-connected node, always visit the
     unvisited neighbor with the strongest connection. Handles disconnected
-    subgraphs — isolated components go at the end.
+    subgraphs -- isolated components go at the end.
     """
     if not addrs:
         return []
@@ -125,7 +126,7 @@ def connectivity_sort(addrs, graph):
                 n: w for n, w in graph.get(current, {}).items() if n in remaining
             }
             if not neighbors:
-                # No connected unvisited neighbors — check if any remaining
+                # No connected unvisited neighbors -- check if any remaining
                 # node connects to ANY already-ordered node
                 best = None
                 best_w = 0
@@ -181,7 +182,7 @@ def place_components(input_pcb, output_pcb=None):
     # 2 layers is insufficient for 255 components / 319 nets at this density
     board.SetCopperLayerCount(4)
 
-    # Set board outline (PCB is smaller than faceplate — fits between rails)
+    # Set board outline (PCB is smaller than faceplate -- fits between rails)
     w_mm = pcb_dims["width_mm"]
     h_mm = pcb_dims["height_mm"]
     edge_layer = board.GetLayerID("Edge.Cuts")
@@ -212,7 +213,7 @@ def place_components(input_pcb, output_pcb=None):
     placed_addrs = set()
     warnings = []
 
-    def place(addr, x_mm, y_mm, front=True, faceplate_coords=True):
+    def place(addr, x_mm, y_mm, front=True, faceplate_coords=True, rotation_deg=0):
         """Place component. faceplate_coords=True means x/y are in faceplate space."""
         nonlocal placed
         if addr not in addr_map:
@@ -225,12 +226,14 @@ def place_components(input_pcb, output_pcb=None):
         if not front:
             if fp.GetLayer() == board.GetLayerID("F.Cu"):
                 fp.Flip(fp.GetPosition(), False)
+        if rotation_deg:
+            fp.SetOrientationDegrees(rotation_deg)
         placed += 1
         placed_addrs.add(addr)
 
     # --- Through-hole components (front side, from panel layout) ---
 
-    # Jacks — utility
+    # Jacks -- utility
     utility_addr_map = {
         "clk_in": "jacks.j_clk_in",
         "clk_out": "jacks.j_clk_out",
@@ -244,47 +247,46 @@ def place_components(input_pcb, output_pcb=None):
         if addr:
             place(addr, jack["x_mm"], jack["y_mm"])
 
-    # Jacks — output (gate1..4, pitch1..4, vel1..4, mod1..4)
+    # Jacks -- output (gate1..4, pitch1..4, vel1..4, mod1..4)
     for jack in layout["jacks"]["output"]:
         addr = f"jacks.j_{jack['id']}"
         place(addr, jack["x_mm"], jack["y_mm"])
 
-    # Jacks — CV input
+    # Jacks -- CV input
     for jack in layout["jacks"]["cv_input"]:
         addr = f"jacks.j_{jack['id']}"
         place(addr, jack["x_mm"], jack["y_mm"])
 
-    # Buttons — track (t1..t4)
+    # Buttons -- track (t1..t4)
     for btn in layout["buttons"]["track"]:
         addr = f"buttons.btn_{btn['id']}"
         place(addr, btn["x_mm"], btn["y_mm"])
 
-    # Buttons — subtrack (gate, pitch, vel, mod)
+    # Buttons -- subtrack (gate, pitch, vel, mod)
     for btn in layout["buttons"]["subtrack"]:
         addr = f"buttons.btn_{btn['id']}"
         place(addr, btn["x_mm"], btn["y_mm"])
 
-    # Button — pat (single item)
+    # Button -- pat (single item)
     pat = layout["buttons"].get("pat")
     if pat:
         place(f"buttons.btn_{pat['id']}", pat["x_mm"], pat["y_mm"])
 
-    # Buttons — feature (mute, route, drift, trns/xpose, var)
+    # Buttons -- feature (mute, route, drift, trns/xpose, var)
     feature_addr_map = {"trns": "xpose"}  # layout uses "trns", ato uses "xpose"
     for btn in layout["buttons"]["feature"]:
         ato_id = feature_addr_map.get(btn["id"], btn["id"])
         addr = f"buttons.btn_{ato_id}"
         place(addr, btn["x_mm"], btn["y_mm"])
 
-    # Buttons — step (step1..step16)
+    # Buttons -- step (step1..step16)
     for btn in layout["buttons"]["step"]:
         addr = f"buttons.btn_{btn['id']}"
         place(addr, btn["x_mm"], btn["y_mm"])
 
-    # Buttons — transport (play, reset, settings)
+    # Buttons -- transport (play, reset, settings)
     for btn in layout["buttons"].get("transport", []):
         if btn["id"] == "settings":
-            # Settings button is in ButtonScanner (SR5)
             addr = "buttons.btn_settings"
         else:
             addr = f"buttons.btn_{btn['id']}"
@@ -294,6 +296,15 @@ def place_components(input_pcb, output_pcb=None):
     for enc in layout["encoders"]:
         place(enc["id"], enc["x_mm"], enc["y_mm"])
 
+    # --- Front-panel connectors (SMD, front side, at panel positions) ---
+    connectors = layout.get("connectors", {})
+    usb_c = connectors.get("usb_c")
+    if usb_c:
+        place("mcu.usb", usb_c["x_mm"], usb_c["y_mm"], front=True)
+    sd_card = connectors.get("sd_card")
+    if sd_card:
+        place("mcu.sd_slot", sd_card["x_mm"], sd_card["y_mm"], front=True)
+
     # --- SMD components (back side) ---
     # Group unplaced SMD parts by their module prefix, then lay them out
     # in functional zones on the back of the board.
@@ -302,31 +313,173 @@ def place_components(input_pcb, output_pcb=None):
     step_x = layout["buttons"]["step"][0]["x_mm"] - ox
     center_x = w_mm / 2
 
-    # MCU module centered (PGA2350)
-    place("mcu.pga", center_x, 40, front=False, faceplate_coords=False)
+    # --- Named component placement (back side) ---
+    # All positions in PCB coords. Must avoid front-side THT pin areas.
+    #
+    # Front-side THT map (PCB coords):
+    #   Track buttons:   x≈5.8,  y≈9..52
+    #   Subtrack buttons: x≈100, y≈9..41
+    #   Feature buttons:  x≈110, y≈9..52
+    #   Transport buttons: x≈134, y≈12..40
+    #   Step buttons:     x≈17..89, y≈88..98 (two rows)
+    #   Encoders:         x≈11,y≈73  and  x≈105,y≈73
+    #   Utility jacks:   x≈155..169, y≈12..40
+    #   Output jacks:    x≈127..169, y≈54..91
+    #   CV input jacks:  x≈127..169, y≈103
+    #   USB-C:           x≈97, y≈98
+    #   SD card:         x≈112, y≈98
 
-    # Power header near bottom
-    place("power.header", 10, h_mm - 3, faceplate_coords=False)
-
-    # LCD header near LCD cutout (front side, below the display)
     lcd = layout.get("lcd_cutout", {})
-    lcd_x = lcd.get("center_x_mm", center_x + ox) - ox
-    lcd_bottom = lcd.get("center_y_mm", 37) - oy + lcd.get("height_mm", 49) / 2 + 5
-    place("display.header", lcd_x, lcd_bottom, faceplate_coords=False)
+    lcd_pcb_cx = lcd.get("center_x_mm", 54.78) - ox
+    lcd_bottom_pcb = lcd.get("center_y_mm", 39.89) - oy + lcd.get("height_mm", 48.96) / 2
 
-    # Zone assignments: module prefix -> (center_x, start_y) on back side (PCB coords)
+    # PGA2350 (THT, back side) — behind LCD area, free of front-side THTs
+    # LCD area is x≈16..90, y≈5..54 in PCB coords. No front-side THTs here
+    # (track buttons at x≈6 are left of LCD, subtrack at x≈100 is right).
+    pga_x = lcd_pcb_cx  # center of LCD
+    pga_y = 30  # mid-height of LCD area
+    place("mcu.pga", pga_x, pga_y, front=False, faceplate_coords=False)
+
+    # Power header (THT, back side) — bottom-left corner
+    # At x=6, clear of step buttons (start x≈17) and track buttons (y≈9..52)
+    place("power.header", 6, h_mm - 10, front=False, faceplate_coords=False)
+
+    # Display header (THT, back side) — connects to LCD via jumper cable.
+    # Placed at x=72 (right of PGA), y=65 (just below leds zone at y=55).
+    # Exclusion (x≈69..75, y≈52..78) sits in MCU zone but passives route around it.
+    # Clears power zone on the left and step buttons below (y≈82+).
+    place("display.header", 72, 65, front=False, faceplate_coords=False)
+
+    # MIDI optoisolator (IC, back side) — placed behind LCD above PGA.
+    # Named placement avoids the right-strip THT exclusions that push zone ICs down.
+    place("midi.opto", pga_x, 8, front=False, faceplate_coords=False)
+
+    # --- Exclusion zones (PCB coords) ---
+    # Three types of exclusion, each with a side:
+    #   "F" — front-side only (e.g. LCD display area on front)
+    #   "B" — back-side only (e.g. back-side-only components)
+    #   "both" — both sides (THT pins penetrate both sides)
+    #
+    # The LCD cutout is a faceplate hole, NOT a PCB hole. The display
+    # sits on the front side, so back-side SMDs behind it are fine.
+    # Only exclude the LCD area on the front side.
+
+    exclusion_zones = []  # list of (x1, y1, x2, y2, side)
+
+    # LCD display area — front side only (display module sits here)
+    lcd_pcb_cx = lcd.get("center_x_mm", 54.78) - ox
+    lcd_pcb_cy = lcd.get("center_y_mm", 39.89) - oy
+    lcd_hw = lcd.get("width_mm", 73.44) / 2
+    lcd_hh = lcd.get("height_mm", 48.96) / 2
+    exclusion_zones.append((
+        lcd_pcb_cx - lcd_hw - 2, lcd_pcb_cy - lcd_hh - 2,
+        lcd_pcb_cx + lcd_hw + 2, lcd_pcb_cy + lcd_hh + 2,
+        "F",
+    ))
+
+    # Dynamic exclusion from placed components
+    tht_margin = 1.5  # mm clearance around THT courtyards
+    smd_margin = 0.5  # mm clearance around SMD components
+    tht_count = 0
+    smd_placed_count = 0
+    for addr in placed_addrs:
+        fp = addr_map.get(addr)
+        if not fp:
+            continue
+        has_tht = any(
+            pad.GetAttribute() == pcbnew.PAD_ATTRIB_PTH for pad in fp.Pads()
+        )
+        bbox = fp.GetBoundingBox(False, False)  # exclude text
+        if has_tht:
+            # THT pins go through both sides
+            margin = tht_margin
+            side = "both"
+            tht_count += 1
+        else:
+            # SMD only blocks its own side
+            margin = smd_margin
+            fp_layer = fp.GetLayer()
+            side = "F" if fp_layer == board.GetLayerID("F.Cu") else "B"
+            smd_placed_count += 1
+
+        x1 = pcbnew.ToMM(bbox.GetLeft()) - margin
+        y1 = pcbnew.ToMM(bbox.GetTop()) - margin
+        x2 = pcbnew.ToMM(bbox.GetRight()) + margin
+        y2 = pcbnew.ToMM(bbox.GetBottom()) + margin
+        exclusion_zones.append((x1, y1, x2, y2, side))
+
+    print(f"  Exclusion zones: 1 LCD(F) + {tht_count} THT(both) + "
+          f"{smd_placed_count} SMD(sided) = {len(exclusion_zones)} total")
+
+    def in_exclusion(x, y, target_side="B"):
+        """Check if (x,y) is blocked for placement on target_side."""
+        for x1, y1, x2, y2, side in exclusion_zones:
+            if side != target_side and side != "both":
+                continue
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                return True
+        return False
+
+    # --- Zone layout ---
+    # Board: 177.88 x 106.5mm (PCB coords).
+    # LCD cutout: ~14..92 x ~3..56 (with margin) -- upper left, ~44% of board
+    # PGA2350:   ~91..119 x ~26..54 (with margin) -- upper center-right
+    #
+    # Available back-side area:
+    #   Bottom strip: x=3..175, y=57..103 (full width, 172mm x 46mm)
+    #   Right strip:  x=120..175, y=3..54  (55mm x 51mm)
+    #
+    # Zone layout (PCB coords, back side):
+    #   +------+-----------+--------+-----+----------+
+    #   |      |LCD CUTOUT | PGA    |midi | dac      |  0
+    #   |      |(no-place) |        |     |          |
+    #   |      |           |        |     |          |
+    #   +------+-----------+--------+-----+----------+  57
+    #   |display| buttons  |  mcu   |     jacks      |
+    #   +------+-----------+--------+-----------------+  80
+    #   |power | _top      |  leds  |                 |
+    #   +------+-----------+--------+-----------------+ 104
+    #   0      30          75      120               178
+
+    # --- Zone layout ---
+    # Back side behind LCD is available for SMDs (LCD is front-side only).
+    # PGA2350 at (~53,30) blocks a ~28mm square in the center of the LCD area.
+    # Display header at (~73,30) blocks ~23mm to the right of PGA.
+    # THT exclusion zones auto-protect areas under front-side jacks/buttons/encoders.
+    #
+    # Available back-side areas:
+    #   Behind LCD (left of PGA):  x≈16..38, y≈5..54   (22×49mm) — dac zone
+    #   Behind LCD (right of PGA): x≈68..90, y≈5..54   (22×49mm) — mcu zone (has display header)
+    #   Behind LCD (above PGA):    x≈16..90, y≈2..16    (74×14mm) — midi passives
+    #   Behind LCD (below PGA):    x≈16..90, y≈44..54   (74×10mm) — display passives
+    #   Bottom strip:              x≈3..120, y≈57..103  (gaps between THT exclusions)
+    #   Right strip:               x≈120..175, y≈3..54  (some THT jacks/buttons)
+    #
+    # Zone changes to fix IC overlaps:
+    #   - Display header moved below PGA (was left, conflicting with dac zone)
+    #   - midi.opto placed as named component behind LCD (was in THT-heavy right strip)
+    #   - leds zone moved behind LCD right of PGA (was in THT-heavy bottom strip)
+    #   - mcu passives moved to bottom strip near PGA x-position
+    #   - midi zone moved behind LCD for passives only
+    #
+    pga_half = 14.0  # PGA2350 courtyard half-width
+    pga_left = pga_x - pga_half
+    pga_right_edge = pga_x + pga_half
+    pga_top = pga_y - pga_half
+    pga_bottom = pga_y + pga_half
+
     zones = {
-        "dac.":     (jack_zone_x - 10, 45),     # DAC near output jacks
-        "power.":   (15, h_mm - 5),              # Power near bottom-left
-        "buttons.": (step_x + 35, 65),           # Button support near buttons
-        "leds.":    (step_x + 35, 95),           # LED drivers near buttons
-        "midi.":    (158, 25),                   # MIDI near MIDI jacks
-        "jacks.":   (jack_zone_x + 10, 85),     # Jack protection near jacks
-        "display.": (center_x, 20),              # Display support near LCD
-        "mcu.":     (center_x, 40),              # MCU support near Pico
+        "dac.":     (16, 5, pga_left - 18, 50),          # Behind LCD, left of PGA
+        "leds.":    (pga_right_edge + 4, 5, 18, 50),     # Behind LCD, right of PGA (+4 clears actual PGA bbox at x≈68)
+        "display.": (16, pga_bottom + 2, 30, 10),        # Behind LCD, below PGA
+        "midi.":    (40, 2, 25, 12),                      # Behind LCD, above PGA (passives only, opto placed above)
+        "power.":   (3, 57, 25, 46),                      # Bottom-left strip, large zone for exclusion avoidance
+        "buttons.": (30, 57, 28, 44),                     # Below LCD, narrower to make room for mcu
+        "mcu.":     (60, 57, 20, 30),                     # Bottom strip, near PGA x-position for short traces
+        "jacks.":   (120, 57, 55, 22),                    # Right bottom, near jacks
     }
     # Top-level components (encoders' pullups/caps)
-    top_level_zone = (15, 55)
+    top_level_zone = (76, 81, 60, 22)
 
     zone_groups = {prefix: [] for prefix in zones}
     zone_groups["_top"] = []
@@ -352,33 +505,124 @@ def place_components(input_pcb, output_pcb=None):
     print(f"  Power nets filtered: {len(power_nets)}")
     print(f"  Connectivity edges: {sum(len(v) for v in conn_graph.values()) // 2}")
 
-    # Place each group in a grid within its zone (connectivity-ordered)
-    grid_spacing = 4.0  # mm between SMD components
-    cols_per_row = 8
+    # --- Two-pass placement: ICs first (wide spacing), then passives ---
+    # ICs (multi-pin packages) need ~10mm spacing; passives (2-pin 0402/0603) fit at 5mm.
+    ic_pin_threshold = 5  # footprints with >= this many pads are treated as ICs
+    ic_spacing = 10.0     # mm between IC centers (default)
+    passive_spacing = 5.5  # mm between passive centers
+
+    # Per-zone IC spacing overrides (some ICs have larger bodies)
+    zone_ic_spacing = {
+        "leds.": 13.0,   # TLC LED drivers: 9.1×11.6mm bbox, need 13mm to avoid body overlap
+    }
+
+    def classify_component(addr):
+        """Return 'ic' or 'passive' based on pad count."""
+        fp = addr_map.get(addr)
+        if not fp:
+            return "passive"
+        pad_count = len(list(fp.Pads()))
+        return "ic" if pad_count >= ic_pin_threshold else "passive"
+
+    def place_zone(addrs, zx, zy, zw, zh, label):
+        """Place a list of addrs in a zone using two-pass IC/passive approach."""
+        if not addrs:
+            return
+
+        ics = [a for a in addrs if classify_component(a) == "ic"]
+        passives = [a for a in addrs if classify_component(a) == "passive"]
+
+        # Order both groups by connectivity
+        ics = connectivity_sort(ics, conn_graph)
+        passives = connectivity_sort(passives, conn_graph)
+
+        def grid_place(parts, spacing, start_x, start_y, cols):
+            """Place parts in a grid, skipping exclusion zones.
+
+            Uses body-aware exclusion checks: the component's own bounding box
+            is checked against exclusion zones, not just the center point.
+            Zone boundary clamping prevents escaping into neighboring zones.
+            """
+            zone_max_y = zy + zh
+            for i, addr in enumerate(parts):
+                # Get component body half-extents for body-aware exclusion
+                fp = addr_map.get(addr)
+                if fp:
+                    bbox = fp.GetBoundingBox(False, False)
+                    hw = pcbnew.ToMM(bbox.GetWidth()) / 2
+                    hh = pcbnew.ToMM(bbox.GetHeight()) / 2
+                else:
+                    hw, hh = 2.5, 2.5
+
+                col = i % cols
+                row = i // cols
+                if row % 2 == 1:
+                    col = cols - 1 - col
+                x = start_x + col * spacing
+                y = start_y + row * spacing
+
+                def body_blocked(cx, cy, side="B"):
+                    """Check if component body at (cx,cy) overlaps any exclusion."""
+                    for ex1, ey1, ex2, ey2, eside in exclusion_zones:
+                        if eside != side and eside != "both":
+                            continue
+                        if (cx - hw < ex2 and cx + hw > ex1 and
+                                cy - hh < ey2 and cy + hh > ey1):
+                            return True
+                    return False
+
+                shift_attempts = 0
+                while body_blocked(x, y) and shift_attempts < 30:
+                    y += spacing
+                    shift_attempts += 1
+                    if y > zone_max_y:
+                        break  # don't escape zone
+
+                x = max(3, min(w_mm - 3, x))
+                y = max(3, min(zone_max_y - 1, min(h_mm - 3, y)))
+                place(addr, x, y, front=False, faceplate_coords=False)
+
+        if ics:
+            # Pass 1: place ICs with wide spacing at top of zone
+            zone_spacing = zone_ic_spacing.get(label, ic_spacing)
+            ic_cols = max(1, int((zw - 1) / zone_spacing) + 1)
+            ic_rows = (len(ics) + ic_cols - 1) // ic_cols
+            ic_grid_w = (ic_cols - 1) * zone_spacing
+            ic_grid_h = (ic_rows - 1) * zone_spacing
+            ic_start_x = zx + (zw - ic_grid_w) / 2
+            ic_start_y = zy + 1  # ICs at top of zone
+            grid_place(ics, zone_spacing, ic_start_x, ic_start_y, ic_cols)
+            # Passives start below ICs
+            passive_top = ic_start_y + ic_grid_h + zone_spacing
+        else:
+            passive_top = zy
+
+        if passives:
+            # Pass 2: place passives in remaining zone area
+            passive_h = max(5, zy + zh - passive_top)
+            p_cols = max(1, int((zw - 1) / passive_spacing) + 1)
+            p_rows = (len(passives) + p_cols - 1) // p_cols
+            p_spacing = passive_spacing
+            if p_rows * p_spacing > passive_h:
+                p_spacing = max(4.0, passive_h / p_rows)
+            p_grid_w = (p_cols - 1) * p_spacing
+            p_start_x = zx + (zw - p_grid_w) / 2
+            p_start_y = passive_top + 1
+            grid_place(passives, p_spacing, p_start_x, p_start_y, p_cols)
+
+        actual_ic_sp = zone_ic_spacing.get(label, ic_spacing) if ics else ic_spacing
+        print(f"    Zone {label:12s}: {len(ics):2d} ICs ({actual_ic_sp:.0f}mm) + "
+              f"{len(passives):2d} passives ({passive_spacing:.0f}mm) in "
+              f"{zw:.0f}x{zh:.0f}mm zone")
 
     for prefix, addrs in zone_groups.items():
         if not addrs:
             continue
         if prefix == "_top":
-            cx, cy = top_level_zone
+            zx, zy, zw, zh = top_level_zone
         else:
-            cx, cy = zones[prefix]
-
-        # Use connectivity-aware ordering instead of alphabetical sort
-        ordered = connectivity_sort(addrs, conn_graph)
-
-        for i, addr in enumerate(ordered):
-            col = i % cols_per_row
-            row = i // cols_per_row
-            # Serpentine: reverse direction on odd rows for better 2D locality
-            if row % 2 == 1:
-                col = cols_per_row - 1 - col
-            x = cx + (col - cols_per_row / 2) * grid_spacing
-            y = cy + row * grid_spacing
-            # Clamp to board bounds
-            x = max(3, min(w_mm - 3, x))
-            y = max(3, min(h_mm - 3, y))
-            place(addr, x, y, front=False, faceplate_coords=False)
+            zx, zy, zw, zh = zones[prefix]
+        place_zone(addrs, zx, zy, zw, zh, prefix)
 
     # Print summary
     print(f"  Placed {placed}/{len(addr_map)} components")
@@ -400,27 +644,100 @@ def place_components(input_pcb, output_pcb=None):
     for net_name, pads in net_pads.items():
         if len(pads) < 2:
             continue
-        # Sum Manhattan distance between consecutive pads (star topology estimate)
         cx = sum(p[0] for p in pads) / len(pads)
         cy = sum(p[1] for p in pads) / len(pads)
         for px, py in pads:
             total_wire += abs(px - cx) + abs(py - cy)
     print(f"  Estimated wire length (non-power): {total_wire:.0f} mm")
 
-    # Validate: check all placed components are within board bounds
-    margin = 0.5  # mm minimum clearance from board edge
+    # --- Validate placement: bounds + overlap ---
+    def fp_body_bbox_mm(fp):
+        """Get footprint body bounding box in mm (excludes text/silkscreen)."""
+        bbox = fp.GetBoundingBox(False, False)  # no text, no invisible items
+        return (
+            pcbnew.ToMM(bbox.GetLeft()),
+            pcbnew.ToMM(bbox.GetTop()),
+            pcbnew.ToMM(bbox.GetRight()),
+            pcbnew.ToMM(bbox.GetBottom()),
+        )
+
+    def overlap_area(a, b):
+        """Return overlap area of two (x1,y1,x2,y2) boxes, or 0 if none."""
+        dx = min(a[2], b[2]) - max(a[0], b[0])
+        dy = min(a[3], b[3]) - max(a[1], b[1])
+        if dx > 0 and dy > 0:
+            return dx * dy
+        return 0.0
+
+    def fp_label(fp):
+        """Best identifier: atopile address > reference."""
+        if fp.HasFieldByName("atopile_address"):
+            return fp.GetFieldText("atopile_address")
+        return fp.GetReference()
+
+    def fp_side(fp):
+        return "F" if fp.GetLayer() == board.GetLayerID("F.Cu") else "B"
+
+    footprints = list(board.GetFootprints())
+
+    # 1. Out-of-bounds: body bounding box must be within board edges
+    oob_margin = 1.0  # mm tolerance
     oob = []
-    for fp in board.GetFootprints():
-        pos = fp.GetPosition()
-        px = pcbnew.ToMM(pos.x)
-        py = pcbnew.ToMM(pos.y)
-        ref = fp.GetReference()
-        if px < -margin or py < -margin or px > w_mm + margin or py > h_mm + margin:
-            oob.append(f"    - {ref} at PCB ({px:.2f}, {py:.2f})")
+    for fp in footprints:
+        x1, y1, x2, y2 = fp_body_bbox_mm(fp)
+        if x1 < -oob_margin or y1 < -oob_margin or x2 > w_mm + oob_margin or y2 > h_mm + oob_margin:
+            label = fp_label(fp)
+            oob.append((label, x1, y1, x2, y2))
     if oob:
-        print(f"  WARNING: {len(oob)} components outside board bounds ({w_mm}x{h_mm}mm):")
-        for line in oob:
-            print(line)
+        print(f"  WARNING: {len(oob)} components extend outside board ({w_mm}x{h_mm}mm):")
+        for label, x1, y1, x2, y2 in oob[:20]:
+            print(f"    - {label} bbox ({x1:.1f},{y1:.1f})-({x2:.1f},{y2:.1f})")
+        if len(oob) > 20:
+            print(f"    ... and {len(oob) - 20} more")
+    else:
+        print(f"  Bounds check: PASS ({len(footprints)} footprints within board)")
+
+    # 2. Overlap: same-side body collisions + THT cross-side collisions
+    # Minimum overlap area to report (filters rounding-error touches)
+    min_overlap_mm2 = 0.5
+    fp_data = []
+    for fp in footprints:
+        label = fp_label(fp)
+        bbox = fp_body_bbox_mm(fp)
+        side = fp_side(fp)
+        has_tht = any(pad.GetAttribute() == pcbnew.PAD_ATTRIB_PTH for pad in fp.Pads())
+        fp_data.append((label, bbox, side, has_tht))
+
+    overlaps = []
+    for i in range(len(fp_data)):
+        label_a, bbox_a, side_a, tht_a = fp_data[i]
+        for j in range(i + 1, len(fp_data)):
+            label_b, bbox_b, side_b, tht_b = fp_data[j]
+            # Same side: always check
+            # Cross side: only if one is THT (pins penetrate)
+            check = False
+            kind = ""
+            if side_a == side_b:
+                check = True
+                kind = f"same-side ({side_a})"
+            elif tht_a or tht_b:
+                check = True
+                kind = "THT cross-side"
+            if check:
+                area = overlap_area(bbox_a, bbox_b)
+                if area >= min_overlap_mm2:
+                    overlaps.append((label_a, label_b, kind, area))
+
+    if overlaps:
+        # Sort by overlap area descending — worst first
+        overlaps.sort(key=lambda x: -x[3])
+        print(f"  WARNING: {len(overlaps)} footprint overlaps detected:")
+        for label_a, label_b, kind, area in overlaps[:30]:
+            print(f"    - {label_a} <-> {label_b} ({kind}, {area:.1f}mm²)")
+        if len(overlaps) > 30:
+            print(f"    ... and {len(overlaps) - 30} more")
+    else:
+        print(f"  Overlap check: PASS (0 collisions among {len(fp_data)} footprints)")
 
     board.Save(output_pcb)
     print(f"  Saved to {output_pcb}")

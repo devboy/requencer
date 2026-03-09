@@ -123,7 +123,15 @@ jobs:
       # disabled in CLI mode, so --router.max_passes is the ONLY quality lever.
       # PRs:  fast routability check (4 passes, 10 min timeout, non-blocking)
       # main: production routing  (80 passes, 2 hr timeout, blocking)
-      # TODO: re-tune -mt/-oit once freerouting #461/#513 are fixed in a future release
+      # DSN/SES caching: if the DSN hasn't changed, reuse cached SES.
+      - name: Restore route cache
+        uses: actions/cache@v4
+        with:
+          path: hardware/pcb/build/route-cache
+          key: route-cache-${{ hashFiles('hardware/pcb/elec/src/**/*.ato', 'hardware/pcb/component-map.json', 'hardware/pcb/scripts/place_components.py') }}
+          restore-keys: |
+            route-cache-
+
       - name: Autoroute
         timeout-minutes: ${{ github.ref == 'refs/heads/main' && 150 || 20 }}
         continue-on-error: ${{ github.ref != 'refs/heads/main' }}
