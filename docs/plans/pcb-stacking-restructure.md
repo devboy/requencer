@@ -6,27 +6,54 @@ See `docs/research/pcb-stacking.md` for detailed research behind these decisions
 
 ## Folder Structure
 
+atopile supports **multiple named builds in a single project**. Rather than separate projects for each board, we use one project with two build entries. This eliminates cross-project import issues and ensures both boards are always built together.
+
 ```
 hardware/
-  faceplate/          # Existing — front panel (FR4 PCB, mechanical only)
-  control/            # NEW — panel-mounted components + scanning ICs
-    ato.yaml
+  faceplate/          # Existing — front panel (FR4 PCB, mechanical only, separate ato project)
+  boards/             # RENAME from hardware/pcb/ — single project, two builds
+    ato.yaml          # Two build entries: control + main
     elec/
       src/
-        control.ato   # Top-level control board module
+        control.ato           # Top-level control board module (build entry 1)
+        main.ato              # Top-level main board module (build entry 2)
+        board-connector.ato   # Shared connector interface (imported by both)
+        button-scan.ato       # Used by control.ato
+        led-driver.ato        # Used by control.ato
+        io-jacks.ato          # Used by control.ato
+        midi.ato              # Used by control.ato
+        display.ato           # Used by control.ato
+        input-protection.ato  # Used by control.ato
+        mcu.ato               # Used by main.ato
+        dac-output.ato        # Used by main.ato
+        power.ato             # Used by main.ato
       layout/
-  main/               # RENAME from hardware/pcb/ — MCU, DACs, power
-    ato.yaml
-    elec/
-      src/
-        main.ato      # Top-level main board module
-      layout/
-  shared/             # NEW — shared connector interface (no ato.yaml, just .ato files)
-    board-connector.ato  # BoardConnectorInterface module
+        # KiCad layout files for both boards
+    parts/              # Existing custom parts (EC11E, etc.)
+    component-map.json  # UI metadata (panel-mount components → control board)
+    scripts/
+      export_layout.py  # KiCad PCB → panel-layout.json
   docker/             # Existing — build tools
 ```
 
-The current `hardware/pcb/` contains all components on a single board. This plan splits it into `hardware/control/` and `hardware/main/`, connected by a board-to-board header. The `hardware/shared/` directory holds the shared connector interface — a single `.ato` file imported by both boards via relative path.
+### ato.yaml
+
+```yaml
+requires-atopile: "^0.14.0"
+paths:
+  src: elec/src
+  layout: elec/layout
+builds:
+  control:
+    entry: elec/src/control.ato:Control
+  main:
+    entry: elec/src/main.ato:Main
+dependencies: []
+```
+
+Running `ato build` produces two separate KiCad projects. Both builds share the same source tree, so importing the shared connector module is just `from "board-connector.ato" import BoardConnectorInterface` — no relative path gymnastics.
+
+See `docs/research/pcb-stacking.md` section 8 for the full analysis of sharing approaches (Approach C is recommended).
 
 ---
 
@@ -140,98 +167,19 @@ The board-to-board connector is the interface contract. Errors here cause shorts
 
 #### 1. Shared Connector Module in Atopile
 
-A single `board-connector.ato` file at `hardware/shared/board-connector.ato` defines the connector interface. Both boards import it via relative path — the same pattern already used in the project for the EC11E encoder part (`from "../../parts/EC11E/EC11E.ato" import EC11E`).
+Since both boards live in the same atopile project (single `ato.yaml`, two build entries), sharing the connector interface is trivial — it's just another `.ato` file in the same `elec/src/` directory.
 
-**The shared file** defines a `BoardConnectorInterface` module with named signals for every connection crossing between boards:
+`board-connector.ato` defines a `BoardConnectorInterface` module with named signals for every connection crossing between boards. Both `control.ato` and `main.ato` import it with a simple same-directory import:
 
 ```ato
-# hardware/shared/board-connector.ato
-
-import ElectricSignal
-import Electrical
-import ElectricPower
-
-module BoardConnectorInterface:
-    # Power
-    power_12v = new ElectricPower
-    power_neg12v = new Electrical
-    power_5v = new ElectricPower
-    power_3v3 = new ElectricPower
-
-    # SPI0: display + SD card
-    spi0_mosi = new ElectricSignal
-    spi0_miso = new ElectricSignal
-    spi0_sck = new ElectricSignal
-    cs_lcd = new ElectricSignal
-    cs_sd = new ElectricSignal
-    lcd_dc = new ElectricSignal
-    lcd_reset = new ElectricSignal
-    lcd_bl_pwm = new ElectricSignal
-    sd_cd = new ElectricSignal
-
-    # Button shift registers
-    sr_clk = new ElectricSignal
-    sr_latch = new ElectricSignal
-    sr_data = new ElectricSignal
-
-    # LED drivers
-    led_sin = new ElectricSignal
-    led_sclk = new ElectricSignal
-    led_xlat = new ElectricSignal
-    led_blank = new ElectricSignal
-
-    # Encoders
-    enc_a_a = new ElectricSignal
-    enc_a_b = new ElectricSignal
-    enc_a_sw = new ElectricSignal
-    enc_b_a = new ElectricSignal
-    enc_b_b = new ElectricSignal
-    enc_b_sw = new ElectricSignal
-
-    # DAC CV outputs (16 analog lines)
-    gate1 = new ElectricSignal
-    gate2 = new ElectricSignal
-    gate3 = new ElectricSignal
-    gate4 = new ElectricSignal
-    pitch1 = new ElectricSignal
-    pitch2 = new ElectricSignal
-    pitch3 = new ElectricSignal
-    pitch4 = new ElectricSignal
-    vel1 = new ElectricSignal
-    vel2 = new ElectricSignal
-    vel3 = new ElectricSignal
-    vel4 = new ElectricSignal
-    mod1 = new ElectricSignal
-    mod2 = new ElectricSignal
-    mod3 = new ElectricSignal
-    mod4 = new ElectricSignal
-
-    # CV inputs
-    cv_a = new ElectricSignal
-    cv_b = new ElectricSignal
-    cv_c = new ElectricSignal
-    cv_d = new ElectricSignal
-
-    # Clock/Reset I/O
-    clk_in = new ElectricSignal
-    rst_in = new ElectricSignal
-    clk_out = new ElectricSignal
-    rst_out = new ElectricSignal
-
-    # MIDI
-    midi_tx = new ElectricSignal
-    midi_rx = new ElectricSignal
-
-    # USB
-    usb_dp = new ElectricSignal
-    usb_dm = new ElectricSignal
+from "board-connector.ato" import BoardConnectorInterface
 ```
 
-**Each board imports and wires to this interface:**
+Each board instantiates the interface and wires its local signals to it:
 
 ```ato
-# hardware/main/elec/src/main.ato
-from "../../../shared/board-connector.ato" import BoardConnectorInterface
+# main.ato
+from "board-connector.ato" import BoardConnectorInterface
 
 module Main:
     connector = new BoardConnectorInterface
@@ -248,8 +196,8 @@ module Main:
 ```
 
 ```ato
-# hardware/control/elec/src/control.ato
-from "../../../shared/board-connector.ato" import BoardConnectorInterface
+# control.ato
+from "board-connector.ato" import BoardConnectorInterface
 
 module Control:
     connector = new BoardConnectorInterface
@@ -263,11 +211,11 @@ module Control:
     # ... etc
 ```
 
-**What this guarantees:** Both boards use the same signal names from the same source file. Any rename or restructuring of the interface affects both boards simultaneously. Code review can verify that both boards wire the correct local signals to each interface point.
+**What this guarantees:** Both boards use the same signal names from the same source file. Any rename or restructuring of the interface affects both boards simultaneously. Running `ato build` builds both boards in one step, and any breaking change to `board-connector.ato` surfaces immediately.
 
 **What this does NOT guarantee:** Physical pin numbering. The `BoardConnectorInterface` defines logical signals, not physical header pins. Each board still has its own physical connector component (2×16 male header on main, 2×16 female socket on control) whose pin-to-signal mapping must match. This physical mapping is verified by the netlist comparison script (Strategy 2) and the pinout table above.
 
-**Alternative: local package dependency.** Instead of relative imports, the shared directory could be declared as a local package dependency using `ato add file://../shared`. This requires `hardware/shared/` to have its own `ato.yaml`, making it a proper atopile package. The import then simplifies to `from "board-connector.ato" import BoardConnectorInterface`. This is cleaner but adds overhead — use it if the shared interface grows complex enough to warrant its own package.
+See `docs/research/pcb-stacking.md` section 8.1 for the full `BoardConnectorInterface` module definition and analysis of alternative sharing approaches (relative imports, local package dependency).
 
 #### 2. Pin-by-Pin Netlist Comparison Script
 
@@ -307,22 +255,23 @@ Done in FreeCAD/Fusion 360 after STEP export:
 
 ## Migration Steps
 
-### Phase 1: Project Setup
+### Phase 1: Project Restructure
 
-1. Rename `hardware/pcb/` → `hardware/main/`
-2. Create `hardware/control/` with `ato.yaml` (matching `requires-atopile`, `paths`, `builds` structure) and `elec/src/`, `elec/layout/` directories
-3. Create `hardware/shared/board-connector.ato` with the `BoardConnectorInterface` module (all signal names, no physical pin mapping)
-4. Add `from "../../../shared/board-connector.ato" import BoardConnectorInterface` to both `main.ato` and `control.ato`
-5. Update `Makefile` targets for new folder names (`hw-build`, `hw-all`, etc.)
-6. Update `hardware/pcb/scripts/export_layout.py` path references
-7. Update `component-map.json` location (stays with the board that has the panel-mount components — likely `hardware/control/`)
+1. Rename `hardware/pcb/` → `hardware/boards/`
+2. Update `ato.yaml` to have two build entries (`control` and `main`) instead of one (`default`)
+3. Create `board-connector.ato` in `elec/src/` with the `BoardConnectorInterface` module
+4. Rename `requencer.ato` → keep as reference, create `control.ato` and `main.ato` as new top-level modules
+5. Update `Makefile` targets for new folder name (`hw-build`, `hw-all`, etc.)
+6. Update `scripts/export_layout.py` path references
+7. Update `component-map.json` paths if needed
 
 ### Phase 2: Split Components
 
-1. Move button, LED driver, jack, encoder, display, USB, SD, MIDI modules to control board
-2. Create control board top-level `.ato` that wires all moved components to the board connector
-3. Simplify main board top-level `.ato` — MCU, DACs, power, board connector
-4. Verify both boards compile: `ato build` in each directory
+1. Create `control.ato` — imports and wires: buttons, LED drivers, jacks, encoders, display, USB, SD, MIDI, input protection, output buffers
+2. Create `main.ato` — imports and wires: MCU, DACs, op-amps, level shifter, power supply
+3. Both import `BoardConnectorInterface` from `board-connector.ato` and wire their signals to it
+4. Each board adds its physical connector component (male header on main, female socket on control) and wires interface signals to header pins
+5. Verify both boards compile: `ato build` (builds both entries)
 
 ### Phase 3: Place & Route
 

@@ -567,11 +567,56 @@ from "board-connector.ato" import BoardConnectorInterface
 **Pro:** Cleaner imports, follows atopile conventions, dependency is tracked in `ato.yaml`.
 **Con:** Requires the shared directory to have its own `ato.yaml` (making it a proper atopile package). Each project gets a copy in `.ato/modules/` — changes to `shared/` require re-running `ato sync` in each project.
 
+#### Approach C: Single Project with Multiple Builds (tightest coupling)
+
+atopile supports **multiple named build entries** in a single `ato.yaml`. Instead of separate projects for control and main boards, both live in one project:
+
+```yaml
+# hardware/boards/ato.yaml
+requires-atopile: "^0.14.0"
+paths:
+  src: elec/src
+  layout: elec/layout
+builds:
+  control:
+    entry: elec/src/control.ato:Control
+  main:
+    entry: elec/src/main.ato:Main
+dependencies: []
+```
+
+```
+hardware/
+  boards/
+    ato.yaml                    # Two build entries
+    elec/src/
+      board-connector.ato       # Shared — no import path gymnastics needed
+      control.ato               # from "board-connector.ato" import BoardConnectorInterface
+      main.ato                  # from "board-connector.ato" import BoardConnectorInterface
+      button-scan.ato           # Used by control.ato
+      led-driver.ato            # Used by control.ato
+      mcu.ato                   # Used by main.ato
+      dac-output.ato            # Used by main.ato
+      power.ato                 # Used by main.ato
+      # ... all other .ato files
+    elec/layout/
+      # KiCad layout files — one per build
+```
+
+Running `ato build` produces **two separate KiCad projects** — one for each build entry. Both builds share the same source tree, so imports are just `from "board-connector.ato" import BoardConnectorInterface` — no relative path escaping needed.
+
+**Pro:** Simplest imports, no relative path fragility, single `ato build` command builds both boards, shared source files are directly available, and both boards are versioned together.
+**Con:** Less separation of concerns — all source files in one directory. KiCad layout files for both boards share one `elec/layout/` directory (may need subdirectories). Harder to hand off one board to a different designer.
+
 #### Recommendation
 
-Use **Approach A (relative imports)** for this project. It's simpler, requires no package setup, and the relative import pattern is already used in the codebase (`../../parts/EC11E/EC11E.ato`). The shared file is a single `.ato` file, not a full package.
+**Approach C (single project, multiple builds)** is the strongest option for this project. Both boards are tightly coupled — the connector interface, component assignments, and pin mappings all need to stay in sync. Having them in one project:
+- Eliminates import path issues entirely
+- Ensures `ato build` always builds both boards together
+- Makes shared modules (connector interface, common parts) trivially importable
+- Matches atopile's intended multi-build workflow
 
-The key guarantee is **naming consistency**: both boards use the same signal names from the same file. Physical pin-to-signal mapping is verified separately (Strategy 2).
+If the boards later need to be developed independently (different designers, different release cycles), split into separate projects using Approach A.
 
 #### What the shared module does NOT do
 
