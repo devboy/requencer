@@ -16,7 +16,7 @@
 - **UI** (`web/src/ui/`) — Canvas-based renderer (active, will be toggleable with Rust WASM renderer).
 
 ### Hardware (`hardware/`)
-- **pcb** (`hardware/pcb/`) — Atopile main PCB design project.
+- **boards** (`hardware/boards/`) — Atopile multi-board PCB project (control board + main board).
 - **faceplate** (`hardware/faceplate/`) — Atopile front panel PCB project.
 
 ## Commands
@@ -50,7 +50,7 @@
 - **Engine purity:** Engine modules (both Rust and TS) must have zero imports from DOM/audio/platform APIs.
 - **Immutable state:** Engine functions return new state objects, never mutate.
 - **no_std by default:** Rust crates use `#![cfg_attr(not(feature = "std"), no_std)]` — must compile for embedded.
-- **Layout source of truth:** KiCad PCB → `hardware/pcb/scripts/export_layout.py` → `web/src/panel-layout.json`. UI metadata lives in `hardware/pcb/component-map.json`.
+- **Layout source of truth:** KiCad PCB → `hardware/boards/scripts/export_layout.py` → `web/src/panel-layout.json`. UI metadata lives in `hardware/boards/component-map.json`.
 - **Docs:** Research goes in `docs/research/`, designs in `docs/plans/`.
 - **No commits:** Do NOT make git commits. Work on features and let the user decide when to commit or roll back.
 - **No co-authored-by:** Never add `Co-Authored-By` trailers to commit messages.
@@ -81,10 +81,19 @@ web/
     ui/              # TS: Canvas rendering
     main.ts          # Entry point
 hardware/
-  pcb/               # Atopile: Main PCB
+  boards/            # Atopile: Multi-board PCB project
+    ato.yaml           # Build config (control + main + system entries)
     component-map.json # UI metadata keyed by atopile address (source of truth for dims)
+    elec/
+      src/             # Atopile source (.ato files)
+      layout/
+        control/       # KiCad output for control board
+        main/          # KiCad output for main board
     scripts/
-      export_layout.py # KiCad PCB → web/src/panel-layout.json exporter
+      export_layout.py     # KiCad PCB → web/src/panel-layout.json exporter
+      place_components.py  # Component placement (--board control|main)
+      gen_validation.py    # Generate system.ato validation build
+      preflight_check.py   # Fast pre-build validation
   faceplate/         # Atopile: Front panel PCB
   docker/            # Docker image for hardware build tools
 web/

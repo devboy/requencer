@@ -1,0 +1,12 @@
+requires-atopile: "^0.14.0"
+paths:
+  src: elec/src
+  layout: elec/layout
+builds:
+  control:
+    entry: elec/src/control.ato:Control
+  main:
+    entry: elec/src/main.ato:Main
+  system:
+    entry: elec/src/system.ato:System
+dependencies: []

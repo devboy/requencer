@@ -1,0 +1,45 @@
+# Shrouded 2×16 Pin Header — 2.54mm pitch, Through-Hole
+# Used for board-to-board connector between control and main boards
+# Keyed shrouded header prevents reverse insertion
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component ShroudedHeader2x16:
+    trait is_atomic_part<manufacturer="Generic", partnumber="2x16_shrouded_header", footprint="ShroudedHeader2x16.kicad_mod", symbol="ShroudedHeader2x16.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2939229", manufacturer="Generic", partno="2x16_shrouded_header">
+    signal PIN1 ~ pin 1
+    signal PIN2 ~ pin 2
+    signal PIN3 ~ pin 3
+    signal PIN4 ~ pin 4
+    signal PIN5 ~ pin 5
+    signal PIN6 ~ pin 6
+    signal PIN7 ~ pin 7
+    signal PIN8 ~ pin 8
+    signal PIN9 ~ pin 9
+    signal PIN10 ~ pin 10
+    signal PIN11 ~ pin 11
+    signal PIN12 ~ pin 12
+    signal PIN13 ~ pin 13
+    signal PIN14 ~ pin 14
+    signal PIN15 ~ pin 15
+    signal PIN16 ~ pin 16
+    signal PIN17 ~ pin 17
+    signal PIN18 ~ pin 18
+    signal PIN19 ~ pin 19
+    signal PIN20 ~ pin 20
+    signal PIN21 ~ pin 21
+    signal PIN22 ~ pin 22
+    signal PIN23 ~ pin 23
+    signal PIN24 ~ pin 24
+    signal PIN25 ~ pin 25
+    signal PIN26 ~ pin 26
+    signal PIN27 ~ pin 27
+    signal PIN28 ~ pin 28
+    signal PIN29 ~ pin 29
+    signal PIN30 ~ pin 30
+    signal PIN31 ~ pin 31
+    signal PIN32 ~ pin 32

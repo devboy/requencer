@@ -1,0 +1,205 @@
+# Control Board — Top-Level Module
+# User-facing board in the Requencer multi-board stack
+# All user-facing components (buttons, LEDs, encoders, jacks, display)
+# connected to main board MCU via 2×16 board connector interface
+
+from "board-connector.ato" import BoardConnectorSocket
+from "button-scan.ato" import ButtonScanner
+from "led-driver.ato" import LEDDriverChain
+from "io-jacks.ato" import IOJacks
+from "midi.ato" import MIDIInterface
+
+from "../../parts/EC11E/EC11E.ato" import EC11E
+from "../../parts/B5819W/B5819W.ato" import B5819W
+
+import Resistor
+import Capacitor
+
+module Control:
+    # --- Sub-module instances ---
+    connector = new BoardConnectorSocket
+    buttons = new ButtonScanner
+    leds = new LEDDriverChain
+    jacks = new IOJacks
+    midi = new MIDIInterface
+    enc_a = new EC11E
+    enc_b = new EC11E
+
+    # Common ground net
+    signal gnd
+
+    # ==========================================================================
+    # POWER DISTRIBUTION — all power comes from connector (from main board)
+    # ==========================================================================
+
+    # Ground bus
+    connector.gnd ~ gnd
+    buttons.gnd ~ gnd
+    leds.gnd ~ gnd
+    jacks.gnd ~ gnd
+    midi.gnd ~ gnd
+
+    # +3.3V rail (from main board regulator via connector)
+    connector.v3v3 ~ buttons.vcc       # Shift registers
+    connector.v3v3 ~ midi.vcc          # MIDI interface
+    # +5V rail
+    connector.v5v ~ leds.v5v           # LED anodes (+5V)
+
+    # TLC5947 digital logic from 3.3V (ensures SPI level compatibility)
+    connector.v3v3 ~ leds.vcc          # TLC5947 VCC = 3.3V
+
+    # 5V bulk decoupling (near LED drivers — absorbs switching transients
+    # from 32 LED channels, prevents noise coupling into DAC analog supply)
+    c_5v_bulk = new Capacitor
+    c_5v_bulk.capacitance = 10uF +/- 20%
+    c_5v_bulk.unnamed[0] ~ connector.v5v
+    c_5v_bulk.unnamed[1] ~ gnd
+
+    c_5v_hf = new Capacitor
+    c_5v_hf.capacitance = 100nF +/- 20%
+    c_5v_hf.unnamed[0] ~ connector.v5v
+    c_5v_hf.unnamed[1] ~ gnd
+
+    # ==========================================================================
+    # BUTTON SCANNING (74HC165 chain)
+    # ==========================================================================
+    connector.sr_clk ~ buttons.clk
+    connector.sr_latch ~ buttons.latch
+    connector.sr_data ~ buttons.data_out
+
+    # ==========================================================================
+    # LED DRIVERS (TLC5947 chain)
+    # ==========================================================================
+    connector.led_sin ~ leds.sin
+    connector.led_sclk ~ leds.sclk
+    connector.led_xlat ~ leds.xlat
+    connector.led_blank ~ leds.blank
+
+    # ==========================================================================
+    # MIDI
+    # ==========================================================================
+    connector.midi_tx ~ midi.uart_tx
+    connector.midi_rx ~ midi.uart_rx
+
+    # ==========================================================================
+    # CLOCK/RESET I/O
+    # ==========================================================================
+    connector.clk_in ~ jacks.clk_in_gpio
+    connector.rst_in ~ jacks.rst_in_gpio
+    connector.clk_out ~ jacks.clk_out_gpio
+    connector.rst_out ~ jacks.rst_out_gpio
+
+    # ==========================================================================
+    # CV INPUTS
+    # ==========================================================================
+    connector.cv_a ~ jacks.cv_a_gpio
+    connector.cv_b ~ jacks.cv_b_gpio
+    connector.cv_c ~ jacks.cv_c_gpio
+    connector.cv_d ~ jacks.cv_d_gpio
+
+    # ==========================================================================
+    # DAC OUTPUTS → JACKS (analog, from main board DACs through connector)
+    # ==========================================================================
+    connector.gate1 ~ jacks.gate1
+    connector.gate2 ~ jacks.gate2
+    connector.gate3 ~ jacks.gate3
+    connector.gate4 ~ jacks.gate4
+    connector.pitch1 ~ jacks.pitch1
+    connector.pitch2 ~ jacks.pitch2
+    connector.pitch3 ~ jacks.pitch3
+    connector.pitch4 ~ jacks.pitch4
+    connector.vel1 ~ jacks.vel1
+    connector.vel2 ~ jacks.vel2
+    connector.vel3 ~ jacks.vel3
+    connector.vel4 ~ jacks.vel4
+    connector.mod1 ~ jacks.mod1
+    connector.mod2 ~ jacks.mod2
+    connector.mod3 ~ jacks.mod3
+    connector.mod4 ~ jacks.mod4
+
+    # ==========================================================================
+    # ENCODERS
+    # ==========================================================================
+
+    # Encoder A
+    enc_a.A ~ connector.enc_a_a
+    enc_a.B ~ connector.enc_a_b
+    enc_a.SW1 ~ connector.enc_a_sw
+    enc_a.SW2 ~ gnd
+    enc_a.GND_ENC ~ gnd
+
+    # Encoder B
+    enc_b.A ~ connector.enc_b_a
+    enc_b.B ~ connector.enc_b_b
+    enc_b.SW1 ~ connector.enc_b_sw
+    enc_b.SW2 ~ gnd
+    enc_b.GND_ENC ~ gnd
+
+    # Encoder pull-up resistors and debounce caps moved to main board
+    # (closer to MCU, frees control board space)
+
+    # ==========================================================================
+    # LED ↔ STEP BUTTON WIRING (Option E: bi-color steps only)
+    # Only step buttons (16) have LEDs — bi-color red/green, 2 channels each
+    # All other buttons (track, subtrack, function, transport) are unlit
+    # LED pins on unlit TC002_RGB buttons are left unconnected
+    # ==========================================================================
+
+    # Step button LED anodes to LED VCC (+5V)
+    buttons.btn_step1.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step2.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step3.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step4.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step5.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step6.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step7.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step8.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step9.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step10.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step11.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step12.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step13.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step14.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step15.LED_ANODE ~ leds.led_vcc
+    buttons.btn_step16.LED_ANODE ~ leds.led_vcc
+
+    # TLC1 (ch 0-15): Step buttons 1-8 (RED + GREEN per button, 2ch each)
+    # ch 16-23 spare for future indicator LEDs
+    buttons.btn_step1.LED_RED ~ leds.tlc1.OUT0
+    buttons.btn_step1.LED_GREEN ~ leds.tlc1.OUT1
+    buttons.btn_step2.LED_RED ~ leds.tlc1.OUT2
+    buttons.btn_step2.LED_GREEN ~ leds.tlc1.OUT3
+    buttons.btn_step3.LED_RED ~ leds.tlc1.OUT4
+    buttons.btn_step3.LED_GREEN ~ leds.tlc1.OUT5
+    buttons.btn_step4.LED_RED ~ leds.tlc1.OUT6
+    buttons.btn_step4.LED_GREEN ~ leds.tlc1.OUT7
+    buttons.btn_step5.LED_RED ~ leds.tlc1.OUT8
+    buttons.btn_step5.LED_GREEN ~ leds.tlc1.OUT9
+    buttons.btn_step6.LED_RED ~ leds.tlc1.OUT10
+    buttons.btn_step6.LED_GREEN ~ leds.tlc1.OUT11
+    buttons.btn_step7.LED_RED ~ leds.tlc1.OUT12
+    buttons.btn_step7.LED_GREEN ~ leds.tlc1.OUT13
+    buttons.btn_step8.LED_RED ~ leds.tlc1.OUT14
+    buttons.btn_step8.LED_GREEN ~ leds.tlc1.OUT15
+
+    # TLC2 (ch 0-15): Step buttons 9-16 (RED + GREEN per button, 2ch each)
+    # ch 16-23 spare for future indicator LEDs
+    buttons.btn_step9.LED_RED ~ leds.tlc2.OUT0
+    buttons.btn_step9.LED_GREEN ~ leds.tlc2.OUT1
+    buttons.btn_step10.LED_RED ~ leds.tlc2.OUT2
+    buttons.btn_step10.LED_GREEN ~ leds.tlc2.OUT3
+    buttons.btn_step11.LED_RED ~ leds.tlc2.OUT4
+    buttons.btn_step11.LED_GREEN ~ leds.tlc2.OUT5
+    buttons.btn_step12.LED_RED ~ leds.tlc2.OUT6
+    buttons.btn_step12.LED_GREEN ~ leds.tlc2.OUT7
+    buttons.btn_step13.LED_RED ~ leds.tlc2.OUT8
+    buttons.btn_step13.LED_GREEN ~ leds.tlc2.OUT9
+    buttons.btn_step14.LED_RED ~ leds.tlc2.OUT10
+    buttons.btn_step14.LED_GREEN ~ leds.tlc2.OUT11
+    buttons.btn_step15.LED_RED ~ leds.tlc2.OUT12
+    buttons.btn_step15.LED_GREEN ~ leds.tlc2.OUT13
+    buttons.btn_step16.LED_RED ~ leds.tlc2.OUT14
+    buttons.btn_step16.LED_GREEN ~ leds.tlc2.OUT15
+
+    # USB-C and SD card moved to main board (will eventually go on faceplate
+    # board, connected via FPC cable to main board)

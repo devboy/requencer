@@ -65,7 +65,6 @@ export interface FaceplateElements {
   backBtn: HTMLButtonElement
   clrBtn: HTMLButtonElement
   patBtn: HTMLButtonElement
-  tbdBtn: HTMLButtonElement
   settingsBtn: HTMLButtonElement
   encoderA: HTMLDivElement
   encoderB: HTMLDivElement
@@ -203,10 +202,6 @@ export function createFaceplate(): FaceplateElements {
     trackBtns.push(btn)
   }
 
-  // --- TBD button ---
-  const tbd = panelLayout.buttons.tbd
-  const tbdBtn = createCircleBtn(modulePanel, 'tbd-btn', tbd.x_mm, tbd.y_mm, tbd.label)
-
   // --- Subtrack buttons (GATE, PITCH, VEL, MOD) ---
   const subtrackBtns: HTMLButtonElement[] = []
   for (const entry of panelLayout.buttons.subtrack) {
@@ -326,31 +321,35 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Connectors (USB-C, SD) ---
   // Position the body at the coordinate; label floats above via CSS
-  const usbData = panelLayout.connectors.usb_c
-  const usbEl = document.createElement('div')
-  usbEl.className = 'connector-body usb-c-body'
-  usbEl.innerHTML = `<div class="usb-c-port"></div>`
-  usbEl.style.width = `${usbData.width_mm * SCALE}px`
-  usbEl.style.height = `${usbData.height_mm * SCALE}px`
-  placeAt(usbEl, usbData.x_mm, usbData.y_mm)
-  modulePanel.appendChild(usbEl)
-  const usbLabel = document.createElement('span')
-  usbLabel.className = 'btn-label label-above'
-  usbLabel.textContent = 'USB'
-  usbEl.appendChild(usbLabel)
+  const usbData = (panelLayout.connectors as Record<string, any>).usb_c
+  if (usbData) {
+    const usbEl = document.createElement('div')
+    usbEl.className = 'connector-body usb-c-body'
+    usbEl.innerHTML = `<div class="usb-c-port"></div>`
+    usbEl.style.width = `${usbData.width_mm * SCALE}px`
+    usbEl.style.height = `${usbData.height_mm * SCALE}px`
+    placeAt(usbEl, usbData.x_mm, usbData.y_mm)
+    modulePanel.appendChild(usbEl)
+    const usbLabel = document.createElement('span')
+    usbLabel.className = 'btn-label label-above'
+    usbLabel.textContent = 'USB'
+    usbEl.appendChild(usbLabel)
+  }
 
-  const sdData = panelLayout.connectors.sd_card
-  const sdEl = document.createElement('div')
-  sdEl.className = 'connector-body sd-slot-body'
-  sdEl.innerHTML = `<div class="sd-slot-opening"></div>`
-  sdEl.style.width = `${sdData.width_mm * SCALE}px`
-  sdEl.style.height = `${sdData.height_mm * SCALE}px`
-  placeAt(sdEl, sdData.x_mm, sdData.y_mm)
-  modulePanel.appendChild(sdEl)
-  const sdLabel = document.createElement('span')
-  sdLabel.className = 'btn-label label-above'
-  sdLabel.textContent = 'SD'
-  sdEl.appendChild(sdLabel)
+  const sdData = (panelLayout.connectors as Record<string, any>).sd_card
+  if (sdData) {
+    const sdEl = document.createElement('div')
+    sdEl.className = 'connector-body sd-slot-body'
+    sdEl.innerHTML = `<div class="sd-slot-opening"></div>`
+    sdEl.style.width = `${sdData.width_mm * SCALE}px`
+    sdEl.style.height = `${sdData.height_mm * SCALE}px`
+    placeAt(sdEl, sdData.x_mm, sdData.y_mm)
+    modulePanel.appendChild(sdEl)
+    const sdLabel = document.createElement('span')
+    sdLabel.className = 'btn-label label-above'
+    sdLabel.textContent = 'SD'
+    sdEl.appendChild(sdLabel)
+  }
 
   // Ruler ticks
   requestAnimationFrame(() => generateRulerTicks(root))
@@ -368,7 +367,6 @@ export function createFaceplate(): FaceplateElements {
     backBtn,
     clrBtn,
     patBtn,
-    tbdBtn,
     settingsBtn,
     encoderA,
     encoderB,
@@ -695,9 +693,9 @@ const PANEL_CSS = `
   .track-btn.led-on[data-track="3"] { background: #5aabb4; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,171,180,0.5), 0 0 16px rgba(90,171,180,0.2); }
 
   /* Subtrack/feature/pat/tbd buttons */
-  .subtrack-btn, .feature-btn, .pat-btn, .tbd-btn { background: #555; }
-  .subtrack-btn:active, .feature-btn:active, .pat-btn:active, .tbd-btn:active { background: #777; }
-  .subtrack-btn.active, .feature-btn.active, .pat-btn.active, .tbd-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  .subtrack-btn, .feature-btn, .pat-btn { background: #555; }
+  .subtrack-btn:active, .feature-btn:active, .pat-btn:active { background: #777; }
+  .subtrack-btn.active, .feature-btn.active, .pat-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* ══════════════════════════════════════════
      LABELS — purely cosmetic, zero layout impact

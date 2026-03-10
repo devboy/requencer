@@ -1,0 +1,14 @@
+(kicad_symbol_lib (version 20220914) (generator "custom")
+  (symbol "PJ366ST" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "J" (at 0 5.08 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "PJ366ST" (at 0 -5.08 0) (effects (font (size 1.27 1.27))))
+    (symbol "PJ366ST_0_1"
+      (rectangle (start -3.81 3.81) (end 3.81 -3.81) (stroke (width 0) (type default)) (fill (type background)))
+    )
+    (symbol "PJ366ST_1_1"
+      (pin passive line (at -6.35 2.54 0) (length 2.54) (name "TIP" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -6.35 0 0) (length 2.54) (name "RING" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -6.35 -2.54 0) (length 2.54) (name "SLEEVE" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27)))))
+    )
+  )
+)
