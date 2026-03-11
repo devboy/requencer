@@ -201,12 +201,6 @@ function createScene(container: HTMLElement) {
   rimLight.position.set(0, 150, 50)
   scene.add(rimLight)
 
-  // Subtle ground plane (XY plane, Z-up)
-  const grid = new THREE.GridHelper(300, 30, 0x2a2a3a, 0x222233)
-  grid.rotation.x = Math.PI / 2
-  grid.position.z = -20
-  scene.add(grid)
-
   // Resize handler
   function resize() {
     const w = container.clientWidth
