@@ -6,7 +6,7 @@ This prototype is based on a live performance setup that currently uses 4 separa
 
 [Try it live](https://devboy.github.io/requencer/)
 
-![screenshot](screenshot.png)
+![screenshot](docs/screenshot.png)
 
 ## Controls
 
