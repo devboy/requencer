@@ -705,14 +705,37 @@ A hanging cable between two points follows a catenary curve:
 y(x) = a · cosh((x - x₀) / a) + y₀
 ```
 
-Where:
-- `a` = parameter controlling droop (related to cable weight/tension)
-- `x₀` = horizontal midpoint
-- `y₀` = vertical offset
+Where `a` is the catenary parameter (horizontal tension / weight per unit length).
 
-For eurorack cables plugged into a vertical panel:
-- Cable exits perpendicular to the panel (along Z), then droops due to gravity (along -Y)
-- The curve lives in the YZ plane (from the jack's perspective)
+**Solving for `a` given endpoints and cable length** (Newton-Raphson):
+Given `d` = horizontal distance, `h` = vertical distance, `s` = cable length:
+```typescript
+function solveCatenary(d: number, h: number, s: number): number {
+  // Transcendental equation: sqrt(s² - h²) = 2a·sinh(d/(2a))
+  const target = Math.sqrt(s * s - h * h)
+  let a = d  // Initial guess
+  for (let i = 0; i < 20; i++) {
+    const f = 2 * a * Math.sinh(d / (2 * a)) - target
+    const fp = 2 * Math.sinh(d / (2 * a)) - (d / a) * Math.cosh(d / (2 * a))
+    a -= f / fp
+    if (Math.abs(f) < 0.001) break
+  }
+  return a
+}
+```
+
+**Simplified fixed-point iteration** (from SketchPunk):
+```typescript
+let a = 100
+const vecLenHalf = d / 2, maxLenHalf = s / 2
+for (let i = 0; i < 100; i++) {
+  const aTmp = vecLenHalf / Math.asinh(maxLenHalf / a)
+  if (Math.abs((aTmp - a) / a) < 0.001) break
+  a = aTmp
+}
+```
+
+For eurorack cables: the cable exits perpendicular to the panel (along Z), then droops due to gravity (along -Y). The catenary lives in the vertical plane containing both jack positions.
 
 ### Implementation
 
@@ -783,57 +806,98 @@ function createPatchCable(
 }
 ```
 
-### 3.5mm Plug Tip Geometry
+### 3.5mm Mono Plug Geometry (EIA RS-453)
 
+Physical dimensions of a 3.5mm TS plug:
+
+| Part | Diameter | Length |
+|------|----------|--------|
+| Tip (exposed conductor) | 3.24 mm | ~4.8 mm |
+| Insulating collar (groove) | < 3.24 mm | ~0.7 mm |
+| Sleeve (barrel) | 3.5 mm | ~8.5 mm |
+| Total insertion length | — | ~14 mm |
+| Strain relief to cable | ~5 mm dia | ~4 mm |
+
+**Best approach: LatheGeometry** — define a 2D profile and revolve:
 ```typescript
-function createPlugTip(position: THREE.Vector3, cableColor: number): THREE.Group {
-  const plug = new THREE.Group()
-
-  // Metal tip (the actual 3.5mm connector)
-  const tip = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.5, 1.5, 8, 16),  // 3mm diameter, 8mm long
-    new THREE.MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.9, roughness: 0.2 })
-  )
-  tip.rotation.x = Math.PI / 2
-
-  // Insulation ring
-  const ring = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.0, 2.0, 1.5, 16),
-    new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 })
-  )
-  ring.rotation.x = Math.PI / 2
-  ring.position.z = -5
-
-  // Strain relief / grip (colored to match cable)
-  const grip = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.5, 2.0, 10, 16),
-    new THREE.MeshStandardMaterial({ color: cableColor, roughness: 0.6, metalness: 0.0 })
-  )
-  grip.rotation.x = Math.PI / 2
-  grip.position.z = -12
-
-  plug.add(tip, ring, grip)
-  plug.position.copy(position)
-  // Orient plug to face outward from panel
-  plug.lookAt(position.x, position.y, position.z + 10)
-
-  return plug
+function createPlugGeometry(): THREE.LatheGeometry {
+  const points = [
+    new THREE.Vector2(0, 0),         // Tip point (rounded)
+    new THREE.Vector2(1.62, 0.5),    // Tip radius at front
+    new THREE.Vector2(1.62, 4.8),    // Tip cylinder end
+    new THREE.Vector2(1.2, 4.8),     // Insulating groove start
+    new THREE.Vector2(1.2, 5.5),     // Insulating groove end
+    new THREE.Vector2(1.75, 5.5),    // Sleeve start
+    new THREE.Vector2(1.75, 14.0),   // Sleeve end
+    new THREE.Vector2(2.5, 14.5),    // Strain relief taper
+    new THREE.Vector2(2.5, 18.0),    // Strain relief end (cable exit)
+    new THREE.Vector2(1.5, 18.0),    // Cable diameter
+  ]
+  return new THREE.LatheGeometry(points, 12)  // 12 segments sufficient
 }
+```
+
+Multi-material for the plug sections:
+```typescript
+// Nickel-plated tip+sleeve
+const plugMetal = new THREE.MeshStandardMaterial({
+  color: 0xc0c0c0, metalness: 0.95, roughness: 0.15,
+})
+// Black insulating collar
+const plugInsulator = new THREE.MeshStandardMaterial({
+  color: 0x111111, roughness: 0.8, metalness: 0.0,
+})
+// Colored strain relief (matches cable)
+const plugGrip = new THREE.MeshStandardMaterial({
+  color: cableColor, roughness: 0.6, metalness: 0.0,
+})
+```
+
+### Cable Material — Silicone/Rubber
+```typescript
+const cableMaterial = new THREE.MeshStandardMaterial({
+  color: 0xcc2222,     // Cable color
+  roughness: 0.82,     // Matte rubber/silicone
+  metalness: 0.0,
+  envMapIntensity: 0.3, // Subtle ambient lighting even on matte surfaces
+})
 ```
 
 ### Common Eurorack Cable Colors
 ```typescript
 const CABLE_COLORS = {
-  red:    0xe94560,
-  yellow: 0xf5c623,
-  blue:   0x4488cc,
-  green:  0x50c878,
-  white:  0xe0e0e0,
+  red:    0xcc2222,   // Most common — Tiptop/Hosa staple
+  yellow: 0xddcc22,
+  blue:   0x2244aa,
+  green:  0x22aa44,
+  orange: 0xdd6622,
+  white:  0xe8e8e8,
   black:  0x222222,
-  orange: 0xf5a623,
-  purple: 0x8855cc,
+  purple: 0x6622aa,
 }
 ```
+
+### Cable Routing Rules
+1. **Stub out** — straight line from jack face along panel normal (~15mm, plug body length)
+2. **Transition curve** — smooth blend from horizontal to hanging
+3. **Catenary body** — main drooping section
+4. **Transition curve** — mirror approach to destination
+5. **Stub in** — straight into destination jack
+
+When multiple cables overlap, add slight random Z offsets (1-3mm) to prevent z-fighting.
+
+### Cable Performance
+Each cable has a unique curve, so `InstancedMesh` doesn't apply. Options by count:
+
+| Cables | Approach | Draw Calls |
+|--------|----------|------------|
+| 1-20 | Individual `TubeGeometry` | 1 per cable |
+| 20-100 | `mergeGeometries()` | 1 total |
+| 100+ | `BatchedMesh` (Three.js r156+) | 1 total |
+
+With 8 radial + 48 tubular segments, each cable is ~768 triangles. 100 cables = ~77K tris — trivial for any GPU.
+
+Share materials by color (one material per color, reused across all cables of that color). Only rebuild geometry when cables are added/removed, not every frame.
 
 ### Decorative Cable Suggestions
 For the beauty shot, place 1-2 cables:
