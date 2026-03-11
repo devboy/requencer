@@ -31,6 +31,16 @@ module System:
     control.connector.enc_b_a ~ main.connector.enc_b_a
     control.connector.enc_b_b ~ main.connector.enc_b_b
     control.connector.enc_b_sw ~ main.connector.enc_b_sw
+    control.connector.spi0_mosi ~ main.connector.spi0_mosi
+    control.connector.spi0_sck ~ main.connector.spi0_sck
+    control.connector.spi0_miso ~ main.connector.spi0_miso
+    control.connector.lcd_cs ~ main.connector.lcd_cs
+    control.connector.lcd_dc ~ main.connector.lcd_dc
+    control.connector.lcd_bl ~ main.connector.lcd_bl
+    control.connector.sd_cs ~ main.connector.sd_cs
+    control.connector.sd_cd ~ main.connector.sd_cd
+    control.connector.usb_dp ~ main.connector.usb_dp
+    control.connector.usb_dm ~ main.connector.usb_dm
     control.connector.clk_in ~ main.connector.clk_in
     control.connector.rst_in ~ main.connector.rst_in
     control.connector.clk_out ~ main.connector.clk_out

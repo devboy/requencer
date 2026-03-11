@@ -1,0 +1,21 @@
+# USB_C_Vertical — Vertical Through-Hole USB-C Receptacle
+# 17.5mm above PCB, USB 2.0 device mode (16-pin)
+# Protrudes through faceplate (~5.9mm above panel surface)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component USB_C_Vertical:
+    trait is_atomic_part<manufacturer="Witarea", partnumber="W0026-16-VM2-S3", footprint="USB_C_Vertical.kicad_mod", symbol="USB_C_Vertical.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="TBD", manufacturer="Witarea", partno="W0026-16-VM2-S3">
+
+    signal VBUS ~ pin 1
+    signal GND ~ pin 2
+    signal DP ~ pin 3
+    signal DM ~ pin 4
+    signal CC1 ~ pin 5
+    signal CC2 ~ pin 6
+    signal SHIELD ~ pin 7

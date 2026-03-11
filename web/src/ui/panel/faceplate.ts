@@ -26,17 +26,12 @@ const ENCODER_D = C.encoder_diameter_mm * SCALE
 const BTN_D = C.btn_diameter_mm * SCALE
 const BTN_CC = C.btn_cc_mm * SCALE
 const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
-const RECT_BTN_H = C.rect_btn_height_mm * SCALE
-const RECT_BTN_W = 10.0 * SCALE // transport button width
 
 const USB_C_H = C.usb_c_h_mm * SCALE // used for border-radius
 
 const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
 const _COMPONENT_GAP = Math.round(BTN_CC / 2)
 
-// Control strip button widths (evenly fill space between encoders)
-const CTRL_BTN_W = 20.0 * SCALE
-const CTRL_BTN_RAND_W = 26.0 * SCALE
 
 // Neighbor module images
 const NEIGHBORS = {
@@ -119,24 +114,6 @@ function createJack(
   return cell
 }
 
-/** Create a large rectangular button and place it at JSON coordinates */
-function createLargeBtn(
-  panel: HTMLElement,
-  className: string,
-  x_mm: number,
-  y_mm: number,
-  icon: string,
-  text: string,
-  width: number,
-): HTMLButtonElement {
-  const btn = document.createElement('button')
-  btn.className = `large-btn ${className}`
-  btn.innerHTML = `<span class="btn-icon">${icon}</span><span class="btn-text">${text}</span>`
-  btn.style.width = `${width}px`
-  placeAt(btn, x_mm, y_mm)
-  panel.appendChild(btn)
-  return btn
-}
 
 /** Create the full rack DOM structure and append to body */
 export function createFaceplate(): FaceplateElements {
@@ -247,17 +224,9 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Control strip buttons (BACK, RAND, CLR) ---
   const ctrlStrip = panelLayout.buttons.control_strip
-  const backBtn = createLargeBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, '◁', 'BACK', CTRL_BTN_W)
-  const randBtn = createLargeBtn(
-    modulePanel,
-    'rand-btn',
-    ctrlStrip[1].x_mm,
-    ctrlStrip[1].y_mm,
-    '⚄',
-    'RAND',
-    CTRL_BTN_RAND_W,
-  )
-  const clrBtn = createLargeBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, '✕', 'CLR', CTRL_BTN_W)
+  const backBtn = createCircleBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, 'BACK')
+  const randBtn = createCircleBtn(modulePanel, 'rand-btn', ctrlStrip[1].x_mm, ctrlStrip[1].y_mm, 'RAND')
+  const clrBtn = createCircleBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, 'CLR')
 
   // --- Step buttons (2 rows of 8) ---
   const stepBtns: HTMLButtonElement[] = []
@@ -273,33 +242,9 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Transport buttons (PLAY, RESET, SETTINGS) ---
   const transportData = panelLayout.buttons.transport
-  const playBtn = createLargeBtn(
-    modulePanel,
-    'transport-btn play-btn jack-zone-btn',
-    transportData[0].x_mm,
-    transportData[0].y_mm,
-    '▶',
-    'PLAY',
-    RECT_BTN_W,
-  )
-  const resetBtn = createLargeBtn(
-    modulePanel,
-    'transport-btn jack-zone-btn',
-    transportData[1].x_mm,
-    transportData[1].y_mm,
-    '◀◀',
-    'RESET',
-    RECT_BTN_W,
-  )
-  const settingsBtn = createLargeBtn(
-    modulePanel,
-    'transport-btn jack-zone-btn',
-    transportData[2].x_mm,
-    transportData[2].y_mm,
-    '⚙',
-    'SET',
-    RECT_BTN_W,
-  )
+  const playBtn = createCircleBtn(modulePanel, 'transport-btn play-btn jack-zone-btn', transportData[0].x_mm, transportData[0].y_mm, 'PLAY')
+  const resetBtn = createCircleBtn(modulePanel, 'transport-btn jack-zone-btn', transportData[1].x_mm, transportData[1].y_mm, 'RESET')
+  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn jack-zone-btn', transportData[2].x_mm, transportData[2].y_mm, 'SET')
 
   // --- Utility jacks (CLK, RST, MIDI pairs) ---
   for (const jack of panelLayout.jacks.utility) {
@@ -595,80 +540,10 @@ const PANEL_CSS = `
     height: ${STEP_BTN_D}px;
   }
 
-  /* ── Large buttons — Bitbox-style frosted translucent caps ── */
-  .large-btn {
-    height: ${RECT_BTN_H}px;
-    border-radius: ${0.5 * SCALE}px;
-    border: 1px solid rgba(255,255,255,0.25);
-    cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    color: #555;
-    background: linear-gradient(180deg,
-      rgba(220,220,225,0.85) 0%,
-      rgba(200,200,210,0.75) 40%,
-      rgba(185,185,195,0.70) 100%);
-    box-shadow:
-      0 2px 4px rgba(0,0,0,0.4),
-      0 1px 1px rgba(0,0,0,0.2),
-      inset 0 1px 0 rgba(255,255,255,0.5),
-      inset 0 -1px 0 rgba(0,0,0,0.1);
-    transition: background 0.1s, box-shadow 0.1s, transform 0.05s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-  }
-  .large-btn:active {
-    transform: translate(-50%, -50%) scale(0.97) translateY(1px);
-    background: linear-gradient(180deg,
-      rgba(190,190,200,0.80) 0%,
-      rgba(175,175,185,0.70) 40%,
-      rgba(160,160,170,0.65) 100%);
-    box-shadow:
-      0 1px 2px rgba(0,0,0,0.3),
-      inset 0 1px 2px rgba(0,0,0,0.15);
-  }
-  .large-btn:focus { outline: none; }
-
-  .btn-icon {
-    font-size: 18px;
-    line-height: 1;
-    opacity: 0.6;
-  }
-  .btn-text {
-    font-size: 7px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    line-height: 1;
-  }
-
-  /* RAND button — subtly brighter than siblings */
-  .rand-btn {
-    background: linear-gradient(180deg,
-      rgba(235,235,240,0.90) 0%,
-      rgba(218,218,225,0.80) 40%,
-      rgba(205,205,215,0.75) 100%);
-    border: 1px solid rgba(255,255,255,0.32);
-  }
-  .rand-btn:active {
-    background: linear-gradient(180deg,
-      rgba(205,205,215,0.82) 0%,
-      rgba(190,190,200,0.72) 100%);
-  }
-  .rand-btn.active {
-    background: linear-gradient(180deg,
-      rgba(245,245,250,0.94) 0%,
-      rgba(225,225,235,0.85) 100%);
-    box-shadow: 0 0 8px rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.4);
-  }
-
-  .back-btn:active,
-  .clr-btn:active {
-    background: linear-gradient(180deg,
-      rgba(180,180,190,0.80) 0%,
-      rgba(165,165,175,0.70) 100%);
-  }
+  /* ── Transport & control strip buttons — same circle style as others ── */
+  .transport-btn, .back-btn, .rand-btn, .clr-btn { background: #555; }
+  .transport-btn:active, .back-btn:active, .rand-btn:active, .clr-btn:active { background: #777; }
+  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   @keyframes clr-pulse {
     0%, 100% { box-shadow: 0 0 6px 1px rgba(233,69,96,0.4); }
@@ -727,30 +602,16 @@ const PANEL_CSS = `
      LED INDICATORS
      ══════════════════════════════════════════ */
 
-  /* Play button states — green glow through frosted cap */
+  /* Play button states — green LED glow */
   .play-btn.play-on {
-    background: linear-gradient(180deg,
-      rgba(100,255,130,0.85) 0%,
-      rgba(68,255,102,0.75) 40%,
-      rgba(50,220,80,0.70) 100%);
-    color: #1a4a1a;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
-      inset 0 1px 0 rgba(255,255,255,0.4);
+    background: #44ff66;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.6), 0 0 20px rgba(68,255,102,0.25);
   }
-  .play-btn.play-on .btn-icon,
-  .play-btn.play-on .btn-text { opacity: 1; color: #1a4a1a; }
   .play-btn.play-pulse {
-    background: linear-gradient(180deg,
-      rgba(100,255,130,0.85) 0%,
-      rgba(68,255,102,0.75) 40%,
-      rgba(50,220,80,0.70) 100%);
-    color: #1a4a1a;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(68,255,102,0.5), 0 0 20px rgba(68,255,102,0.2),
-      inset 0 1px 0 rgba(255,255,255,0.4);
+    background: #44ff66;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.6), 0 0 20px rgba(68,255,102,0.25);
     animation: pulse 0.5s ease-in-out infinite;
   }
-  .play-btn.play-pulse .btn-icon,
-  .play-btn.play-pulse .btn-text { opacity: 1; color: #1a4a1a; }
 
   @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -978,7 +839,7 @@ const PANEL_CSS = `
      TOUCH / MOBILE
      ══════════════════════════════════════════ */
 
-  .circle-btn, .encoder, .large-btn {
+  .circle-btn, .encoder {
     touch-action: none;
   }
 

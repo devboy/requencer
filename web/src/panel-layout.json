@@ -39,10 +39,15 @@
     "sd_slot_h_mm": 2.5
   },
   "lcd_cutout": {
+    "_note": "Sized for bare glass seating (JC3248A035N-1). 1.5mm lip all around. Glass: 85.5x54.94mm, active: 73.44x48.96mm.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
-    "width_mm": 73.44,
-    "height_mm": 48.96
+    "width_mm": 82.5,
+    "height_mm": 52.0,
+    "glass_w_mm": 85.5,
+    "glass_h_mm": 54.94,
+    "active_w_mm": 73.44,
+    "active_h_mm": 48.96
   },
   "mounting_slots": [
     {
@@ -311,13 +316,13 @@
       {
         "id": "rst_in",
         "x_mm": 160.48,
-        "y_mm": 32.0,
+        "y_mm": 34.0,
         "label": "RST IN"
       },
       {
         "id": "rst_out",
         "x_mm": 173.48,
-        "y_mm": 32.0,
+        "y_mm": 34.0,
         "label": "RST OUT"
       },
       {
@@ -491,7 +496,23 @@
     ]
   },
   "connectors": {
-    "_note": "USB-C and SD card moved to faceplate board, connected via flat cable to main board"
+    "_note": "USB-C and SD card on control board, protrude through faceplate cutouts",
+    "sd_card": {
+      "id": "sd_card",
+      "x_mm": 105.0,
+      "y_mm": 103.0,
+      "width_mm": 13.0,
+      "height_mm": 3.0,
+      "label": "SD"
+    },
+    "usb_c": {
+      "id": "usb_c",
+      "x_mm": 118.0,
+      "y_mm": 103.0,
+      "width_mm": 9.5,
+      "height_mm": 3.5,
+      "label": "USB"
+    }
   },
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",

@@ -151,46 +151,66 @@ Standard eurorack modules use a **9-12mm PCB-to-panel gap** when mounting a PCB 
 
 ## 6. 3.5" TFT Display (ST7796, 320x480)
 
-**Mounting type:** Carrier PCB or direct glass mount with bezel
+### DECISION: JC3248A035N-1 bare panel + FPC
 
-### Module Dimensions (multiple sources)
+**Chosen part:** JC3248A035N-1 — bare ST7796 3.5" SPI TFT (no carrier PCB, no touch)
 
-| Parameter | LCDWiki MSP3526 | HotHMI (slim) | Bare LCD (JC3248A035N-1) |
-|---|---|---|---|
-| Active area (W x H) | 48.96 x 73.44mm | 48.96 x 73.44mm | — |
-| Glass/module outline | 55.50 x 84.96mm | 54.66 x 83.0mm | 85.5 x 54.94mm |
-| Thickness | 14.28mm (w/touch) | 3.80mm | 2.50mm |
-| PCB size (w/pin header) | 55.5 x 98.0mm | — | — |
-| Thickness (no touch) | 12.98mm | — | — |
-| Touch panel overlay | 55.50 x 84.96 x 0.8mm | cap touch (FT6336G) | none |
-| Mounting hole spacing | 49.50 x 92.00mm | — | — |
+**Why bare panel over breakout module:**
+- Breakout modules (MSP3526 etc.) have a carrier PCB extending ~13mm below the glass with a pin header. This carrier PCB physically overlaps the encoder and control strip button area.
+- The bare panel is only 2.5mm thick — sits directly in the faceplate cutout.
+- FPC ribbon connects to a small ZIF connector on the control board. No mechanical interference with other components.
 
-### Eurorack Panel Fit
+### Chosen Part Specifications
 
-| Parameter | Value |
+| Parameter | JC3248A035N-1 |
 |---|---|
-| Active area width | 48.96mm = ~9.6 HP |
-| Glass width | 55.50mm = ~10.9 HP |
-| Module PCB width | 55.5mm = ~10.9 HP |
-| Minimum panel width for display | 12 HP (60.96mm) for clearance |
-| Active area height | 73.44mm -- fits in 3U (128.5mm) with 55mm remaining |
+| Driver IC | ST7796S |
+| Resolution | 480 × 320 |
+| Active area | 73.44 × 48.96mm |
+| Glass outline | 85.5 × 54.94 × 2.5mm |
+| Interface | 4-wire SPI (IM pins pre-configured internally) |
+| FPC | 18-pin, 0.5mm pitch, bottom short edge (landscape) |
+| Backlight | 4 parallel LED cathodes (K1-K4), anode to VCC |
+| Touch | None ("N" suffix) |
+| Source | AliExpress ~$4-8 |
 
-### Flush Mounting Options
+### FPC Pinout (18-pin)
 
-1. **Rebate/step in faceplate:** Mill a pocket in the aluminum faceplate ~2.5mm deep and ~56mm x 85mm to seat the glass flush. The active area is visible through a ~49mm x 73mm window. Expensive for small runs.
+| Pin | Signal | Pin | Signal |
+|-----|--------|-----|--------|
+| 1 | GND | 10 | LEDA (backlight anode) |
+| 2 | RESET | 11 | K1 (backlight cathode) |
+| 3 | SCK | 12 | K2 (backlight cathode) |
+| 4 | DC | 13 | K3 (backlight cathode) |
+| 5 | CS | 14 | K4 (backlight cathode) |
+| 6 | MOSI | 15-18 | NC (touch, unused) |
+| 7 | MISO | | |
+| 8 | GND | | |
+| 9 | VCC (3.3V) | | |
 
-2. **Sandwich mount:** Use a thin (1-1.5mm) faceplate with a cutout slightly smaller than the glass (~54mm x 83mm). The glass sits in the cutout, held from behind by the carrier PCB or a bracket. The glass bezel (~3mm per side) overlaps the faceplate edge.
+### Mating FPC Connector
 
-3. **3D-printed or laser-cut bezel:** A separate bezel piece frames the display and attaches to the faceplate. The display module sits behind the faceplate with the glass flush or slightly recessed.
+18-pin, 0.5mm pitch, bottom-contact ZIF. Available on LCSC from Molex, Cankemeng, BOOMELE (~$0.10-0.30).
 
-4. **Direct glass mount (no carrier PCB):** Use just the bare TFT panel (55.5mm x 85mm x 2.5mm) with an FPC ribbon to a main PCB. Mount the glass in a faceplate pocket. Total depth behind panel: glass (~2.5mm) + backlight (~2mm) + FPC bend radius (~3mm) = ~8mm minimum. This requires custom backlight driver circuitry.
+### Mounting
 
-**Key notes:**
-- The ~13-14mm module thickness is significant. Behind a 2mm panel, the module back extends ~15-16mm from the front surface.
-- Pre-made bezels for 3.5" TFT displays are uncommon outside the Raspberry Pi ecosystem. Custom bezel is likely needed.
-- For portrait orientation in eurorack: the 73.44mm active height leaves ~27.5mm above and below (within the 128.5mm 3U height) for other components, minus the 10mm top/bottom rail zones. That leaves only ~7.5mm of usable space above/below the display for mounting hardware.
+Glass sits in faceplate cutout from behind. The glass bezel (~6mm on long sides, ~3mm on short sides) rests against the back of the faceplate, preventing the glass from falling through. FPC ribbon folds down to ZIF connector on control board.
 
-**Panel cutout:** ~50mm x 74mm for active area window, or ~56mm x 85mm for full glass if flush-mounting.
+**Faceplate cutout:** 82.5 × 52.0mm (glass minus 1.5mm lip all around for seating).
+
+### Backlight Driving
+
+4 parallel LED cathodes (K1-K4) at ~3.3V forward. Connect LEDA to 3.3V (with current-limiting resistor if needed), switch all K1-K4 cathodes through N-channel MOSFET to GND. Existing backlight MOSFET circuit in display.ato works — just needs 4 cathode pins wired together to the MOSFET drain.
+
+### Other Display Variants (reference)
+
+| Part | Type | Interface | FPC | Thickness | Notes |
+|---|---|---|---|---|---|
+| MSP3526 (LCDWiki) | Module w/ carrier PCB | SPI (14-pin header) | N/A | 13mm | Too thick, carrier interferes with buttons |
+| HotHMI TFT-H035 | Slim module | SPI (15-pin) | 15-pin | 3.8mm | Harder to source |
+| GY-TFT035F056 | Bare panel | MCU parallel (40-pin) | 40-pin | 2.2mm | Needs IM pin config for SPI |
+| ER-TFT035-6 | Bare panel | Multi (50-pin) | 50-pin | 2.25mm | ILI9488, not ST7796 |
+| CFAF320480C7-035TN | Bare panel | Multi (50-pin) | 50-pin | 2.25mm | $42, Crystalfontz |
 
 ---
 

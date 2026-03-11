@@ -82,6 +82,8 @@ hw-place-main:
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/place_components.py --board main $(MAIN_PCB_SRC) $(MAIN_PLACED)
 
 hw-3d-models:
+	python3 hardware/boards/scripts/generate_3d_models.py
+	python3 hardware/boards/scripts/generate_3d_models.py
 	python3 hardware/boards/scripts/add_3d_models.py
 
 hw-place: hw-place-control hw-place-main hw-3d-models
@@ -106,6 +108,8 @@ hw-route: hw-route-control hw-route-main
 hw-gnd-pours:
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/add_ground_pours.py $(CONTROL_ROUTED)
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/add_ground_pours.py $(MAIN_ROUTED)
+	python3 hardware/boards/scripts/generate_3d_models.py
+	python3 hardware/boards/scripts/add_3d_models.py --pcb-only
 
 hw-export:
 	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
@@ -133,6 +137,7 @@ hw-local:
 	python3 hardware/faceplate/scripts/generate_faceplate.py
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/place_components.py $(CONTROL_PCB_SRC) $(CONTROL_PLACED)
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/place_components.py --board main $(MAIN_PCB_SRC) $(MAIN_PLACED)
+	python3 hardware/boards/scripts/generate_3d_models.py
 	python3 hardware/boards/scripts/add_3d_models.py
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/export_layout.py \
 		$(CONTROL_PLACED) hardware/boards/component-map.json web/src/panel-layout.json
@@ -182,6 +187,7 @@ hw-all-inner:
 	python3 hardware/faceplate/scripts/generate_faceplate.py
 	python3 hardware/boards/scripts/place_components.py $(CONTROL_PCB_SRC) $(CONTROL_PLACED)
 	python3 hardware/boards/scripts/place_components.py --board main $(MAIN_PCB_SRC) $(MAIN_PLACED)
+	python3 hardware/boards/scripts/generate_3d_models.py
 	python3 hardware/boards/scripts/add_3d_models.py
 	python3 hardware/boards/scripts/export_layout.py $(CONTROL_PLACED) hardware/boards/component-map.json web/src/panel-layout.json
 	hardware/boards/scripts/autoroute.sh $(CONTROL_PLACED) $(CONTROL_ROUTED)

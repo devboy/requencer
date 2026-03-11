@@ -1,8 +1,10 @@
 # Main Board — Top-Level Module
 # MCU + DACs + op-amps + power supply
 # Connects to control board via 2×16 board-to-board connectors
-# All panel-mounted components (jacks, buttons, LEDs, display, encoders)
-# live on the control board
+#
+# Physical panel-mounted components (jacks, buttons, LEDs, encoders,
+# display, USB-C, SD card) all live on the control board.
+# Display, USB, and SD signals route through the board connector.
 
 import Resistor
 import Capacitor
@@ -12,11 +14,8 @@ from "power.ato" import PowerSupply
 from "mcu.ato" import PGA2350_MCU
 from "dac-output.ato" import DACOutputStage
 from "input-protection.ato" import InputProtection
-from "display.ato" import DisplayConnector
 from "../../parts/2N3904/2N3904.ato" import _2N3904
-from "../../parts/USB_C_Receptacle/USB_C_Receptacle.ato" import USB_C_Receptacle
 from "../../parts/PRTR5V0U2X/PRTR5V0U2X.ato" import PRTR5V0U2X
-from "../../parts/MicroSD_Slot/MicroSD_Slot.ato" import MicroSD_Slot
 
 module Main:
     # --- Sub-module instances ---
@@ -24,7 +23,6 @@ module Main:
     power = new PowerSupply
     mcu = new PGA2350_MCU
     dac = new DACOutputStage
-    display = new DisplayConnector
 
     # Common ground net
     signal gnd
@@ -35,7 +33,6 @@ module Main:
     power.gnd ~ gnd
     mcu.gnd ~ gnd
     dac.gnd ~ gnd
-    display.gnd ~ gnd
     connector.gnd ~ gnd
 
     # PGA2350 VB power — fed from +5V via Schottky (inside mcu.ato)
@@ -66,13 +63,18 @@ module Main:
     mcu.dac1_cs ~ dac.dac1_cs
     mcu.dac2_cs ~ dac.dac2_cs
 
-    # === SPI0 DISPLAY (directly wired on main board) ===
-    mcu.spi0_mosi ~ display.mosi
-    mcu.spi0_sck ~ display.sck
-    mcu.lcd_cs ~ display.cs
-    mcu.lcd_dc ~ display.dc
-    mcu.lcd_bl ~ display.bl_ctrl
-    power.v3v3 ~ display.vcc
+    # === DISPLAY SPI → CONNECTOR (physical FPC on control board) ===
+    mcu.spi0_mosi ~ connector.spi0_mosi
+    mcu.spi0_sck ~ connector.spi0_sck
+    mcu.spi0_miso ~ connector.spi0_miso
+    mcu.lcd_cs ~ connector.lcd_cs
+    mcu.lcd_dc ~ connector.lcd_dc
+    mcu.lcd_bl ~ connector.lcd_bl    # Raw PWM, MOSFET on control board
+
+    # === SD CARD → CONNECTOR (physical slot on control board) ===
+    # SPI0 MOSI/SCK/MISO already wired above (shared bus with display)
+    mcu.sd_cs ~ connector.sd_cs
+    mcu.sd_detect ~ connector.sd_cd
 
     # === MCU GPIO → CONNECTOR (routed to control board) ===
 
@@ -160,7 +162,7 @@ module Main:
     c_enc_b_sw.unnamed[0] ~ connector.enc_b_sw
     c_enc_b_sw.unnamed[1] ~ gnd
 
-    # === SD CARD DETECT PULL-UP ===
+    # === SD CARD DETECT PULL-UP (near MCU) ===
     r_sd_cd = new Resistor
     r_sd_cd.resistance = 10kohm +/- 5%
     r_sd_cd.unnamed[0] ~ power.v3v3
@@ -213,8 +215,6 @@ module Main:
 
     # === CLK/RST OUTPUT BUFFERS (moved from control board) ===
     # MCU GPIO (3.3V) → NPN transistor buffer → 5V gate signal → connector → jack
-    # NPN common-emitter: GPIO high → transistor ON → output pulled to GND
-    # Inverted logic (firmware accounts for inversion)
     q_clk = new _2N3904
     r_clk_base = new Resistor
     r_clk_base.resistance = 1kohm +/- 5%
@@ -241,59 +241,24 @@ module Main:
     r_rst_collector.unnamed[1] ~ q_rst.COLLECTOR
     q_rst.COLLECTOR ~ connector.rst_out
 
-    # === USB-C RECEPTACLE (data only, on main board) ===
-    usb = new USB_C_Receptacle
-
-    # 27Ω series resistors near MCU for signal integrity
+    # === USB SIGNAL CONDITIONING (near MCU, raw D+/D- cross connector) ===
+    # 27Ω series resistors for signal integrity
     r_usb_dp = new Resistor
     r_usb_dp.resistance = 27ohm +/- 5%
     r_usb_dm = new Resistor
     r_usb_dm.resistance = 27ohm +/- 5%
 
     mcu.usb_dp ~ r_usb_dp.unnamed[0]
-    r_usb_dp.unnamed[1] ~ usb.DP
+    r_usb_dp.unnamed[1] ~ connector.usb_dp
     mcu.usb_dm ~ r_usb_dm.unnamed[0]
-    r_usb_dm.unnamed[1] ~ usb.DM
+    r_usb_dm.unnamed[1] ~ connector.usb_dm
 
-    # CC pull-downs (5.1kΩ — required for USB-C device mode)
-    r_cc1 = new Resistor
-    r_cc1.resistance = 5.1kohm +/- 1%
-    r_cc1.unnamed[0] ~ usb.CC1
-    r_cc1.unnamed[1] ~ gnd
-
-    r_cc2 = new Resistor
-    r_cc2.resistance = 5.1kohm +/- 1%
-    r_cc2.unnamed[0] ~ usb.CC2
-    r_cc2.unnamed[1] ~ gnd
-
-    # ESD protection on USB data lines
+    # ESD protection on USB data lines (at connector side of series resistors)
     esd = new PRTR5V0U2X
-    esd.IO1 ~ usb.DM
-    esd.IO2 ~ usb.DP
+    esd.IO1 ~ connector.usb_dm
+    esd.IO2 ~ connector.usb_dp
     esd.VCC ~ power.v5v
     esd.GND ~ gnd
-
-    # USB GND and SHIELD (VBUS not connected — data-only USB)
-    usb.GND ~ gnd
-    usb.SHIELD ~ gnd
-
-    # === MICRO SD CARD SLOT (on main board, shares SPI0 with display) ===
-    sd_slot = new MicroSD_Slot
-
-    sd_slot.mosi ~ mcu.spi0_mosi
-    sd_slot.miso ~ mcu.spi0_miso
-    sd_slot.sck ~ mcu.spi0_sck
-    sd_slot.cs ~ mcu.sd_cs
-    sd_slot.vcc ~ power.v3v3
-    sd_slot.gnd ~ gnd
-    sd_slot.shield ~ gnd
-    sd_slot.cd ~ mcu.sd_detect
-
-    # SD card decoupling
-    c_sd = new Capacitor
-    c_sd.capacitance = 100nF +/- 20%
-    c_sd.unnamed[0] ~ power.v3v3
-    c_sd.unnamed[1] ~ gnd
 
     # === DAC OUTPUTS → CONNECTOR (analog signals to jacks on control board) ===
     dac.gate1 ~ connector.gate1

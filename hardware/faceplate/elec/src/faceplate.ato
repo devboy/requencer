@@ -2,7 +2,8 @@
 #
 # No electrical components. This is a mechanical-only PCB:
 # - Drill holes for jacks, buttons, encoders
-# - Rectangular cutout for LCD
+# - Rectangular cutout for LCD (glass seating)
+# - Rectangular cutouts for USB-C and SD card slots
 # - Mounting slots for rack rails
 # - White silkscreen labels on black soldermask
 #
@@ -17,8 +18,16 @@
 #   Jack holes:     6.0mm drill (PJ398SM)
 #   Button holes:   per TC002 datasheet
 #   Encoder holes:  7.0mm drill (EC11E shaft)
-#   LCD cutout:     73.44 × 48.96mm rectangular
+#   LCD cutout:     82.5 × 52.0mm at center (54.78, 39.89) — glass seating with 1.5mm lip
+#   USB-C cutout:   9.5 × 3.5mm at (118.0, 103.0) — right of step buttons
+#   SD card cutout: 13.0 × 3.0mm at (105.0, 103.0) — right of step buttons
 #   Mounting slots: 7.0 × 3.5mm oval (Intellijel M3)
+#
+# Display: JC3248A035N-1 bare ST7796 3.5" SPI TFT panel
+#   Glass: 85.5 × 54.94 × 2.5mm — sits in faceplate cutout from behind
+#   Active area: 73.44 × 48.96mm (480×320)
+#   FPC ribbon (18-pin, 0.5mm pitch) exits bottom edge, connects to
+#   ZIF connector on control board. No carrier PCB needed.
 #
 # Spacing (from faceplate.ts at 4.5 px/mm):
 #   Jack c-c:       14.0mm horizontal, 12.4mm vertical (output grid)

@@ -78,4 +78,9 @@
   (fp_line (start 13.700 -13.700) (end 13.700 13.700) (layer "F.CrtYd") (width 0.05))
   (fp_line (start 13.700 13.700) (end -13.700 13.700) (layer "F.CrtYd") (width 0.05))
   (fp_line (start -13.700 13.700) (end -13.700 -13.700) (layer "F.CrtYd") (width 0.05))
+	(model "${KIPRJMOD}/../parts/PGA2350/PGA2350.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

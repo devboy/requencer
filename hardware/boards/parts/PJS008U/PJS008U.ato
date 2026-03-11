@@ -1,0 +1,23 @@
+# PJS008U — Yamaichi PJS008U-3000-0 Vertical MicroSD Connector
+# Through-hole, 14.18mm above PCB, push-in / pull-out
+# Standard vertical SD slot for eurorack faceplate mounting
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component PJS008U:
+    trait is_atomic_part<manufacturer="Yamaichi", partnumber="PJS008U-3000-0", footprint="PJS008U.kicad_mod", symbol="PJS008U.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C3177022", manufacturer="Yamaichi", partno="PJS008U-3000-0">
+
+    # MicroSD SPI mode signals (pin numbers per Yamaichi datasheet)
+    signal cs ~ pin 2       # CD/CS - chip select
+    signal mosi ~ pin 3     # CMD/MOSI - data in
+    signal vcc ~ pin 4      # VDD - 3.3V
+    signal sck ~ pin 5      # CLK/SCK
+    signal gnd ~ pin 6      # VSS - ground
+    signal miso ~ pin 7     # DAT0/MISO - data out
+    signal cd ~ pin 9       # Card detect (mechanical switch)
+    signal shield ~ pin 10  # Connector shell/shield

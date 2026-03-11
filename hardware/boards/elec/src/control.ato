@@ -1,7 +1,7 @@
 # Control Board — Top-Level Module
 # User-facing board in the Requencer multi-board stack
-# All user-facing components (buttons, LEDs, encoders, jacks, display)
-# connected to main board MCU via 2×16 board connector interface
+# All user-facing components (buttons, LEDs, encoders, jacks, display,
+# USB-C, SD card) connected to main board MCU via 2×16 board connector
 
 from "board-connector.ato" import BoardConnectorSocket
 from "button-scan.ato" import ButtonScanner
@@ -11,6 +11,10 @@ from "midi.ato" import MIDIInterface
 
 from "../../parts/EC11E/EC11E.ato" import EC11E
 from "../../parts/B5819W/B5819W.ato" import B5819W
+from "../../parts/FPC_18P_05MM/FPC_18P_05MM.ato" import FPC_18P_05MM
+from "../../parts/PJS008U/PJS008U.ato" import PJS008U
+from "../../parts/USB_C_Vertical/USB_C_Vertical.ato" import USB_C_Vertical
+from "../../parts/2N7002/2N7002.ato" import _2N7002
 
 import Resistor
 import Capacitor
@@ -201,5 +205,108 @@ module Control:
     buttons.btn_step16.LED_RED ~ leds.tlc2.OUT14
     buttons.btn_step16.LED_GREEN ~ leds.tlc2.OUT15
 
-    # USB-C and SD card moved to main board (will eventually go on faceplate
-    # board, connected via FPC cable to main board)
+    # ==========================================================================
+    # DISPLAY — JC3248A035N-1 bare panel, 18-pin FPC
+    # Glass sits in faceplate cutout, FPC ribbon connects here
+    # Backlight MOSFET + RC reset on this board (near FPC connector)
+    # ==========================================================================
+    lcd_fpc = new FPC_18P_05MM
+
+    # FPC pinout: 1=GND, 2=RST, 3=SCK, 4=DC, 5=CS, 6=MOSI,
+    #             7=MISO, 8=GND, 9=VCC, 10=LEDA, 11-14=K1-K4, 15-18=NC
+    lcd_fpc.PIN1 ~ gnd
+    lcd_fpc.PIN3 ~ connector.spi0_sck
+    lcd_fpc.PIN4 ~ connector.lcd_dc
+    lcd_fpc.PIN5 ~ connector.lcd_cs
+    lcd_fpc.PIN6 ~ connector.spi0_mosi
+    lcd_fpc.PIN7 ~ connector.spi0_miso
+    lcd_fpc.PIN8 ~ gnd
+    lcd_fpc.PIN9 ~ connector.v3v3
+
+    # Backlight: LEDA to 3.3V, K1-K4 switched to GND via MOSFET
+    lcd_fpc.PIN10 ~ connector.v3v3
+
+    # Backlight MOSFET — N-channel switches cathodes to GND
+    q_lcd_bl = new _2N7002
+    r_lcd_gate = new Resistor
+    r_lcd_gate.resistance = 100ohm +/- 5%
+    r_lcd_pulldown = new Resistor
+    r_lcd_pulldown.resistance = 100kohm +/- 5%
+
+    connector.lcd_bl ~ r_lcd_gate.unnamed[0]
+    r_lcd_gate.unnamed[1] ~ q_lcd_bl.gate
+    r_lcd_pulldown.unnamed[0] ~ q_lcd_bl.gate
+    r_lcd_pulldown.unnamed[1] ~ gnd
+    q_lcd_bl.source ~ gnd
+
+    # All 4 cathodes switched together
+    lcd_fpc.PIN11 ~ q_lcd_bl.drain
+    lcd_fpc.PIN12 ~ q_lcd_bl.drain
+    lcd_fpc.PIN13 ~ q_lcd_bl.drain
+    lcd_fpc.PIN14 ~ q_lcd_bl.drain
+
+    # RC power-on reset for LCD controller
+    # At power-on, cap is discharged (RST=LOW), charges through pull-up (RST=HIGH)
+    # Time constant: 10kΩ × 100nF = 1ms (ST7796 needs >10μs reset pulse)
+    r_lcd_rst = new Resistor
+    r_lcd_rst.resistance = 10kohm +/- 5%
+    c_lcd_rst = new Capacitor
+    c_lcd_rst.capacitance = 100nF +/- 20%
+    signal lcd_rst_internal
+    r_lcd_rst.unnamed[0] ~ connector.v3v3
+    r_lcd_rst.unnamed[1] ~ lcd_rst_internal
+    c_lcd_rst.unnamed[0] ~ lcd_rst_internal
+    c_lcd_rst.unnamed[1] ~ gnd
+    lcd_fpc.PIN2 ~ lcd_rst_internal
+
+    # LCD bypass cap
+    c_lcd = new Capacitor
+    c_lcd.capacitance = 100nF +/- 20%
+    c_lcd.unnamed[0] ~ connector.v3v3
+    c_lcd.unnamed[1] ~ gnd
+
+    # ==========================================================================
+    # SD CARD — Yamaichi PJS008U-3000-0 vertical MicroSD
+    # Protrudes through faceplate (~2.6mm above panel surface)
+    # ==========================================================================
+    sd = new PJS008U
+
+    sd.mosi ~ connector.spi0_mosi
+    sd.miso ~ connector.spi0_miso
+    sd.sck ~ connector.spi0_sck
+    sd.cs ~ connector.sd_cs
+    sd.cd ~ connector.sd_cd
+    sd.vcc ~ connector.v3v3
+    sd.gnd ~ gnd
+    sd.shield ~ gnd
+
+    # SD decoupling cap (near connector)
+    c_sd = new Capacitor
+    c_sd.capacitance = 100nF +/- 20%
+    c_sd.unnamed[0] ~ connector.v3v3
+    c_sd.unnamed[1] ~ gnd
+
+    # ==========================================================================
+    # USB-C — Vertical THT receptacle for firmware programming
+    # Protrudes through faceplate (~5.9mm above panel surface)
+    # Data only (no VBUS power), USB 2.0 Full Speed
+    # Series resistors + ESD protection on main board near MCU
+    # ==========================================================================
+    usb = new USB_C_Vertical
+
+    usb.DP ~ connector.usb_dp
+    usb.DM ~ connector.usb_dm
+    usb.GND ~ gnd
+    usb.SHIELD ~ gnd
+    usb.VBUS ~ gnd    # Not used — data-only USB, tie to GND
+
+    # CC pull-downs (must be at receptacle per USB-C spec)
+    r_cc1 = new Resistor
+    r_cc1.resistance = 5.1kohm +/- 1%
+    r_cc1.unnamed[0] ~ usb.CC1
+    r_cc1.unnamed[1] ~ gnd
+
+    r_cc2 = new Resistor
+    r_cc2.resistance = 5.1kohm +/- 1%
+    r_cc2.unnamed[0] ~ usb.CC2
+    r_cc2.unnamed[1] ~ gnd

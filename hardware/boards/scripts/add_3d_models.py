@@ -83,6 +83,7 @@ LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
     "TC002-RGB/TC002-N11AS1XT-RGB.kicad_mod": ("TC002-RGB/TC002-N11AS1XT-RGB.step", None, None),
     "PJ398SM/PJ398SM.kicad_mod": ("PJ398SM/PJ398SM.step", None, None),
     "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, None),
+    "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
 }
 
 
@@ -412,13 +413,16 @@ def patch_library_footprints(computed_offsets: dict[str, tuple]) -> None:
 
 
 def patch_pcb_files() -> None:
-    pcb_files = list(BUILD_DIR.glob("*-placed.kicad_pcb"))
+    pcb_files = sorted(
+        list(BUILD_DIR.glob("*-placed.kicad_pcb"))
+        + list(BUILD_DIR.glob("*-routed.kicad_pcb"))
+    )
     if not pcb_files:
-        print(f"\nNo placed PCB files found in {BUILD_DIR}")
+        print(f"\nNo PCB files found in {BUILD_DIR}")
         return
 
-    print(f"\nPatching placed PCBs:")
-    for pcb in sorted(pcb_files):
+    print(f"\nPatching PCB files:")
+    for pcb in pcb_files:
         count = patch_pcb_file(pcb)
         print(f"  {pcb.name}: {count} footprints patched")
 
