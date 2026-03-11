@@ -510,60 +510,116 @@ This is a nice-to-have polish detail — skip in Phase 2, consider for Phase 3.
 
 ## 7. Encoder Caps
 
-### Physical Reference: Re'an P670 / Davies 1900h Clone
+### Physical Reference — Eurorack Encoder Caps
 
-Common eurorack encoder caps for EC11E (6mm D-shaft):
-- **Davies 1900h clone**: ~19mm diameter, 14mm tall, knurled sides, pointer line
-- **Re'an/Sifam collet knob**: ~12mm diameter, aluminum, knurled grip
-- **Rogan series** (Make Noise style): ~15mm, soft-touch rubber, white indicator
+Three dominant styles in the eurorack ecosystem, all available for EC11E (6mm D-shaft):
 
-For the Requencer, a **small aluminum knurled cap** (~14.5mm matching the existing CSS render) fits best.
+| Style | Diameter | Height | Material | Used By |
+|-------|----------|--------|----------|---------|
+| **Davies 1900H clone** | 13mm | 15.5mm | ABS plastic | Befaco, AI Synthesis, DIY |
+| **Re'an/Sifam aluminum** | 12-17mm | 13-16mm | Machined aluminum | Doepfer, Intellijel |
+| **Rogan PT-1PS** | 15mm | 18mm | Soft-touch rubber | Make Noise, Mutable |
 
-### Geometry: LatheGeometry Profile
+For the Requencer, a **small aluminum knurled cap** (~14.5mm matching the existing CSS render) fits best. The Davies 1900H is the most classic DIY aesthetic alternative.
 
+### Geometry: LatheGeometry Profiles
+
+`LatheGeometry` revolves a `Vector2` profile around the Y-axis. 32-48 segments is adequate; 64 for smooth close-ups.
+
+**Aluminum knurled cap (recommended for Requencer):**
 ```typescript
-function createEncoderCapGeometry(): THREE.BufferGeometry {
-  // Cross-section profile (rotated around Y-axis)
-  // Profile is right half: from center outward
-  const points: THREE.Vector2[] = [
-    // Bottom (base, sits on encoder shaft)
-    new THREE.Vector2(0.0, 0.0),      // Center bottom
-    new THREE.Vector2(6.5, 0.0),      // Base edge (13mm base diameter)
-    // Skirt (slight flare at bottom)
-    new THREE.Vector2(7.0, 0.5),      // Skirt flare
-    new THREE.Vector2(7.25, 1.0),     // Max diameter = 14.5mm
-    // Main body (knurled cylindrical section)
-    new THREE.Vector2(7.25, 6.0),     // Cylindrical section
-    // Top chamfer
-    new THREE.Vector2(7.0, 6.5),      // Chamfer start
-    new THREE.Vector2(6.0, 7.0),      // Top edge
-    // Dished top
-    new THREE.Vector2(5.5, 6.8),      // Slight dish
-    new THREE.Vector2(0.0, 6.5),      // Center top (slightly dished)
-  ]
+const points: THREE.Vector2[] = [
+  new THREE.Vector2(0.0, 0.0),      // Center bottom
+  new THREE.Vector2(6.5, 0.0),      // Base edge (13mm base diameter)
+  new THREE.Vector2(7.0, 0.5),      // Skirt flare
+  new THREE.Vector2(7.25, 1.0),     // Max diameter = 14.5mm
+  new THREE.Vector2(7.25, 6.0),     // Cylindrical section (knurled)
+  new THREE.Vector2(7.0, 6.5),      // Top chamfer start
+  new THREE.Vector2(6.0, 7.0),      // Top edge
+  new THREE.Vector2(5.5, 6.8),      // Slight dish
+  new THREE.Vector2(0.0, 6.5),      // Center top (dished)
+]
+const geometry = new THREE.LatheGeometry(points, 48)
+```
 
-  return new THREE.LatheGeometry(points, 64)  // 64 segments for smooth
-}
+**Davies 1900H clone (straight cylinder with chamfer):**
+```typescript
+const points = [
+  new THREE.Vector2(0, 0),
+  new THREE.Vector2(6.5, 0),       // 13mm diameter
+  new THREE.Vector2(6.5, 14.0),    // Straight wall
+  new THREE.Vector2(6.0, 15.5),    // Top chamfer
+  new THREE.Vector2(0, 15.5),      // Flat top
+]
+```
+
+**Rogan PT-1PS (skirted, rounded top):**
+```typescript
+const points = [
+  new THREE.Vector2(0, 0),
+  new THREE.Vector2(8.5, 0),       // Skirt outer edge (17mm)
+  new THREE.Vector2(8.5, 1.5),     // Skirt top
+  new THREE.Vector2(7.5, 2.5),     // Concave transition
+  new THREE.Vector2(7.0, 12.0),    // Grip cylinder
+  new THREE.Vector2(6.5, 16.0),    // Slight taper
+  new THREE.Vector2(5.0, 17.5),    // Rounded shoulder
+  new THREE.Vector2(0, 18.0),      // Center top (domed)
+]
+```
+
+For smoother curves on the Rogan top, use `QuadraticBezierCurve.getPoints(16)` for the shoulder section.
 ```
 
 ### Knurled Surface
 
-**Option A — Bump map (recommended for performance)**:
-Generate a procedural knurling pattern as a canvas texture:
+**Option A — Bump/normal map (recommended)**:
+
+Vertical serrations (Davies 1900H style):
 ```typescript
-function createKnurlingBumpMap(segments: number = 48): THREE.CanvasTexture {
+function createSerrationBumpMap(stripeCount = 40): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
-  canvas.width = segments * 4  // Width wraps around circumference
-  canvas.height = 128           // Height = vertical extent
+  canvas.width = 256
+  canvas.height = 64
   const ctx = canvas.getContext('2d')!
-
-  // Diamond knurling pattern
-  for (let i = 0; i < segments; i++) {
-    const x = i * 4
-    ctx.fillStyle = i % 2 === 0 ? '#888' : '#666'
-    ctx.fillRect(x, 0, 2, 128)
+  ctx.fillStyle = '#808080'
+  ctx.fillRect(0, 0, 256, 64)
+  const sw = 256 / stripeCount
+  for (let i = 0; i < stripeCount; i++) {
+    const x = i * sw
+    const grad = ctx.createLinearGradient(x, 0, x + sw, 0)
+    grad.addColorStop(0, '#404040')
+    grad.addColorStop(0.5, '#C0C0C0')
+    grad.addColorStop(1, '#404040')
+    ctx.fillStyle = grad
+    ctx.fillRect(x, 0, sw, 64)
   }
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  return tex
+}
+```
 
+Diamond knurling (aluminum knob style):
+```typescript
+function createDiamondKnurlingMap(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#808080'
+  ctx.fillRect(0, 0, 512, 512)
+  ctx.strokeStyle = '#C0C0C0'
+  ctx.lineWidth = 2
+  const spacing = 12
+  // Diagonal set 1 (↗)
+  for (let i = -512; i < 1024; i += spacing) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + 512, 512); ctx.stroke()
+  }
+  // Diagonal set 2 (↘)
+  for (let i = -512; i < 1024; i += spacing) {
+    ctx.beginPath(); ctx.moveTo(i, 512); ctx.lineTo(i + 512, 0); ctx.stroke()
+  }
   const tex = new THREE.CanvasTexture(canvas)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -572,30 +628,65 @@ function createKnurlingBumpMap(segments: number = 48): THREE.CanvasTexture {
 ```
 
 **Option B — Geometry-based knurling** (high poly):
-Modulate the LatheGeometry vertices radially to create physical ridges. Expensive but looks great at close zoom.
+Modulate LatheGeometry vertices radially for physical ridges. Only for extreme close-up hero shots.
 
-### Material — Brushed Aluminum Knob
+| Approach | Extra Geometry | GPU Cost | Quality |
+|----------|---------------|----------|---------|
+| Bump map | None | 1 texture sample | Adequate at distance |
+| Normal map | None | 1 texture sample | Good at all distances |
+| Geometry | High vertex count | High | Best close-up |
+
+### Material — Knob Style Reference
+
 ```typescript
-const knobMaterial = new THREE.MeshPhysicalMaterial({
-  color: 0x2a2a2a,           // Dark aluminum
-  metalness: 0.7,
-  roughness: 0.35,
-  bumpMap: knurlingBumpMap,
-  bumpScale: 0.3,
-  clearcoat: 0.1,
+// Brushed aluminum knob
+const aluminumKnob = new THREE.MeshStandardMaterial({
+  color: 0xC8C8CC, metalness: 1.0, roughness: 0.35,
+  bumpMap: diamondKnurlingMap, bumpScale: 1.5,
+})
+
+// Soft-touch rubber (Rogan PT style)
+const rubberKnob = new THREE.MeshStandardMaterial({
+  color: 0x1A1A1A, metalness: 0.0, roughness: 0.9,
+})
+
+// Black ABS plastic (Davies 1900H clone)
+const plasticKnob = new THREE.MeshStandardMaterial({
+  color: 0x1C1C1C, metalness: 0.0, roughness: 0.6,
+  bumpMap: serrationBumpMap, bumpScale: 1.0,
+})
+
+// Anodized aluminum (colored)
+const anodizedKnob = new THREE.MeshPhysicalMaterial({
+  color: 0x4488CC, metalness: 1.0, roughness: 0.25,
+  clearcoat: 1.0, clearcoatRoughness: 0.1,  // Oxide layer
 })
 ```
 
+**Critical:** `metalness: 1.0` materials render black without an environment map. Always set `scene.environment` or `material.envMap`.
+
 ### Indicator Line
 ```typescript
-// White line on top face — use a thin PlaneGeometry
+// White pointer line — child mesh that rotates with knob
 const indicator = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.0, 5.0),  // 1mm wide, 5mm long
-  new THREE.MeshBasicMaterial({ color: 0xdddddd })
+  new THREE.BoxGeometry(1.0, 0.3, 5.0),  // 1mm wide, 0.3mm deep, 5mm long
+  new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.8 })
 )
-indicator.position.set(0, 7.01, 2.5)  // On top face
-indicator.rotation.x = -Math.PI / 2
+indicator.position.set(0, 7.15, 2.5)  // On top face, offset from center
+indicator.material.polygonOffset = true
+indicator.material.polygonOffsetFactor = -1  // Prevent z-fighting
 ```
+
+### What to Model vs. Skip
+
+| Feature | Model? | Reason |
+|---------|--------|--------|
+| Knob body profile | Yes | Primary visual element |
+| Knurling/serrations | Yes, via bump map | Adds realism, minimal cost |
+| Pointer indicator line | Yes, as child mesh | Functional, simple |
+| Skirt (if present) | Yes, in LatheGeometry | Changes silhouette |
+| D-shaft hole | No | Invisible from outside |
+| Set screw | No | Too small to see |
 
 ### Rotation
 ```typescript
