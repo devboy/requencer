@@ -282,7 +282,7 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Connectors (USB-C, SD) ---
   // Position the body at the coordinate; label floats above via CSS
-  const connectors = panelLayout.connectors as Record<string, Record<string, number | string>> | undefined
+  const connectors = panelLayout.connectors as { _note?: string; usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }; sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number } } | undefined
   const usbData = connectors?.usb_c
   if (usbData) {
     const usbEl = document.createElement('div')
