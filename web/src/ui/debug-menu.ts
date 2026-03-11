@@ -132,8 +132,24 @@ export function createDebugMenu(actions: DebugActions): void {
     }
   })
 
+  // 3D Assembly viewer (dynamically imported)
+  const view3dBtn = document.createElement('button')
+  view3dBtn.textContent = '3D View'
+  view3dBtn.style.cssText = BTN_CSS + 'background: #2e3a5a;'
+  view3dBtn.addEventListener('click', async () => {
+    view3dBtn.textContent = 'Loading...'
+    view3dBtn.style.pointerEvents = 'none'
+    try {
+      const { openViewer } = await import('./assembly-viewer')
+      await openViewer()
+    } finally {
+      view3dBtn.textContent = '3D View'
+      view3dBtn.style.pointerEvents = ''
+    }
+  })
+
   btnRow.append(playBtn, clearBtn)
-  content.append(bpmRow, drumsBtn, btnRow, footprintsBtn, helpBtn, instrBtn)
+  content.append(bpmRow, drumsBtn, btnRow, footprintsBtn, view3dBtn, helpBtn, instrBtn)
   el.append(toggleBtn, content)
   document.body.appendChild(el)
 

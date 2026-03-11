@@ -1,0 +1,17 @@
+# PJ366ST — QingPu WQP-PJ366ST 3.5mm Stereo (TRS) Jack, Vertical Mount
+# Unswitched TRS jack — same Thonkiconn form factor as PJ398SM.
+# Used for MIDI TRS Type A (tip=data, ring=+V, sleeve=shield).
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component PJ366ST:
+    trait is_atomic_part<manufacturer="QingPu", partnumber="WQP-PJ366ST", footprint="PJ366ST.kicad_mod", symbol="PJ366ST.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2907129", manufacturer="QingPu", partno="WQP-PJ366ST">
+
+    signal TIP ~ pin 1       # Tip contact
+    signal RING ~ pin 2      # Ring contact
+    signal SLEEVE ~ pin 3    # Sleeve contact

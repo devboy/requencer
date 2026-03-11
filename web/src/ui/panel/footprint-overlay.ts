@@ -91,7 +91,6 @@ export function createFootprintOverlay(): void {
   }
 
   addButtonFootprints(panelLayout.buttons.track)
-  addButtonFootprints([panelLayout.buttons.tbd])
   addButtonFootprints(panelLayout.buttons.subtrack)
   addButtonFootprints([panelLayout.buttons.pat])
   addButtonFootprints(panelLayout.buttons.feature)
@@ -130,28 +129,39 @@ export function createFootprintOverlay(): void {
   addJackFootprints(panelLayout.jacks.output)
   addJackFootprints(panelLayout.jacks.cv_input)
 
-  // Connectors — rect from JSON dimensions
-  const usb = panelLayout.connectors.usb_c
-  parts.push(
-    svgRect(
-      mm(usb.x_mm - usb.width_mm / 2),
-      mm(usb.y_mm - usb.height_mm / 2),
-      mm(usb.width_mm),
-      mm(usb.height_mm),
-      '#ff6600',
-    ),
-  )
+  // Connectors — rect from JSON dimensions (optional, may be on faceplate board)
+  const fpConnectors = panelLayout.connectors as
+    | {
+        _note?: string
+        usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+        sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+      }
+    | undefined
+  const usb = fpConnectors?.usb_c
+  if (usb) {
+    parts.push(
+      svgRect(
+        mm(usb.x_mm - usb.width_mm / 2),
+        mm(usb.y_mm - usb.height_mm / 2),
+        mm(usb.width_mm),
+        mm(usb.height_mm),
+        '#ff6600',
+      ),
+    )
+  }
 
-  const sd = panelLayout.connectors.sd_card
-  parts.push(
-    svgRect(
-      mm(sd.x_mm - sd.width_mm / 2),
-      mm(sd.y_mm - sd.height_mm / 2),
-      mm(sd.width_mm),
-      mm(sd.height_mm),
-      '#ff6600',
-    ),
-  )
+  const sd = fpConnectors?.sd_card
+  if (sd) {
+    parts.push(
+      svgRect(
+        mm(sd.x_mm - sd.width_mm / 2),
+        mm(sd.y_mm - sd.height_mm / 2),
+        mm(sd.width_mm),
+        mm(sd.height_mm),
+        '#ff6600',
+      ),
+    )
+  }
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.id = 'footprint-overlay'

@@ -1,0 +1,89 @@
+# LED Driver — 2× TLC5947 Daisy-Chained
+# 48 channels total (16 bi-color step buttons × 2 = 32 used, 16 spare)
+# 12-bit PWM brightness control per channel
+#
+# TLC5947 VCC powered from 3.3V (not 5V) to ensure SPI logic level compatibility
+# with PGA2350 3.3V GPIO. At VCC=3.3V, VIH = 0.7×3.3 = 2.31V — well within 3.3V logic.
+# LED anodes powered separately from 5V (led_vcc).
+# TLC5947 constant-current sinks work correctly regardless of VCC —
+# IREF is set by internal bandgap reference, not VCC.
+#
+# TLC1 (ch 0-15):  Step buttons 1-8  (RED/GREEN × 8), ch 16-23 spare
+# TLC2 (ch 0-15):  Step buttons 9-16 (RED/GREEN × 8), ch 16-23 spare
+
+import Resistor
+import Capacitor
+
+from "../../parts/TLC5947DAP/TLC5947DAP.ato" import TLC5947DAP
+
+module LEDDriverChain:
+    # Control lines from MCU
+    signal sin       # GP11 — serial data in
+    signal sclk      # GP12 — serial clock
+    signal xlat      # GP13 — latch
+    signal blank     # GP14 — blanking/output enable
+
+    # Power
+    signal vcc       # +3.3V for TLC5947 digital logic
+    signal v5v       # +5V for LED anodes
+    signal gnd
+
+    # LED anode supply (+5V, separate from TLC5947 VCC)
+    signal led_vcc
+
+    # --- 2 TLC5947 chips ---
+    tlc1 = new TLC5947DAP
+    tlc2 = new TLC5947DAP
+
+    # Power
+    tlc1.VCC ~ vcc
+    tlc1.GND ~ gnd
+    tlc2.VCC ~ vcc
+    tlc2.GND ~ gnd
+
+    # LED anode power (connect to 5V, NOT 3.3V VCC)
+    led_vcc ~ v5v
+
+    # Bypass caps
+    c1 = new Capacitor
+    c1.capacitance = 100nF +/- 20%
+    c1.unnamed[0] ~ vcc
+    c1.unnamed[1] ~ gnd
+
+    c2 = new Capacitor
+    c2.capacitance = 100nF +/- 20%
+    c2.unnamed[0] ~ vcc
+    c2.unnamed[1] ~ gnd
+
+    # Shared control lines
+    tlc1.XLAT ~ xlat
+    tlc2.XLAT ~ xlat
+
+    tlc1.BLANK ~ blank
+    tlc2.BLANK ~ blank
+
+    tlc1.SCLK ~ sclk
+    tlc2.SCLK ~ sclk
+
+    # Daisy chain: MCU → TLC1.SIN → TLC1.SOUT → TLC2.SIN → TLC2.SOUT (unused)
+    sin ~ tlc1.SIN
+    tlc1.SOUT ~ tlc2.SIN
+
+    # IREF resistors — set maximum output current
+    # IREF = 39.06 / R_iref (from datasheet)
+    # For 20mA: R_iref = 39.06 / 0.020 = 1953Ω ≈ 2kΩ (standard value → ~19.5mA)
+    r_iref1 = new Resistor
+    r_iref1.resistance = 2kohm +/- 1%
+    r_iref1.unnamed[0] ~ tlc1.IREF
+    r_iref1.unnamed[1] ~ gnd
+
+    r_iref2 = new Resistor
+    r_iref2.resistance = 2kohm +/- 1%
+    r_iref2.unnamed[0] ~ tlc2.IREF
+    r_iref2.unnamed[1] ~ gnd
+
+    # Note: LED cathode connections (TLC output pins → button LED cathodes)
+    # are wired in control.ato since they cross between
+    # the button-scan module (which owns the TC002_RGB instances) and this module.
+    # The TLC output pins (OUT0-OUT23 on each chip) are exposed for external wiring.
+    # OUT16-OUT23 on each chip are spare — available for future indicator LEDs.

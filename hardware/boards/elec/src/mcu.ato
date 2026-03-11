@@ -1,0 +1,222 @@
+# MCU Block — Pimoroni PGA2350 (RP2350B)
+# 48 GPIO Pin Grid Array module with 16MB flash + 8MB PSRAM
+# Dedicated DAC SPI bus (SPI1), all other I/O routed through board connector
+#
+# Display (FPC) and SD card are on the CONTROL BOARD.
+# SPI0 (display + SD) and control signals route through
+# the board-to-board connector (Header A pins 9-18).
+# USB-C is edge-mounted on this (main) board with series resistors + ESD.
+#
+# GPIO assignments follow RP2350 hardware function-select constraints:
+#   GP0 = SPI0_RX only,  GP3 = SPI0_TX only
+#   GP20 = UART1_TX,     GP21 = UART1_RX
+#   GP30 = SPI1_SCK,     GP31 = SPI1_TX
+
+import Capacitor
+import Resistor
+
+from "../../parts/B5819W/B5819W.ato" import B5819W
+from "../../parts/PGA2350/PGA2350.ato" import PGA2350
+from "../../parts/TactileSwitch/TactileSwitch.ato" import TactileSwitch
+
+module PGA2350_MCU:
+    # Power
+    signal v5v         # +5V from power supply (for VB input via Schottky)
+    signal v3v3        # +3.3V from PGA2350 onboard regulator
+    signal gnd
+
+    # SPI0 bus (display + SD card, both on main board)
+    signal spi0_mosi   # GP3 — SPI0 TX (RP2350: GP3 = SPI0_TX only)
+    signal spi0_sck    # GP2 — SPI0 SCK
+    signal spi0_miso   # GP0 — SPI0 RX (RP2350: GP0 = SPI0_RX only)
+
+    # LCD control
+    signal lcd_cs      # GP1
+    signal lcd_dc      # GP7
+    signal lcd_bl      # GP5 — backlight PWM
+
+    # SD card
+    signal sd_cs       # GP24
+    signal sd_detect   # GP25
+
+    # SPI1 bus (dedicated DAC bus — no contention with display)
+    signal spi1_mosi   # GP31 — SPI1 TX (RP2350: GP31 = SPI1_TX only)
+    signal spi1_sck    # GP30 — SPI1 SCK (RP2350: GP30 = SPI1_SCK only)
+
+    # DAC chip selects
+    signal dac1_cs     # GP32
+    signal dac2_cs     # GP33
+
+    # Reset output
+    signal rst_out     # GP4
+
+    # Button scan (74HC165 chain)
+    signal btn_clk     # GP8
+    signal btn_latch   # GP9
+    signal btn_data    # GP10
+
+    # LED driver (TLC5947 chain)
+    signal led_sin     # GP11
+    signal led_sclk    # GP12
+    signal led_xlat    # GP13
+    signal led_blank   # GP14
+
+    # Encoder A
+    signal enc_a_a     # GP15
+    signal enc_a_b     # GP16
+    signal enc_a_sw    # GP17
+
+    # Encoder B
+    signal enc_b_a     # GP18
+    signal enc_b_b     # GP19
+    signal enc_b_sw    # GP6
+
+    # MIDI UART1
+    signal midi_tx     # GP20 — UART1 TX (RP2350: GP20 = UART1_TX)
+    signal midi_rx     # GP21 — UART1 RX (RP2350: GP21 = UART1_RX)
+
+    # Clock/Reset I/O
+    signal clk_in      # GP26 (ADC0)
+    signal rst_in      # GP27 (ADC1)
+    signal clk_out     # GP28 (ADC2)
+
+    # CV Inputs (RP2350B ADC4-7)
+    signal cv_a        # GP40 (ADC4)
+    signal cv_b        # GP41 (ADC5)
+    signal cv_c        # GP42 (ADC6)
+    signal cv_d        # GP43 (ADC7)
+
+    # USB data lines (raw, wired directly to USB-C receptacle on main board)
+    signal usb_dp
+    signal usb_dm
+
+    # --- PGA2350 module ---
+    pga = new PGA2350
+
+    # Power connections
+    # VB gets 5V through Schottky from eurorack power supply
+    d_vb = new B5819W
+    d_vb.anode ~ v5v
+    d_vb.cathode ~ pga.VB
+
+    # 3.3V output from PGA2350 onboard regulator
+    pga.V3V3 ~ v3v3
+
+    # Ground
+    pga.GND1 ~ gnd
+    pga.GND2 ~ gnd
+    pga.GND3 ~ gnd
+    pga.GND4 ~ gnd
+    pga.GND5 ~ gnd
+    pga.GND6 ~ gnd
+
+    # Bypass caps
+    c_vb = new Capacitor
+    c_vb.capacitance = 10uF +/- 20%
+    c_vb.unnamed[0] ~ pga.VB
+    c_vb.unnamed[1] ~ gnd
+
+    c_3v3 = new Capacitor
+    c_3v3.capacitance = 100nF +/- 20%
+    c_3v3.unnamed[0] ~ v3v3
+    c_3v3.unnamed[1] ~ gnd
+
+    c_3v3_bulk = new Capacitor
+    c_3v3_bulk.capacitance = 10uF +/- 20%
+    c_3v3_bulk.unnamed[0] ~ v3v3
+    c_3v3_bulk.unnamed[1] ~ gnd
+
+    # USB data lines exposed directly from PGA2350
+    pga.USB_DP ~ usb_dp
+    pga.USB_DM ~ usb_dm
+
+    # --- BOOTSEL Switch ---
+    # Small tactile switch pulls BS pin to GND for bootloader entry
+    sw_bootsel = new TactileSwitch
+    sw_bootsel.PIN1 ~ pga.BS
+    sw_bootsel.PIN2 ~ gnd
+
+    # BS pull-up to 3.3V (default: not in bootloader)
+    r_bs = new Resistor
+    r_bs.resistance = 10kohm +/- 5%
+    r_bs.unnamed[0] ~ v3v3
+    r_bs.unnamed[1] ~ pga.BS
+
+    # --- SWD Debug Header (3-pin, on main PCB) ---
+    # Not a panel component — accessible when module is removed from rack
+    signal swd_clk
+    signal swd_dio
+    pga.SWCLK ~ swd_clk
+    pga.SWDIO ~ swd_dio
+
+    # --- GPIO assignments ---
+
+    # SPI0: Display + SD card (both on main board)
+    pga.GP0 ~ spi0_miso     # GP0 = SPI0_RX (hardware constraint)
+    pga.GP1 ~ lcd_cs
+    pga.GP2 ~ spi0_sck
+    pga.GP3 ~ spi0_mosi     # GP3 = SPI0_TX (hardware constraint)
+    pga.GP5 ~ lcd_bl
+    pga.GP7 ~ lcd_dc        # LCD data/command select
+    pga.GP24 ~ sd_cs
+
+    # Reset output
+    pga.GP4 ~ rst_out
+
+    # SPI1: DACs (dedicated bus)
+    pga.GP30 ~ spi1_sck     # GP30 = SPI1_SCK (hardware constraint)
+    pga.GP31 ~ spi1_mosi    # GP31 = SPI1_TX (hardware constraint)
+    pga.GP32 ~ dac1_cs
+    pga.GP33 ~ dac2_cs
+
+    # Button scanning
+    pga.GP8 ~ btn_clk
+    pga.GP9 ~ btn_latch
+    pga.GP10 ~ btn_data
+
+    # LED drivers
+    pga.GP11 ~ led_sin
+    pga.GP12 ~ led_sclk
+    pga.GP13 ~ led_xlat
+    pga.GP14 ~ led_blank
+
+    # Encoders
+    pga.GP15 ~ enc_a_a
+    pga.GP16 ~ enc_a_b
+    pga.GP17 ~ enc_a_sw
+    pga.GP18 ~ enc_b_a
+    pga.GP19 ~ enc_b_b
+    pga.GP6 ~ enc_b_sw      # Moved from GP20 (GP20 needed for UART1_TX)
+
+    # MIDI (UART1)
+    pga.GP20 ~ midi_tx      # GP20 = UART1_TX (hardware constraint)
+    pga.GP21 ~ midi_rx      # GP21 = UART1_RX (hardware constraint)
+
+    # Clock/Reset I/O
+    pga.GP26_ADC0 ~ clk_in
+    pga.GP27_ADC1 ~ rst_in
+    pga.GP28_ADC2 ~ clk_out
+
+    # CV Inputs (ADC4-7 on RP2350B)
+    pga.GP40_ADC4 ~ cv_a
+    pga.GP41_ADC5 ~ cv_b
+    pga.GP42_ADC6 ~ cv_c
+    pga.GP43_ADC7 ~ cv_d
+
+    # SD card detect
+    pga.GP25 ~ sd_detect
+
+    # --- RUN pin pull-up (prevents spurious resets from noise) ---
+    r_run = new Resistor
+    r_run.resistance = 10kohm +/- 5%
+    r_run.unnamed[0] ~ v3v3
+    r_run.unnamed[1] ~ pga.RUN
+
+    # --- ADC_VREF decoupling (clean reference for CV input ADC channels) ---
+    c_aref = new Capacitor
+    c_aref.capacitance = 100nF +/- 20%
+    c_aref.unnamed[0] ~ pga.ADC_VREF
+    c_aref.unnamed[1] ~ gnd
+
+    # Spare GPIO: GP22, GP23, GP29, GP34-39, GP44-47
+    # Left unconnected for future expansion

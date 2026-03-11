@@ -1,0 +1,22 @@
+# Micro SD Card Slot — Push-push type, SPI mode
+# Front-panel mounted for user access
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component MicroSD_Slot:
+    trait is_atomic_part<manufacturer="Molex", partnumber="5031821852", footprint="MicroSD_Slot.kicad_mod", symbol="MicroSD_Slot.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C585353", manufacturer="Molex", partno="5031821852">
+
+    # SPI mode signals (lowercase to match atopile net naming convention)
+    signal cs ~ pin 1         # Chip select (directly driven)
+    signal mosi ~ pin 2       # SPI data in (to card)
+    signal miso ~ pin 3       # SPI data out (from card)
+    signal sck ~ pin 4        # SPI clock
+    signal vcc ~ pin 5        # 3.3V power
+    signal gnd ~ pin 6        # Ground
+    signal cd ~ pin 7         # Card detect (active low, optional)
+    signal shield ~ pin 8     # Connector shield

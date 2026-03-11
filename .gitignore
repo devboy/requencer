@@ -15,5 +15,8 @@ web/coverage/
 # macOS
 .DS_Store
 
+# Python
+.venv/
+
 # Misc
 .worktrees/

@@ -7,9 +7,9 @@
   "pcb": {
     "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
-    "height_mm": 106.5,
+    "height_mm": 107.5,
     "origin_x_mm": 2.0,
-    "origin_y_mm": 10.5
+    "origin_y_mm": 9.5
   },
   "constants": {
     "rail_zone_mm": 10.0,
@@ -20,8 +20,9 @@
     "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
-    "jack_spacing_mm": 14.0,
-    "output_jack_spacing_mm": 12.4,
+    "jack_spacing_mm": 15.0,
+    "output_jack_spacing_mm": 12.0,
+    "jack_rotation_deg": -90,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
     "mount_slot_w_mm": 7.0,
@@ -38,10 +39,15 @@
     "sd_slot_h_mm": 2.5
   },
   "lcd_cutout": {
+    "_note": "Sized for bare glass seating (JC3248A035N-1). 1.5mm lip all around. Glass: 85.5x54.94mm, active: 73.44x48.96mm.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
-    "width_mm": 73.44,
-    "height_mm": 48.96
+    "width_mm": 82.5,
+    "height_mm": 52.0,
+    "glass_w_mm": 85.5,
+    "glass_h_mm": 54.94,
+    "active_w_mm": 73.44,
+    "active_h_mm": 48.96
   },
   "mounting_slots": [
     {
@@ -92,14 +98,6 @@
         "label": "4"
       }
     ],
-    "tbd": {
-      "_todo": "Move back to components once TBD is placed in KiCad PCB at correct position (track column, 5th row)",
-      "id": "tbd",
-      "label": "TBD",
-      "x_mm": 7.83,
-      "y_mm": 62.3,
-      "type": "button"
-    },
     "subtrack": [
       {
         "id": "gate",
@@ -249,44 +247,41 @@
     "transport": [
       {
         "id": "play",
-        "x_mm": 135.55,
-        "y_mm": 22.0,
+        "x_mm": 133.5,
+        "y_mm": 20.0,
         "label": "PLAY"
       },
       {
         "id": "reset",
-        "x_mm": 135.55,
-        "y_mm": 36.0,
+        "x_mm": 133.5,
+        "y_mm": 32.0,
         "label": "RESET"
       },
       {
         "id": "settings",
-        "x_mm": 135.55,
-        "y_mm": 50.0,
+        "x_mm": 133.5,
+        "y_mm": 44.0,
         "label": "SET"
       }
     ],
     "control_strip": [
       {
         "id": "back",
-        "label": "BACK",
-        "x_mm": 36.26,
-        "y_mm": 83.36,
-        "type": "button"
+        "x_mm": 49.3,
+        "y_mm": 88.0,
+        "label": "BACK"
       },
       {
         "id": "rand",
-        "label": "RAND",
-        "x_mm": 59.94,
-        "y_mm": 83.36,
-        "type": "button"
+        "x_mm": 60.0,
+        "y_mm": 88.0,
+        "label": "RAND"
       },
       {
         "id": "clr",
-        "label": "CLR",
-        "x_mm": 83.62,
-        "y_mm": 83.36,
-        "type": "button"
+        "x_mm": 70.7,
+        "y_mm": 88.0,
+        "label": "CLR"
       }
     ]
   },
@@ -308,166 +303,166 @@
     "utility": [
       {
         "id": "clk_in",
-        "x_mm": 156.55,
+        "x_mm": 160.48,
         "y_mm": 22.0,
         "label": "CLK IN"
       },
       {
         "id": "clk_out",
-        "x_mm": 170.55,
+        "x_mm": 173.48,
         "y_mm": 22.0,
         "label": "CLK OUT"
       },
       {
         "id": "rst_in",
-        "x_mm": 156.55,
-        "y_mm": 36.0,
+        "x_mm": 160.48,
+        "y_mm": 34.0,
         "label": "RST IN"
       },
       {
         "id": "rst_out",
-        "x_mm": 170.55,
-        "y_mm": 36.0,
+        "x_mm": 173.48,
+        "y_mm": 34.0,
         "label": "RST OUT"
       },
       {
         "id": "midi_in",
-        "x_mm": 156.55,
-        "y_mm": 50.0,
+        "x_mm": 157.48,
+        "y_mm": 46.0,
         "label": "MIDI IN"
       },
       {
         "id": "midi_out",
-        "x_mm": 170.55,
-        "y_mm": 50.0,
+        "x_mm": 171.9,
+        "y_mm": 46.0,
         "label": "MIDI OUT"
       }
     ],
     "output": [
       {
         "id": "gate1",
-        "x_mm": 128.55,
-        "y_mm": 64.0,
+        "x_mm": 130.48,
+        "y_mm": 58.0,
         "label": "G1",
         "row": "gate",
         "track": 1
       },
       {
         "id": "gate2",
-        "x_mm": 142.55,
-        "y_mm": 64.0,
+        "x_mm": 145.48,
+        "y_mm": 58.0,
         "label": "G2",
         "row": "gate",
         "track": 2
       },
       {
         "id": "gate3",
-        "x_mm": 156.55,
-        "y_mm": 64.0,
+        "x_mm": 160.48,
+        "y_mm": 58.0,
         "label": "G3",
         "row": "gate",
         "track": 3
       },
       {
         "id": "gate4",
-        "x_mm": 170.55,
-        "y_mm": 64.0,
+        "x_mm": 173.48,
+        "y_mm": 58.0,
         "label": "G4",
         "row": "gate",
         "track": 4
       },
       {
         "id": "pitch1",
-        "x_mm": 128.55,
-        "y_mm": 76.4,
+        "x_mm": 130.48,
+        "y_mm": 70.0,
         "label": "P1",
         "row": "pitch",
         "track": 1
       },
       {
         "id": "pitch2",
-        "x_mm": 142.55,
-        "y_mm": 76.4,
+        "x_mm": 145.48,
+        "y_mm": 70.0,
         "label": "P2",
         "row": "pitch",
         "track": 2
       },
       {
         "id": "pitch3",
-        "x_mm": 156.55,
-        "y_mm": 76.4,
+        "x_mm": 160.48,
+        "y_mm": 70.0,
         "label": "P3",
         "row": "pitch",
         "track": 3
       },
       {
         "id": "pitch4",
-        "x_mm": 170.55,
-        "y_mm": 76.4,
+        "x_mm": 173.48,
+        "y_mm": 70.0,
         "label": "P4",
         "row": "pitch",
         "track": 4
       },
       {
         "id": "vel1",
-        "x_mm": 128.55,
-        "y_mm": 88.8,
+        "x_mm": 130.48,
+        "y_mm": 82.0,
         "label": "V1",
         "row": "vel",
         "track": 1
       },
       {
         "id": "vel2",
-        "x_mm": 142.55,
-        "y_mm": 88.8,
+        "x_mm": 145.48,
+        "y_mm": 82.0,
         "label": "V2",
         "row": "vel",
         "track": 2
       },
       {
         "id": "vel3",
-        "x_mm": 156.55,
-        "y_mm": 88.8,
+        "x_mm": 160.48,
+        "y_mm": 82.0,
         "label": "V3",
         "row": "vel",
         "track": 3
       },
       {
         "id": "vel4",
-        "x_mm": 170.55,
-        "y_mm": 88.8,
+        "x_mm": 173.48,
+        "y_mm": 82.0,
         "label": "V4",
         "row": "vel",
         "track": 4
       },
       {
         "id": "mod1",
-        "x_mm": 128.55,
-        "y_mm": 101.2,
+        "x_mm": 130.48,
+        "y_mm": 94.0,
         "label": "M1",
         "row": "mod",
         "track": 1
       },
       {
         "id": "mod2",
-        "x_mm": 142.55,
-        "y_mm": 101.2,
+        "x_mm": 145.48,
+        "y_mm": 94.0,
         "label": "M2",
         "row": "mod",
         "track": 2
       },
       {
         "id": "mod3",
-        "x_mm": 156.55,
-        "y_mm": 101.2,
+        "x_mm": 160.48,
+        "y_mm": 94.0,
         "label": "M3",
         "row": "mod",
         "track": 3
       },
       {
         "id": "mod4",
-        "x_mm": 170.55,
-        "y_mm": 101.2,
+        "x_mm": 173.48,
+        "y_mm": 94.0,
         "label": "M4",
         "row": "mod",
         "track": 4
@@ -476,66 +471,73 @@
     "cv_input": [
       {
         "id": "cv_a",
-        "x_mm": 128.55,
-        "y_mm": 113.6,
+        "x_mm": 130.48,
+        "y_mm": 108.0,
         "label": "A"
       },
       {
         "id": "cv_b",
-        "x_mm": 142.55,
-        "y_mm": 113.6,
+        "x_mm": 145.48,
+        "y_mm": 108.0,
         "label": "B"
       },
       {
         "id": "cv_c",
-        "x_mm": 156.55,
-        "y_mm": 113.6,
+        "x_mm": 160.48,
+        "y_mm": 108.0,
         "label": "C"
       },
       {
         "id": "cv_d",
-        "x_mm": 170.55,
-        "y_mm": 113.6,
+        "x_mm": 173.48,
+        "y_mm": 108.0,
         "label": "D"
       }
     ]
   },
   "connectors": {
-    "usb_c": {
-      "id": "usb_c",
-      "label": "USB",
-      "x_mm": 104.5,
-      "y_mm": 108.39,
-      "width_mm": 3.5,
-      "height_mm": 9.0,
-      "notes": "USB-C receptacle, vertical portrait, between step grid and jacks"
-    },
+    "_note": "SD card on control board, protrudes through faceplate cutout. USB-C is edge-mounted on main board (not on faceplate).",
     "sd_card": {
       "id": "sd_card",
-      "label": "SD",
-      "x_mm": 111.0,
-      "y_mm": 108.39,
-      "width_mm": 2.5,
-      "height_mm": 12.0,
-      "notes": "Micro SD push-push slot, vertical portrait, between step grid and jacks"
+      "x_mm": 105.0,
+      "y_mm": 103.0,
+      "width_mm": 13.0,
+      "height_mm": 3.0,
+      "label": "SD"
     }
   },
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
-      "description": "Thonkiconn PJ398SM 3.5mm mono jack",
+      "description": "Thonkiconn PJ398SM 3.5mm mono jack, vertical mount",
       "drill_mm": 6.0,
       "body": {
         "x1": -4.0,
-        "y1": -7.0,
+        "y1": -5.8,
         "x2": 7.0,
         "y2": 3.0
       },
       "courtyard": {
         "x1": -4.0,
-        "y1": -7.0,
+        "y1": -5.8,
         "x2": 7.0,
         "y2": 3.0
+      }
+    },
+    "pj366st": {
+      "description": "QingPu PJ366ST 3.5mm stereo TRS jack, vertical mount",
+      "drill_mm": 6.0,
+      "body": {
+        "x1": -5.0,
+        "y1": -7.9,
+        "x2": 5.0,
+        "y2": 6.5
+      },
+      "courtyard": {
+        "x1": -5.0,
+        "y1": -7.9,
+        "x2": 5.0,
+        "y2": 6.5
       }
     },
     "tc002_rgb": {

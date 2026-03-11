@@ -1,0 +1,213 @@
+{
+  "_note": "UI metadata for panel components, keyed by atopile address. Positions come from KiCad PCB via export_layout.py.",
+
+  "panel": {
+    "width_hp": 36,
+    "width_mm": 181.88,
+    "height_mm": 127.5
+  },
+
+  "pcb": {
+    "_note": "Main PCB is smaller than faceplate — sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
+    "width_mm": 177.88,
+    "height_mm": 107.5,
+    "origin_x_mm": 2.0,
+    "origin_y_mm": 9.5
+  },
+
+  "constants": {
+    "rail_zone_mm": 10.0,
+    "component_gap_mm": 5.33,
+    "btn_diameter_mm": 5.0,
+    "btn_cc_mm": 10.7,
+    "step_btn_diameter_mm": 4.5,
+    "step_btn_cc_mm": 10.2,
+    "jack_diameter_mm": 10.0,
+    "jack_hole_mm": 3.5,
+    "jack_spacing_mm": 15.0,
+    "output_jack_spacing_mm": 12.0,
+    "jack_rotation_deg": -90,
+    "encoder_diameter_mm": 14.5,
+    "rect_btn_height_mm": 10.0,
+    "mount_slot_w_mm": 7.0,
+    "mount_slot_h_mm": 3.5,
+    "mount_offset_x_mm": 7.5,
+    "mount_offset_y_mm": 3.0,
+    "lcd_canvas_w_mm": 73.44,
+    "lcd_canvas_h_mm": 48.96,
+    "lcd_padding_mm": 2.0,
+    "silk_text_mm": 2.2,
+    "usb_c_w_mm": 9.0,
+    "usb_c_h_mm": 3.5,
+    "sd_slot_w_mm": 12.0,
+    "sd_slot_h_mm": 2.5
+  },
+
+  "display": {
+    "_note": "JC3248A035N-1: bare ST7796 3.5\" SPI TFT panel (no carrier PCB). Glass sits in faceplate cutout, FPC ribbon connects to 18-pin ZIF on control board.",
+    "part": "JC3248A035N-1",
+    "driver": "ST7796S",
+    "resolution": "480x320",
+    "interface": "4-wire SPI (pre-configured, no IM pins)",
+    "glass_w_mm": 85.5,
+    "glass_h_mm": 54.94,
+    "glass_thickness_mm": 2.5,
+    "active_w_mm": 73.44,
+    "active_h_mm": 48.96,
+    "fpc_pins": 18,
+    "fpc_pitch_mm": 0.5,
+    "fpc_edge": "bottom (short edge, landscape orientation)",
+    "backlight": "4 parallel LED cathodes (K1-K4), anode to 3.3V, cathodes switched via N-FET"
+  },
+
+  "lcd_cutout": {
+    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around for the glass to rest on. Full active area visible with margin.",
+    "center_x_mm": 54.78,
+    "center_y_mm": 39.89,
+    "width_mm": 82.5,
+    "height_mm": 52.0,
+    "glass_w_mm": 85.5,
+    "glass_h_mm": 54.94
+  },
+
+  "mounting_slots": [
+    { "id": "tl", "x_mm": 7.5, "y_mm": 3.0 },
+    { "id": "tr", "x_mm": 174.38, "y_mm": 3.0 },
+    { "id": "bl", "x_mm": 7.5, "y_mm": 124.5 },
+    { "id": "br", "x_mm": 174.38, "y_mm": 124.5 }
+  ],
+
+  "footprints": {
+    "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
+    "pj398sm": {
+      "description": "Thonkiconn PJ398SM 3.5mm mono jack, vertical mount",
+      "drill_mm": 6.0,
+      "body":      { "x1": -4.0, "y1": -5.8, "x2": 7.0, "y2": 3.0 },
+      "courtyard": { "x1": -4.0, "y1": -5.8, "x2": 7.0, "y2": 3.0 }
+    },
+    "pj366st": {
+      "description": "QingPu PJ366ST 3.5mm stereo TRS jack, vertical mount",
+      "drill_mm": 6.0,
+      "body":      { "x1": -5.0, "y1": -7.9, "x2": 5.0, "y2": 6.5 },
+      "courtyard": { "x1": -5.0, "y1": -7.9, "x2": 5.0, "y2": 6.5 }
+    },
+    "tc002_rgb": {
+      "description": "Well Buying TC002 RGB tactile switch",
+      "drill_mm": 3.2,
+      "body":      { "x1": -3.5, "y1": -3.5, "x2": 3.5, "y2": 3.5 },
+      "courtyard": { "x1": -4.5, "y1": -4.5, "x2": 4.5, "y2": 4.5 }
+    },
+    "ec11e": {
+      "description": "Alps EC11E rotary encoder with push switch",
+      "drill_mm": 7.0,
+      "body":      { "x1": -6.5, "y1": -6.5, "x2": 6.5, "y2": 6.5 },
+      "courtyard": { "x1": -8.0, "y1": -9.0, "x2": 8.0, "y2": 9.0 }
+    },
+    "fpc_18p_05mm": {
+      "description": "18-pin 0.5mm FPC ZIF connector for display",
+      "body":      { "x1": -5.75, "y1": -2.5, "x2": 5.75, "y2": 2.5 },
+      "courtyard": { "x1": -6.5, "y1": -3.5, "x2": 6.5, "y2": 3.5 }
+    },
+    "pjs008u": {
+      "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
+      "body":      { "x1": -7.0, "y1": -6.5, "x2": 7.0, "y2": 6.5 },
+      "courtyard": { "x1": -8.0, "y1": -7.5, "x2": 8.0, "y2": 7.5 }
+    }
+  },
+
+  "connectors": {
+    "_note": "SD card on control board (protrudes through faceplate). USB-C is edge-mounted on main board.",
+    "sd_card": {
+      "part": "PJS008U-3000-0 (Yamaichi vertical MicroSD)",
+      "height_above_pcb_mm": 14.18,
+      "protrusion_above_panel_mm": 2.6,
+      "faceplate_cutout_mm": "13 x 3"
+    },
+    "usb_c": {
+      "_note": "Edge-mounted on main board, not on faceplate",
+      "part": "TYPE-C-31-M-12 (Korean Hroparts Elec, SMD mid-mount)",
+      "lcsc": "C165948",
+      "location": "main_board_edge"
+    }
+  },
+
+  "components": {
+    "jacks.j_clk_in":   { "group": "jacks.utility",  "id": "clk_in",  "label": "CLK IN",   "type": "jack" },
+    "jacks.j_clk_out":  { "group": "jacks.utility",  "id": "clk_out", "label": "CLK OUT",  "type": "jack" },
+    "jacks.j_rst_in":   { "group": "jacks.utility",  "id": "rst_in",  "label": "RST IN",   "type": "jack" },
+    "jacks.j_rst_out":  { "group": "jacks.utility",  "id": "rst_out", "label": "RST OUT",  "type": "jack" },
+    "midi.jack_in":     { "group": "jacks.utility",  "id": "midi_in", "label": "MIDI IN",  "type": "jack" },
+    "midi.jack_out":    { "group": "jacks.utility",  "id": "midi_out","label": "MIDI OUT", "type": "jack" },
+
+    "jacks.j_gate1":    { "group": "jacks.output", "id": "gate1",  "label": "G1", "type": "jack", "row": "gate",  "track": 1 },
+    "jacks.j_gate2":    { "group": "jacks.output", "id": "gate2",  "label": "G2", "type": "jack", "row": "gate",  "track": 2 },
+    "jacks.j_gate3":    { "group": "jacks.output", "id": "gate3",  "label": "G3", "type": "jack", "row": "gate",  "track": 3 },
+    "jacks.j_gate4":    { "group": "jacks.output", "id": "gate4",  "label": "G4", "type": "jack", "row": "gate",  "track": 4 },
+    "jacks.j_pitch1":   { "group": "jacks.output", "id": "pitch1", "label": "P1", "type": "jack", "row": "pitch", "track": 1 },
+    "jacks.j_pitch2":   { "group": "jacks.output", "id": "pitch2", "label": "P2", "type": "jack", "row": "pitch", "track": 2 },
+    "jacks.j_pitch3":   { "group": "jacks.output", "id": "pitch3", "label": "P3", "type": "jack", "row": "pitch", "track": 3 },
+    "jacks.j_pitch4":   { "group": "jacks.output", "id": "pitch4", "label": "P4", "type": "jack", "row": "pitch", "track": 4 },
+    "jacks.j_vel1":     { "group": "jacks.output", "id": "vel1",   "label": "V1", "type": "jack", "row": "vel",   "track": 1 },
+    "jacks.j_vel2":     { "group": "jacks.output", "id": "vel2",   "label": "V2", "type": "jack", "row": "vel",   "track": 2 },
+    "jacks.j_vel3":     { "group": "jacks.output", "id": "vel3",   "label": "V3", "type": "jack", "row": "vel",   "track": 3 },
+    "jacks.j_vel4":     { "group": "jacks.output", "id": "vel4",   "label": "V4", "type": "jack", "row": "vel",   "track": 4 },
+    "jacks.j_mod1":     { "group": "jacks.output", "id": "mod1",   "label": "M1", "type": "jack", "row": "mod",   "track": 1 },
+    "jacks.j_mod2":     { "group": "jacks.output", "id": "mod2",   "label": "M2", "type": "jack", "row": "mod",   "track": 2 },
+    "jacks.j_mod3":     { "group": "jacks.output", "id": "mod3",   "label": "M3", "type": "jack", "row": "mod",   "track": 3 },
+    "jacks.j_mod4":     { "group": "jacks.output", "id": "mod4",   "label": "M4", "type": "jack", "row": "mod",   "track": 4 },
+
+    "jacks.j_cv_a":     { "group": "jacks.cv_input", "id": "cv_a", "label": "A", "type": "jack" },
+    "jacks.j_cv_b":     { "group": "jacks.cv_input", "id": "cv_b", "label": "B", "type": "jack" },
+    "jacks.j_cv_c":     { "group": "jacks.cv_input", "id": "cv_c", "label": "C", "type": "jack" },
+    "jacks.j_cv_d":     { "group": "jacks.cv_input", "id": "cv_d", "label": "D", "type": "jack" },
+
+    "buttons.btn_t1":       { "group": "buttons.track",    "id": "t1",    "label": "1",     "type": "button" },
+    "buttons.btn_t2":       { "group": "buttons.track",    "id": "t2",    "label": "2",     "type": "button" },
+    "buttons.btn_t3":       { "group": "buttons.track",    "id": "t3",    "label": "3",     "type": "button" },
+    "buttons.btn_t4":       { "group": "buttons.track",    "id": "t4",    "label": "4",     "type": "button" },
+
+    "buttons.btn_gate":     { "group": "buttons.subtrack", "id": "gate",  "label": "GATE",  "type": "button" },
+    "buttons.btn_pitch":    { "group": "buttons.subtrack", "id": "pitch", "label": "PITCH", "type": "button" },
+    "buttons.btn_vel":      { "group": "buttons.subtrack", "id": "vel",   "label": "VEL",   "type": "button" },
+    "buttons.btn_mod":      { "group": "buttons.subtrack", "id": "mod",   "label": "MOD",   "type": "button" },
+    "buttons.btn_pat":      { "group": "buttons.pat",      "id": "pat",   "label": "PAT",   "type": "button" },
+
+    "buttons.btn_mute":     { "group": "buttons.feature",  "id": "mute",  "label": "MUTE",  "type": "button" },
+    "buttons.btn_route":    { "group": "buttons.feature",  "id": "route", "label": "ROUTE", "type": "button" },
+    "buttons.btn_drift":    { "group": "buttons.feature",  "id": "drift", "label": "DRIFT", "type": "button" },
+    "buttons.btn_xpose":    { "group": "buttons.feature",  "id": "trns",  "label": "TRNS",  "type": "button" },
+    "buttons.btn_var":      { "group": "buttons.feature",  "id": "var",   "label": "VAR",   "type": "button" },
+
+    "buttons.btn_step1":    { "group": "buttons.step", "id": "step1",  "type": "button" },
+    "buttons.btn_step2":    { "group": "buttons.step", "id": "step2",  "type": "button" },
+    "buttons.btn_step3":    { "group": "buttons.step", "id": "step3",  "type": "button" },
+    "buttons.btn_step4":    { "group": "buttons.step", "id": "step4",  "type": "button" },
+    "buttons.btn_step5":    { "group": "buttons.step", "id": "step5",  "type": "button" },
+    "buttons.btn_step6":    { "group": "buttons.step", "id": "step6",  "type": "button" },
+    "buttons.btn_step7":    { "group": "buttons.step", "id": "step7",  "type": "button" },
+    "buttons.btn_step8":    { "group": "buttons.step", "id": "step8",  "type": "button" },
+    "buttons.btn_step9":    { "group": "buttons.step", "id": "step9",  "type": "button" },
+    "buttons.btn_step10":   { "group": "buttons.step", "id": "step10", "type": "button" },
+    "buttons.btn_step11":   { "group": "buttons.step", "id": "step11", "type": "button" },
+    "buttons.btn_step12":   { "group": "buttons.step", "id": "step12", "type": "button" },
+    "buttons.btn_step13":   { "group": "buttons.step", "id": "step13", "type": "button" },
+    "buttons.btn_step14":   { "group": "buttons.step", "id": "step14", "type": "button" },
+    "buttons.btn_step15":   { "group": "buttons.step", "id": "step15", "type": "button" },
+    "buttons.btn_step16":   { "group": "buttons.step", "id": "step16", "type": "button" },
+
+    "buttons.btn_play":     { "group": "buttons.transport", "id": "play",     "label": "PLAY",  "type": "button" },
+    "buttons.btn_reset":    { "group": "buttons.transport", "id": "reset",    "label": "RESET", "type": "button" },
+    "buttons.btn_settings": { "group": "buttons.transport", "id": "settings", "label": "SET",   "type": "button" },
+
+    "buttons.btn_back":     { "group": "buttons.control_strip", "id": "back", "label": "BACK", "type": "button" },
+    "buttons.btn_rand":     { "group": "buttons.control_strip", "id": "rand", "label": "RAND", "type": "button" },
+    "buttons.btn_clr":      { "group": "buttons.control_strip", "id": "clr",  "label": "CLR",  "type": "button" },
+
+    "enc_a":                { "group": "encoders", "id": "enc_a", "label": "A", "type": "encoder" },
+    "enc_b":                { "group": "encoders", "id": "enc_b", "label": "B", "type": "encoder" }
+  },
+
+  "non_pcb_components": {
+    "_note": "Components with panel positions but no atopile address (not yet in schematic or UI-only)"
+  }
+}

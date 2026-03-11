@@ -1,0 +1,21 @@
+# Display — JC3248A035N-1 bare ST7796 3.5" SPI TFT (480×320)
+#
+# The physical display (bare glass + FPC) and all supporting circuits
+# (backlight MOSFET, RC reset, bypass cap) are on the CONTROL BOARD.
+# The FPC connector on the control board connects to the display glass
+# sitting in the faceplate cutout.
+#
+# Display signals route: MCU (main board) → board connector → control board → FPC
+#
+# This file is kept as documentation only. No physical parts remain on the
+# main board for the display — all wiring is done directly in main.ato
+# (MCU signals → connector) and control.ato (connector → FPC + circuits).
+#
+# Display specs:
+#   Part: JC3248A035N-1 (bare panel, no carrier PCB, no touch)
+#   Glass: 85.5 × 54.94 × 2.5mm, active: 73.44 × 48.96mm
+#   Interface: 4-wire SPI (IM pins pre-configured internally)
+#   FPC: 18-pin, 0.5mm pitch, bottom edge (landscape)
+#   Backlight: 4 parallel LED cathodes (K1-K4), anode to 3.3V
+#   FPC pinout: 1=GND, 2=RST, 3=SCK, 4=DC, 5=CS, 6=MOSI,
+#               7=MISO, 8=GND, 9=VCC, 10=LEDA, 11-14=K1-K4, 15-18=NC

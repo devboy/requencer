@@ -1,0 +1,23 @@
+# ResistorNetwork9 — 9-Pin SIP Bussed Resistor Network (8 resistors, common pin)
+# Bourns 4609X-101-103LF (10kohm) or equivalent
+# Pin 1 = COMMON bus, Pins 2-9 = individual resistor terminals
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component ResistorNetwork9:
+    trait is_atomic_part<manufacturer="Bourns", partnumber="4609X-101-103LF", footprint="SIP-9.kicad_mod", symbol="ResistorNetwork9.kicad_sym">
+    trait has_designator_prefix<prefix="RN">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C65134", manufacturer="Bourns", partno="4609X-101-103LF">
+
+    signal COMMON ~ pin 1
+    signal R1 ~ pin 2
+    signal R2 ~ pin 3
+    signal R3 ~ pin 4
+    signal R4 ~ pin 5
+    signal R5 ~ pin 6
+    signal R6 ~ pin 7
+    signal R7 ~ pin 8
+    signal R8 ~ pin 9
