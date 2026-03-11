@@ -446,12 +446,54 @@ function updateDisplay(displayTexture: THREE.CanvasTexture) {
 }
 ```
 
+### Screen Brightness Control
+Use `MeshStandardMaterial` with the canvas texture as both `map` and `emissiveMap`:
+```typescript
+const screenMaterial = new THREE.MeshStandardMaterial({
+  map: displayTexture,
+  emissiveMap: displayTexture,
+  emissive: new THREE.Color(1, 1, 1),
+  emissiveIntensity: 0.8,  // 0=off, 1=full backlit
+  toneMapped: false,
+})
+```
+This makes the screen self-lit (visible even in a dark scene), matching how real backlit TFTs behave.
+
+### Backlight Bleed
+Add a `RectAreaLight` behind the screen for realistic backlight bleeding onto the bezel:
+```typescript
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js'
+RectAreaLightUniformsLib.init()
+
+const backlight = new THREE.RectAreaLight(0x88aaff, 0.5, active.w_mm, active.h_mm)
+backlight.position.z = -0.1  // Slightly behind screen plane
+backlight.lookAt(0, 0, 1)
+group.add(backlight)
+```
+
+### LCD Subpixel Effect (Bonus — Close Zoom Detail)
+At close zoom, real TFTs show visible RGB subpixels. Implement via custom `ShaderMaterial`:
+1. Snap UVs to pixel grid: `uv = round(uv * resolution) / resolution`
+2. Generate RGB cell pattern using `fract(uv * resolution)` with circular masks for R, G, B
+3. Multiply texture sample by per-channel masks
+4. Distance-fade: lerp between LCD effect (close) and plain texture (far) based on camera distance
+
+This is a nice-to-have polish detail — skip in Phase 2, consider for Phase 3.
+
+### Display Layer Stack (front to back)
+1. **Glass overlay** — `MeshPhysicalMaterial` transmission/clearcoat (z=0.2)
+2. **Screen content** — `MeshStandardMaterial` emissiveMap=CanvasTexture (z=0.1)
+3. **Bezel frame** — `ExtrudeGeometry` dark plastic (z=-1.0)
+4. **RectAreaLight** — behind screen, casts backlight bleed onto bezel
+
 ### Performance Considerations
 - 480x320 is very small (153,600 pixels) — negligible GPU upload cost
 - `generateMipmaps = false` saves mipmap computation
-- `NearestFilter` avoids expensive filtering
+- `NearestFilter` avoids expensive filtering (and gives authentic pixelated TFT look)
 - Only set `needsUpdate` when content actually changed (check a dirty flag)
 - At 60fps with a 480x320 texture, this is ~37 MB/s of texture data — well within budget
+- Chrome is fastest for CanvasTexture uploads; Firefox/Safari slower but fine at this resolution
+- `MeshPhysicalMaterial` glass overlay has higher per-pixel cost but for one small plane it's negligible
 
 ---
 
