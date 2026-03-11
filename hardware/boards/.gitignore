@@ -1,5 +1,11 @@
 # Atopile build outputs
-build/
+build/*
+!build/control-placed.kicad_pcb
+!build/control-placed.kicad_pro
+!build/main-placed.kicad_pcb
+!build/main-placed.kicad_pro
+!build/3d/
+
 elec/layout/
 elec/src/parts/
 elec/footprints/

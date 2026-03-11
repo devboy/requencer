@@ -98,6 +98,8 @@ hw-export-layout:
 		$(CONTROL_PLACED) hardware/boards/component-map.json web/src/panel-layout.json
 
 hw-export-gltf:  ## Convert STEP → glTF for web 3D viewer
+	@test -d .venv || python3 -m venv .venv
+	@.venv/bin/pip install -q trimesh cascadio numpy
 	.venv/bin/python3 hardware/boards/scripts/export_gltf.py
 
 hw-fetch-pcb:

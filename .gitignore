@@ -10,7 +10,6 @@ web/dist/
 web/.vite/
 web/pkg/
 web/coverage/
-web/public/models/
 *.local
 
 # macOS
