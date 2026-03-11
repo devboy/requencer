@@ -32,7 +32,6 @@ const USB_C_H = C.usb_c_h_mm * SCALE // used for border-radius
 const SILK_TEXT = Math.round(C.silk_text_mm * SCALE)
 const _COMPONENT_GAP = Math.round(BTN_CC / 2)
 
-
 // Neighbor module images
 const NEIGHBORS = {
   left: {
@@ -113,7 +112,6 @@ function createJack(
   panel.appendChild(cell)
   return cell
 }
-
 
 /** Create the full rack DOM structure and append to body */
 export function createFaceplate(): FaceplateElements {
@@ -242,9 +240,27 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Transport buttons (PLAY, RESET, SETTINGS) ---
   const transportData = panelLayout.buttons.transport
-  const playBtn = createCircleBtn(modulePanel, 'transport-btn play-btn jack-zone-btn', transportData[0].x_mm, transportData[0].y_mm, 'PLAY')
-  const resetBtn = createCircleBtn(modulePanel, 'transport-btn jack-zone-btn', transportData[1].x_mm, transportData[1].y_mm, 'RESET')
-  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn jack-zone-btn', transportData[2].x_mm, transportData[2].y_mm, 'SET')
+  const playBtn = createCircleBtn(
+    modulePanel,
+    'transport-btn play-btn jack-zone-btn',
+    transportData[0].x_mm,
+    transportData[0].y_mm,
+    'PLAY',
+  )
+  const resetBtn = createCircleBtn(
+    modulePanel,
+    'transport-btn jack-zone-btn',
+    transportData[1].x_mm,
+    transportData[1].y_mm,
+    'RESET',
+  )
+  const settingsBtn = createCircleBtn(
+    modulePanel,
+    'transport-btn jack-zone-btn',
+    transportData[2].x_mm,
+    transportData[2].y_mm,
+    'SET',
+  )
 
   // --- Utility jacks (CLK, RST, MIDI pairs) ---
   for (const jack of panelLayout.jacks.utility) {
@@ -266,7 +282,8 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Connectors (USB-C, SD) ---
   // Position the body at the coordinate; label floats above via CSS
-  const usbData = (panelLayout.connectors as Record<string, any>).usb_c
+  const connectors = panelLayout.connectors as Record<string, Record<string, number | string>> | undefined
+  const usbData = connectors?.usb_c
   if (usbData) {
     const usbEl = document.createElement('div')
     usbEl.className = 'connector-body usb-c-body'
@@ -281,7 +298,7 @@ export function createFaceplate(): FaceplateElements {
     usbEl.appendChild(usbLabel)
   }
 
-  const sdData = (panelLayout.connectors as Record<string, any>).sd_card
+  const sdData = connectors?.sd_card
   if (sdData) {
     const sdEl = document.createElement('div')
     sdEl.className = 'connector-body sd-slot-body'
