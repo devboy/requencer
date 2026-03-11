@@ -130,7 +130,13 @@ export function createFootprintOverlay(): void {
   addJackFootprints(panelLayout.jacks.cv_input)
 
   // Connectors — rect from JSON dimensions (optional, may be on faceplate board)
-  const fpConnectors = panelLayout.connectors as { _note?: string; usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }; sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number } } | undefined
+  const fpConnectors = panelLayout.connectors as
+    | {
+        _note?: string
+        usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+        sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+      }
+    | undefined
   const usb = fpConnectors?.usb_c
   if (usb) {
     parts.push(
