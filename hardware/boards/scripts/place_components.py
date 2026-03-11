@@ -827,9 +827,6 @@ def place_components(input_pcb, output_pcb=None):
     for enc in layout["encoders"]:
         place(enc["id"], enc["x_mm"], enc["y_mm"])
 
-    # --- Front-panel connectors ---
-    # USB-C and SD card moved to faceplate board (connected via flat cable).
-
     # --- SMD components (back side) ---
     # Group unplaced SMD parts by their module prefix, then lay them out
     # in functional zones on the back of the board.
@@ -863,7 +860,9 @@ def place_components(input_pcb, output_pcb=None):
     place("connector.header_a", 25, 28, front=False, faceplate_coords=False)
     place("connector.header_b", 40, 28, front=False, faceplate_coords=False)
 
-    # Display header moved to main board (Task 4)
+    # FPC connector for display — front side, below LCD cutout
+    # Must be on front for ribbon cable access to display glass
+    place("lcd_fpc", lcd_pcb_cx, lcd_bottom_pcb + 3, front=True, faceplate_coords=False)
 
     # MIDI optoisolator (IC, back side) — behind LCD, right of connector headers
     place("midi.opto", 80, 10, front=False, faceplate_coords=False)
@@ -1110,9 +1109,9 @@ def place_components(input_pcb, output_pcb=None):
                         target_x = sum(p[0] for p in positions) / len(positions)
                         target_y = sum(p[1] for p in positions) / len(positions)
                     else:
-                        target_x, target_y = board_w / 2, board_h / 2
+                        target_x, target_y = w_mm / 2, h_mm / 2
                 else:
-                    target_x, target_y = board_w / 2, board_h / 2
+                    target_x, target_y = w_mm / 2, h_mm / 2
 
                 # Search at bbox-center position (not ref point)
                 search_cx = target_x + off_x

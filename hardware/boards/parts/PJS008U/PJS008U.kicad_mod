@@ -19,4 +19,9 @@
   (pad "10" thru_hole circle (at -2.75 0.00) (size 1.50 1.50) (drill 1.00) (layers "*.Cu" "*.Mask"))
   (pad "" thru_hole circle (at -5.00 -3.30) (size 2.00 2.00) (drill 1.40) (layers "*.Cu" "*.Mask"))
   (pad "" thru_hole circle (at 5.00 -3.30) (size 2.00 2.00) (drill 1.40) (layers "*.Cu" "*.Mask"))
+	(model "${KIPRJMOD}/../parts/PJS008U/PJS008U.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

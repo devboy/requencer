@@ -39,8 +39,6 @@ module System:
     control.connector.lcd_bl ~ main.connector.lcd_bl
     control.connector.sd_cs ~ main.connector.sd_cs
     control.connector.sd_cd ~ main.connector.sd_cd
-    control.connector.usb_dp ~ main.connector.usb_dp
-    control.connector.usb_dm ~ main.connector.usb_dm
     control.connector.clk_in ~ main.connector.clk_in
     control.connector.rst_in ~ main.connector.rst_in
     control.connector.clk_out ~ main.connector.clk_out

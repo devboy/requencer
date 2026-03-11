@@ -112,27 +112,22 @@
       "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
       "body":      { "x1": -7.0, "y1": -6.5, "x2": 7.0, "y2": 6.5 },
       "courtyard": { "x1": -8.0, "y1": -7.5, "x2": 8.0, "y2": 7.5 }
-    },
-    "usb_c_vertical": {
-      "description": "Vertical THT USB-C receptacle",
-      "body":      { "x1": -4.75, "y1": -4.5, "x2": 4.75, "y2": 4.5 },
-      "courtyard": { "x1": -5.5, "y1": -5.0, "x2": 5.5, "y2": 5.0 }
     }
   },
 
   "connectors": {
-    "_note": "USB-C and SD card on control board, protrude through faceplate cutouts",
-    "usb_c": {
-      "part": "USB_C_Vertical (Witarea W0026-16-VM2-S3 or equiv)",
-      "height_above_pcb_mm": 17.5,
-      "protrusion_above_panel_mm": 5.9,
-      "faceplate_cutout_mm": "9.5 x 3.5"
-    },
+    "_note": "SD card on control board (protrudes through faceplate). USB-C is edge-mounted on main board.",
     "sd_card": {
       "part": "PJS008U-3000-0 (Yamaichi vertical MicroSD)",
       "height_above_pcb_mm": 14.18,
       "protrusion_above_panel_mm": 2.6,
       "faceplate_cutout_mm": "13 x 3"
+    },
+    "usb_c": {
+      "_note": "Edge-mounted on main board, not on faceplate",
+      "part": "TYPE-C-31-M-12 (Korean Hroparts Elec, SMD mid-mount)",
+      "lcsc": "C165948",
+      "location": "main_board_edge"
     }
   },
 

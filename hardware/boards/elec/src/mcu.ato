@@ -2,10 +2,10 @@
 # 48 GPIO Pin Grid Array module with 16MB flash + 8MB PSRAM
 # Dedicated DAC SPI bus (SPI1), all other I/O routed through board connector
 #
-# Display (FPC), USB-C, and SD card are on the CONTROL BOARD.
-# SPI0 (display + SD), USB D+/D-, and control signals route through
-# the board-to-board connector (Header A pins 9-20).
-# USB series resistors + ESD protection remain on this (main) board.
+# Display (FPC) and SD card are on the CONTROL BOARD.
+# SPI0 (display + SD) and control signals route through
+# the board-to-board connector (Header A pins 9-18).
+# USB-C is edge-mounted on this (main) board with series resistors + ESD.
 #
 # GPIO assignments follow RP2350 hardware function-select constraints:
 #   GP0 = SPI0_RX only,  GP3 = SPI0_TX only
@@ -86,7 +86,7 @@ module PGA2350_MCU:
     signal cv_c        # GP42 (ADC6)
     signal cv_d        # GP43 (ADC7)
 
-    # USB data lines (raw, routed through connector to USB-C on control board)
+    # USB data lines (raw, wired directly to USB-C receptacle on main board)
     signal usb_dp
     signal usb_dm
 

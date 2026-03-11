@@ -496,7 +496,7 @@
     ]
   },
   "connectors": {
-    "_note": "USB-C and SD card on control board, protrude through faceplate cutouts",
+    "_note": "SD card on control board, protrudes through faceplate cutout. USB-C is edge-mounted on main board (not on faceplate).",
     "sd_card": {
       "id": "sd_card",
       "x_mm": 105.0,
@@ -504,14 +504,6 @@
       "width_mm": 13.0,
       "height_mm": 3.0,
       "label": "SD"
-    },
-    "usb_c": {
-      "id": "usb_c",
-      "x_mm": 118.0,
-      "y_mm": 103.0,
-      "width_mm": 9.5,
-      "height_mm": 3.5,
-      "label": "USB"
     }
   },
   "footprints": {

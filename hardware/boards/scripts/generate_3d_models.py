@@ -491,6 +491,84 @@ def generate_pga2350():
     sw.write(out)
 
 
+def generate_fpc_18p_05mm():
+    """Generate FPC 18-pin 0.5mm pitch ZIF connector.
+
+    Dimensions (typical for this class of connector):
+      Body: 11.5 × 4.0 × 2.5mm (centered at origin XY, base at Z=0)
+      Latch: hinged flap on top, ~11.5 × 2.0 × 1.0mm
+      No pins below PCB (SMD pads only)
+    """
+    sw = StepWriter("FPC_18P_05MM", "18-pin 0.5mm FPC ZIF connector")
+
+    body_hw = 5.75   # half-width (11.5mm total)
+    body_hd = 2.0    # half-depth (4.0mm total)
+    body_h = 2.5     # body height
+
+    # Main body
+    sw.add_box(-body_hw, -body_hd, 0, body_hw, body_hd, body_h, "Body")
+
+    # Latch (hinged flap on top)
+    sw.add_box(-body_hw, -body_hd, body_h, body_hw, -body_hd + 2.0, body_h + 1.0, "Latch")
+
+    out = PARTS_DIR / "FPC_18P_05MM" / "FPC_18P_05MM.step"
+    sw.write(out)
+
+
+def generate_pjs008u():
+    """Generate Yamaichi PJS008U-3000-0 vertical MicroSD connector.
+
+    Dimensions (from datasheet):
+      Body: 14.0 × 14.6 × 2.0mm (base housing on PCB)
+      Card guide: 12.0 × 12.0 × 8.0mm (vertical tower for card insertion)
+      Total height above PCB: ~10mm
+      Pins extend 3.5mm below PCB (THT)
+    """
+    sw = StepWriter("PJS008U", "Yamaichi PJS008U-3000-0 vertical MicroSD")
+
+    # Base housing (on PCB surface)
+    base_hw = 7.0    # 14mm wide
+    base_hd = 7.3    # 14.6mm deep
+    base_h = 2.0
+
+    sw.add_box(-base_hw, -base_hd, 0, base_hw, base_hd, base_h, "Base")
+
+    # Card guide tower (centered, extends upward)
+    tower_hw = 6.0   # 12mm wide
+    tower_hd = 6.0   # 12mm deep
+    tower_h = 10.0   # total height from PCB
+
+    sw.add_box(-tower_hw, -tower_hd, base_h, tower_hw, tower_hd, tower_h, "CardGuide")
+
+    # Card slot opening (negative space indication — slightly recessed top)
+    slot_hw = 5.5
+    slot_hd = 0.5
+    sw.add_box(-slot_hw, -tower_hd, tower_h - 1.0, slot_hw, -tower_hd + slot_hd, tower_h + 0.5, "SlotOpening")
+
+    # THT pins (simplified: 8 pins in a row, 1.1mm pitch)
+    pin_w = 0.3
+    pin_depth = 3.5
+    for i in range(8):
+        px = -3.85 + i * 1.1
+        sw.add_box(
+            px - pin_w / 2, -1.0 - pin_w / 2, -pin_depth,
+            px + pin_w / 2, -1.0 + pin_w / 2, 0,
+            f"Pin{i + 1}",
+        )
+
+    # Mounting tabs (2 large pins on sides)
+    tab_w = 0.8
+    for side_x in [-5.0, 5.0]:
+        sw.add_box(
+            side_x - tab_w / 2, -3.3 - tab_w / 2, -pin_depth,
+            side_x + tab_w / 2, -3.3 + tab_w / 2, 0,
+            "MountTab",
+        )
+
+    out = PARTS_DIR / "PJS008U" / "PJS008U.step"
+    sw.write(out)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
@@ -504,6 +582,12 @@ def main():
 
     print("\nPGA2350 (RP2350B module):")
     generate_pga2350()
+
+    print("\nFPC_18P_05MM (18-pin FPC ZIF connector):")
+    generate_fpc_18p_05mm()
+
+    print("\nPJS008U (vertical MicroSD connector):")
+    generate_pjs008u()
 
     print("\nDone.")
 

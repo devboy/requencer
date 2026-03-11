@@ -3,8 +3,9 @@
 # Connects to control board via 2×16 board-to-board connectors
 #
 # Physical panel-mounted components (jacks, buttons, LEDs, encoders,
-# display, USB-C, SD card) all live on the control board.
-# Display, USB, and SD signals route through the board connector.
+# display, SD card) all live on the control board.
+# USB-C is edge-mounted on this board (accessible from rack side).
+# Display and SD signals route through the board connector.
 
 import Resistor
 import Capacitor
@@ -16,6 +17,7 @@ from "dac-output.ato" import DACOutputStage
 from "input-protection.ato" import InputProtection
 from "../../parts/2N3904/2N3904.ato" import _2N3904
 from "../../parts/PRTR5V0U2X/PRTR5V0U2X.ato" import PRTR5V0U2X
+from "../../parts/USB_C_Receptacle/USB_C_Receptacle.ato" import USB_C_Receptacle
 
 module Main:
     # --- Sub-module instances ---
@@ -241,24 +243,43 @@ module Main:
     r_rst_collector.unnamed[1] ~ q_rst.COLLECTOR
     q_rst.COLLECTOR ~ connector.rst_out
 
-    # === USB SIGNAL CONDITIONING (near MCU, raw D+/D- cross connector) ===
-    # 27Ω series resistors for signal integrity
+    # === USB-C — Edge-mounted SMD receptacle for firmware programming ===
+    # Data only (no VBUS power), USB 2.0 Full Speed
+    # Accessible from rack side (edge of main board)
+    usb = new USB_C_Receptacle
+
+    # 27Ω series resistors for signal integrity (near MCU)
     r_usb_dp = new Resistor
     r_usb_dp.resistance = 27ohm +/- 5%
     r_usb_dm = new Resistor
     r_usb_dm.resistance = 27ohm +/- 5%
 
     mcu.usb_dp ~ r_usb_dp.unnamed[0]
-    r_usb_dp.unnamed[1] ~ connector.usb_dp
+    r_usb_dp.unnamed[1] ~ usb.DP
     mcu.usb_dm ~ r_usb_dm.unnamed[0]
-    r_usb_dm.unnamed[1] ~ connector.usb_dm
+    r_usb_dm.unnamed[1] ~ usb.DM
+
+    usb.GND ~ gnd
+    usb.SHIELD ~ gnd
+    usb.VBUS ~ gnd    # Not used — data-only USB, tie to GND
 
     # ESD protection on USB data lines (at connector side of series resistors)
     esd = new PRTR5V0U2X
-    esd.IO1 ~ connector.usb_dm
-    esd.IO2 ~ connector.usb_dp
+    esd.IO1 ~ usb.DM
+    esd.IO2 ~ usb.DP
     esd.VCC ~ power.v5v
     esd.GND ~ gnd
+
+    # CC pull-downs (must be at receptacle per USB-C spec)
+    r_cc1 = new Resistor
+    r_cc1.resistance = 5.1kohm +/- 1%
+    r_cc1.unnamed[0] ~ usb.CC1
+    r_cc1.unnamed[1] ~ gnd
+
+    r_cc2 = new Resistor
+    r_cc2.resistance = 5.1kohm +/- 1%
+    r_cc2.unnamed[0] ~ usb.CC2
+    r_cc2.unnamed[1] ~ gnd
 
     # === DAC OUTPUTS → CONNECTOR (analog signals to jacks on control board) ===
     dac.gate1 ~ connector.gate1

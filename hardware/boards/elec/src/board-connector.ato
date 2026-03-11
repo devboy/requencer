@@ -59,10 +59,6 @@ module BoardConnectorInterface:
     signal sd_cs        # GP24 — SD chip select
     signal sd_cd        # GP25 — SD card detect
 
-    # === USB (raw D+/D- from MCU, series resistors on main board) ===
-    signal usb_dp       # USB D+
-    signal usb_dm       # USB D-
-
     # === Clock/Reset I/O (raw eurorack levels — protection on main board) ===
     signal clk_in     # Raw 0-10V from jack → protection on main → GP26
     signal rst_in     # Raw 0-10V from jack → protection on main → GP27
@@ -118,14 +114,13 @@ module BoardConnectorInterface:
     # Pins 15-16: SD_CS / SD_CD
     header_a.PIN15 ~ sd_cs
     header_a.PIN16 ~ sd_cd
-    # Pins 17-18: USB_DP / MIDI_TX
-    header_a.PIN17 ~ usb_dp
-    header_a.PIN18 ~ midi_tx
-    # Pins 19-20: MIDI_RX / USB_DM
-    header_a.PIN19 ~ midi_rx
-    header_a.PIN20 ~ usb_dm
-    # Pins 21-22: spare / SR_CLK
-    # PIN21: spare (1 remaining)
+    # Pins 17-18: MIDI_TX / MIDI_RX
+    header_a.PIN17 ~ midi_tx
+    header_a.PIN18 ~ midi_rx
+    # Pins 19-22: spare (3 remaining)
+    # PIN19: spare
+    # PIN20: spare
+    # PIN21: spare
     header_a.PIN22 ~ sr_clk
     # Pins 23-24: SR_LATCH / SR_DATA
     header_a.PIN23 ~ sr_latch
@@ -246,10 +241,6 @@ module BoardConnectorSocket:
     signal sd_cs
     signal sd_cd
 
-    # === USB ===
-    signal usb_dp
-    signal usb_dm
-
     # === Clock/Reset I/O ===
     signal clk_in
     signal rst_in
@@ -301,13 +292,13 @@ module BoardConnectorSocket:
     # Pins 15-16: SD_CS / SD_CD
     header_a.PIN15 ~ sd_cs
     header_a.PIN16 ~ sd_cd
-    # Pins 17-18: USB_DP / MIDI_TX
-    header_a.PIN17 ~ usb_dp
-    header_a.PIN18 ~ midi_tx
-    header_a.PIN19 ~ midi_rx
-    # Pin 20: USB_DM
-    header_a.PIN20 ~ usb_dm
-    # PIN21: spare (1 remaining)
+    # Pins 17-18: MIDI_TX / MIDI_RX
+    header_a.PIN17 ~ midi_tx
+    header_a.PIN18 ~ midi_rx
+    # Pins 19-22: spare (3 remaining)
+    # PIN19: spare
+    # PIN20: spare
+    # PIN21: spare
     header_a.PIN22 ~ sr_clk
     header_a.PIN23 ~ sr_latch
     header_a.PIN24 ~ sr_data

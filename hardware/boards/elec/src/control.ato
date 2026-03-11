@@ -1,7 +1,7 @@
 # Control Board — Top-Level Module
 # User-facing board in the Requencer multi-board stack
 # All user-facing components (buttons, LEDs, encoders, jacks, display,
-# USB-C, SD card) connected to main board MCU via 2×16 board connector
+# SD card) connected to main board MCU via 2×16 board connector
 
 from "board-connector.ato" import BoardConnectorSocket
 from "button-scan.ato" import ButtonScanner
@@ -13,7 +13,6 @@ from "../../parts/EC11E/EC11E.ato" import EC11E
 from "../../parts/B5819W/B5819W.ato" import B5819W
 from "../../parts/FPC_18P_05MM/FPC_18P_05MM.ato" import FPC_18P_05MM
 from "../../parts/PJS008U/PJS008U.ato" import PJS008U
-from "../../parts/USB_C_Vertical/USB_C_Vertical.ato" import USB_C_Vertical
 from "../../parts/2N7002/2N7002.ato" import _2N7002
 
 import Resistor
@@ -286,27 +285,3 @@ module Control:
     c_sd.unnamed[0] ~ connector.v3v3
     c_sd.unnamed[1] ~ gnd
 
-    # ==========================================================================
-    # USB-C — Vertical THT receptacle for firmware programming
-    # Protrudes through faceplate (~5.9mm above panel surface)
-    # Data only (no VBUS power), USB 2.0 Full Speed
-    # Series resistors + ESD protection on main board near MCU
-    # ==========================================================================
-    usb = new USB_C_Vertical
-
-    usb.DP ~ connector.usb_dp
-    usb.DM ~ connector.usb_dm
-    usb.GND ~ gnd
-    usb.SHIELD ~ gnd
-    usb.VBUS ~ gnd    # Not used — data-only USB, tie to GND
-
-    # CC pull-downs (must be at receptacle per USB-C spec)
-    r_cc1 = new Resistor
-    r_cc1.resistance = 5.1kohm +/- 1%
-    r_cc1.unnamed[0] ~ usb.CC1
-    r_cc1.unnamed[1] ~ gnd
-
-    r_cc2 = new Resistor
-    r_cc2.resistance = 5.1kohm +/- 1%
-    r_cc2.unnamed[0] ~ usb.CC2
-    r_cc2.unnamed[1] ~ gnd

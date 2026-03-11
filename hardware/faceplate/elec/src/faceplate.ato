@@ -19,7 +19,6 @@
 #   Button holes:   per TC002 datasheet
 #   Encoder holes:  7.0mm drill (EC11E shaft)
 #   LCD cutout:     82.5 × 52.0mm at center (54.78, 39.89) — glass seating with 1.5mm lip
-#   USB-C cutout:   9.5 × 3.5mm at (118.0, 103.0) — right of step buttons
 #   SD card cutout: 13.0 × 3.0mm at (105.0, 103.0) — right of step buttons
 #   Mounting slots: 7.0 × 3.5mm oval (Intellijel M3)
 #

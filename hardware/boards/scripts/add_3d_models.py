@@ -84,6 +84,8 @@ LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
     "PJ398SM/PJ398SM.kicad_mod": ("PJ398SM/PJ398SM.step", None, None),
     "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, None),
     "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
+    "FPC_18P_05MM/FPC_18P_05MM.kicad_mod": ("FPC_18P_05MM/FPC_18P_05MM.step", None, None),
+    "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", None, None),
 }
 
 
