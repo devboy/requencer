@@ -6,7 +6,7 @@
 	hw-place hw-place-control hw-place-main hw-3d-models \
 	hw-route hw-route-control hw-route-main \
 	hw-gnd-pours \
-	hw-export hw-all hw-clean \
+	hw-export hw-3d-export hw-export-gltf hw-all hw-clean \
 	hw-export-layout hw-fetch-pcb \
 	hw-docker-build hw-docker hw-docker-local hw-all-inner \
 	hw-local
@@ -86,6 +86,9 @@ hw-3d-models:
 	python3 hardware/boards/scripts/generate_3d_models.py
 	python3 hardware/boards/scripts/add_3d_models.py
 
+hw-3d-export:  ## Export board STEP files (requires kicad-cli + placed PCBs)
+	python3 hardware/boards/scripts/export_3d_assembly.py
+
 hw-place: hw-place-control hw-place-main hw-3d-models
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/export_layout.py \
 		$(CONTROL_PLACED) hardware/boards/component-map.json web/src/panel-layout.json
@@ -93,6 +96,9 @@ hw-place: hw-place-control hw-place-main hw-3d-models
 hw-export-layout:
 	$(KICAD_ENV) $(KICAD_PYTHON) hardware/boards/scripts/export_layout.py \
 		$(CONTROL_PLACED) hardware/boards/component-map.json web/src/panel-layout.json
+
+hw-export-gltf:  ## Convert STEP → glTF for web 3D viewer
+	.venv/bin/python3 hardware/boards/scripts/export_gltf.py
 
 hw-fetch-pcb:
 	gh run download --name placed-pcbs-latest -D hardware/boards/build/

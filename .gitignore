@@ -10,10 +10,14 @@ web/dist/
 web/.vite/
 web/pkg/
 web/coverage/
+web/public/models/
 *.local
 
 # macOS
 .DS_Store
+
+# Python
+.venv/
 
 # Misc
 .worktrees/
