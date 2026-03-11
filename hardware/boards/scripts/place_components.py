@@ -827,6 +827,11 @@ def place_components(input_pcb, output_pcb=None):
     for enc in layout["encoders"]:
         place(enc["id"], enc["x_mm"], enc["y_mm"])
 
+    # SD card slot (front side, protrudes through faceplate cutout)
+    sd = layout.get("connectors", {}).get("sd_card")
+    if sd:
+        place("sd", sd["x_mm"], sd["y_mm"])
+
     # --- SMD components (back side) ---
     # Group unplaced SMD parts by their module prefix, then lay them out
     # in functional zones on the back of the board.
