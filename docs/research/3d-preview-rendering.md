@@ -140,9 +140,20 @@ const faceplateMAterial = new THREE.MeshPhysicalMaterial({
 })
 ```
 
-For a **brushed aluminum** effect, add an anisotropic roughness normal map:
-- Generate procedurally: horizontal lines canvas → CanvasTexture → normalMap
-- Or use a single-direction noise texture
+For a **brushed aluminum** effect, use the built-in anisotropy property (Three.js r160+):
+```typescript
+const faceplateMAterial = new THREE.MeshPhysicalMaterial({
+  color: 0x2a2a2e,
+  metalness: 1.0,            // Full metal for anisotropy to work
+  roughness: 0.3,
+  anisotropy: 1.0,           // Maximum anisotropic stretching
+  anisotropyRotation: 0,     // 0 = horizontal brush direction
+  clearcoat: 0.3,
+  clearcoatRoughness: 0.4,
+  envMapIntensity: 1.0,
+})
+```
+This creates the characteristic elongated reflections of brushed metal. An environment map is essential — metallic materials look flat/black without one. `RectAreaLight` produces the stretched rectangular highlights that read as "studio-lit brushed metal."
 
 ### Coordinate System
 - Panel-layout.json uses **top-left origin, Y-down** (matching CSS/KiCad)
@@ -775,9 +786,11 @@ function setButtonLED(
 }
 ```
 
-For bloom to work on LEDs, assign LED meshes to a bloom layer:
+For threshold-based bloom, set LED `emissiveIntensity` high enough to exceed the bloom threshold:
 ```typescript
-ledMesh.layers.enable(1)  // Layer 1 = bloom layer
+// 'on' state: emissiveIntensity 2-5 → exceeds bloom threshold of 0.8
+// 'dim' state: emissiveIntensity 0.3 → below threshold, no bloom
+// 'flash' state: emissiveIntensity 5 → strong bloom
 ```
 
 ---
@@ -837,18 +850,35 @@ new RGBELoader().load('studio_small.hdr', (texture) => {
 // Use scene.environment = pmrem.fromScene(roomEnvironment).texture
 ```
 
-Good free HDRI options for product shots:
-- Polyhaven: `studio_small_09_2k.hdr` (soft studio lighting)
-- Polyhaven: `photo_studio_01_2k.hdr` (neutral lightbox)
+Good free HDRI options for product shots (all CC0 from [Poly Haven](https://polyhaven.com/hdris/studio)):
+- `studio_small_08` — most popular (571k downloads), soft low-contrast softbox, neutral tone
+- `pav_studio_03` — soft mixed natural+artificial, 20K resolution
+- `white_home_studio` — white studio with softbox/umbrella
 
-Alternatively, skip external HDRIs and use a procedural gradient environment to avoid loading external files.
+Download at 1K resolution for env lighting (PMREMGenerator outputs 256x256 cubemap). Use 2K-4K only if also using as visible background.
+
+**Procedural alternative — `RoomEnvironment`:**
+```typescript
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+const envMap = pmrem.fromScene(new RoomEnvironment()).texture
+scene.environment = envMap
+```
+Generates a simple studio-like environment procedurally — no HDRI file needed. Quick and decent for product shots. Avoids external file loading entirely.
 
 ### Tone Mapping
 ```typescript
-renderer.toneMapping = THREE.ACESFilmicToneMapping  // Good for high dynamic range
-renderer.toneMappingExposure = 1.0
+// When using EffectComposer, set NoToneMapping on renderer — OutputPass handles it
+renderer.toneMapping = THREE.NoToneMapping
 renderer.outputColorSpace = THREE.SRGBColorSpace
 ```
+
+**AgXToneMapping** (recommended over ACES):
+- Better color preservation across full dynamic range
+- Handles bright emissive LEDs + dark panel without washing out darks
+- Available since Three.js r160+, default in Blender 4.0
+- ACES tends to desaturate dark areas, making the panel look washed out
+
+Tone mapping and exposure are configured on the `OutputPass` (last pass in the chain).
 
 ---
 
@@ -863,42 +893,75 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
-const composer = new EffectComposer(renderer)
+// Use HalfFloatType framebuffer to avoid color banding
+const renderTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType })
+const composer = new EffectComposer(renderer, renderTarget)
 
 // 1. Base render
 composer.addPass(new RenderPass(scene, camera))
 
-// 2. Bloom (LED glow)
+// 2. Bloom (LED glow) — threshold-based selective bloom
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.5,   // strength (subtle — only LEDs should bloom)
-  0.4,   // radius
-  0.85,  // threshold (only bright emissive pixels bloom)
+  0.4,   // strength — keep low for subtlety
+  0.2,   // radius — small = tight glow around LEDs
+  0.8,   // threshold — only bright emissive pixels bloom
 )
 composer.addPass(bloom)
 
-// 3. Antialiasing
+// 3. Antialiasing (hardware AA doesn't work with post-processing)
 const smaa = new SMAAPass(window.innerWidth, window.innerHeight)
 composer.addPass(smaa)
 
-// 4. Output (gamma correction)
-composer.addPass(new OutputPass())
+// 4. Output — handles sRGB conversion AND tone mapping
+// Set renderer.toneMapping to AgXToneMapping for best results
+const output = new OutputPass()
+composer.addPass(output)
 ```
 
-### Selective Bloom (Optional Enhancement)
+**Important:** `OutputPass` replaces the legacy `GammaCorrectionShader`. It handles both sRGB color space conversion and tone mapping. Set `renderer.toneMapping = THREE.NoToneMapping` when using EffectComposer to avoid double tone mapping — OutputPass reads the renderer's settings.
 
-If the bloom threshold approach isn't selective enough (e.g., the aluminum panel blooms too), use the **layers-based selective bloom** approach:
+### Selective Bloom Strategy
 
+**Threshold-based (recommended — simplest):**
+- Set LED `emissiveIntensity` to 2-5 so they exceed the bloom threshold (0.8)
+- The dark panel stays well below threshold → no unwanted glow
+- Any specular highlights on metal that accidentally bloom are usually acceptable
+
+**Layer-based (fallback if threshold isn't selective enough):**
 1. Assign LED meshes to layer 1
 2. Render layer 1 with bloom composer
 3. Render full scene with normal composer
 4. Blend with a custom `ShaderPass`
+5. Requires material save/restore logic — more boilerplate
 
-This is the approach used in the official Three.js selective bloom example.
+**WebGPU MRT approach (future):**
+Three.js r160+ supports Multiple Render Targets with `BloomNode` on the emissive buffer only. Cleanest solution but requires WebGPU renderer.
 
-### SSAO (Optional)
+### Ambient Occlusion
 
-Adds subtle contact shadows between components and the panel. Skip initially for performance; add later if the scene looks flat.
+**N8AOPass** (recommended over SSAOPass):
+- `npm install n8ao`
+- Replaces `RenderPass` (renders internally)
+- Key params: `aoRadius` (world units), `distanceFalloff`, `intensity` (2=soft, 5=heavy)
+- Has quality presets and half-resolution mode for performance
+- Adds subtle contact shadows between components and panel
+
+For the initial implementation, skip AO and add it later if the scene looks flat. The environment map reflections and bloom provide most of the visual depth.
+
+### Shadows
+
+**Not needed for a front-facing eurorack panel.** The panel faces the camera directly, so there are minimal self-shadowing opportunities. Depth and realism come from:
+- Ambient occlusion (N8AOPass) for contact shadows and crevice darkening
+- Environment map reflections on the metal surface
+- Subtle bloom on LEDs
+
+If angled camera shots are added later, a single directional light with `PCFSoftShadowMap` works:
+```typescript
+light.shadow.bias = -0.0001
+light.shadow.normalBias = 0.02
+light.shadow.mapSize.set(1024, 1024)
+```
 
 ---
 
@@ -956,6 +1019,29 @@ function animateButtonPress(buttonGroup: THREE.Group) {
 ### Sync with WASM Engine
 
 Phase 3 reuses the exact same `ControlEvent` system. The 3D viewer emits events through `onControlEvent()` just like the 2D panel. The WASM engine doesn't care where events come from.
+
+### Camera Setup
+
+```typescript
+// Low FOV (telephoto) for minimal perspective distortion — product-shot look
+const camera = new THREE.PerspectiveCamera(30, w/h, 0.1, 2000)
+camera.position.set(0, 0, 300)  // Front-facing, ~300mm from panel
+
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.minDistance = 100       // Don't zoom too close (distortion)
+controls.maxDistance = 500       // Don't zoom too far out
+controls.minPolarAngle = Math.PI * 0.3   // Limit vertical angle
+controls.maxPolarAngle = Math.PI * 0.7   // Keep mostly front-facing
+controls.enableDamping = true
+controls.dampingFactor = 0.05
+controls.target.set(0, 0, 0)    // Look at panel center
+
+// Optional: auto-rotate for showcase mode
+controls.autoRotate = false      // Enable via UI toggle
+controls.autoRotateSpeed = 1.0   // Slow rotation (30s per orbit at 60fps)
+```
+
+**FOV tip:** 25-35 degrees mimics a telephoto lens — less barrel distortion, more flattering product shot. Place camera farther back with low FOV rather than close up with wide FOV.
 
 ---
 
@@ -1021,6 +1107,45 @@ function render() {
 | **Total** | | | **~23,000** |
 
 Well within budget. Could go 10x higher without issues.
+
+### Recommended Complete Pipeline Summary
+
+```
+Renderer:
+  toneMapping: NoToneMapping (OutputPass handles it)
+  shadowMap: disabled (use AO instead for front-facing panel)
+  outputColorSpace: SRGBColorSpace
+
+EffectComposer (HalfFloatType framebuffer):
+  1. RenderPass (or N8AOPass for AO — replaces RenderPass)
+  2. UnrealBloomPass (threshold: 0.8, strength: 0.4, radius: 0.2)
+  3. SMAAPass
+  4. OutputPass (AgXToneMapping, exposure ~1.0)
+
+Scene:
+  environment: studio_small_08.hdr via PMREMGenerator (or RoomEnvironment)
+  background: dark gradient (0x0a0a0f) or null
+
+Lighting:
+  HDRI environment (primary — drives metallic reflections)
+  1 RectAreaLight softbox for accent highlights on brushed aluminum
+  1 DirectionalLight key light (warm white, 1.0 intensity)
+  1 DirectionalLight fill light (cool white, 0.3 intensity)
+  AmbientLight (0.2 intensity, minimal)
+
+Materials:
+  Panel: MeshPhysicalMaterial, metalness: 1, roughness: 0.3, anisotropy: 1
+  Chrome jacks: MeshPhysicalMaterial, metalness: 0.95, roughness: 0.15
+  Buttons: MeshPhysicalMaterial, roughness: 0.6, slight transmission
+  LEDs: MeshStandardMaterial, emissive with emissiveIntensity: 2-5
+  Display: MeshStandardMaterial, emissiveMap = CanvasTexture
+  Knobs: MeshPhysicalMaterial, metalness: 0.7, roughness: 0.35, bumpMap
+  Cables: MeshStandardMaterial, roughness: 0.7, metalness: 0
+
+Camera:
+  PerspectiveCamera, FOV: 30, telephoto framing
+  OrbitControls with damping, constrained angles, optional auto-rotate
+```
 
 ---
 
