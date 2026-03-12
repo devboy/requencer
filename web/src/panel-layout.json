@@ -344,25 +344,25 @@
       {
         "id": "cv_a",
         "x_mm": 131.0,
-        "y_mm": 58.0,
+        "y_mm": 59.0,
         "label": "A"
       },
       {
         "id": "cv_b",
         "x_mm": 145.0,
-        "y_mm": 58.0,
+        "y_mm": 59.0,
         "label": "B"
       },
       {
         "id": "cv_c",
         "x_mm": 159.0,
-        "y_mm": 58.0,
+        "y_mm": 59.0,
         "label": "C"
       },
       {
         "id": "cv_d",
         "x_mm": 173.0,
-        "y_mm": 58.0,
+        "y_mm": 59.0,
         "label": "D"
       }
     ],
@@ -370,7 +370,7 @@
       {
         "id": "gate1",
         "x_mm": 131.0,
-        "y_mm": 70.0,
+        "y_mm": 72.0,
         "label": "G1",
         "row": "gate",
         "track": 1
@@ -378,7 +378,7 @@
       {
         "id": "gate2",
         "x_mm": 145.0,
-        "y_mm": 70.0,
+        "y_mm": 72.0,
         "label": "G2",
         "row": "gate",
         "track": 2
@@ -386,7 +386,7 @@
       {
         "id": "gate3",
         "x_mm": 159.0,
-        "y_mm": 70.0,
+        "y_mm": 72.0,
         "label": "G3",
         "row": "gate",
         "track": 3
@@ -394,7 +394,7 @@
       {
         "id": "gate4",
         "x_mm": 173.0,
-        "y_mm": 70.0,
+        "y_mm": 72.0,
         "label": "G4",
         "row": "gate",
         "track": 4
@@ -402,7 +402,7 @@
       {
         "id": "pitch1",
         "x_mm": 131.0,
-        "y_mm": 82.0,
+        "y_mm": 85.0,
         "label": "P1",
         "row": "pitch",
         "track": 1
@@ -410,7 +410,7 @@
       {
         "id": "pitch2",
         "x_mm": 145.0,
-        "y_mm": 82.0,
+        "y_mm": 85.0,
         "label": "P2",
         "row": "pitch",
         "track": 2
@@ -418,7 +418,7 @@
       {
         "id": "pitch3",
         "x_mm": 159.0,
-        "y_mm": 82.0,
+        "y_mm": 85.0,
         "label": "P3",
         "row": "pitch",
         "track": 3
@@ -426,7 +426,7 @@
       {
         "id": "pitch4",
         "x_mm": 173.0,
-        "y_mm": 82.0,
+        "y_mm": 85.0,
         "label": "P4",
         "row": "pitch",
         "track": 4
@@ -434,7 +434,7 @@
       {
         "id": "vel1",
         "x_mm": 131.0,
-        "y_mm": 94.0,
+        "y_mm": 98.0,
         "label": "V1",
         "row": "vel",
         "track": 1
@@ -442,7 +442,7 @@
       {
         "id": "vel2",
         "x_mm": 145.0,
-        "y_mm": 94.0,
+        "y_mm": 98.0,
         "label": "V2",
         "row": "vel",
         "track": 2
@@ -450,7 +450,7 @@
       {
         "id": "vel3",
         "x_mm": 159.0,
-        "y_mm": 94.0,
+        "y_mm": 98.0,
         "label": "V3",
         "row": "vel",
         "track": 3
@@ -458,7 +458,7 @@
       {
         "id": "vel4",
         "x_mm": 173.0,
-        "y_mm": 94.0,
+        "y_mm": 98.0,
         "label": "V4",
         "row": "vel",
         "track": 4
@@ -466,7 +466,7 @@
       {
         "id": "mod1",
         "x_mm": 131.0,
-        "y_mm": 106.0,
+        "y_mm": 111.0,
         "label": "M1",
         "row": "mod",
         "track": 1
@@ -474,7 +474,7 @@
       {
         "id": "mod2",
         "x_mm": 145.0,
-        "y_mm": 106.0,
+        "y_mm": 111.0,
         "label": "M2",
         "row": "mod",
         "track": 2
@@ -482,7 +482,7 @@
       {
         "id": "mod3",
         "x_mm": 159.0,
-        "y_mm": 106.0,
+        "y_mm": 111.0,
         "label": "M3",
         "row": "mod",
         "track": 3
@@ -490,7 +490,7 @@
       {
         "id": "mod4",
         "x_mm": 173.0,
-        "y_mm": 106.0,
+        "y_mm": 111.0,
         "label": "M4",
         "row": "mod",
         "track": 4
