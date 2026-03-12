@@ -261,7 +261,11 @@ export function createFaceplate(): FaceplateElements {
   }
 
   // --- Clock/Reset jacks (CLK IN/OUT, RST IN/OUT) ---
-  for (const jack of (panelLayout.jacks as Record<string, unknown>).clock as Array<{ x_mm: number; y_mm: number; label: string }>) {
+  for (const jack of (panelLayout.jacks as Record<string, unknown>).clock as Array<{
+    x_mm: number
+    y_mm: number
+    label: string
+  }>) {
     createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
