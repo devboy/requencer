@@ -96,21 +96,11 @@ export function createFootprintOverlay(): void {
   addButtonFootprints(panelLayout.buttons.feature)
   addButtonFootprints(panelLayout.buttons.step)
 
-  // Control strip buttons — rectangular (no PCB footprint data, show visual rect)
-  for (const b of panelLayout.buttons.control_strip) {
-    if (b.x_mm !== undefined && b.y_mm !== undefined) {
-      const bw = b.id === 'rand' ? 26.0 : 20.0
-      const bh = C.rect_btn_height_mm
-      parts.push(svgRect(mm(b.x_mm - bw / 2), mm(b.y_mm - bh / 2), mm(bw), mm(bh), '#44ff44'))
-    }
-  }
+  // Control strip buttons — circle tactile switches (same as other buttons)
+  addButtonFootprints(panelLayout.buttons.control_strip)
 
-  // Transport buttons — rectangular
-  for (const b of panelLayout.buttons.transport) {
-    const bw = 10.0
-    const bh = C.rect_btn_height_mm
-    parts.push(svgRect(mm(b.x_mm - bw / 2), mm(b.y_mm - bh / 2), mm(bw), mm(bh), '#44ff44'))
-  }
+  // Transport buttons — circle tactile switches
+  addButtonFootprints(panelLayout.buttons.transport)
 
   // Encoders — body rect (green) + courtyard rect (yellow)
   for (const enc of panelLayout.encoders) {
@@ -126,6 +116,7 @@ export function createFootprintOverlay(): void {
   }
 
   addJackFootprints(panelLayout.jacks.utility)
+  addJackFootprints((panelLayout.jacks as Record<string, unknown>).clock as Array<{ x_mm: number; y_mm: number }>)
   addJackFootprints(panelLayout.jacks.output)
   addJackFootprints(panelLayout.jacks.cv_input)
 

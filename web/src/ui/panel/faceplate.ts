@@ -25,7 +25,6 @@ const _JACK_SPACING = C.jack_spacing_mm * SCALE
 const ENCODER_D = C.encoder_diameter_mm * SCALE
 const BTN_D = C.btn_diameter_mm * SCALE
 const BTN_CC = C.btn_cc_mm * SCALE
-const STEP_BTN_D = C.step_btn_diameter_mm * SCALE
 
 const USB_C_H = C.usb_c_h_mm * SCALE // used for border-radius
 
@@ -220,11 +219,12 @@ export function createFaceplate(): FaceplateElements {
   const encoderA = createEncoder(modulePanel, encAData)
   const encoderB = createEncoder(modulePanel, encBData)
 
-  // --- Control strip buttons (BACK, RAND, CLR) ---
+  // --- Control strip buttons (BACK, RAND, CLR, SET) ---
   const ctrlStrip = panelLayout.buttons.control_strip
   const backBtn = createCircleBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, 'BACK')
   const randBtn = createCircleBtn(modulePanel, 'rand-btn', ctrlStrip[1].x_mm, ctrlStrip[1].y_mm, 'RAND')
   const clrBtn = createCircleBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, 'CLR')
+  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', ctrlStrip[3].x_mm, ctrlStrip[3].y_mm, 'SET')
 
   // --- Step buttons (2 rows of 8) ---
   const stepBtns: HTMLButtonElement[] = []
@@ -238,7 +238,7 @@ export function createFaceplate(): FaceplateElements {
     stepBtns.push(btn)
   }
 
-  // --- Transport buttons (PLAY, RESET, SETTINGS) ---
+  // --- Transport buttons (PLAY, RESET) ---
   const transportData = panelLayout.buttons.transport
   const playBtn = createCircleBtn(
     modulePanel,
@@ -254,16 +254,18 @@ export function createFaceplate(): FaceplateElements {
     transportData[1].y_mm,
     'RESET',
   )
-  const settingsBtn = createCircleBtn(
-    modulePanel,
-    'transport-btn jack-zone-btn',
-    transportData[2].x_mm,
-    transportData[2].y_mm,
-    'SET',
-  )
 
-  // --- Utility jacks (CLK, RST, MIDI pairs) ---
+  // --- Utility jacks (MIDI stereo) ---
   for (const jack of panelLayout.jacks.utility) {
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
+  }
+
+  // --- Clock/Reset jacks (CLK IN/OUT, RST IN/OUT) ---
+  for (const jack of (panelLayout.jacks as Record<string, unknown>).clock as Array<{
+    x_mm: number
+    y_mm: number
+    label: string
+  }>) {
     createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
@@ -556,12 +558,6 @@ const PANEL_CSS = `
   .circle-btn:active { transform: translate(-50%, -50%) scale(0.92); box-shadow: 0 0.5px 1px rgba(0,0,0,0.3); }
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
-
-  /* Step buttons use smaller diameter */
-  .step-btn {
-    width: ${STEP_BTN_D}px;
-    height: ${STEP_BTN_D}px;
-  }
 
   /* ── Transport & control strip buttons — same circle style as others ── */
   .transport-btn, .back-btn, .rand-btn, .clr-btn { background: #555; }
