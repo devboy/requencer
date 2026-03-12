@@ -5,7 +5,7 @@
     "height_mm": 127.5
   },
   "pcb": {
-    "_note": "Main PCB is smaller than faceplate — sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
+    "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
     "height_mm": 107.5,
     "origin_x_mm": 2.0,
@@ -16,12 +16,12 @@
     "component_gap_mm": 5.33,
     "btn_diameter_mm": 5.0,
     "btn_cc_mm": 10.7,
-    "step_btn_diameter_mm": 5.0,
-    "step_btn_cc_mm": 10.7,
+    "step_btn_diameter_mm": 4.5,
+    "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
     "jack_spacing_mm": 15.0,
-    "output_jack_spacing_mm": 14.0,
+    "output_jack_spacing_mm": 12.0,
     "jack_rotation_deg": -90,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
@@ -39,15 +39,13 @@
     "sd_slot_h_mm": 2.5
   },
   "lcd_cutout": {
-    "_note": "Sized for bare glass seating (JC3248A035N-1). 1.5mm lip all around. Glass: 85.5x54.94mm, active: 73.44x48.96mm.",
+    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around for the glass to rest on. Full active area visible with margin.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
     "width_mm": 82.5,
     "height_mm": 52.0,
     "glass_w_mm": 85.5,
-    "glass_h_mm": 54.94,
-    "active_w_mm": 73.44,
-    "active_h_mm": 48.96
+    "glass_h_mm": 54.94
   },
   "mounting_slots": [
     {
@@ -256,6 +254,12 @@
         "x_mm": 145.0,
         "y_mm": 19.5,
         "label": "RESET"
+      },
+      {
+        "id": "settings",
+        "x_mm": 70.83,
+        "y_mm": 83.36,
+        "label": "SET"
       }
     ],
     "control_strip": [
@@ -276,12 +280,6 @@
         "x_mm": 60.13,
         "y_mm": 83.36,
         "label": "CLR"
-      },
-      {
-        "id": "settings",
-        "x_mm": 70.83,
-        "y_mm": 83.36,
-        "label": "SET"
       }
     ]
   },
@@ -322,48 +320,22 @@
         "label": "CLK IN"
       },
       {
-        "id": "rst_in",
-        "x_mm": 145.0,
-        "y_mm": 46.0,
-        "label": "RST IN"
-      },
-      {
         "id": "clk_out",
         "x_mm": 159.0,
         "y_mm": 46.0,
         "label": "CLK OUT"
       },
       {
+        "id": "rst_in",
+        "x_mm": 145.0,
+        "y_mm": 46.0,
+        "label": "RST IN"
+      },
+      {
         "id": "rst_out",
         "x_mm": 173.0,
         "y_mm": 46.0,
         "label": "RST OUT"
-      }
-    ],
-    "cv_input": [
-      {
-        "id": "cv_a",
-        "x_mm": 131.0,
-        "y_mm": 59.0,
-        "label": "A"
-      },
-      {
-        "id": "cv_b",
-        "x_mm": 145.0,
-        "y_mm": 59.0,
-        "label": "B"
-      },
-      {
-        "id": "cv_c",
-        "x_mm": 159.0,
-        "y_mm": 59.0,
-        "label": "C"
-      },
-      {
-        "id": "cv_d",
-        "x_mm": 173.0,
-        "y_mm": 59.0,
-        "label": "D"
       }
     ],
     "output": [
@@ -495,17 +467,52 @@
         "row": "mod",
         "track": 4
       }
+    ],
+    "cv_input": [
+      {
+        "id": "cv_a",
+        "x_mm": 131.0,
+        "y_mm": 59.0,
+        "label": "A"
+      },
+      {
+        "id": "cv_b",
+        "x_mm": 145.0,
+        "y_mm": 59.0,
+        "label": "B"
+      },
+      {
+        "id": "cv_c",
+        "x_mm": 159.0,
+        "y_mm": 59.0,
+        "label": "C"
+      },
+      {
+        "id": "cv_d",
+        "x_mm": 173.0,
+        "y_mm": 59.0,
+        "label": "D"
+      }
     ]
   },
   "connectors": {
-    "_note": "SD card on control board, protrudes through faceplate cutout. USB-C is edge-mounted on main board (not on faceplate).",
+    "_note": "SD card on control board (protrudes through faceplate). USB-C is edge-mounted on main board.",
     "sd_card": {
-      "id": "sd_card",
+      "part": "PJS008U-3000-0 (Yamaichi vertical MicroSD)",
+      "height_above_pcb_mm": 14.18,
+      "protrusion_above_panel_mm": 2.6,
+      "faceplate_cutout_mm": "13 x 3",
       "x_mm": 131.0,
       "y_mm": 32.0,
       "width_mm": 13.0,
       "height_mm": 3.0,
       "label": "SD"
+    },
+    "usb_c": {
+      "_note": "Edge-mounted on main board, not on faceplate",
+      "part": "TYPE-C-31-M-12 (Korean Hroparts Elec, SMD mid-mount)",
+      "lcsc": "C165948",
+      "location": "main_board_edge"
     }
   },
   "footprints": {
@@ -572,6 +579,36 @@
         "y1": -9.0,
         "x2": 8.0,
         "y2": 9.0
+      }
+    },
+    "fpc_18p_05mm": {
+      "description": "18-pin 0.5mm FPC ZIF connector for display",
+      "body": {
+        "x1": -5.75,
+        "y1": -2.5,
+        "x2": 5.75,
+        "y2": 2.5
+      },
+      "courtyard": {
+        "x1": -6.5,
+        "y1": -3.5,
+        "x2": 6.5,
+        "y2": 3.5
+      }
+    },
+    "pjs008u": {
+      "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
+      "body": {
+        "x1": -7.0,
+        "y1": -6.5,
+        "x2": 7.0,
+        "y2": 6.5
+      },
+      "courtyard": {
+        "x1": -8.0,
+        "y1": -7.5,
+        "x2": 8.0,
+        "y2": 7.5
       }
     }
   }

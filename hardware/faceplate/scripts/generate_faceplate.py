@@ -65,7 +65,7 @@ class KicadPcbWriter:
         if label:
             silk_label = (
                 f'    (fp_text user "{label}" (at 0 {mm(diameter / 2 + 1.5)}) '
-                f'(layer "F.SilkS") (effects (font (size 1.2 1.2) (thickness 0.15))))'
+                f'(layer "F.SilkS") (effects (font (face "JetBrains Mono") (size 1.2 1.2) (thickness 0.15))))'
             )
         fp = (
             f'  (footprint "Faceplate:{ref}" (layer "F.Cu")\n'
@@ -111,12 +111,14 @@ class KicadPcbWriter:
                 f'(layer "Edge.Cuts") (width 0.1))'
             )
 
-    def add_silkscreen_text(self, x, y, text, size=1.5, thickness=0.15, justify="center"):
+    def add_silkscreen_text(self, x, y, text, size=1.5, thickness=0.15,
+                            justify="center", font_face=None):
         """Add silkscreen text on F.SilkS."""
         just = f' (justify {justify})' if justify != "center" else ""
+        face = f' (face "{font_face}")' if font_face else ""
         self.items.append(
             f'  (gr_text "{text}" (at {mm(x)} {mm(y)}) (layer "F.SilkS") '
-            f'(effects (font (size {size} {size}) (thickness {thickness})){just}))'
+            f'(effects (font{face} (size {size} {size}) (thickness {thickness})){just}))'
         )
 
     def write(self, path):
@@ -194,11 +196,11 @@ def generate_faceplate(layout, output_path):
     )
     print("  LCD cutout added")
 
-    # 4. Jack holes (6mm drill for PJ398SM)
+    # 4. Jack holes (6mm drill for PJ398SM / PJ366ST)
     jack_drill = 6.0
     jack_count = 0
-    for group_name in ("utility", "output", "cv_input"):
-        for jack in layout["jacks"][group_name]:
+    for group_name in ("utility", "clock", "output", "cv_input"):
+        for jack in layout["jacks"].get(group_name, []):
             pcb.add_drill_hole(
                 jack["x_mm"], jack["y_mm"],
                 jack_drill, jack.get("label", ""),
@@ -210,7 +212,7 @@ def generate_faceplate(layout, output_path):
     # 5. Button holes — per TC002 datasheet mounting hole
     btn_drill = 3.2  # TC002 panel mount shaft
     btn_count = 0
-    for group_name in ("track", "subtrack", "feature", "step", "transport"):
+    for group_name in ("track", "subtrack", "feature", "step", "transport", "control_strip"):
         items = layout["buttons"].get(group_name, [])
         if isinstance(items, dict):
             items = [items]
@@ -242,30 +244,51 @@ def generate_faceplate(layout, output_path):
         )
     print(f"  {len(layout['encoders'])} encoder holes added (7.0mm drill)")
 
-    # 7. Silkscreen labels
+    # 7. SD card cutout (rectangular slot through faceplate)
+    sd = layout.get("connectors", {}).get("sd_card", {})
+    sd_x = sd.get("x_mm")
+    sd_y = sd.get("y_mm")
+    if sd_x is not None and sd_y is not None:
+        pcb.add_rectangular_cutout(
+            sd_x, sd_y,
+            sd.get("width_mm", 13.0), sd.get("height_mm", 3.0),
+        )
+        print("  SD card cutout added")
+    else:
+        print("  SD card cutout skipped (no position in layout)")
+
+    # 8. Silkscreen labels (JetBrains Mono for matching web UI aesthetic)
+    font = "JetBrains Mono"
+
     # Module name at top center
     pcb.add_silkscreen_text(
         panel["width_mm"] / 2, 5.0,
-        "REQUENCER", size=3.0, thickness=0.3,
+        "REQUENCER", size=3.0, thickness=0.3, font_face=font,
+    )
+
+    # Brand at bottom center
+    pcb.add_silkscreen_text(
+        panel["width_mm"] / 2, panel["height_mm"] - 4.0,
+        "VILE TENSOR", size=1.5, thickness=0.15, font_face=font,
     )
 
     # Section labels
-    pcb.add_silkscreen_text(12.0, 10.0, "TRACK", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(101.72, 10.0, "SUB", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(112.05, 10.0, "FN", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(55.0, 85.0, "STEPS", size=1.2, thickness=0.15)
+    pcb.add_silkscreen_text(12.0, 10.0, "TRACK", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(101.72, 10.0, "SUB", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(112.05, 10.0, "FN", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(55.0, 85.0, "STEPS", size=1.2, thickness=0.15, font_face=font)
 
     # Output jack section label
-    pcb.add_silkscreen_text(149.55, 52.0, "OUTPUT", size=1.5, thickness=0.2)
+    pcb.add_silkscreen_text(149.55, 52.0, "OUTPUT", size=1.5, thickness=0.2, font_face=font)
 
     # CV input section label
-    pcb.add_silkscreen_text(149.55, 103.0, "CV IN", size=1.2, thickness=0.15)
+    pcb.add_silkscreen_text(149.55, 103.0, "CV IN", size=1.2, thickness=0.15, font_face=font)
 
     # Row labels for output jacks
-    pcb.add_silkscreen_text(122.0, 57.0, "G", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(122.0, 69.4, "P", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(122.0, 81.8, "V", size=1.2, thickness=0.15)
-    pcb.add_silkscreen_text(122.0, 94.2, "M", size=1.2, thickness=0.15)
+    pcb.add_silkscreen_text(122.0, 57.0, "G", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 69.4, "P", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 81.8, "V", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 94.2, "M", size=1.2, thickness=0.15, font_face=font)
 
     print("  Silkscreen labels added")
 

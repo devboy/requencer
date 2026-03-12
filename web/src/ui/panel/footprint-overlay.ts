@@ -116,7 +116,6 @@ export function createFootprintOverlay(): void {
   }
 
   addJackFootprints(panelLayout.jacks.utility)
-  addJackFootprints((panelLayout.jacks as Record<string, unknown>).clock as Array<{ x_mm: number; y_mm: number }>)
   addJackFootprints(panelLayout.jacks.output)
   addJackFootprints(panelLayout.jacks.cv_input)
 
@@ -129,7 +128,7 @@ export function createFootprintOverlay(): void {
       }
     | undefined
   const usb = fpConnectors?.usb_c
-  if (usb) {
+  if (usb && 'x_mm' in usb) {
     parts.push(
       svgRect(
         mm(usb.x_mm - usb.width_mm / 2),
@@ -142,7 +141,7 @@ export function createFootprintOverlay(): void {
   }
 
   const sd = fpConnectors?.sd_card
-  if (sd) {
+  if (sd && 'x_mm' in sd) {
     parts.push(
       svgRect(
         mm(sd.x_mm - sd.width_mm / 2),

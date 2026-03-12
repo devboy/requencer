@@ -80,6 +80,7 @@ def export_layout(pcb_path, map_path, output_path):
 
     # Jacks
     jacks_utility = collect_group("jacks.utility")
+    jacks_clock = collect_group("jacks.clock")
     jacks_output = collect_group("jacks.output")
     jacks_cv_input = collect_group("jacks.cv_input")
 
@@ -98,6 +99,25 @@ def export_layout(pcb_path, map_path, output_path):
 
     # Control strip buttons — on PCB, positions from placement
     control_strip = collect_group("buttons.control_strip")
+
+    def _merge_connector_positions(connectors, get_pos_fn):
+        """Merge PCB positions into the connectors metadata.
+
+        Falls back to component-map positions if PCB address not found.
+        """
+        result = dict(connectors)
+        # SD card — atopile address is "sd"
+        sd_x, sd_y = get_pos_fn("sd")
+        sd = dict(result.get("sd_card", {}))
+        if sd_x is not None:
+            sd["x_mm"] = sd_x
+            sd["y_mm"] = sd_y
+        # If PCB didn't have it, keep component-map x_mm/y_mm (if present)
+        sd.setdefault("width_mm", 13.0)
+        sd.setdefault("height_mm", 3.0)
+        sd["label"] = "SD"
+        result["sd_card"] = sd
+        return result
 
     # Assemble output
     output = {
@@ -118,10 +138,11 @@ def export_layout(pcb_path, map_path, output_path):
         "encoders": encoders,
         "jacks": {
             "utility": jacks_utility,
+            "clock": jacks_clock,
             "output": jacks_output,
             "cv_input": jacks_cv_input,
         },
-        "connectors": comp_map["connectors"],
+        "connectors": _merge_connector_positions(comp_map["connectors"], get_pos),
         "footprints": comp_map["footprints"],
     }
 

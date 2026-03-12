@@ -219,12 +219,11 @@ export function createFaceplate(): FaceplateElements {
   const encoderA = createEncoder(modulePanel, encAData)
   const encoderB = createEncoder(modulePanel, encBData)
 
-  // --- Control strip buttons (BACK, RAND, CLR, SET) ---
+  // --- Control strip buttons (BACK, RAND, CLR) ---
   const ctrlStrip = panelLayout.buttons.control_strip
   const backBtn = createCircleBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, 'BACK')
   const randBtn = createCircleBtn(modulePanel, 'rand-btn', ctrlStrip[1].x_mm, ctrlStrip[1].y_mm, 'RAND')
   const clrBtn = createCircleBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, 'CLR')
-  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', ctrlStrip[3].x_mm, ctrlStrip[3].y_mm, 'SET')
 
   // --- Step buttons (2 rows of 8) ---
   const stepBtns: HTMLButtonElement[] = []
@@ -238,7 +237,7 @@ export function createFaceplate(): FaceplateElements {
     stepBtns.push(btn)
   }
 
-  // --- Transport buttons (PLAY, RESET) ---
+  // --- Transport buttons (PLAY, RESET, SET) ---
   const transportData = panelLayout.buttons.transport
   const playBtn = createCircleBtn(
     modulePanel,
@@ -254,18 +253,10 @@ export function createFaceplate(): FaceplateElements {
     transportData[1].y_mm,
     'RESET',
   )
+  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', transportData[2].x_mm, transportData[2].y_mm, 'SET')
 
   // --- Utility jacks (MIDI stereo) ---
   for (const jack of panelLayout.jacks.utility) {
-    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
-  }
-
-  // --- Clock/Reset jacks (CLK IN/OUT, RST IN/OUT) ---
-  for (const jack of (panelLayout.jacks as Record<string, unknown>).clock as Array<{
-    x_mm: number
-    y_mm: number
-    label: string
-  }>) {
     createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 

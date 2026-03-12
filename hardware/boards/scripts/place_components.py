@@ -611,6 +611,27 @@ def place_main_board(input_pcb, output_pcb=None):
         place_collision_free(addr, hx, hy, front=front,
                              zone_bounds=(margin, margin, board_w - 2 * margin, header_zone_h))
 
+    # USB-C — edge-mounted at right board edge for side-entry cable access.
+    # Mid-mount connector: body on board, mouth flush with edge.
+    # At 90° rotation, connector Y- (mouth, 6.5mm) maps to board X+.
+    # Inset so mouth is ~1.5mm past edge (accessible for cable).
+    usb_addr = "usb"
+    if usb_addr in addr_map:
+        fp = addr_map[usb_addr]
+        usb_x = board_w - 5.0  # inset so mouth is flush with board edge
+        usb_y = board_h / 2    # vertically centered
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(usb_x), pcbnew.FromMM(usb_y)))
+        fp.SetOrientationDegrees(90)  # rotate so mouth faces right (toward rack side)
+        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        is_through = tracker.is_tht(fp, pcbnew)
+        tracker.register(usb_x, usb_y, w, h, "F", is_through, label=usb_addr)
+        placed += 1
+        # Remove from generic lists to prevent double placement
+        if usb_addr in ics:
+            ics.remove(usb_addr)
+        if usb_addr in passives:
+            passives.remove(usb_addr)
+
     # Place ICs below headers (back side) with collision detection
     ic_zone_h = passive_start_y - ic_start_y
     ic_start_x = margin + 5
@@ -771,6 +792,13 @@ def place_components(input_pcb, output_pcb=None):
             place(addr, jack["x_mm"], jack["y_mm"],
                   rotation_deg=jack_rotation)
 
+    # Jacks -- clock/reset
+    for jack in layout["jacks"].get("clock", []):
+        addr = utility_addr_map.get(jack["id"])
+        if addr:
+            place(addr, jack["x_mm"], jack["y_mm"],
+                  rotation_deg=jack_rotation)
+
     # Jacks -- output (gate1..4, pitch1..4, vel1..4, mod1..4)
     for jack in layout["jacks"]["output"]:
         addr = f"jacks.j_{jack['id']}"
@@ -828,8 +856,11 @@ def place_components(input_pcb, output_pcb=None):
         place(enc["id"], enc["x_mm"], enc["y_mm"])
 
     # SD card slot (front side, protrudes through faceplate cutout)
-    sd = layout.get("connectors", {}).get("sd_card")
-    if sd:
+    # Try panel-layout first, fall back to component-map
+    sd = layout.get("connectors", {}).get("sd_card", {})
+    if "x_mm" not in sd or "y_mm" not in sd:
+        sd = comp_map.get("connectors", {}).get("sd_card", {})
+    if "x_mm" in sd and "y_mm" in sd:
         place("sd", sd["x_mm"], sd["y_mm"])
 
     # --- SMD components (back side) ---

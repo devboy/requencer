@@ -518,52 +518,88 @@ def generate_fpc_18p_05mm():
 def generate_pjs008u():
     """Generate Yamaichi PJS008U-3000-0 vertical MicroSD connector.
 
-    Dimensions (from datasheet):
-      Body: 14.0 × 14.6 × 2.0mm (base housing on PCB)
-      Card guide: 12.0 × 12.0 × 8.0mm (vertical tower for card insertion)
-      Total height above PCB: ~10mm
-      Pins extend 3.5mm below PCB (THT)
+    The PJS008U is a thin sheet-metal card cage for vertical microSD insertion.
+    A microSD card is 11 × 15 × 1mm.  The connector is essentially a thin
+    metal housing barely wider/deeper than the card itself.
+
+    Real-world dimensions (from datasheet + measurement):
+      Body width: ~12mm (card 11mm + housing walls)
+      Body depth/thickness: ~2.5mm (card 1mm + spring contacts + walls)
+      Height above PCB: 14.18mm (card inserts vertically from top)
+      Pin area: centered around origin, pins at Y=-3.3 and Y=-1.1
+      Mounting tabs: at X=±5.0, Y=-3.3
+
+    The silkscreen outline (14×13mm) is a keep-out zone, NOT the physical body.
     """
     sw = StepWriter("PJS008U", "Yamaichi PJS008U-3000-0 vertical MicroSD")
 
-    # Base housing (on PCB surface)
-    base_hw = 7.0    # 14mm wide
-    base_hd = 7.3    # 14.6mm deep
-    base_h = 2.0
+    # Connector body dimensions (thin vertical cage)
+    # Body MUST be centered at footprint origin (0,0) so the faceplate
+    # cutout (also placed at the footprint origin) aligns perfectly.
+    body_hw = 6.0     # half-width: 12mm total (card 11mm + 0.5mm walls)
+    body_hd = 1.25    # half-depth: 2.5mm total (thin profile)
+    h_total = 14.18   # total height above PCB
+    pin_depth = 3.5   # pin length below PCB
+    wall = 0.3        # sheet metal wall thickness
 
-    sw.add_box(-base_hw, -base_hd, 0, base_hw, base_hd, base_h, "Base")
+    # Card slot opening dimensions
+    slot_hw = 5.5     # 11mm card width
 
-    # Card guide tower (centered, extends upward)
-    tower_hw = 6.0   # 12mm wide
-    tower_hd = 6.0   # 12mm deep
-    tower_h = 10.0   # total height from PCB
+    # 1. Base on PCB (centered at origin)
+    sw.add_box(-body_hw, -body_hd, 0,
+               body_hw, body_hd, 1.5, "Base")
 
-    sw.add_box(-tower_hw, -tower_hd, base_h, tower_hw, tower_hd, tower_h, "CardGuide")
+    # 2. Thin card cage walls (open at top for card insertion)
+    cage_bot = 1.5
 
-    # Card slot opening (negative space indication — slightly recessed top)
-    slot_hw = 5.5
-    slot_hd = 0.5
-    sw.add_box(-slot_hw, -tower_hd, tower_h - 1.0, slot_hw, -tower_hd + slot_hd, tower_h + 0.5, "SlotOpening")
+    # Left wall
+    sw.add_box(-body_hw, -body_hd, cage_bot,
+               -body_hw + wall, body_hd, h_total, "WallLeft")
+    # Right wall
+    sw.add_box(body_hw - wall, -body_hd, cage_bot,
+               body_hw, body_hd, h_total, "WallRight")
+    # Back wall (thin panel)
+    sw.add_box(-body_hw + wall, body_hd - wall, cage_bot,
+               body_hw - wall, body_hd, h_total, "WallBack")
+    # Front wall — split around card slot opening
+    sw.add_box(-body_hw + wall, -body_hd, cage_bot,
+               -slot_hw, -body_hd + wall, h_total, "FrontL")
+    sw.add_box(slot_hw, -body_hd, cage_bot,
+               body_hw - wall, -body_hd + wall, h_total, "FrontR")
+    # Top bar (closes the top above the card slot)
+    sw.add_box(-slot_hw, -body_hd, h_total - 1.5,
+               slot_hw, -body_hd + wall, h_total, "FrontTop")
 
-    # THT pins (simplified: 8 pins in a row, 1.1mm pitch)
+    # 3. Card guide rails inside (two thin internal ridges)
+    rail_w = 0.2
+    sw.add_box(-slot_hw, -body_hd + wall, cage_bot + 0.5,
+               -slot_hw + rail_w, body_hd - wall, h_total - 2.0, "GuideL")
+    sw.add_box(slot_hw - rail_w, -body_hd + wall, cage_bot + 0.5,
+               slot_hw, body_hd - wall, h_total - 2.0, "GuideR")
+
+    # 4. THT signal pins at actual footprint pad positions
     pin_w = 0.3
-    pin_depth = 3.5
-    for i in range(8):
-        px = -3.85 + i * 1.1
-        sw.add_box(
-            px - pin_w / 2, -1.0 - pin_w / 2, -pin_depth,
-            px + pin_w / 2, -1.0 + pin_w / 2, 0,
-            f"Pin{i + 1}",
-        )
+    signal_pins = [
+        (-1.65, -3.30), (-0.55, -3.30), (0.55, -3.30), (1.65, -3.30),
+        (-1.65, -1.10), (-0.55, -1.10),
+    ]
+    for i, (px, py) in enumerate(signal_pins):
+        sw.add_box(px - pin_w / 2, py - pin_w / 2, -pin_depth,
+                   px + pin_w / 2, py + pin_w / 2, 0, f"Pin{i + 1}")
 
-    # Mounting tabs (2 large pins on sides)
-    tab_w = 0.8
+    # Card detect pin (pad 9)
+    sw.add_box(2.75 - pin_w / 2, -pin_w / 2, -pin_depth,
+               2.75 + pin_w / 2, pin_w / 2, 0, "PinCD")
+
+    # Shield/ground pin (pad 10)
+    sw.add_box(-2.75 - 0.25, -0.25, -pin_depth,
+               -2.75 + 0.25, 0.25, 0, "PinShield")
+
+    # Mounting tabs (at ±5.0, -3.3)
+    tab_w = 0.7
     for side_x in [-5.0, 5.0]:
-        sw.add_box(
-            side_x - tab_w / 2, -3.3 - tab_w / 2, -pin_depth,
-            side_x + tab_w / 2, -3.3 + tab_w / 2, 0,
-            "MountTab",
-        )
+        sw.add_box(side_x - tab_w / 2, -3.3 - tab_w / 2, -pin_depth,
+                   side_x + tab_w / 2, -3.3 + tab_w / 2, 0, "MountTab")
 
     out = PARTS_DIR / "PJS008U" / "PJS008U.step"
     sw.write(out)

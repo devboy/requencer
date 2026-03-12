@@ -38,14 +38,19 @@ KICAD_CLI = os.environ.get(
 FACEPLATE_Z = 0.0
 FACEPLATE_THICKNESS = 1.6
 
-# Control board sits behind faceplate with air gap for component clearance
-# THT pins extend ~3.5mm behind control board
-CONTROL_Z = -(FACEPLATE_THICKNESS + 1.6)  # -3.2mm
+# Control board sits behind faceplate, spaced by jack body height.
+# PJ398SM STEP model: extends 16.4mm above footprint origin, ~4.5mm bushing.
+# Shoulder (where panel rests) at ~11.9mm above footprint origin.
+# STEP export: board bottom at Z=0, F.Cu at Z=1.6.
+# So shoulder in export coords = 1.6 + 11.9 = 13.5mm.
+# Faceplate back at Z=0 → control at Z=-13.5.
+JACK_SHOULDER_Z = 13.5  # mm from export Z=0 to jack shoulder
+CONTROL_Z = -JACK_SHOULDER_Z  # -13.5mm
 
 # Main board connected via 2x16 headers (~8.5mm pin-to-pin)
 CONTROL_THICKNESS = 1.6
 CONNECTOR_HEIGHT = 8.5
-MAIN_Z = CONTROL_Z - CONTROL_THICKNESS - CONNECTOR_HEIGHT  # ~-13.3mm
+MAIN_Z = CONTROL_Z - CONTROL_THICKNESS - CONNECTOR_HEIGHT  # ~-23.6mm
 
 # PCB origin offsets in faceplate coordinates (from panel-layout.json)
 PCB_ORIGIN_X = 2.0
