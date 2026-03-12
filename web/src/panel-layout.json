@@ -21,7 +21,7 @@
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
     "jack_spacing_mm": 15.0,
-    "output_jack_spacing_mm": 12.0,
+    "output_jack_spacing_mm": 14.0,
     "jack_rotation_deg": -90,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
@@ -75,25 +75,25 @@
     "track": [
       {
         "id": "t1",
-        "x_mm": 5.33,
+        "x_mm": 5.5,
         "y_mm": 19.5,
         "label": "1"
       },
       {
         "id": "t2",
-        "x_mm": 5.33,
+        "x_mm": 5.5,
         "y_mm": 30.2,
         "label": "2"
       },
       {
         "id": "t3",
-        "x_mm": 5.33,
+        "x_mm": 5.5,
         "y_mm": 40.9,
         "label": "3"
       },
       {
         "id": "t4",
-        "x_mm": 5.33,
+        "x_mm": 5.5,
         "y_mm": 51.6,
         "label": "4"
       }
@@ -247,13 +247,13 @@
     "transport": [
       {
         "id": "play",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 20.0,
         "label": "PLAY"
       },
       {
         "id": "reset",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 20.0,
         "label": "RESET"
       }
@@ -303,13 +303,13 @@
     "utility": [
       {
         "id": "midi_in",
-        "x_mm": 160.0,
+        "x_mm": 158.0,
         "y_mm": 20.0,
         "label": "MIDI IN"
       },
       {
         "id": "midi_out",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 20.0,
         "label": "MIDI OUT"
       }
@@ -317,25 +317,25 @@
     "clock": [
       {
         "id": "clk_in",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 44.0,
         "label": "CLK IN"
       },
       {
         "id": "rst_in",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 44.0,
         "label": "RST IN"
       },
       {
         "id": "clk_out",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 44.0,
         "label": "CLK OUT"
       },
       {
         "id": "rst_out",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 44.0,
         "label": "RST OUT"
       }
@@ -343,25 +343,25 @@
     "cv_input": [
       {
         "id": "cv_a",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 56.0,
         "label": "A"
       },
       {
         "id": "cv_b",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 56.0,
         "label": "B"
       },
       {
         "id": "cv_c",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 56.0,
         "label": "C"
       },
       {
         "id": "cv_d",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 56.0,
         "label": "D"
       }
@@ -369,7 +369,7 @@
     "output": [
       {
         "id": "gate1",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 68.0,
         "label": "G1",
         "row": "gate",
@@ -377,7 +377,7 @@
       },
       {
         "id": "gate2",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 68.0,
         "label": "G2",
         "row": "gate",
@@ -385,7 +385,7 @@
       },
       {
         "id": "gate3",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 68.0,
         "label": "G3",
         "row": "gate",
@@ -393,7 +393,7 @@
       },
       {
         "id": "gate4",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 68.0,
         "label": "G4",
         "row": "gate",
@@ -401,7 +401,7 @@
       },
       {
         "id": "pitch1",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 80.0,
         "label": "P1",
         "row": "pitch",
@@ -409,7 +409,7 @@
       },
       {
         "id": "pitch2",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 80.0,
         "label": "P2",
         "row": "pitch",
@@ -417,7 +417,7 @@
       },
       {
         "id": "pitch3",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 80.0,
         "label": "P3",
         "row": "pitch",
@@ -425,7 +425,7 @@
       },
       {
         "id": "pitch4",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 80.0,
         "label": "P4",
         "row": "pitch",
@@ -433,7 +433,7 @@
       },
       {
         "id": "vel1",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 92.0,
         "label": "V1",
         "row": "vel",
@@ -441,7 +441,7 @@
       },
       {
         "id": "vel2",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 92.0,
         "label": "V2",
         "row": "vel",
@@ -449,7 +449,7 @@
       },
       {
         "id": "vel3",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 92.0,
         "label": "V3",
         "row": "vel",
@@ -457,7 +457,7 @@
       },
       {
         "id": "vel4",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 92.0,
         "label": "V4",
         "row": "vel",
@@ -465,7 +465,7 @@
       },
       {
         "id": "mod1",
-        "x_mm": 136.0,
+        "x_mm": 131.0,
         "y_mm": 104.0,
         "label": "M1",
         "row": "mod",
@@ -473,7 +473,7 @@
       },
       {
         "id": "mod2",
-        "x_mm": 148.0,
+        "x_mm": 145.0,
         "y_mm": 104.0,
         "label": "M2",
         "row": "mod",
@@ -481,7 +481,7 @@
       },
       {
         "id": "mod3",
-        "x_mm": 160.0,
+        "x_mm": 159.0,
         "y_mm": 104.0,
         "label": "M3",
         "row": "mod",
@@ -489,7 +489,7 @@
       },
       {
         "id": "mod4",
-        "x_mm": 172.0,
+        "x_mm": 173.0,
         "y_mm": 104.0,
         "label": "M4",
         "row": "mod",
@@ -501,7 +501,7 @@
     "_note": "SD card on control board, protrudes through faceplate cutout. USB-C is edge-mounted on main board (not on faceplate).",
     "sd_card": {
       "id": "sd_card",
-      "x_mm": 136.0,
+      "x_mm": 131.0,
       "y_mm": 32.0,
       "width_mm": 13.0,
       "height_mm": 3.0,
