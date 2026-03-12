@@ -188,7 +188,18 @@ def generate_faceplate(layout, output_path):
         pcb.add_oval_slot(slot["x_mm"], slot["y_mm"], slot_w, slot_h)
     print(f"  {len(layout['mounting_slots'])} mounting slots added")
 
-    # 3. LCD cutout
+    # 3. Standoff drill holes (M3, 3.2mm)
+    standoff_drill = 3.2
+    standoffs = layout.get("standoffs", [])
+    for so in standoffs:
+        pcb.add_drill_hole(
+            so["x_mm"], so["y_mm"],
+            standoff_drill, ref_prefix="SO",
+        )
+    if standoffs:
+        print(f"  {len(standoffs)} standoff holes added (3.2mm drill)")
+
+    # 4. LCD cutout
     lcd = layout["lcd_cutout"]
     pcb.add_rectangular_cutout(
         lcd["center_x_mm"], lcd["center_y_mm"],
@@ -196,7 +207,7 @@ def generate_faceplate(layout, output_path):
     )
     print("  LCD cutout added")
 
-    # 4. Jack holes (6mm drill for PJ398SM / PJ366ST)
+    # 5. Jack holes (6mm drill for PJ398SM / PJ366ST)
     jack_drill = 6.0
     jack_count = 0
     for group_name in ("utility", "clock", "output", "cv_input"):
@@ -209,7 +220,7 @@ def generate_faceplate(layout, output_path):
             jack_count += 1
     print(f"  {jack_count} jack holes added (6.0mm drill)")
 
-    # 5. Button holes — per TC002 datasheet mounting hole
+    # 6. Button holes — per TC002 datasheet mounting hole
     btn_drill = 3.2  # TC002 panel mount shaft
     btn_count = 0
     for group_name in ("track", "subtrack", "feature", "step", "transport", "control_strip"):
@@ -234,7 +245,7 @@ def generate_faceplate(layout, output_path):
         btn_count += 1
     print(f"  {btn_count} button holes added (3.2mm drill)")
 
-    # 6. Encoder holes (7mm drill for EC11E shaft)
+    # 7. Encoder holes (7mm drill for EC11E shaft)
     enc_drill = 7.0
     for enc in layout["encoders"]:
         pcb.add_drill_hole(
@@ -244,7 +255,7 @@ def generate_faceplate(layout, output_path):
         )
     print(f"  {len(layout['encoders'])} encoder holes added (7.0mm drill)")
 
-    # 7. SD card cutout (rectangular slot through faceplate)
+    # 8. SD card cutout (rectangular slot through faceplate)
     sd = layout.get("connectors", {}).get("sd_card", {})
     sd_x = sd.get("x_mm")
     sd_y = sd.get("y_mm")
@@ -257,7 +268,7 @@ def generate_faceplate(layout, output_path):
     else:
         print("  SD card cutout skipped (no position in layout)")
 
-    # 8. Silkscreen labels (JetBrains Mono for matching web UI aesthetic)
+    # 9. Silkscreen labels (JetBrains Mono for matching web UI aesthetic)
     font = "JetBrains Mono"
 
     # Module name at top center
@@ -305,6 +316,8 @@ def load_faceplate_layout(layout_path, comp_map_path):
         layout["panel"] = comp_map["panel"]
         layout["constants"] = comp_map["constants"]
         layout["mounting_slots"] = comp_map["mounting_slots"]
+        if "standoffs" in comp_map:
+            layout["standoffs"] = comp_map["standoffs"]
         print(f"  Using dimensions from: {comp_map_path}")
     return layout
 

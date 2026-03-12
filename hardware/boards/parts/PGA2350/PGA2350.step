@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION((''), '2;1');
-FILE_NAME('PGA2350.step', '2026-03-12T13:27:41', (''), (''), 'Python STEP generator', '', '');
+FILE_NAME('PGA2350.step', '2026-03-12T13:55:36', (''), (''), 'Python STEP generator', '', '');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
 ENDSEC;
 

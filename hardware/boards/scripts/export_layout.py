@@ -126,6 +126,7 @@ def export_layout(pcb_path, map_path, output_path):
         "constants": comp_map["constants"],
         "lcd_cutout": comp_map["lcd_cutout"],
         "mounting_slots": comp_map["mounting_slots"],
+        "standoffs": comp_map.get("standoffs", []),
         "buttons": {
             "track": buttons_track,
             "subtrack": buttons_subtrack,

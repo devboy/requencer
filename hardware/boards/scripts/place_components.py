@@ -921,11 +921,39 @@ def place_components(input_pcb, output_pcb=None):
         "F", label="LCD"
     )
 
+    # M3 standoff mounting holes — NPTH 3.2mm drill at standoff positions
+    # These are in faceplate coords; convert to PCB coords.
+    standoffs = comp_map.get("standoffs", [])
+    standoff_drill = comp_map.get("footprints", {}).get("m3_standoff", {}).get("drill_mm", 3.2)
+    standoff_clearance = comp_map.get("footprints", {}).get("m3_standoff", {}).get("clearance_mm", 6.0)
+    for so in standoffs:
+        so_pcb_x = so["x_mm"] - ox
+        so_pcb_y = so["y_mm"] - oy
+        # Create NPTH footprint on the board
+        fp = pcbnew.FOOTPRINT(board)
+        fp.SetReference(f"SO_{so['id'].upper()}")
+        fp.SetValue("M3_Standoff")
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(so_pcb_x), pcbnew.FromMM(so_pcb_y)))
+        fp.SetAttributes(pcbnew.FP_EXCLUDE_FROM_POS_FILES | pcbnew.FP_EXCLUDE_FROM_BOM)
+        pad = pcbnew.PAD(fp)
+        pad.SetShape(pcbnew.PAD_SHAPE_CIRCLE)
+        pad.SetAttribute(pcbnew.PAD_ATTRIB_NPTH)
+        pad.SetDrillSize(pcbnew.VECTOR2I(pcbnew.FromMM(standoff_drill), pcbnew.FromMM(standoff_drill)))
+        pad.SetSize(pcbnew.VECTOR2I(pcbnew.FromMM(standoff_drill), pcbnew.FromMM(standoff_drill)))
+        fp.Add(pad)
+        board.Add(fp)
+        # Register exclusion zone for placement
+        tracker.register(so_pcb_x, so_pcb_y, standoff_clearance, standoff_clearance,
+                         "both", is_tht=False, label=f"standoff_{so['id']}")
+    if standoffs:
+        print(f"  {len(standoffs)} standoff mounting holes placed + exclusion zones registered ({standoff_clearance}mm)")
+
     tht_count = sum(1 for a in placed_addrs
                     if a in addr_map and tracker.is_tht(addr_map[a], pcbnew))
     smd_count = len(placed_addrs) - tht_count
+    standoff_count = len(standoffs)
     print(f"  Collision tracker: 1 LCD(F) + {tht_count} THT(both) + "
-          f"{smd_count} SMD(sided) = {tracker.count} entries")
+          f"{smd_count} SMD(sided) + {standoff_count} standoff(both) = {tracker.count} entries")
 
     # --- Zone layout ---
     # Board: 177.88 x 106.5mm (PCB coords).

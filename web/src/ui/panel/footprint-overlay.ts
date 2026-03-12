@@ -82,6 +82,17 @@ export function createFootprintOverlay(): void {
     parts.push(svgOval(mm(slot.x_mm), mm(slot.y_mm), mm(C.mount_slot_w_mm / 2), mm(C.mount_slot_h_mm / 2), '#00cccc'))
   }
 
+  // Standoffs — 3.2mm drill + 6mm clearance circle
+  const standoffs = (panelLayout as Record<string, unknown>).standoffs as
+    | { x_mm: number; y_mm: number }[]
+    | undefined
+  if (standoffs) {
+    for (const so of standoffs) {
+      parts.push(svgOval(mm(so.x_mm), mm(so.y_mm), mm(1.6), mm(1.6), '#ff00ff'))
+      parts.push(svgOval(mm(so.x_mm), mm(so.y_mm), mm(3.0), mm(3.0), '#ff00ff', '2,2'))
+    }
+  }
+
   // Buttons — body rect (green) + courtyard rect (yellow)
   function addButtonFootprints(buttons: Array<{ x_mm: number; y_mm: number }>): void {
     for (const b of buttons) {
@@ -120,15 +131,15 @@ export function createFootprintOverlay(): void {
   addJackFootprints(panelLayout.jacks.cv_input)
 
   // Connectors — rect from JSON dimensions (optional, may be on faceplate board)
-  const fpConnectors = panelLayout.connectors as
+  const fpConnectors = panelLayout.connectors as unknown as
     | {
         _note?: string
-        usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
-        sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+        usb_c?: { x_mm?: number; y_mm?: number; width_mm?: number; height_mm?: number }
+        sd_card?: { x_mm?: number; y_mm?: number; width_mm?: number; height_mm?: number }
       }
     | undefined
   const usb = fpConnectors?.usb_c
-  if (usb && 'x_mm' in usb) {
+  if (usb?.x_mm != null && usb.y_mm != null && usb.width_mm != null && usb.height_mm != null) {
     parts.push(
       svgRect(
         mm(usb.x_mm - usb.width_mm / 2),
@@ -141,7 +152,7 @@ export function createFootprintOverlay(): void {
   }
 
   const sd = fpConnectors?.sd_card
-  if (sd && 'x_mm' in sd) {
+  if (sd?.x_mm != null && sd.y_mm != null && sd.width_mm != null && sd.height_mm != null) {
     parts.push(
       svgRect(
         mm(sd.x_mm - sd.width_mm / 2),

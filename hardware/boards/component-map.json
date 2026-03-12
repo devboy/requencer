@@ -77,6 +77,11 @@
     { "id": "br", "x_mm": 174.38, "y_mm": 124.5 }
   ],
 
+  "standoffs": [
+    { "id": "so_tl", "x_mm": 5.5, "y_mm": 12.5, "_note": "Top-left M3 standoff, aligned with track button column" },
+    { "id": "so_bl", "x_mm": 5.5, "y_mm": 114.0, "_note": "Bottom-left M3 standoff, aligned with track button column" }
+  ],
+
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
@@ -112,6 +117,12 @@
       "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
       "body":      { "x1": -6.0, "y1": -1.25, "x2": 6.0, "y2": 1.25 },
       "courtyard": { "x1": -6.5, "y1": -1.75, "x2": 6.5, "y2": 1.75 }
+    },
+    "m3_standoff": {
+      "description": "M3 female-female hex standoff, 10mm length, 5.5mm hex body",
+      "drill_mm": 3.2,
+      "hex_af_mm": 5.5,
+      "clearance_mm": 6.0
     }
   },
 
