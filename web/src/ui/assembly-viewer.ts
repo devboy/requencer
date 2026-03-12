@@ -172,7 +172,7 @@ function createFallbackBoard(def: (typeof BOARD_DEFS)[number], group: THREE.Grou
 /** Set up Three.js scene with lighting, camera, controls */
 function createScene(container: HTMLElement) {
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xd0d0d8)
+  scene.background = new THREE.Color(0x1a1a24)
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000)
   camera.position.set(0, -150, 120)
@@ -181,7 +181,7 @@ function createScene(container: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.2
+  renderer.toneMappingExposure = 1.6
   container.appendChild(renderer.domElement)
 
   const orbitControls = new OrbitControls(camera, renderer.domElement)
@@ -189,20 +189,17 @@ function createScene(container: HTMLElement) {
   orbitControls.dampingFactor = 0.1
   orbitControls.target.set(0, 0, -6)
 
-  // Lighting
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6))
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0)
-  dirLight.position.set(100, -100, 200)
-  scene.add(dirLight)
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
+  // Lighting — strong enough to illuminate the dark anodized faceplate
+  scene.add(new THREE.AmbientLight(0xffffff, 1.0))
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.0)
+  keyLight.position.set(100, -100, 200)
+  scene.add(keyLight)
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8)
   fillLight.position.set(-80, 80, 100)
   scene.add(fillLight)
-
-  // Grid helper (XY plane, Z-up)
-  const grid = new THREE.GridHelper(300, 30, 0x999999, 0xbbbbbb)
-  grid.rotation.x = Math.PI / 2
-  grid.position.z = -20
-  scene.add(grid)
+  const rimLight = new THREE.DirectionalLight(0xccddff, 0.6)
+  rimLight.position.set(0, 150, 50)
+  scene.add(rimLight)
 
   // Resize handler
   function resize() {
