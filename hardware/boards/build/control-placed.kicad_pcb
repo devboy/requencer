@@ -16588,36 +16588,34 @@
 		)
 	)
 	(footprint "PJS008U:PJS008U"
-		(layer "B.Cu")
+		(layer "F.Cu")
 		(uuid "0a0d232b-ddb1-4392-aa14-02154642524b")
 		(at 100.94 90.25 180)
 		(property "Reference" "REF**"
 			(at 0 8.5 0)
-			(layer "B.SilkS")
+			(layer "F.SilkS")
 			(uuid "4aaed5f3-582a-4f6f-9266-bf8e5d371255")
 			(effects
 				(font
 					(size 1 1)
 					(thickness 0.15)
 				)
-				(justify mirror)
 			)
 		)
 		(property "Value" "PJS008U"
 			(at 0 -8.5 0)
-			(layer "B.Fab")
+			(layer "F.Fab")
 			(uuid "c7b273f7-0b41-4e73-ab1c-f2c9cb34915a")
 			(effects
 				(font
 					(size 1 1)
 					(thickness 0.15)
 				)
-				(justify mirror)
 			)
 		)
 		(property "Datasheet" ""
 			(at 0 0 0)
-			(layer "B.Fab")
+			(layer "F.Fab")
 			(hide yes)
 			(uuid "72f1c196-d692-4033-a7bc-980aeb5fce9e")
 			(effects
@@ -16625,12 +16623,11 @@
 					(size 1.27 1.27)
 					(thickness 0.15)
 				)
-				(justify mirror)
 			)
 		)
 		(property "Description" ""
 			(at 0 0 0)
-			(layer "B.Fab")
+			(layer "F.Fab")
 			(hide yes)
 			(uuid "f8ce2126-57be-45bb-8518-d416b962a885")
 			(effects
@@ -16638,7 +16635,6 @@
 					(size 1.27 1.27)
 					(thickness 0.15)
 				)
-				(justify mirror)
 			)
 		)
 		(property "LCSC" "C3177022"
@@ -16709,7 +16705,7 @@
 				(width 0.12)
 				(type solid)
 			)
-			(layer "B.SilkS")
+			(layer "F.SilkS")
 			(uuid "78deef83-d361-4c0d-9109-8b7a9c50ead1")
 		)
 		(fp_line
@@ -16719,7 +16715,7 @@
 				(width 0.12)
 				(type solid)
 			)
-			(layer "B.SilkS")
+			(layer "F.SilkS")
 			(uuid "1a9b284f-ea73-44b4-a274-64b0130dddfa")
 		)
 		(fp_line
@@ -16729,7 +16725,7 @@
 				(width 0.12)
 				(type solid)
 			)
-			(layer "B.SilkS")
+			(layer "F.SilkS")
 			(uuid "785c0acf-bb25-49e5-91f7-f34c0cee1cad")
 		)
 		(fp_line
@@ -16739,7 +16735,7 @@
 				(width 0.12)
 				(type solid)
 			)
-			(layer "B.SilkS")
+			(layer "F.SilkS")
 			(uuid "beab6366-fef1-455e-8798-7ab10e4b3257")
 		)
 		(pad "" thru_hole circle
