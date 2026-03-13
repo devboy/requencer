@@ -68,6 +68,8 @@ OFFSET_OVERRIDES: dict[str, tuple[float, float, float]] = {
     "USB_C_Receptacle/USB_C_Receptacle.kicad_mod": (-2.975, 2.43, 0),
     "MicroSD_Slot/MicroSD_Slot.kicad_mod": (0, 0, 0),
     "ShroudedSocket2x16/ShroudedSocket2x16.kicad_mod": (1.27, 19.05, 0),
+    "AMS1117-3.3/SOT-223.kicad_mod": (0, 0, 0),
+    "AZ1117IH-5.0/SOT-223.kicad_mod": (0, 0, 0),
 }
 
 # Manual rotation overrides for footprints whose orientation differs from the
@@ -77,15 +79,26 @@ ROTATION_OVERRIDES: dict[str, tuple[float, float, float]] = {
     "ResistorNetwork9/SIP-9.kicad_mod": (0, 0, 90),
 }
 
+# Suffix-based fallback for EasyEDA-sourced passives (matched by footprint suffix after ":")
+# These use KiCad's built-in SMD passive models. Offsets compensate for pad position
+# differences between EasyEDA footprints and KiCad standard footprints.
+# Format: suffix → (model_path, offset_xyz)
+SUFFIX_MODEL_MAP: dict[str, tuple[str, tuple[float, float, float]]] = {
+    "R0402": ("Resistor_SMD.3dshapes/R_0402_1005Metric.step", (0.08, 0, 0)),
+    "R0603": ("Resistor_SMD.3dshapes/R_0603_1608Metric.step", (0.075, 0, 0)),
+    "C0402": ("Capacitor_SMD.3dshapes/C_0402_1005Metric.step", (0.06, 0, 0)),
+    "C0603": ("Capacitor_SMD.3dshapes/C_0603_1608Metric.step", (0.075, 0, 0)),
+}
+
 # Local STEP files (relative to PARTS_DIR) — these use ${KIPRJMOD} relative paths
 # Format: footprint .kicad_mod path → (step_file_path, offset_xyz, rotate_xyz)
 # offset/rotate are (x, y, z) tuples; None means (0, 0, 0)
 # Local models have no KiCad standard reference, so offsets remain manual.
 LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
-    "EC11E/EC11E.kicad_mod": ("EC11E/EC11E.step", None, None),
+    "EC11E/EC11E.kicad_mod": ("EC11E/EC11E.step", (0, 0, 3.5), None),
     "TC002-RGB/TC002-N11AS1XT-RGB.kicad_mod": ("TC002-RGB/TC002-N11AS1XT-RGB.step", None, None),
-    "PJ398SM/PJ398SM.kicad_mod": ("PJ398SM/PJ398SM.step", None, None),
-    "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, None),
+    "PJ398SM/PJ398SM.kicad_mod": ("PJ398SM/PJ398SM.step", (0, -6.5, 0), (0, 0, 180)),
+    "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, (0, 0, 180)),
     "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
     "FPC_18P_05MM/FPC_18P_05MM.kicad_mod": ("FPC_18P_05MM/FPC_18P_05MM.step", None, None),
     "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", None, None),
@@ -309,7 +322,18 @@ def add_models_to_pcb_content(content: str) -> tuple[str, int]:
     matches = list(re.finditer(r'\(footprint\s+"([^"]+)"', content))
     for match in reversed(matches):
         fp_name = match.group(1)
-        if fp_name not in PCB_MODEL_MAP:
+
+        if fp_name in PCB_MODEL_MAP:
+            model_path, is_local, model_offset, model_rotate = PCB_MODEL_MAP[fp_name]
+        elif ":" in fp_name:
+            suffix = fp_name.split(":")[1]
+            if suffix in SUFFIX_MODEL_MAP:
+                model_path, model_offset = SUFFIX_MODEL_MAP[suffix]
+                is_local = False
+                model_rotate = None
+            else:
+                continue
+        else:
             continue
 
         block_start = match.start()
@@ -319,7 +343,6 @@ def add_models_to_pcb_content(content: str) -> tuple[str, int]:
             continue
 
         block_text = content[block_start : block_end + 1]
-        model_path, is_local, model_offset, model_rotate = PCB_MODEL_MAP[fp_name]
 
         # Remove existing model blocks from this footprint
         clean_block = remove_model_blocks(block_text)

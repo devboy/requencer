@@ -22,7 +22,7 @@
     "jack_hole_mm": 3.5,
     "jack_spacing_mm": 15.0,
     "output_jack_spacing_mm": 12.0,
-    "jack_rotation_deg": -90,
+    "jack_rotation_deg": 0,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
     "mount_slot_w_mm": 7.0,
@@ -265,7 +265,7 @@
       },
       {
         "id": "reset",
-        "x_mm": 145.0,
+        "x_mm": 141.7,
         "y_mm": 19.5,
         "label": "RESET"
       },
@@ -302,181 +302,181 @@
       "id": "enc_a",
       "x_mm": 13.53,
       "y_mm": 83.36,
-      "label": "A"
+      "label": ""
     },
     {
       "id": "enc_b",
       "x_mm": 96.03,
       "y_mm": 83.36,
-      "label": "B"
+      "label": ""
     }
   ],
   "jacks": {
     "utility": [
       {
         "id": "midi_in",
-        "x_mm": 159.0,
-        "y_mm": 32.0,
+        "x_mm": 130.9,
+        "y_mm": 95.1,
         "label": "MIDI IN"
       },
       {
         "id": "midi_out",
-        "x_mm": 173.0,
-        "y_mm": 32.0,
+        "x_mm": 130.9,
+        "y_mm": 110.5,
         "label": "MIDI OUT"
       }
     ],
     "clock": [
       {
         "id": "clk_in",
-        "x_mm": 131.0,
-        "y_mm": 46.0,
+        "x_mm": 141.9,
+        "y_mm": 27.0,
         "label": "CLK IN"
       },
       {
         "id": "clk_out",
-        "x_mm": 159.0,
-        "y_mm": 46.0,
+        "x_mm": 163.9,
+        "y_mm": 27.0,
         "label": "CLK OUT"
       },
       {
         "id": "rst_in",
-        "x_mm": 145.0,
-        "y_mm": 46.0,
+        "x_mm": 152.9,
+        "y_mm": 27.0,
         "label": "RST IN"
       },
       {
         "id": "rst_out",
-        "x_mm": 173.0,
-        "y_mm": 46.0,
+        "x_mm": 174.9,
+        "y_mm": 27.0,
         "label": "RST OUT"
       }
     ],
     "output": [
       {
         "id": "gate1",
-        "x_mm": 131.0,
-        "y_mm": 71.6,
+        "x_mm": 141.9,
+        "y_mm": 57.8,
         "label": "G1",
         "row": "gate",
         "track": 1
       },
       {
         "id": "gate2",
-        "x_mm": 145.0,
-        "y_mm": 71.6,
+        "x_mm": 152.9,
+        "y_mm": 57.8,
         "label": "G2",
         "row": "gate",
         "track": 2
       },
       {
         "id": "gate3",
-        "x_mm": 159.0,
-        "y_mm": 71.6,
+        "x_mm": 163.9,
+        "y_mm": 57.8,
         "label": "G3",
         "row": "gate",
         "track": 3
       },
       {
         "id": "gate4",
-        "x_mm": 173.0,
-        "y_mm": 71.6,
+        "x_mm": 174.9,
+        "y_mm": 57.8,
         "label": "G4",
         "row": "gate",
         "track": 4
       },
       {
         "id": "pitch1",
-        "x_mm": 131.0,
-        "y_mm": 84.4,
+        "x_mm": 141.9,
+        "y_mm": 73.2,
         "label": "P1",
         "row": "pitch",
         "track": 1
       },
       {
         "id": "pitch2",
-        "x_mm": 145.0,
-        "y_mm": 84.4,
+        "x_mm": 152.9,
+        "y_mm": 73.2,
         "label": "P2",
         "row": "pitch",
         "track": 2
       },
       {
         "id": "pitch3",
-        "x_mm": 159.0,
-        "y_mm": 84.4,
+        "x_mm": 163.9,
+        "y_mm": 73.2,
         "label": "P3",
         "row": "pitch",
         "track": 3
       },
       {
         "id": "pitch4",
-        "x_mm": 173.0,
-        "y_mm": 84.4,
+        "x_mm": 174.9,
+        "y_mm": 73.2,
         "label": "P4",
         "row": "pitch",
         "track": 4
       },
       {
         "id": "vel1",
-        "x_mm": 131.0,
-        "y_mm": 97.2,
+        "x_mm": 141.9,
+        "y_mm": 88.6,
         "label": "V1",
         "row": "vel",
         "track": 1
       },
       {
         "id": "vel2",
-        "x_mm": 145.0,
-        "y_mm": 97.2,
+        "x_mm": 152.9,
+        "y_mm": 88.6,
         "label": "V2",
         "row": "vel",
         "track": 2
       },
       {
         "id": "vel3",
-        "x_mm": 159.0,
-        "y_mm": 97.2,
+        "x_mm": 163.9,
+        "y_mm": 88.6,
         "label": "V3",
         "row": "vel",
         "track": 3
       },
       {
         "id": "vel4",
-        "x_mm": 173.0,
-        "y_mm": 97.2,
+        "x_mm": 174.9,
+        "y_mm": 88.6,
         "label": "V4",
         "row": "vel",
         "track": 4
       },
       {
         "id": "mod1",
-        "x_mm": 131.0,
-        "y_mm": 110.0,
+        "x_mm": 141.9,
+        "y_mm": 104.0,
         "label": "M1",
         "row": "mod",
         "track": 1
       },
       {
         "id": "mod2",
-        "x_mm": 145.0,
-        "y_mm": 110.0,
+        "x_mm": 152.9,
+        "y_mm": 104.0,
         "label": "M2",
         "row": "mod",
         "track": 2
       },
       {
         "id": "mod3",
-        "x_mm": 159.0,
-        "y_mm": 110.0,
+        "x_mm": 163.9,
+        "y_mm": 104.0,
         "label": "M3",
         "row": "mod",
         "track": 3
       },
       {
         "id": "mod4",
-        "x_mm": 173.0,
-        "y_mm": 110.0,
+        "x_mm": 174.9,
+        "y_mm": 104.0,
         "label": "M4",
         "row": "mod",
         "track": 4
@@ -485,27 +485,27 @@
     "cv_input": [
       {
         "id": "cv_a",
-        "x_mm": 131.0,
-        "y_mm": 58.8,
-        "label": "A"
+        "x_mm": 141.9,
+        "y_mm": 42.4,
+        "label": "CV A"
       },
       {
         "id": "cv_b",
-        "x_mm": 145.0,
-        "y_mm": 58.8,
-        "label": "B"
+        "x_mm": 152.9,
+        "y_mm": 42.4,
+        "label": "CV B"
       },
       {
         "id": "cv_c",
-        "x_mm": 159.0,
-        "y_mm": 58.8,
-        "label": "C"
+        "x_mm": 163.9,
+        "y_mm": 42.4,
+        "label": "CV C"
       },
       {
         "id": "cv_d",
-        "x_mm": 173.0,
-        "y_mm": 58.8,
-        "label": "D"
+        "x_mm": 174.9,
+        "y_mm": 42.4,
+        "label": "CV D"
       }
     ]
   },
@@ -516,8 +516,8 @@
       "height_above_pcb_mm": 14.18,
       "protrusion_above_panel_mm": 2.6,
       "faceplate_cutout_mm": "13 x 3",
-      "x_mm": 131.0,
-      "y_mm": 32.0,
+      "x_mm": 129.4,
+      "y_mm": 33.0,
       "width_mm": 13.0,
       "height_mm": 3.0,
       "label": "SD"
@@ -532,19 +532,19 @@
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
-      "description": "Thonkiconn PJ398SM 3.5mm mono jack, vertical mount",
+      "description": "QingPu WQP-PJ398SM (Thonkiconn) 3.5mm mono jack, vertical mount",
       "drill_mm": 6.0,
       "body": {
-        "x1": -4.0,
-        "y1": -5.8,
-        "x2": 7.0,
-        "y2": 3.0
+        "x1": -4.5,
+        "y1": -1.42,
+        "x2": 4.5,
+        "y2": 12.98
       },
       "courtyard": {
-        "x1": -4.0,
-        "y1": -5.8,
-        "x2": 7.0,
-        "y2": 3.0
+        "x1": -5.0,
+        "y1": -1.42,
+        "x2": 5.0,
+        "y2": 12.98
       }
     },
     "pj366st": {

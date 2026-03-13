@@ -287,13 +287,193 @@ def _write_glb(glb_path: Path, meshes: list) -> None:
         f.write(buffer_data)
 
 
+def _postprocess_glb(glb_path: Path) -> None:
+    """Post-process a GLB to fix issues from trimesh export:
+
+    1. Copy mesh names onto parent nodes (Three.js GLTFLoader uses node names)
+    2. Fix PBR metallic/roughness defaults — trimesh leaves these at glTF defaults
+       (metallic=1, roughness=1) which makes everything look dark/black.
+       We set sensible values based on color brightness.
+    """
+    with open(glb_path, "rb") as f:
+        header = f.read(12)
+        magic, version, total_length = struct.unpack("<III", header)
+        json_len, json_type = struct.unpack("<II", f.read(8))
+        json_bytes = f.read(json_len)
+        rest = f.read()  # BIN chunk header + data
+
+    gltf = json.loads(json_bytes)
+
+    # 1. Sync node names from mesh names
+    nodes = gltf.get("nodes", [])
+    meshes = gltf.get("meshes", [])
+    for node in nodes:
+        mesh_idx = node.get("mesh")
+        if mesh_idx is not None and mesh_idx < len(meshes):
+            mesh_name = meshes[mesh_idx].get("name", "")
+            if mesh_name:
+                node["name"] = mesh_name
+
+    # 2. Fix PBR material properties
+    for mat in gltf.get("materials", []):
+        pbr = mat.get("pbrMetallicRoughness", {})
+        color = pbr.get("baseColorFactor", [0.5, 0.5, 0.5, 1.0])
+        has_metallic = "metallicFactor" in pbr
+        has_roughness = "roughnessFactor" in pbr
+
+        # Only fix materials where trimesh left defaults (didn't set values)
+        if has_metallic and has_roughness:
+            continue
+
+        # Approximate luminance from RGB
+        r, g, b = color[0], color[1], color[2]
+        luminance = 0.299 * r + 0.587 * g + 0.114 * b
+
+        if luminance > 0.3:
+            # Bright colors (gold, silver, copper) → shiny metal
+            pbr["metallicFactor"] = 0.8
+            pbr["roughnessFactor"] = 0.35
+        else:
+            # Dark colors (black plastic, dark components) → matte
+            pbr["metallicFactor"] = 0.05
+            pbr["roughnessFactor"] = 0.6
+
+        mat["pbrMetallicRoughness"] = pbr
+
+    # 3. Assign materials to any primitives missing one.
+    #    Split multi-material meshes and trimesh ColorVisuals exports may lack
+    #    a material reference. Use mesh name suffix to pick the right material.
+    materials = gltf.setdefault("materials", [])
+    for mesh_def in meshes:
+        for prim in mesh_def.get("primitives", []):
+            if "material" not in prim or prim["material"] is None:
+                mesh_name = mesh_def.get("name", "")
+                is_pins = "_pins" in mesh_name
+                if is_pins:
+                    new_mat = {
+                        "name": f"auto_{mesh_name}",
+                        "pbrMetallicRoughness": {
+                            "baseColorFactor": [0.71, 0.506, 0.212, 1.0],
+                            "metallicFactor": 0.8,
+                            "roughnessFactor": 0.35,
+                        },
+                    }
+                else:
+                    new_mat = {
+                        "name": f"auto_{mesh_name}",
+                        "pbrMetallicRoughness": {
+                            "baseColorFactor": [0.02, 0.02, 0.02, 1.0],
+                            "metallicFactor": 0.05,
+                            "roughnessFactor": 0.6,
+                        },
+                    }
+                prim["material"] = len(materials)
+                materials.append(new_mat)
+
+    new_json = json.dumps(gltf, separators=(",", ":")).encode("utf-8")
+    while len(new_json) % 4:
+        new_json += b" "
+
+    new_total = 12 + 8 + len(new_json) + len(rest)
+    with open(glb_path, "wb") as f:
+        f.write(struct.pack("<III", magic, version, new_total))
+        f.write(struct.pack("<II", len(new_json), json_type))
+        f.write(new_json)
+        f.write(rest)
+
+
+def _split_multi_material(scene) -> None:
+    """Split meshes with MultiMaterial into separate per-material meshes.
+
+    trimesh loads STEP color data but can't export multi-material meshes
+    to glTF properly (collapses to single material). We replace each
+    multi-material mesh with its brightest material sub-mesh as the
+    original name, and add the other sub-meshes as new geometry entries.
+    """
+    import trimesh
+    import numpy as np
+
+    to_add: list[tuple[str, "trimesh.Trimesh", str]] = []  # (new_name, mesh, orig_geom_name)
+
+    for name in list(scene.geometry.keys()):
+        geom = scene.geometry[name]
+        mat = getattr(getattr(geom, 'visual', None), 'material', None)
+        if mat is None or type(mat).__name__ != 'MultiMaterial':
+            continue
+        if not hasattr(mat, 'materials') or len(mat.materials) < 2:
+            continue
+
+        try:
+            face_materials = np.array(geom.visual.face_materials)
+        except (AttributeError, Exception):
+            continue
+
+        unique_indices = np.unique(face_materials)
+        if len(unique_indices) < 2:
+            continue
+
+        # Build sub-meshes per material, pick brightest as "primary"
+        subs: list[tuple[str, "trimesh.Trimesh", float]] = []
+        for mat_idx in unique_indices:
+            sub_mat = mat.materials[mat_idx]
+            color = getattr(sub_mat, 'main_color', None)
+            if color is None:
+                continue
+
+            face_indices = np.where(face_materials == mat_idx)[0]
+            if len(face_indices) == 0:
+                continue
+
+            sub_mesh = geom.submesh([face_indices], append=True)
+            r, g, b = int(color[0]), int(color[1]), int(color[2])
+            lum = 0.299 * r + 0.587 * g + 0.114 * b
+            suffix = "pins" if lum > 80 else "body"
+
+            sub_mesh.visual = trimesh.visual.ColorVisuals(
+                mesh=sub_mesh,
+                face_colors=np.tile(color, (len(sub_mesh.faces), 1)),
+            )
+            subs.append((suffix, sub_mesh, lum))
+
+        if not subs:
+            continue
+
+        # Sort: darkest first (body), brightest last (pins)
+        subs.sort(key=lambda x: x[2])
+
+        # Replace original geometry with the darkest sub (body) to keep graph intact
+        scene.geometry[name] = subs[0][1]
+
+        # Add remaining sub-meshes as new entries, remembering original geom name
+        for suffix, sub_mesh, _ in subs[1:]:
+            to_add.append((f"{name}_{suffix}", sub_mesh, name))
+
+    # Add new geometry with the same transform as the original component.
+    # scene.graph maps node_name -> (transform, geometry_name).
+    # geometry_nodes gives geometry_name -> set of node names.
+    for sub_name, sub_mesh, orig_name in to_add:
+        # Find nodes that reference the original geometry and copy their transforms
+        geom_nodes = scene.graph.geometry_nodes.get(orig_name, set())
+        if geom_nodes:
+            # Use the first node's transform
+            node_name = next(iter(geom_nodes))
+            transform = scene.graph[node_name][0]
+            scene.add_geometry(sub_mesh, geom_name=sub_name, transform=transform)
+        else:
+            scene.add_geometry(sub_mesh, geom_name=sub_name)
+
+
 def convert_with_trimesh(step_path: Path, glb_path: Path) -> bool:
-    """Fallback: convert using trimesh (no name preservation)."""
+    """Convert using trimesh, splitting multi-material meshes for proper colors."""
     import trimesh
 
-    mesh = trimesh.load(str(step_path))
-    mesh.export(str(glb_path), file_type="glb")
-    return glb_path.exists()
+    scene = trimesh.load(str(step_path))
+    _split_multi_material(scene)
+    scene.export(str(glb_path), file_type="glb")
+    if glb_path.exists():
+        _postprocess_glb(glb_path)
+        return True
+    return False
 
 
 # Backends in preference order (OCP preserves names, trimesh is fallback)

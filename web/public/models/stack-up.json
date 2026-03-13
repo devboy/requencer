@@ -5,11 +5,11 @@
       "thickness": 1.6
     },
     "control": {
-      "z": -13.5,
+      "z": -10.5,
       "thickness": 1.6
     },
     "main": {
-      "z": -23.6,
+      "z": -25.6,
       "thickness": 1.6
     }
   },
@@ -19,6 +19,7 @@
   },
   "boards": [
     "control",
-    "main"
+    "main",
+    "faceplate"
   ]
 }

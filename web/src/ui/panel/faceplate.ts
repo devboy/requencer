@@ -165,20 +165,20 @@ export function createFaceplate(): FaceplateElements {
     }
   }
 
-  // --- LCD bezel from lcd_cutout center ---
+  // --- LCD display — glass (85.5×54.94) sits in faceplate cutout ---
+  // Bezel = glass outline, canvas = active area offset inside
+  // Landscape bezels (from datasheet): L=8.40 R=3.66 T=2.99 B=2.99mm
   const lcd = panelLayout.lcd_cutout
   const lcdBezel = document.createElement('div')
   lcdBezel.className = 'lcd-bezel'
-  lcdBezel.innerHTML = `<div class="lcd-mask"><canvas id="lcd-canvas"></canvas></div>`
-  // Position at top-left corner (no translate)
-  const lcdPad = C.lcd_padding_mm * SCALE
-  const bezelW = lcd.width_mm * SCALE + 2 * lcdPad + 4
-  const bezelH = lcd.height_mm * SCALE + 2 * lcdPad + 4
+  lcdBezel.innerHTML = `<canvas id="lcd-canvas"></canvas>`
+  const glassW = lcd.glass_w_mm * SCALE
+  const glassH = lcd.glass_h_mm * SCALE
   lcdBezel.style.position = 'absolute'
-  lcdBezel.style.left = `${lcd.center_x_mm * SCALE - bezelW / 2}px`
-  lcdBezel.style.top = `${lcd.center_y_mm * SCALE - bezelH / 2}px`
-  lcdBezel.style.width = `${bezelW}px`
-  lcdBezel.style.height = `${bezelH}px`
+  lcdBezel.style.left = `${lcd.center_x_mm * SCALE - glassW / 2}px`
+  lcdBezel.style.top = `${lcd.center_y_mm * SCALE - glassH / 2}px`
+  lcdBezel.style.width = `${glassW}px`
+  lcdBezel.style.height = `${glassH}px`
   modulePanel.appendChild(lcdBezel)
 
   // --- Track buttons (T1-T4) ---
@@ -687,16 +687,11 @@ const PANEL_CSS = `
      ══════════════════════════════════════════ */
 
   .lcd-bezel {
-    background: #1a1a1a;
-    border-radius: 2px;
-    padding: 2px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
-  }
-
-  .lcd-mask {
-    background: #000;
-    padding: ${2.0 * SCALE}px;
+    background: #0a0a0a;
     border-radius: 1px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.9);
+    /* Asymmetric bezels: L=8.40 R=3.66 T=2.99 B=2.99 mm */
+    padding: ${2.99 * SCALE}px ${3.66 * SCALE}px ${2.99 * SCALE}px ${8.40 * SCALE}px;
   }
 
   #lcd-canvas {

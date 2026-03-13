@@ -12,34 +12,81 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
-/** Board stack-up Z positions from export_3d_assembly.py (mm) */
-/** Stack-up: faceplate back (Z=0) rests on jack body shoulders.
- *  PJ398SM model: 16.4mm above origin, ~4.5mm bushing → shoulder at ~11.9mm.
- *  STEP export: board bottom at Z=0, F.Cu at Z=1.6 → shoulder at 1.6+11.9=13.5.
- *  Control→Main gap: 1.6mm PCB + 8.5mm 2x16 header pins. */
-const BOARD_DEFS = [
-  { name: 'Faceplate', file: 'faceplate.glb', z: 0, color: 0x1a1a1a, pcbColor: 0x111111 },
-  { name: 'Control', file: 'control.glb', z: -11.7, color: 0x006633, pcbColor: 0x0a5c2a },
-  { name: 'Main', file: 'main.glb', z: -21.8, color: 0x003366, pcbColor: 0x0a5c2a },
-] as const
+/** Visual properties per board (Z positions loaded from stack-up.json at runtime) */
+const BOARD_STYLE: Record<string, { file: string; color: number; pcbColor: number }> = {
+  faceplate: { file: 'faceplate.glb', color: 0x1a1a1a, pcbColor: 0x111111 },
+  control:   { file: 'control.glb',   color: 0x006633, pcbColor: 0x0a5c2a },
+  main:      { file: 'main.glb',      color: 0x003366, pcbColor: 0x0a5c2a },
+}
+
+interface StackUpEntry { z: number; thickness: number }
+interface StackUpData {
+  stack_up: Record<string, StackUpEntry>
+  pcb_origin: { x: number; y: number }
+  boards: string[]
+}
+
+interface BoardDef {
+  name: string; file: string; z: number
+  color: number; pcbColor: number
+}
+
+async function loadStackUp(): Promise<{ defs: BoardDef[]; pcbOrigin: { x: number; y: number } }> {
+  const url = `${import.meta.env.BASE_URL}models/stack-up.json`
+  const resp = await fetch(url)
+  const data: StackUpData = await resp.json()
+
+  const defs: BoardDef[] = data.boards.map(name => {
+    const style = BOARD_STYLE[name] ?? { file: `${name}.glb`, color: 0x006633, pcbColor: 0x0a5c2a }
+    const entry = data.stack_up[name] ?? { z: 0, thickness: 1.6 }
+    return {
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      file: style.file,
+      z: entry.z,
+      color: style.color,
+      pcbColor: style.pcbColor,
+    }
+  })
+
+  return { defs, pcbOrigin: data.pcb_origin }
+}
 
 /** Materials for different part types (DoubleSide: STEP tessellation has inconsistent normals) */
 const SIDE = THREE.DoubleSide
+const mat = (props: THREE.MeshStandardMaterialParameters) =>
+  new THREE.MeshStandardMaterial({ side: SIDE, ...props })
+
+/** polygonOffset prevents Z-fighting between coplanar PCB layers.
+ *  Positive factor = pushed back in depth. Real PCB layer order (top to bottom):
+ *  silkscreen > soldermask > pads > copper > substrate
+ *  Soldermask covers copper traces; pads poke through the mask. */
 const MATERIALS = {
-  // FR4 PCB substrate — green solder mask
-  pcb: (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, side: SIDE }),
+  // FR4 PCB substrate (bottommost)
+  pcb: (color: number) => mat({ color, roughness: 0.7, metalness: 0.05,
+    polygonOffset: true, polygonOffsetFactor: 6, polygonOffsetUnits: 6 }),
   // Faceplate — anodized aluminum
-  faceplate: () => new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.3, metalness: 0.8, side: SIDE }),
+  faceplate: () => mat({ color: 0x1a1a1e, roughness: 0.3, metalness: 0.8 }),
+  // Copper traces / zones (under soldermask, visible as subtle pattern)
+  copper: () => mat({ color: 0xb87333, roughness: 0.4, metalness: 0.8,
+    polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 4 }),
+  // Soldermask — semi-transparent green coating over copper
+  soldermask: (color: number) => mat({ color, roughness: 0.4, metalness: 0.05,
+    transparent: true, opacity: 0.85,
+    polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }),
+  // Pads — HASL tin finish (exposed through soldermask openings)
+  pad: () => mat({ color: 0xc0c0c0, roughness: 0.3, metalness: 0.9,
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+  // Silkscreen — white ink (on top of everything)
+  silkscreen: () => mat({ color: 0xf0f0f0, roughness: 0.8, metalness: 0.0 }),
+  // Via barrels (vertical, no Z-fighting)
+  via: () => mat({ color: 0xb87333, roughness: 0.35, metalness: 0.85 }),
   // IC packages, connectors — dark plastic
-  component: () => new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6, metalness: 0.05, side: SIDE }),
+  component: () => mat({ color: 0x333333, roughness: 0.6, metalness: 0.05 }),
   // Metal pins, pads, leads
-  metal: () => new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.3, metalness: 0.9, side: SIDE }),
-  // Copper traces / exposed copper
-  copper: () => new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.4, metalness: 0.8, side: SIDE }),
+  metal: () => mat({ color: 0xbbbbbb, roughness: 0.3, metalness: 0.9 }),
 }
 
-/** PCB origin offset from faceplate (mm) */
-const PCB_OFFSET = { x: 2.0, y: 9.5 }
+/** PCB origin offset fallback (overridden by stack-up.json) */
 
 /** Approximate board dimensions for fallback boxes (mm) */
 const FACEPLATE_SIZE = { w: 181.88, h: 127.5, d: 1.6 }
@@ -92,34 +139,80 @@ export function closeViewer(): void {
   }
 }
 
-/** Classify a mesh by its bounding box shape */
-function classifyMesh(size: THREE.Vector3): 'flat' | 'small-metal' | 'component' {
-  if (size.z < 0.003 && size.x > 0.05 && size.y > 0.05) return 'flat'
-  if (size.x < 0.005 && size.y < 0.005 && size.z < 0.01) return 'small-metal'
+/** Classify a mesh by its name (from STEP product names preserved in glTF).
+ *  KiCad STEP export names PCB layers as: boardname_PCB, boardname_copper,
+ *  boardname_pad, boardname_via, boardname_silkscreen, boardname_soldermask.
+ *  Component meshes keep their STEP model names (e.g. "PJ398SM", "SOT-23"). */
+type MeshKind = 'pcb' | 'copper' | 'pad' | 'via' | 'silkscreen' | 'soldermask' | 'component'
+
+/** Known metal sub-parts of through-hole components (jack barrels, nuts, sleeves) */
+const METAL_PARTS = new Set(['T', 'TN', 'S', 'Hole'])
+
+function classifyByName(name: string): MeshKind {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('_pcb')) return 'pcb'
+  if (lower.endsWith('_copper')) return 'copper'
+  if (lower.endsWith('_pad')) return 'pad'
+  if (lower.endsWith('_via')) return 'via'
+  if (lower.endsWith('_silkscreen') || lower.includes('silkscreen')) return 'silkscreen'
+  if (lower.endsWith('_soldermask') || lower.includes('soldermask')) return 'soldermask'
+  // Jack sub-parts: T (threaded barrel), TN (nut), S (sleeve), Hole — all metal
+  const baseName = name.replace(/_\d+$/, '')
+  if (METAL_PARTS.has(baseName)) return 'pad'
   return 'component'
 }
 
-/** Apply realistic materials to loaded board meshes based on geometry heuristics */
+/** Get the mesh geometry name (GLTFLoader puts node names on Object3D.name,
+ *  but the meaningful names from STEP are on the glTF mesh object).
+ *  Three.js stores the mesh name on geometry.name or we can access it
+ *  via the mesh's userData. As a fallback, check the node name too. */
+function getMeshName(mesh: THREE.Mesh): string {
+  // GLTFLoader copies glTF mesh.name → geometry.name in recent versions
+  // Also check the Object3D name (node name) as fallback
+  return mesh.geometry?.name || mesh.name || ''
+}
+
+/** Apply materials: override PCB layer meshes with known-good colors,
+ *  but preserve original STEP-derived materials for components (which
+ *  already have correct colors for pins, plastic, metal, etc). */
 function applyBoardMaterials(root: THREE.Object3D, boardName: string, pcbColor: number): void {
   const isFaceplate = boardName === 'Faceplate'
+  const maskColor = isFaceplate ? 0x1a1a1e : pcbColor
+
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
-    child.geometry.computeBoundingBox()
-    const box = child.geometry.boundingBox
-    if (!box) return
+    const name = getMeshName(child)
+    const kind = classifyByName(name)
 
-    const size = new THREE.Vector3()
-    box.getSize(size)
-    const kind = classifyMesh(size)
-
-    if (isFaceplate) {
-      child.material = kind === 'flat' ? MATERIALS.faceplate() : MATERIALS.metal()
-    } else if (kind === 'flat') {
-      child.material = MATERIALS.pcb(pcbColor)
-    } else if (kind === 'small-metal') {
-      child.material = MATERIALS.metal()
-    } else {
-      child.material = MATERIALS.component()
+    // Only override PCB layer meshes — components keep their STEP colors
+    switch (kind) {
+      case 'pcb':
+        child.material = isFaceplate ? MATERIALS.faceplate() : MATERIALS.pcb(pcbColor)
+        break
+      case 'soldermask':
+        child.material = isFaceplate ? MATERIALS.faceplate() : MATERIALS.soldermask(maskColor)
+        break
+      case 'silkscreen':
+        child.material = MATERIALS.silkscreen()
+        break
+      case 'copper':
+        child.material = MATERIALS.copper()
+        break
+      case 'pad':
+        child.material = MATERIALS.pad()
+        break
+      case 'via':
+        child.material = MATERIALS.via()
+        break
+      case 'component': {
+        // Keep original materials from GLB (PBR fixed in post-processing).
+        // Just ensure double-sided rendering for STEP tessellation quirks.
+        const setSide = (m: THREE.Material) => { m.side = SIDE }
+        const orig = child.material
+        if (Array.isArray(orig)) orig.forEach(setSide)
+        else setSide(orig)
+        break
+      }
     }
   })
 }
@@ -147,7 +240,7 @@ function createTextSprite(text: string): THREE.Sprite {
 }
 
 /** Create a fallback box mesh for a board when glTF isn't available */
-function createFallbackBoard(def: (typeof BOARD_DEFS)[number], group: THREE.Group): void {
+function createFallbackBoard(def: BoardDef, pcbOrigin: { x: number; y: number }, group: THREE.Group): void {
   const isFaceplate = def.name === 'Faceplate'
   const size = isFaceplate ? FACEPLATE_SIZE : PCB_SIZE
   const geometry = new THREE.BoxGeometry(size.w, size.h, size.d)
@@ -161,13 +254,13 @@ function createFallbackBoard(def: (typeof BOARD_DEFS)[number], group: THREE.Grou
   const mesh = new THREE.Mesh(geometry, material)
   mesh.position.set(size.w / 2, size.h / 2, 0)
   if (!isFaceplate) {
-    mesh.position.x += PCB_OFFSET.x
-    mesh.position.y += PCB_OFFSET.y
+    mesh.position.x += pcbOrigin.x
+    mesh.position.y += pcbOrigin.y
   }
   group.add(mesh)
 
-  const offsetX = isFaceplate ? 0 : PCB_OFFSET.x
-  const offsetY = isFaceplate ? 0 : PCB_OFFSET.y
+  const offsetX = isFaceplate ? 0 : pcbOrigin.x
+  const offsetY = isFaceplate ? 0 : pcbOrigin.y
   const label = createTextSprite(def.name)
   label.position.set(size.w / 2 + offsetX, size.h / 2 + offsetY, 2)
   group.add(label)
@@ -182,7 +275,7 @@ function createScene(container: HTMLElement) {
   camera.position.set(0, -150, 120)
   camera.up.set(0, 0, 1) // Z-up to match KiCad coordinate system
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.6
@@ -228,11 +321,27 @@ async function loadBoards(scene: THREE.Scene, statusEl: HTMLElement): Promise<Bo
   boardParent.position.set(-FACEPLATE_SIZE.w / 2, FACEPLATE_SIZE.h / 2, 0)
   scene.add(boardParent)
 
+  // Load stack-up from hardware-generated metadata
+  let boardDefs: BoardDef[]
+  let pcbOrigin = { x: 2.0, y: 9.5 }
+  try {
+    const stackUp = await loadStackUp()
+    boardDefs = stackUp.defs
+    pcbOrigin = stackUp.pcbOrigin
+  } catch {
+    // Fallback if stack-up.json missing
+    boardDefs = Object.entries(BOARD_STYLE).map(([name, style]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      file: style.file, z: 0, color: style.color, pcbColor: style.pcbColor,
+    }))
+  }
+
   const loader = new GLTFLoader()
   let loadedCount = 0
   let failedCount = 0
+  const totalBoards = boardDefs.length
 
-  for (const def of BOARD_DEFS) {
+  for (const def of boardDefs) {
     const group = new THREE.Group()
     group.position.z = def.z
     boardParent.add(group)
@@ -253,21 +362,21 @@ async function loadBoards(scene: THREE.Scene, statusEl: HTMLElement): Promise<Bo
       // Apply realistic materials based on geometry heuristics
       applyBoardMaterials(gltf.scene, def.name, def.pcbColor)
       if (def.name !== 'Faceplate') {
-        gltf.scene.position.set(PCB_OFFSET.x, -PCB_OFFSET.y, 0)
+        gltf.scene.position.set(pcbOrigin.x, -pcbOrigin.y, 0)
       }
       group.add(gltf.scene)
       loadedCount++
-      statusEl.textContent = `Loaded ${loadedCount}/3 models...`
+      statusEl.textContent = `Loaded ${loadedCount}/${totalBoards} models...`
     } catch {
       failedCount++
-      createFallbackBoard(def, group)
+      createFallbackBoard(def, pcbOrigin, group)
     }
   }
 
-  if (failedCount === 3) {
+  if (failedCount === totalBoards) {
     statusEl.textContent = 'No glTF models found \u2014 showing placeholders. Run: make hw-export-gltf'
   } else if (failedCount > 0) {
-    statusEl.textContent = `${loadedCount}/3 models loaded (${failedCount} using placeholders)`
+    statusEl.textContent = `${loadedCount}/${totalBoards} models loaded (${failedCount} using placeholders)`
   } else {
     statusEl.textContent = 'All models loaded'
   }

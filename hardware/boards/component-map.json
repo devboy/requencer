@@ -26,7 +26,7 @@
     "jack_hole_mm": 3.5,
     "jack_spacing_mm": 15.0,
     "output_jack_spacing_mm": 12.0,
-    "jack_rotation_deg": -90,
+    "jack_rotation_deg": 0,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
     "mount_slot_w_mm": 7.0,
@@ -56,8 +56,15 @@
     "active_h_mm": 48.96,
     "fpc_pins": 18,
     "fpc_pitch_mm": 0.5,
-    "fpc_edge": "bottom (short edge, landscape orientation)",
-    "backlight": "4 parallel LED cathodes (K1-K4), anode to 3.3V, cathodes switched via N-FET"
+    "fpc_edge": "left (landscape orientation, driver/COG bond side)",
+    "backlight": "4 parallel LED cathodes (K1-K4), anode to 3.3V, cathodes switched via N-FET",
+    "bezel_landscape_mm": {
+      "_note": "From datasheet mechanical drawing. FPC/driver side (left) is wider due to COG bond area.",
+      "left": 8.40,
+      "right": 3.66,
+      "top": 2.99,
+      "bottom": 2.99
+    }
   },
 
   "lcd_cutout": {
@@ -85,10 +92,10 @@
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
-      "description": "Thonkiconn PJ398SM 3.5mm mono jack, vertical mount",
+      "description": "QingPu WQP-PJ398SM (Thonkiconn) 3.5mm mono jack, vertical mount",
       "drill_mm": 6.0,
-      "body":      { "x1": -4.0, "y1": -5.8, "x2": 7.0, "y2": 3.0 },
-      "courtyard": { "x1": -4.0, "y1": -5.8, "x2": 7.0, "y2": 3.0 }
+      "body":      { "x1": -4.5, "y1": -1.42, "x2": 4.5, "y2": 12.98 },
+      "courtyard": { "x1": -5.0, "y1": -1.42, "x2": 5.0, "y2": 12.98 }
     },
     "pj366st": {
       "description": "QingPu PJ366ST 3.5mm stereo TRS jack, vertical mount",
@@ -171,10 +178,10 @@
     "jacks.j_mod3":     { "group": "jacks.output", "id": "mod3",   "label": "M3", "type": "jack", "row": "mod",   "track": 3 },
     "jacks.j_mod4":     { "group": "jacks.output", "id": "mod4",   "label": "M4", "type": "jack", "row": "mod",   "track": 4 },
 
-    "jacks.j_cv_a":     { "group": "jacks.cv_input", "id": "cv_a", "label": "A", "type": "jack" },
-    "jacks.j_cv_b":     { "group": "jacks.cv_input", "id": "cv_b", "label": "B", "type": "jack" },
-    "jacks.j_cv_c":     { "group": "jacks.cv_input", "id": "cv_c", "label": "C", "type": "jack" },
-    "jacks.j_cv_d":     { "group": "jacks.cv_input", "id": "cv_d", "label": "D", "type": "jack" },
+    "jacks.j_cv_a":     { "group": "jacks.cv_input", "id": "cv_a", "label": "CV A", "type": "jack" },
+    "jacks.j_cv_b":     { "group": "jacks.cv_input", "id": "cv_b", "label": "CV B", "type": "jack" },
+    "jacks.j_cv_c":     { "group": "jacks.cv_input", "id": "cv_c", "label": "CV C", "type": "jack" },
+    "jacks.j_cv_d":     { "group": "jacks.cv_input", "id": "cv_d", "label": "CV D", "type": "jack" },
 
     "buttons.btn_t1":       { "group": "buttons.track",    "id": "t1",    "label": "1",     "type": "button" },
     "buttons.btn_t2":       { "group": "buttons.track",    "id": "t2",    "label": "2",     "type": "button" },
@@ -218,8 +225,8 @@
     "buttons.btn_rand":     { "group": "buttons.control_strip", "id": "rand", "label": "RAND", "type": "button" },
     "buttons.btn_clr":      { "group": "buttons.control_strip", "id": "clr",  "label": "CLR",  "type": "button" },
 
-    "enc_a":                { "group": "encoders", "id": "enc_a", "label": "A", "type": "encoder" },
-    "enc_b":                { "group": "encoders", "id": "enc_b", "label": "B", "type": "encoder" }
+    "enc_a":                { "group": "encoders", "id": "enc_a", "label": "", "type": "encoder" },
+    "enc_b":                { "group": "encoders", "id": "enc_b", "label": "", "type": "encoder" }
   },
 
   "non_pcb_components": {

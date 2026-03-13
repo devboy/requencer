@@ -3,14 +3,19 @@
 # Covers both boards (control + main), faceplate, and 3D export.
 # Each step produces a new file — no in-place mutation, clean dependency tracking.
 #
-# Pipeline: ato build → place → route → gnd-pours → faceplate → 3d → export
+# Pipeline: ato build → place variants → route variants → select best →
+#           gnd-pours → faceplate → 3d → export
 #
 # Usage:
-#   make place        # place both boards + export panel layout
-#   make route        # route both boards (autoroute with FreeRouting)
+#   make place        # place+route all variants, select best, export panel layout
+#   make route        # (included in place via variant pipeline)
 #   make 3d           # add 3D models + export STEP + convert to GLB
 #   make all          # full pipeline
 #   make clean        # remove build artifacts
+#   make test-hw      # run placement unit tests
+#
+# Parallelism: set PARALLEL to control concurrent jobs (default 16).
+# Each FreeRouting instance uses ~2GB heap — cap based on available RAM.
 
 # --- Tool paths (macOS native ARM, overridable) ---
 KICAD_APP    ?= /Applications/KiCad/KiCad.app
@@ -22,7 +27,12 @@ KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks \
 # Python venv for non-KiCad scripts (trimesh, cascadio, etc.)
 VENV         := ../.venv
 VENV_PYTHON  := $(VENV)/bin/python3
-VENV_DEPS    := trimesh cascadio numpy
+VENV_DEPS    := trimesh cascadio numpy pytest
+
+# Parallelism for variant pipeline (placement + routing)
+# Each FreeRouting instance uses ~2GB heap. Override: make PARALLEL=4 all
+PARALLEL ?= 8
+MAKEFLAGS += -j$(PARALLEL) -k
 
 # --- Paths (relative to hardware/) ---
 BOARDS         := boards
@@ -41,7 +51,7 @@ COMP_MAP       := $(BOARDS)/component-map.json
 BOARD_CONFIG   := $(BOARDS)/board-config.json
 
 # Faceplate
-FACEPLATE_PCB  := faceplate/build/faceplate.kicad_pcb
+FACEPLATE_PCB  := faceplate/elec/layout/faceplate.kicad_pcb
 
 # 3D pipeline
 CONTROL_3D     := $(BUILD)/control-3d.kicad_pcb
@@ -55,9 +65,18 @@ CUSTOM_STEPS   := $(shell find $(BOARDS)/parts -name '*.step' 2>/dev/null)
 # --- Atopile source tracking ---
 ATO_SOURCES := $(shell find $(BOARDS)/elec/src $(BOARDS)/parts -name '*.ato' 2>/dev/null)
 ATO_FOOTPRINTS := $(shell find $(BOARDS)/elec/src $(BOARDS)/parts -name '*.kicad_mod' -o -name '*.kicad_sym' 2>/dev/null)
-ATO_DEPS := $(ATO_SOURCES) $(ATO_FOOTPRINTS) $(BOARDS)/ato.yaml
+ATO_DEPS := $(ATO_SOURCES) $(ATO_FOOTPRINTS) $(BOARDS)/ato.yaml $(SCRIPTS)/build/gen_validation.py
 
-.PHONY: all place faceplate route gnd-pours 3d 3d-models 3d-glb export clean
+# --- Variant list (from board-config.json, single source of truth) ---
+VARIANTS := $(shell python3 -c "import json; cfg=json.load(open('$(BOARD_CONFIG)')); print(' '.join(v['name'] for v in cfg.get('placement',{}).get('variants',[])))")
+
+# Per-variant file lists
+CONTROL_VARIANT_PLACED := $(patsubst %,$(BUILD)/control-%.kicad_pcb,$(VARIANTS))
+MAIN_VARIANT_PLACED    := $(patsubst %,$(BUILD)/main-%.kicad_pcb,$(VARIANTS))
+CONTROL_RESULT_FILES   := $(patsubst %,$(BUILD)/control-%-result.json,$(VARIANTS))
+MAIN_RESULT_FILES      := $(patsubst %,$(BUILD)/main-%-result.json,$(VARIANTS))
+
+.PHONY: all place faceplate route gnd-pours 3d 3d-models 3d-glb export clean test-hw
 
 # --- Full pipeline ---
 all: gnd-pours faceplate 3d export
@@ -68,10 +87,14 @@ all: gnd-pours faceplate 3d export
 	@echo "  Web GLB: $(WEB_MODELS)/"
 
 # --- Atopile build → KiCad PCBs ---
-$(CONTROL_SRC) $(MAIN_SRC) &: $(ATO_DEPS)
+# GNU Make 3.81 doesn't support &: grouped targets — use a stamp file.
+$(BUILD)/.ato-stamp: $(ATO_DEPS)
 	python3 $(SCRIPTS)/build/gen_validation.py
-	rm -f $(CONTROL_SRC) $(MAIN_SRC)
-	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato build
+	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato build --keep-picked-parts --keep-designators
+	@mkdir -p $(BUILD) && touch $@
+
+$(CONTROL_SRC): $(BUILD)/.ato-stamp
+$(MAIN_SRC): $(BUILD)/.ato-stamp
 
 # --- Custom footprints ---
 footprints:
@@ -81,14 +104,47 @@ footprints:
 3d-models:
 	python3 $(SCRIPTS)/models/generate_3d_models.py
 
-# --- Placement ---
-$(CONTROL_PLACED): $(CONTROL_SRC) $(COMP_MAP) $(BOARD_CONFIG)
+# --- Variant placement (parallel) ---
+# Place a single control variant
+$(BUILD)/control-%.kicad_pcb: $(CONTROL_SRC) $(COMP_MAP) $(BOARD_CONFIG)
 	@mkdir -p $(BUILD)
-	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py $< $@
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \
+		--board control --variant $* $< $@
 
-$(MAIN_PLACED): $(MAIN_SRC) $(BOARD_CONFIG)
+# Place a single main variant
+$(BUILD)/main-%.kicad_pcb: $(MAIN_SRC) $(BOARD_CONFIG)
 	@mkdir -p $(BUILD)
-	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py --board main $< $@
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \
+		--board main --variant $* $< $@
+
+# --- Variant routing (parallel, writes result.json) ---
+$(BUILD)/control-%-result.json: $(BUILD)/control-%.kicad_pcb
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/autoroute.py $< \
+		$(BUILD)/control-$*-routed.kicad_pcb --result-json $@
+
+$(BUILD)/main-%-result.json: $(BUILD)/main-%.kicad_pcb
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/autoroute.py $< \
+		$(BUILD)/main-$*-routed.kicad_pcb --result-json $@
+
+# --- Variant selection (runs once per board after all variants finish) ---
+# Uses stamp files since GNU Make 3.81 doesn't support &: grouped targets.
+$(BUILD)/.control-selected: $(CONTROL_RESULT_FILES)
+	python3 $(SCRIPTS)/placement/select_best.py --board control --build-dir $(BUILD)
+	@touch $@
+
+$(CONTROL_PLACED): $(BUILD)/.control-selected
+	@: # produced by select_best.py
+$(CONTROL_ROUTED): $(BUILD)/.control-selected
+	@: # produced by select_best.py
+
+$(BUILD)/.main-selected: $(MAIN_RESULT_FILES)
+	python3 $(SCRIPTS)/placement/select_best.py --board main --build-dir $(BUILD)
+	@touch $@
+
+$(MAIN_PLACED): $(BUILD)/.main-selected
+	@: # produced by select_best.py
+$(MAIN_ROUTED): $(BUILD)/.main-selected
+	@: # produced by select_best.py
 
 $(PANEL_LAYOUT): $(CONTROL_PLACED) $(COMP_MAP)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/export_layout.py $< $(COMP_MAP) $@
@@ -101,13 +157,7 @@ $(FACEPLATE_PCB): $(PANEL_LAYOUT)
 
 faceplate: $(FACEPLATE_PCB)
 
-# --- Routing ---
-$(CONTROL_ROUTED): $(CONTROL_PLACED)
-	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/autoroute.py $< $@
-
-$(MAIN_ROUTED): $(MAIN_PLACED)
-	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/autoroute.py $< $@
-
+# --- Routing (winners already selected by variant pipeline) ---
 route: $(CONTROL_ROUTED) $(MAIN_ROUTED)
 
 # --- Ground pours ---
@@ -154,10 +204,11 @@ export: $(CONTROL_POURED) $(MAIN_POURED)
 	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
 		python3 $(SCRIPTS)/export/export_manufacturing.py $(MAIN_POURED) $(BUILD)/manufacturing/main
 
+# --- Tests ---
+test-hw: $(VENV)/.deps-installed
+	cd $(BOARDS)/scripts && PYTHONPATH=. $(abspath $(VENV_PYTHON)) -m pytest tests/ -v
+
 # --- Clean ---
 clean:
-	rm -f $(CONTROL_PLACED) $(MAIN_PLACED)
-	rm -f $(CONTROL_ROUTED) $(MAIN_ROUTED)
-	rm -f $(CONTROL_POURED) $(MAIN_POURED)
-	rm -f $(CONTROL_3D) $(MAIN_3D)
-	rm -rf $(BUILD)/3d $(BUILD)/manufacturing $(BUILD)/route-cache
+	rm -rf $(BUILD)
+	rm -f $(CONTROL_SRC) $(MAIN_SRC)

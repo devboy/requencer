@@ -71,6 +71,17 @@ def main():
     print(f"Found {len(signals)} signals in BoardConnectorInterface")
 
     content = generate_system_ato(signals)
+
+    # Only write if content changed — avoids triggering unnecessary ato rebuild
+    try:
+        with open(OUTPUT_FILE) as f:
+            existing = f.read()
+        if existing == content:
+            print(f"No changes to {OUTPUT_FILE}")
+            return
+    except FileNotFoundError:
+        pass
+
     with open(OUTPUT_FILE, "w") as f:
         f.write(content)
     print(f"Generated {OUTPUT_FILE}")

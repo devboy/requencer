@@ -64,8 +64,8 @@ class KicadPcbWriter:
         silk_label = ""
         if label:
             silk_label = (
-                f'    (fp_text user "{label}" (at 0 {mm(diameter / 2 + 1.5)}) '
-                f'(layer "F.SilkS") (effects (font (face "JetBrains Mono") (size 1.2 1.2) (thickness 0.15))))'
+                f'    (fp_text user "{label}" (at 0 {mm(-(diameter / 2 + 2.0))}) '
+                f'(layer "F.SilkS") (effects (font (face "JetBrains Mono") (size 1.2 1.2) (thickness 0.35) (bold yes))))'
             )
         fp = (
             f'  (footprint "Faceplate:{ref}" (layer "F.Cu")\n'
@@ -112,14 +112,34 @@ class KicadPcbWriter:
             )
 
     def add_silkscreen_text(self, x, y, text, size=1.5, thickness=0.15,
-                            justify="center", font_face=None):
-        """Add silkscreen text on F.SilkS."""
+                            justify="center", font_face=None, bold=False,
+                            letter_spacing=0.0):
+        """Add silkscreen text on F.SilkS.
+
+        letter_spacing: extra mm between characters (0 = normal).
+        When > 0, each character is placed individually.
+        """
         just = f' (justify {justify})' if justify != "center" else ""
         face = f' (face "{font_face}")' if font_face else ""
-        self.items.append(
-            f'  (gr_text "{text}" (at {mm(x)} {mm(y)}) (layer "F.SilkS") '
-            f'(effects (font{face} (size {size} {size}) (thickness {thickness})){just}))'
-        )
+        bold_s = " (bold yes)" if bold else ""
+
+        if letter_spacing > 0 and len(text) > 1:
+            # Place each character individually for wide spacing.
+            # Approximate char width ≈ size * 0.6 for monospace.
+            char_w = size * 0.6 + letter_spacing
+            total_w = char_w * (len(text) - 1)
+            start_x = x - total_w / 2
+            for i, ch in enumerate(text):
+                cx = start_x + i * char_w
+                self.items.append(
+                    f'  (gr_text "{ch}" (at {mm(cx)} {mm(y)}) (layer "F.SilkS") '
+                    f'(effects (font{face} (size {size} {size}) (thickness {thickness}){bold_s})))'
+                )
+        else:
+            self.items.append(
+                f'  (gr_text "{text}" (at {mm(x)} {mm(y)}) (layer "F.SilkS") '
+                f'(effects (font{face} (size {size} {size}) (thickness {thickness}){bold_s}){just}))'
+            )
 
     def write(self, path):
         """Write complete .kicad_pcb file."""
@@ -208,12 +228,17 @@ def generate_faceplate(layout, output_path):
     print("  LCD cutout added")
 
     # 5. Jack holes (6mm drill for PJ398SM / PJ366ST)
+    # PJ398SM mono jacks: footprint origin at pad 2, bushing 6.5mm below in PCB Y
+    # PJ366ST stereo (MIDI) jacks: bushing centered on origin, no offset needed
     jack_drill = 6.0
+    jack_bushing_offset_y = 6.5
+    midi_ids = {"midi_in", "midi_out"}
     jack_count = 0
     for group_name in ("utility", "clock", "output", "cv_input"):
         for jack in layout["jacks"].get(group_name, []):
+            offset_y = 0.0 if jack["id"] in midi_ids else jack_bushing_offset_y
             pcb.add_drill_hole(
-                jack["x_mm"], jack["y_mm"],
+                jack["x_mm"], jack["y_mm"] + offset_y,
                 jack_drill, jack.get("label", ""),
                 ref_prefix="J",
             )
@@ -271,10 +296,11 @@ def generate_faceplate(layout, output_path):
     # 9. Silkscreen labels (JetBrains Mono for matching web UI aesthetic)
     font = "JetBrains Mono"
 
-    # Module name at top center
+    # Module name at top center — bold, spaced out for impact
     pcb.add_silkscreen_text(
         panel["width_mm"] / 2, 5.0,
-        "REQUENCER", size=3.0, thickness=0.3, font_face=font,
+        "REQUENCER", size=3.5, thickness=0.45, font_face=font,
+        bold=True, letter_spacing=1.2,
     )
 
     # Brand at bottom center
@@ -283,23 +309,6 @@ def generate_faceplate(layout, output_path):
         "VILE TENSOR", size=1.5, thickness=0.15, font_face=font,
     )
 
-    # Section labels
-    pcb.add_silkscreen_text(12.0, 10.0, "TRACK", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(101.72, 10.0, "SUB", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(112.05, 10.0, "FN", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(55.0, 85.0, "STEPS", size=1.2, thickness=0.15, font_face=font)
-
-    # Output jack section label (between clock and cv rows)
-    pcb.add_silkscreen_text(149.55, 52.4, "OUTPUT", size=1.5, thickness=0.2, font_face=font)
-
-    # CV input section label (between vel and mod rows)
-    pcb.add_silkscreen_text(149.55, 103.6, "CV IN", size=1.2, thickness=0.15, font_face=font)
-
-    # Row labels for output jacks (uniform 12.8mm spacing from gate=71.6)
-    pcb.add_silkscreen_text(122.0, 65.2, "G", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 78.0, "P", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 90.8, "V", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 103.6, "M", size=1.2, thickness=0.15, font_face=font)
 
     print("  Silkscreen labels added")
 

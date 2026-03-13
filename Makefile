@@ -1,5 +1,5 @@
 .PHONY: all test build clean dev lint flash \
-	test-rust test-web \
+	test-rust test-web test-hw \
 	build-wasm build-web build-firmware \
 	lint-rust lint-web \
 	hw-all hw-build hw-footprints hw-place hw-faceplate \
@@ -9,13 +9,16 @@ all: test
 
 # === Tests ===
 
-test: test-rust test-web
+test: test-rust test-web test-hw
 
 test-rust:
 	cargo test --workspace
 
 test-web:
 	cd web && npm test
+
+test-hw:
+	$(MAKE) -C hardware test-hw
 
 # === Builds ===
 

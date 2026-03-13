@@ -30,6 +30,11 @@ BOARD_CONFIG_PATH = os.path.join(BOARDS_DIR, "board-config.json")
 CACHE_DIR = os.path.join(BOARDS_DIR, "build", "route-cache")
 
 
+class RoutingError(Exception):
+    """Non-fatal routing failure (caught by autoroute to write result JSON)."""
+    pass
+
+
 def _load_routing_config():
     """Load routing settings from board-config.json with env var overrides."""
     with open(BOARD_CONFIG_PATH) as f:
@@ -70,8 +75,7 @@ def _find_freerouting_jar(headless):
     jars = sorted(glob.glob(os.path.join(tools_dir, "freerouting-*.jar")))
     if jars:
         return jars[-1]
-    print(f"ERROR: No FreeRouting JAR found in {tools_dir}")
-    sys.exit(1)
+    raise RoutingError(f"No FreeRouting JAR found in {tools_dir}")
 
 
 def _find_java():
@@ -83,11 +87,9 @@ def _verify_tools(java, jar, kicad_cli):
     """Verify required tools exist."""
     for tool in [java, kicad_cli]:
         if not (shutil.which(tool) or os.path.isfile(tool)):
-            print(f"ERROR: Missing tool: {tool}")
-            sys.exit(1)
+            raise RoutingError(f"Missing tool: {tool}")
     if not os.path.isfile(jar):
-        print(f"ERROR: Missing FreeRouting JAR: {jar}")
-        sys.exit(1)
+        raise RoutingError(f"Missing FreeRouting JAR: {jar}")
 
 
 def step1_export_dsn(input_pcb, work_dir):
@@ -135,8 +137,7 @@ def step1_export_dsn(input_pcb, work_dir):
     dsn_path = os.path.join(work_dir, "board.dsn")
     ok = pcbnew.ExportSpecctraDSN(board, dsn_path)
     if not ok:
-        print("  ERROR: DSN export failed!")
-        sys.exit(1)
+        raise RoutingError("DSN export failed")
 
     # Strip non-ASCII characters (e.g. Ω in resistor values) to avoid
     # FreeRouting GUI warning popups that require manual dismissal
@@ -170,10 +171,8 @@ def step2_run_freerouting(dsn_path, work_dir, routing_cfg):
     else:
         print(f"  Cache MISS: will run FreeRouting (hash: {dsn_hash[:12]}...)")
 
-        # Write freerouting.json settings file
-        # Override stale freerouting.json in $TMPDIR to ensure our CLI settings take effect.
-        tmpdir = os.environ.get("TMPDIR", "/tmp")
-        fr_settings = os.path.join(tmpdir, "freerouting.json")
+        # Write freerouting.json settings file into work_dir for parallel isolation.
+        fr_settings = _freerouting_settings_path(work_dir)
         settings = {
             "max_passes": routing_cfg["max_passes"],
             "num_threads": routing_cfg["threads"],
@@ -192,8 +191,7 @@ def step2_run_freerouting(dsn_path, work_dir, routing_cfg):
         with open(fr_settings) as f:
             check = json.load(f)
         if check["max_passes"] != routing_cfg["max_passes"]:
-            print(f"  ERROR: freerouting.json verification failed")
-            sys.exit(1)
+            raise RoutingError("freerouting.json verification failed")
 
         java = _find_java()
         jar = _find_freerouting_jar(routing_cfg["headless"])
@@ -246,17 +244,16 @@ def step2_run_freerouting(dsn_path, work_dir, routing_cfg):
             pass
 
     if not os.path.isfile(ses_path):
-        print("ERROR: Freerouting did not produce a .ses file")
-        sys.exit(1)
+        raise RoutingError("FreeRouting did not produce a .ses file")
 
     ses_size = os.path.getsize(ses_path)
     print(f"  SES produced: {ses_size} bytes")
 
     if ses_size < routing_cfg["ses_min_size"]:
-        print(f"ERROR: SES file too small ({ses_size} bytes) — "
-              f"Freerouting likely failed or exited early")
-        print("  Expected ~100KB+ for a routed board. Check Freerouting output above.")
-        sys.exit(1)
+        raise RoutingError(
+            f"SES file too small ({ses_size} bytes) — "
+            f"FreeRouting likely failed or exited early"
+        )
 
     # Cache the SES
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -282,8 +279,7 @@ def step3_import_ses(patched_pcb, ses_path, output_pcb):
         print(f"  WARNING: import_ses raised: {e}")
 
     if not os.path.isfile(output_pcb):
-        print("ERROR: SES import failed — output PCB not created")
-        sys.exit(1)
+        raise RoutingError("SES import failed — output PCB not created")
 
 
 def step4_check_unrouted(work_dir):
@@ -367,7 +363,36 @@ def _load_expected_drc_errors(board_type):
         return []
 
 
-def _is_expected_error(violation, expected_errors):
+def _build_footprint_map(pcb_path):
+    """Build a designator → footprint name map from a .kicad_pcb file.
+
+    Parses footprint blocks to extract the library footprint name and
+    the Reference property, returning e.g. {"X37": "PJS008U", ...}.
+    """
+    footprint_map = {}
+    try:
+        with open(pcb_path) as f:
+            content = f.read()
+    except FileNotFoundError:
+        return footprint_map
+
+    # Match top-level footprint sexps: (footprint "LIB:NAME" ...)
+    # Then find (property "Reference" "XX") inside each block.
+    for m in re.finditer(
+        r'\(footprint\s+"([^"]+)"(.*?)\n\s*\)', content, re.DOTALL
+    ):
+        fp_full = m.group(1)  # e.g. "requencer:PJS008U"
+        block = m.group(2)
+        ref_m = re.search(r'\(property\s+"Reference"\s+"([^"]+)"', block)
+        if ref_m:
+            ref = ref_m.group(1)
+            # Strip library prefix: "requencer:PJS008U" -> "PJS008U"
+            fp_name = fp_full.split(":")[-1] if ":" in fp_full else fp_full
+            footprint_map[ref] = fp_name
+    return footprint_map
+
+
+def _is_expected_error(violation, expected_errors, footprint_map=None):
     """Check if a DRC violation matches any expected error pattern."""
     desc = violation.get("description", "")
     items = violation.get("items", [])
@@ -379,11 +404,22 @@ def _is_expected_error(violation, expected_errors):
         if match:
             component_refs.add(match.group(1))
 
+    # Resolve footprints for the component refs in this violation
+    if footprint_map is None:
+        footprint_map = {}
+    violation_footprints = {
+        footprint_map[ref] for ref in component_refs if ref in footprint_map
+    }
+
     for expected in expected_errors:
         pattern = expected.get("description", "")
         component = expected.get("component", "")
+        footprint = expected.get("footprint", "")
         if pattern and pattern in desc:
-            if not component or component in component_refs:
+            if footprint:
+                if footprint in violation_footprints:
+                    return True
+            elif not component or component in component_refs:
                 return True
     return False
 
@@ -406,8 +442,7 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
     )
 
     if not os.path.isfile(drc_report):
-        print("  ERROR: DRC report not generated — cannot verify board")
-        sys.exit(1)
+        raise RoutingError("DRC report not generated — cannot verify board")
 
     # Copy report next to output for inspection
     drc_dest = os.path.splitext(output_pcb)[0] + "-drc.json"
@@ -424,8 +459,9 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
 
     # Split errors into expected vs unexpected
     expected_patterns = _load_expected_drc_errors(board_type)
-    expected_errors = [e for e in errors if _is_expected_error(e, expected_patterns)]
-    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_patterns)]
+    footprint_map = _build_footprint_map(output_pcb)
+    expected_errors = [e for e in errors if _is_expected_error(e, expected_patterns, footprint_map)]
+    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_patterns, footprint_map)]
 
     print(f"  {len(errors)} errors ({len(expected_errors)} expected, {len(unexpected_errors)} unexpected), "
           f"{len(warnings)} warnings, {len(unconnected)} unconnected")
@@ -464,10 +500,74 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
 
     # STRICT: fail on unexpected errors or any unconnected items
     if unexpected_errors or unconnected:
-        print(f"  FAIL: DRC check failed. Review: {drc_dest}")
-        sys.exit(1)
+        raise RoutingError(f"DRC check failed: {len(unexpected_errors)} unexpected errors, {len(unconnected)} unconnected. Review: {drc_dest}")
 
     print("  PASS: DRC clean" if not expected_errors else "  PASS: DRC clean (expected errors only)")
+
+
+# ---------------------------------------------------------------------------
+# Parallel-safe result output
+# ---------------------------------------------------------------------------
+
+
+def write_result_json(path, result):
+    """Write a structured result JSON file for variant scoring."""
+    with open(path, "w") as f:
+        json.dump(result, f, indent=2)
+
+
+def parse_drc_metrics(report):
+    """Extract scoring metrics from a DRC JSON report.
+
+    Returns dict with drc_errors, drc_warnings, unconnected_count.
+    """
+    violations = report.get("violations", [])
+    unconnected = report.get("unconnected_items", [])
+    errors = sum(1 for v in violations if v.get("severity") == "error")
+    warnings = sum(1 for v in violations if v.get("severity") == "warning")
+    return {
+        "drc_errors": errors,
+        "drc_warnings": warnings,
+        "unconnected_count": len(unconnected),
+    }
+
+
+def build_result(status="pass", via_count=0, trace_length_mm=0.0,
+                 drc_metrics=None, reason=None):
+    """Build a result dict for write_result_json.
+
+    status: "pass" or "fail"
+    via_count: number of vias in routed board
+    trace_length_mm: total trace length
+    drc_metrics: dict from parse_drc_metrics
+    reason: failure reason string (for status="fail")
+    """
+    result = {"status": status}
+    if status == "fail":
+        result["reason"] = reason or "unknown"
+        result["via_count"] = 0
+        result["trace_length_mm"] = 0.0
+        result["drc_warnings"] = 0
+        result["unconnected_count"] = 0
+    else:
+        result["via_count"] = via_count
+        result["trace_length_mm"] = trace_length_mm
+        if drc_metrics:
+            result["drc_warnings"] = drc_metrics.get("drc_warnings", 0)
+            result["unconnected_count"] = drc_metrics.get(
+                "unconnected_count", 0)
+        else:
+            result["drc_warnings"] = 0
+            result["unconnected_count"] = 0
+    return result
+
+
+def _freerouting_settings_path(work_dir):
+    """Return the path for freerouting.json inside the work directory.
+
+    Isolates settings per variant to prevent parallel race conditions.
+    """
+    return os.path.join(work_dir, "freerouting.json")
 
 
 def _detect_board_type(pcb_path):
@@ -479,8 +579,33 @@ def _detect_board_type(pcb_path):
     return "unknown"
 
 
-def autoroute(input_pcb, output_pcb=None):
-    """Run the full autorouting pipeline."""
+def _extract_track_metrics(output_pcb):
+    """Extract via count and total trace length from a routed PCB.
+
+    Returns (via_count, trace_length_mm).
+    Requires pcbnew.
+    """
+    import pcbnew
+    board = pcbnew.LoadBoard(output_pcb)
+    via_count = 0
+    trace_length = 0.0
+    for track in board.GetTracks():
+        if track.GetClass() == "PCB_VIA":
+            via_count += 1
+        else:
+            trace_length += pcbnew.ToMM(track.GetLength())
+    return via_count, trace_length
+
+
+def autoroute(input_pcb, output_pcb=None, result_json_path=None):
+    """Run the full autorouting pipeline.
+
+    When result_json_path is provided (variant mode), writes a structured
+    result JSON instead of calling sys.exit(1) on failure. The process
+    always exits 0 so Make can continue with other variants.
+
+    Without result_json_path (legacy mode), behaves as before with sys.exit.
+    """
     if output_pcb is None:
         output_pcb = input_pcb
 
@@ -503,37 +628,128 @@ def autoroute(input_pcb, output_pcb=None):
 
     print(f"=== Autorouting {input_pcb} ===")
 
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Step 1: Export DSN
-        print("Step 1: Exporting DSN...")
-        dsn_path, patched_pcb = step1_export_dsn(input_pcb, work_dir)
+    def _fail(reason):
+        """Handle failure: write result JSON or sys.exit."""
+        if result_json_path:
+            result = build_result(status="fail", reason=reason)
+            write_result_json(result_json_path, result)
+            print(f"  FAIL: {reason}")
+            print(f"  Result written to {result_json_path}")
+            raise RoutingError(reason)
+        else:
+            print(f"  FAIL: {reason}")
+            sys.exit(1)
 
-        # Step 2: Run FreeRouting (or use cache)
-        ses_path = step2_run_freerouting(dsn_path, work_dir, routing_cfg)
+    try:
+        with tempfile.TemporaryDirectory() as work_dir:
+            # Step 1: Export DSN
+            print("Step 1: Exporting DSN...")
+            dsn_path, patched_pcb = step1_export_dsn(input_pcb, work_dir)
 
-        # Step 3: Import SES
-        step3_import_ses(patched_pcb, ses_path, output_pcb)
+            # Step 2: Run FreeRouting (or use cache)
+            ses_path = step2_run_freerouting(dsn_path, work_dir, routing_cfg)
 
-        # Step 4: Check unrouted nets
-        step4_check_unrouted(work_dir)
+            # Step 3: Import SES
+            step3_import_ses(patched_pcb, ses_path, output_pcb)
 
-        # Step 5: Cleanup dangling tracks
-        step5_cleanup_dangling(output_pcb)
+            # Step 4: Check unrouted nets
+            step4_check_unrouted(work_dir)
 
-        # Step 6: DRC
-        step6_run_drc(output_pcb, work_dir, board_type)
+            # Step 5: Cleanup dangling tracks
+            step5_cleanup_dangling(output_pcb)
+
+            # Step 6: DRC — in variant mode, don't exit on failure
+            drc_report = _run_drc_report(output_pcb, work_dir, board_type)
+
+            # Extract metrics
+            via_count, trace_length = _extract_track_metrics(output_pcb)
+            drc_metrics = parse_drc_metrics(drc_report)
+
+            print(f"  Metrics: {via_count} vias, {trace_length:.0f}mm trace, "
+                  f"{drc_metrics['drc_warnings']} warnings, "
+                  f"{drc_metrics['unconnected_count']} unconnected")
+
+            if result_json_path:
+                # Variant mode: check for unexpected DRC errors
+                expected_patterns = _load_expected_drc_errors(board_type)
+                footprint_map = _build_footprint_map(output_pcb)
+                violations = drc_report.get("violations", [])
+                errors = [v for v in violations if v.get("severity") == "error"]
+                unconnected = drc_report.get("unconnected_items", [])
+                unexpected = [e for e in errors
+                              if not _is_expected_error(e, expected_patterns,
+                                                        footprint_map)]
+
+                if unexpected or unconnected:
+                    reason = (f"{len(unexpected)} unexpected DRC errors, "
+                              f"{len(unconnected)} unconnected")
+                    print(f"  FAIL: {reason}")
+                    result = build_result(status="fail", reason=reason)
+                    write_result_json(result_json_path, result)
+                    print(f"  Result written to {result_json_path}")
+                else:
+                    result = build_result(
+                        status="pass",
+                        via_count=via_count,
+                        trace_length_mm=round(trace_length, 1),
+                        drc_metrics=drc_metrics,
+                    )
+                    write_result_json(result_json_path, result)
+                    print(f"  Result written to {result_json_path}")
+            else:
+                # Legacy mode: strict DRC check with sys.exit
+                step6_run_drc(output_pcb, work_dir, board_type)
+
+    except RoutingError:
+        # Already handled — result JSON written
+        return
 
     print(f"=== Autorouting complete: {output_pcb} ===")
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <input.kicad_pcb> [output.kicad_pcb]")
-        sys.exit(1)
+def _run_drc_report(output_pcb, work_dir, board_type):
+    """Run DRC and return the parsed report dict (without exiting)."""
+    print("Step 6: Running design rule check...")
 
-    input_pcb = sys.argv[1]
-    output_pcb = sys.argv[2] if len(sys.argv) > 2 else None
-    autoroute(input_pcb, output_pcb)
+    from common.kicad_env import get_kicad_cli
+    kicad_cli = get_kicad_cli()
+
+    drc_report_path = os.path.join(work_dir, "drc-report.json")
+    subprocess.run(
+        [kicad_cli, "pcb", "drc",
+         "--output", drc_report_path,
+         "--format", "json",
+         "--severity-all",
+         output_pcb],
+        check=False, capture_output=True,
+    )
+
+    # Copy report next to output for inspection
+    drc_dest = os.path.splitext(output_pcb)[0] + "-drc.json"
+    if os.path.isfile(drc_report_path):
+        shutil.copy2(drc_report_path, drc_dest)
+
+    if not os.path.isfile(drc_report_path):
+        return {"violations": [], "unconnected_items": []}
+
+    with open(drc_report_path) as f:
+        return json.load(f)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Autoroute a KiCad PCB.")
+    parser.add_argument("input_pcb", help="Input .kicad_pcb file")
+    parser.add_argument("output_pcb", nargs="?", default=None,
+                        help="Output .kicad_pcb file")
+    parser.add_argument("--result-json", default=None,
+                        help="Write structured result JSON to this path. "
+                             "When set, failures write result instead of "
+                             "exiting non-zero.")
+    args = parser.parse_args()
+
+    autoroute(args.input_pcb, args.output_pcb,
+              result_json_path=args.result_json)
 
 
 if __name__ == "__main__":

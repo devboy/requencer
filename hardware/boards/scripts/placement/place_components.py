@@ -36,311 +36,6 @@ def load_board_config():
         return json.load(f)
 
 
-class CollisionTracker:
-    """Track placed component footprints and detect collisions.
-
-    Every placed component is registered as a rectangle on a side (F/B).
-    THT components occupy BOTH sides (pins penetrate the board).
-
-    Collision rules:
-      - SMD vs SMD: collide only if same side
-      - THT vs anything: collide on both sides
-      - All checks use actual footprint bounding boxes + clearance margin
-    """
-
-    def __init__(self, board_w, board_h, clearance=0.5, extra_padding=0.0):
-        self.board_w = board_w
-        self.board_h = board_h
-        self.clearance = clearance + extra_padding
-        # Each entry: (x1, y1, x2, y2, side, label)
-        # side is "F", "B", or "both" (for THT)
-        self._rects = []
-
-    def register(self, cx, cy, w, h, side, is_tht, label=""):
-        """Register a placed component. cx/cy is center, w/h is full extent."""
-        margin = self.clearance
-        x1 = cx - w / 2 - margin
-        y1 = cy - h / 2 - margin
-        x2 = cx + w / 2 + margin
-        y2 = cy + h / 2 + margin
-        effective_side = "both" if is_tht else side
-        self._rects.append((x1, y1, x2, y2, effective_side, label))
-
-    def register_bbox(self, x1, y1, x2, y2, side, is_tht, label=""):
-        """Register using actual bounding box coords (not center+dims)."""
-        margin = self.clearance
-        effective_side = "both" if is_tht else side
-        self._rects.append((x1 - margin, y1 - margin, x2 + margin, y2 + margin,
-                            effective_side, label))
-
-    def register_zone(self, x1, y1, x2, y2, side, label="zone"):
-        """Register a static exclusion zone (e.g. LCD area)."""
-        self._rects.append((x1, y1, x2, y2, side, label))
-
-    def collides(self, cx, cy, w, h, side, is_tht=False):
-        """Check if placing a component at (cx, cy) would collide."""
-        hx = w / 2
-        hy = h / 2
-        ax1, ay1 = cx - hx, cy - hy
-        ax2, ay2 = cx + hx, cy + hy
-        check_side = "both" if is_tht else side
-
-        for bx1, by1, bx2, by2, bside, _ in self._rects:
-            # Determine if these two items can collide based on sides
-            if not self._sides_conflict(check_side, bside):
-                continue
-            # AABB overlap test
-            if ax1 < bx2 and ax2 > bx1 and ay1 < by2 and ay2 > by1:
-                return True
-        return False
-
-    def in_bounds(self, cx, cy, w, h):
-        """Check if a component body fits within board edges."""
-        hx, hy = w / 2, h / 2
-        return (cx - hx >= 0 and cy - hy >= 0 and
-                cx + hx <= self.board_w and cy + hy <= self.board_h)
-
-    def find_free(self, cx, cy, w, h, side, is_tht, zone_bounds=None, step=1.0):
-        """Find the nearest collision-free position starting from (cx, cy).
-
-        Uses expanding ring search: tries positions at increasing distance.
-        zone_bounds: (zx, zy, zw, zh) constrains the search area.
-        If no free spot exists in zone, falls back to searching entire board.
-        Returns (x, y) of first free position, or (cx, cy) if nothing found.
-        """
-        def _ring_search(min_x, min_y, max_x, max_y, max_rings):
-            best = None
-            best_dist = float('inf')
-            for ring in range(1, max_rings + 1):
-                d = ring * step
-                candidates = []
-                steps_per_side = ring
-                for i in range(-steps_per_side, steps_per_side + 1):
-                    candidates.append((cx + d, cy + i * step))
-                    candidates.append((cx - d, cy + i * step))
-                    candidates.append((cx + i * step, cy + d))
-                    candidates.append((cx + i * step, cy - d))
-
-                for tx, ty in candidates:
-                    if tx < min_x or tx > max_x or ty < min_y or ty > max_y:
-                        continue
-                    if not self.collides(tx, ty, w, h, side, is_tht):
-                        dist = abs(tx - cx) + abs(ty - cy)
-                        if dist < best_dist:
-                            best = (tx, ty)
-                            best_dist = dist
-
-                if best is not None:
-                    return best
-            return None
-
-        # Quick check: is the original position free?
-        if (not self.collides(cx, cy, w, h, side, is_tht) and
-                self.in_bounds(cx, cy, w, h)):
-            return cx, cy
-
-        max_radius = max(self.board_w, self.board_h)
-        max_rings = int(max_radius / step) + 1
-
-        # Search within zone bounds first
-        if zone_bounds:
-            zx, zy, zw, zh = zone_bounds
-            min_x, min_y = zx + w / 2, zy + h / 2
-            max_x, max_y = zx + zw - w / 2, zy + zh - h / 2
-            result = _ring_search(min_x, min_y, max_x, max_y, max_rings)
-            if result:
-                return result
-
-        # Fallback: search entire board
-        min_x, min_y = w / 2, h / 2
-        max_x = self.board_w - w / 2
-        max_y = self.board_h - h / 2
-        result = _ring_search(min_x, min_y, max_x, max_y, max_rings)
-        if result:
-            return result
-
-        # Last resort: return original position (will overlap)
-        return cx, cy
-
-    def find_largest_free_rects(self, side, resolution=2.0, count=5, edge_margin=5.0):
-        """Find the largest empty rectangles on the given side.
-
-        Scans the board on a grid, builds a height map, and uses the
-        'largest rectangle in histogram' algorithm to find maximal empty rects.
-        edge_margin keeps components away from board edges for routing access.
-        Returns up to `count` non-overlapping rectangles as (x, y, w, h) tuples.
-        """
-        cols = int(self.board_w / resolution)
-        rows = int(self.board_h / resolution)
-
-        # Build occupancy grid — True means blocked
-        grid = [[False] * cols for _ in range(rows)]
-        for r in range(rows):
-            for c in range(cols):
-                x = (c + 0.5) * resolution
-                y = (r + 0.5) * resolution
-                # Block board edges (routing needs access from all sides)
-                if (x < edge_margin or x > self.board_w - edge_margin or
-                        y < edge_margin or y > self.board_h - edge_margin):
-                    grid[r][c] = True
-                elif self.collides(x, y, resolution * 0.9, resolution * 0.9, side):
-                    grid[r][c] = True
-
-        results = []
-        for _ in range(count):
-            # Build height array (consecutive free cells above each position)
-            heights = [0] * cols
-            best_area = 0
-            best = None
-
-            for r in range(rows):
-                for c in range(cols):
-                    heights[c] = 0 if grid[r][c] else heights[c] + 1
-
-                # Largest rectangle in this histogram row
-                stack = []
-                for c in range(cols + 1):
-                    h = heights[c] if c < cols else 0
-                    while stack and heights[stack[-1]] > h:
-                        height = heights[stack.pop()]
-                        width = c if not stack else c - stack[-1] - 1
-                        area = height * width
-                        if area > best_area:
-                            best_area = area
-                            x0 = (stack[-1] + 1 if stack else 0) * resolution
-                            y0 = (r - height + 1) * resolution
-                            best = (x0, y0, width * resolution, height * resolution)
-                    stack.append(c)
-
-            if not best or best_area < 4:  # minimum 4 grid cells
-                break
-            results.append(best)
-
-            # Mark this rect as occupied so we find the next largest
-            rx, ry, rw, rh = best
-            for r in range(rows):
-                for c in range(cols):
-                    x = (c + 0.5) * resolution
-                    y = (r + 0.5) * resolution
-                    if rx <= x <= rx + rw and ry <= y <= ry + rh:
-                        grid[r][c] = True
-
-        return results
-
-    @staticmethod
-    def _sides_conflict(side_a, side_b):
-        """Return True if two items on these sides can physically collide."""
-        if side_a == "both" or side_b == "both":
-            return True
-        return side_a == side_b
-
-    def get_footprint_dims(self, fp, pcbnew):
-        """Get footprint body width and height in mm from KiCad footprint."""
-        bbox = fp.GetBoundingBox(False, False)  # exclude text
-        w = pcbnew.ToMM(bbox.GetWidth())
-        h = pcbnew.ToMM(bbox.GetHeight())
-        return max(w, 1.0), max(h, 1.0)  # minimum 1mm
-
-    def is_tht(self, fp, pcbnew):
-        """Check if footprint has any through-hole pads."""
-        return any(
-            pad.GetAttribute() == pcbnew.PAD_ATTRIB_PTH for pad in fp.Pads()
-        )
-
-    def get_ref_text_bbox(self, fp, pcbnew):
-        """Get reference designator text bounding box in board coordinates.
-
-        Returns (x1, y1, x2, y2) in mm, or None if ref text is hidden/missing.
-        """
-        ref = fp.Reference()
-        if not ref or not ref.IsVisible():
-            return None
-
-        text_str = ref.GetShownText(False)
-        if not text_str:
-            return None
-
-        # Get text bounding box from KiCad (includes font size and rotation)
-        text_bbox = ref.GetBoundingBox()
-        x1 = pcbnew.ToMM(text_bbox.GetLeft())
-        y1 = pcbnew.ToMM(text_bbox.GetTop())
-        x2 = pcbnew.ToMM(text_bbox.GetRight())
-        y2 = pcbnew.ToMM(text_bbox.GetBottom())
-
-        # Ensure minimum dimensions (text can be tiny)
-        if x2 - x1 < 0.5 or y2 - y1 < 0.3:
-            return None
-
-        return (x1, y1, x2, y2)
-
-    def register_label(self, fp, pcbnew, side):
-        """Register reference designator text as a collision rect with small clearance."""
-        bbox = self.get_ref_text_bbox(fp, pcbnew)
-        if bbox is None:
-            return
-        x1, y1, x2, y2 = bbox
-        label_clearance = 0.3
-        self._rects.append((
-            x1 - label_clearance, y1 - label_clearance,
-            x2 + label_clearance, y2 + label_clearance,
-            side, f"label:{fp.GetReference()}"
-        ))
-
-    @property
-    def count(self):
-        return len(self._rects)
-
-    def repulsion_offset(self, cx, cy, radius=15.0, strength=2.0, max_offset=8.0):
-        """Compute a damped repulsion vector pushing (cx, cy) away from crowding.
-
-        For each registered rect within `radius` mm, adds a linear repulsion
-        force (stronger when closer, zero at radius edge). The total offset
-        is capped at `max_offset` mm to prevent components from flying to
-        board edges. This creates local spreading without losing connectivity.
-        """
-        rx, ry = 0.0, 0.0
-        for x1, y1, x2, y2, _side, _label in self._rects:
-            px = (x1 + x2) / 2
-            py = (y1 + y2) / 2
-            dx = cx - px
-            dy = cy - py
-            dist = (dx * dx + dy * dy) ** 0.5
-            if 0 < dist < radius:
-                # Linear falloff: full force at dist=0, zero at dist=radius
-                force = strength * (1.0 - dist / radius)
-                rx += (dx / dist) * force
-                ry += (dy / dist) * force
-        # Cap total offset to prevent edge-flinging
-        mag = (rx * rx + ry * ry) ** 0.5
-        if mag > max_offset:
-            rx = rx / mag * max_offset
-            ry = ry / mag * max_offset
-        return rx, ry
-
-    def overlap_report(self):
-        """Return list of all current overlaps between actual component bodies.
-
-        Registered rects include clearance margins. Shrink by clearance before
-        comparing to report real physical overlaps, not just clearance violations.
-        """
-        overlaps = []
-        c = self.clearance
-        for i in range(len(self._rects)):
-            ax1, ay1, ax2, ay2, aside, alabel = self._rects[i]
-            # Shrink to actual body
-            ax1, ay1, ax2, ay2 = ax1 + c, ay1 + c, ax2 - c, ay2 - c
-            for j in range(i + 1, len(self._rects)):
-                bx1, by1, bx2, by2, bside, blabel = self._rects[j]
-                if not self._sides_conflict(aside, bside):
-                    continue
-                bx1, by1, bx2, by2 = bx1 + c, by1 + c, bx2 - c, by2 - c
-                dx = min(ax2, bx2) - max(ax1, bx1)
-                dy = min(ay2, by2) - max(ay1, by1)
-                if dx > 0 and dy > 0:
-                    overlaps.append((alabel, blabel, aside, bside, dx * dy))
-        return overlaps
-
-
 def load_layout():
     with open(LAYOUT_PATH) as f:
         return json.load(f)
@@ -491,6 +186,9 @@ def place_main_board(input_pcb, output_pcb=None):
     Tries placement with decreasing extra padding (4.0 → 0.0mm per side).
     Stops at the first padding level that produces zero overlaps, giving
     maximum spacing for label readability and routing channels.
+
+    Always writes to a staging file. On success, promotes to output_pcb.
+    On failure, keeps staging file for manual inspection in KiCad.
     """
     try:
         import pcbnew
@@ -501,18 +199,30 @@ def place_main_board(input_pcb, output_pcb=None):
     if output_pcb is None:
         output_pcb = input_pcb
 
+    dir_name = os.path.dirname(output_pcb)
+    fname = os.path.basename(output_pcb)
+    staging_pcb = os.path.join(dir_name, fname.replace("-placed", "-staging-placed", 1))
+
     for padding in _get_padding_sequence("main"):
-        n_overlaps = _place_main_board_pass(input_pcb, output_pcb, padding, pcbnew)
+        n_overlaps = _place_main_board_pass(input_pcb, staging_pcb, padding, pcbnew)
         if n_overlaps == 0:
             print(f"  Padding: {padding:.1f}mm per side (0 overlaps)")
-            break
+            os.rename(staging_pcb, output_pcb)
+            print(f"  Promoted to {output_pcb}")
+            return
         print(f"  Padding {padding:.1f}mm: {n_overlaps} overlaps — retrying with less")
-    else:
-        print(f"  WARNING: overlaps remain even at 0mm padding")
+
+    print(f"  FAIL: {n_overlaps} overlaps remain at 0mm padding")
+    print(f"  Staging file for inspection: {staging_pcb}")
+    sys.exit(1)
 
 
 def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     """Single placement pass with given extra_padding. Returns overlap count."""
+    from placement.helpers import (
+        CollisionTracker, extract_footprint_dims, is_tht as is_tht_fn,
+        regenerate_duplicate_uuids,
+    )
 
     board = pcbnew.LoadBoard(input_pcb)
 
@@ -616,9 +326,9 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         if not front:
             if fp.GetLayer() == board.GetLayerID("F.Cu"):
                 fp.Flip(fp.GetPosition(), False)
-        is_through = tracker.is_tht(fp, pcbnew)
+        is_through = is_tht_fn(fp, pcbnew)
         # THT: body-only dims (text on headers is huge). SMD: include label.
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         side = "F" if front else "B"
         tracker.register(x, y, w, h, side, is_through, label=addr)
         placed += 1
@@ -629,11 +339,15 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         if addr not in addr_map:
             return
         fp = addr_map[addr]
-        is_through = tracker.is_tht(fp, pcbnew)
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        is_through = is_tht_fn(fp, pcbnew)
+        w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         side = "F" if front else "B"
-        x, y = tracker.find_free(desired_x, desired_y, w, h, side, is_through,
-                                  zone_bounds, step=0.5)
+        result = tracker.find_free(desired_x, desired_y, w, h, side, is_through,
+                                   zone_bounds, step=0.5)
+        if result is None:
+            x, y = desired_x, desired_y  # fallback: place at desired position
+        else:
+            x, y = result
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
         if not front:
             if fp.GetLayer() == board.GetLayerID("F.Cu"):
@@ -672,7 +386,7 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         if fp.GetLayer() == board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
         fp.SetOrientationDegrees(90)  # rotate so mouth faces left (toward rack side)
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         # Register as through-hole — mid-mount USB-C has shield tabs/holding
         # pins that poke through, so no SMDs on opposite side.
         tracker.register(usb_x, usb_y, w, h, "B", True, label=usb_addr)
@@ -694,7 +408,7 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(bx), pcbnew.FromMM(by)))
         if fp.GetLayer() == board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         # Register as through-hole to create exclusion on both sides
         tracker.register(bx, by, w, h, "B", True, label=bootsel_addr)
         placed += 1
@@ -741,13 +455,15 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         if addr not in addr_map:
             return
         fp = addr_map[addr]
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
-        is_through = tracker.is_tht(fp, pcbnew)
+        w, h, _, _ = extract_footprint_dims(fp, pcbnew)
+        is_through = is_tht_fn(fp, pcbnew)
         tx, ty = connectivity_target(addr)
 
         # Search both sides
-        fx, fy = tracker.find_free(tx, ty, w, h, "F", is_through, board_zone, step=0.5)
-        bx, by = tracker.find_free(tx, ty, w, h, "B", is_through, board_zone, step=0.5)
+        result_f = tracker.find_free(tx, ty, w, h, "F", is_through, board_zone, step=0.5)
+        result_b = tracker.find_free(tx, ty, w, h, "B", is_through, board_zone, step=0.5)
+        fx, fy = result_f if result_f else (tx, ty)
+        bx, by = result_b if result_b else (tx, ty)
 
         dist_f = (fx - tx) ** 2 + (fy - ty) ** 2
         dist_b = (bx - tx) ** 2 + (by - ty) ** 2
@@ -785,17 +501,19 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
 
     # Check overlaps
     overlaps = tracker.overlap_report()
-    if overlaps:
-        # Don't save — caller will retry with less padding
-        return len(overlaps)
-
-    # Success: save and report
-    print(f"  Overlap check: PASS (0 collisions among {placed} components)")
+    n_overlaps = len(overlaps)
+    if n_overlaps == 0:
+        print(f"  Overlap check: PASS (0 collisions among {placed} components)")
+    else:
+        print(f"  Overlap check: {n_overlaps} overlaps")
     print(f"  Board dimensions: {board_w:.1f} x {board_h:.1f} mm")
     print(f"  Placed {placed}/{len(addr_map)} components")
     board.Save(output_pcb)
+    n_fixed = regenerate_duplicate_uuids(output_pcb)
+    if n_fixed:
+        print(f"  Fixed {n_fixed} duplicate pad UUIDs")
     print(f"  Saved to {output_pcb}")
-    return 0
+    return n_overlaps
 
 
 def place_components(input_pcb, output_pcb=None):
@@ -803,6 +521,9 @@ def place_components(input_pcb, output_pcb=None):
 
     Tries placement with decreasing extra padding (2.0 → 0.0mm per side).
     Stops at the first padding level that produces zero overlaps.
+
+    Always writes to a staging file. On success, promotes to output_pcb.
+    On failure, keeps staging file for manual inspection in KiCad.
     """
     try:
         import pcbnew
@@ -813,18 +534,30 @@ def place_components(input_pcb, output_pcb=None):
     if output_pcb is None:
         output_pcb = input_pcb
 
+    dir_name = os.path.dirname(output_pcb)
+    fname = os.path.basename(output_pcb)
+    staging_pcb = os.path.join(dir_name, fname.replace("-placed", "-staging-placed", 1))
+
     for padding in _get_padding_sequence("control"):
-        n_overlaps = _place_control_board_pass(input_pcb, output_pcb, padding, pcbnew)
+        n_overlaps = _place_control_board_pass(input_pcb, staging_pcb, padding, pcbnew)
         if n_overlaps == 0:
             print(f"  Padding: {padding:.1f}mm per side (0 overlaps)")
-            break
+            os.rename(staging_pcb, output_pcb)
+            print(f"  Promoted to {output_pcb}")
+            return
         print(f"  Padding {padding:.1f}mm: {n_overlaps} overlaps — retrying with less")
-    else:
-        print(f"  WARNING: overlaps remain even at 0mm padding")
+
+    print(f"  FAIL: {n_overlaps} overlaps remain at 0mm padding")
+    print(f"  Staging file for inspection: {staging_pcb}")
+    sys.exit(1)
 
 
 def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     """Single control board placement pass. Returns overlap count."""
+    from placement.helpers import (
+        CollisionTracker, extract_footprint_dims, is_tht as is_tht_fn,
+        get_ref_text_bbox, regenerate_duplicate_uuids,
+    )
 
     layout = load_layout()
     panel = layout["panel"]
@@ -900,7 +633,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         by1 = pcbnew.ToMM(bbox.GetTop())
         bx2 = pcbnew.ToMM(bbox.GetRight())
         by2 = pcbnew.ToMM(bbox.GetBottom())
-        is_through = tracker.is_tht(fp, pcbnew)
+        is_through = is_tht_fn(fp, pcbnew)
         side = "F" if front else "B"
         tracker.register_bbox(bx1, by1, bx2, by2, side, is_through, label=addr)
         tracker.register_label(fp, pcbnew, side)
@@ -909,7 +642,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
 
     # --- Through-hole components (front side, from panel layout) ---
 
-    # Jacks -- all rotated. Both PJ398SM and PJ366ST have origin at panel hole.
+    # Jacks -- all placed at positions from panel-layout.json.
     jack_rotation = layout["constants"].get("jack_rotation_deg", 0)
 
     # Jacks -- utility (non-MIDI)
@@ -923,7 +656,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     }
     for jack in layout["jacks"]["utility"]:
         if jack["id"] in ("midi_in", "midi_out"):
-            continue  # placed separately below with rotation
+            continue  # placed separately below
         addr = utility_addr_map.get(jack["id"])
         if addr:
             place(addr, jack["x_mm"], jack["y_mm"],
@@ -938,16 +671,13 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             place(addr, jack["x_mm"], jack["y_mm"],
                   rotation_deg=jack_rotation)
 
-    # MIDI jacks — rotated 90° extra, aligned with clk_out/rst_out columns.
-    # DIN-5 MIDI jacks are larger than CV jacks; rotating 90° lets them
-    # sit in the clock row without extending past the top of the board.
-    clk_out_pos = clock_positions.get("clk_out", (159.0, 46.0))
-    rst_out_pos = clock_positions.get("rst_out", (173.0, 46.0))
-    midi_rotation = jack_rotation + 90  # extra 90° rotation
-    place("midi.jack_in", clk_out_pos[0], clk_out_pos[1] - 14.0,
-          rotation_deg=midi_rotation)
-    place("midi.jack_out", rst_out_pos[0], rst_out_pos[1] - 14.0,
-          rotation_deg=midi_rotation)
+    # MIDI jacks
+    for jack in layout["jacks"].get("utility", []):
+        if jack["id"] not in ("midi_in", "midi_out"):
+            continue
+        addr = utility_addr_map[jack["id"]]
+        place(addr, jack["x_mm"], jack["y_mm"],
+              rotation_deg=jack_rotation)
 
     # Jacks -- output (gate1..4, pitch1..4, vel1..4, mod1..4)
     for jack in layout["jacks"]["output"]:
@@ -1086,7 +816,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         print(f"  {len(standoffs)} standoff mounting holes placed + exclusion zones registered ({standoff_clearance}mm)")
 
     tht_count = sum(1 for a in placed_addrs
-                    if a in addr_map and tracker.is_tht(addr_map[a], pcbnew))
+                    if a in addr_map and is_tht_fn(addr_map[a], pcbnew))
     smd_count = len(placed_addrs) - tht_count
     standoff_count = len(standoffs)
     print(f"  Collision tracker: {tht_count} THT(both) + "
@@ -1170,7 +900,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                 needs_flip = fp.GetLayer() == board.GetLayerID("F.Cu")
                 if needs_flip:
                     fp.Flip(fp.GetPosition(), False)
-                fw, fh = tracker.get_footprint_dims(fp, pcbnew)
+                fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
                 if needs_flip:
                     fp.Flip(fp.GetPosition(), False)
                 total_comp_area += fw * fh
@@ -1215,12 +945,12 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             needs_flip = (not front) and fp.GetLayer() == board.GetLayerID("F.Cu")
             if needs_flip:
                 fp.Flip(fp.GetPosition(), False)
-            fw, fh = tracker.get_footprint_dims(fp, pcbnew)
-            is_through = tracker.is_tht(fp, pcbnew)
+            fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
+            is_through = is_tht_fn(fp, pcbnew)
 
             # For ICs: inflate search envelope to include ref text
             if label_aware:
-                ref_bbox = tracker.get_ref_text_bbox(fp, pcbnew)
+                ref_bbox = get_ref_text_bbox(fp, pcbnew)
                 if ref_bbox:
                     body_bbox = fp.GetBoundingBox(False, False)
                     bx1 = pcbnew.ToMM(body_bbox.GetLeft())
@@ -1243,12 +973,16 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             desired_x = start_x + col * spacing
             desired_y = start_y + row * spacing
 
-            x, y = tracker.find_free(
+            result = tracker.find_free(
                 desired_x, desired_y, fw, fh,
                 side="B", is_tht=is_through,
                 zone_bounds=(zx, zy, zw, zh),
                 step=0.5,
             )
+            if result is None:
+                x, y = desired_x, desired_y
+            else:
+                x, y = result
             place(addr, x, y, front=False, faceplate_coords=False)
 
     def place_module_dynamic(addrs, label):
@@ -1262,10 +996,10 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             [a for a in addrs if classify_component(a) == "passive"], addr_map, pcbnew)
 
         # Separate THT components from SMD — THT need both-sides-free placement
-        tht_ics = [a for a in ics if tracker.is_tht(addr_map[a], pcbnew)]
-        smd_ics = [a for a in ics if not tracker.is_tht(addr_map[a], pcbnew)]
-        tht_passives = [a for a in passives if tracker.is_tht(addr_map[a], pcbnew)]
-        smd_passives = [a for a in passives if not tracker.is_tht(addr_map[a], pcbnew)]
+        tht_ics = [a for a in ics if is_tht_fn(addr_map[a], pcbnew)]
+        smd_ics = [a for a in ics if not is_tht_fn(addr_map[a], pcbnew)]
+        tht_passives = [a for a in passives if is_tht_fn(addr_map[a], pcbnew)]
+        smd_passives = [a for a in passives if not is_tht_fn(addr_map[a], pcbnew)]
 
         # Place THT components first — they need space clear on BOTH sides.
         # Place each THT component individually near its connected peers.
@@ -1281,7 +1015,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                 needs_flip = fp.GetLayer() == board.GetLayerID("F.Cu")
                 if needs_flip:
                     fp.Flip(fp.GetPosition(), False)
-                fw, fh = tracker.get_footprint_dims(fp, pcbnew)
+                fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
 
                 # Compute bbox center offset from footprint reference point
                 orig_pos = fp.GetPosition()
@@ -1316,9 +1050,13 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                 search_cx = target_x + off_x
                 search_cy = target_y + off_y
 
-                found_cx, found_cy = tracker.find_free(
+                result = tracker.find_free(
                     search_cx, search_cy, fw, fh,
                     side="B", is_tht=True, step=0.5)
+                if result is None:
+                    found_cx, found_cy = search_cx, search_cy
+                else:
+                    found_cx, found_cy = result
 
                 # Convert found bbox center back to ref point for placement
                 place_x = found_cx - off_x
@@ -1335,8 +1073,8 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             needs_flip = (fp.GetLayer() == board.GetLayerID("F.Cu"))
             if needs_flip:
                 fp.Flip(fp.GetPosition(), False)
-            fw, fh = tracker.get_footprint_dims(fp, pcbnew)
-            is_through = tracker.is_tht(fp, pcbnew)
+            fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
+            is_through = is_tht_fn(fp, pcbnew)
             if needs_flip:
                 fp.Flip(fp.GetPosition(), False)
 
@@ -1361,8 +1099,10 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             ty = max(0, min(h_mm, ty + ry))
 
             # Search both sides, pick whichever is closer to target
-            fx, fy = tracker.find_free(tx, ty, fw, fh, "F", is_through, board_zone, step=0.5)
-            bx, by = tracker.find_free(tx, ty, fw, fh, "B", is_through, board_zone, step=0.5)
+            result_f = tracker.find_free(tx, ty, fw, fh, "F", is_through, board_zone, step=0.5)
+            result_b = tracker.find_free(tx, ty, fw, fh, "B", is_through, board_zone, step=0.5)
+            fx, fy = result_f if result_f else (tx, ty)
+            bx, by = result_b if result_b else (tx, ty)
             dist_f = (fx - tx) ** 2 + (fy - ty) ** 2
             dist_b = (bx - tx) ** 2 + (by - ty) ** 2
 
@@ -1453,7 +1193,7 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             (pcbnew.ToMM(bbox.GetLeft()), pcbnew.ToMM(bbox.GetTop()),
              pcbnew.ToMM(bbox.GetRight()), pcbnew.ToMM(bbox.GetBottom())),
             "F" if fp.GetLayer() == board.GetLayerID("F.Cu") else "B",
-            tracker.is_tht(fp, pcbnew),
+            is_tht_fn(fp, pcbnew),
         ))
 
     overlaps = []
@@ -1476,17 +1216,18 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                     overlaps.append((label_a, label_b, kind, area))
 
     n_overlaps = len(overlaps)
-    if n_overlaps > 0:
-        # Don't save — caller will retry with less padding
-        return n_overlaps
-
-    # Success — report and save
-    print(f"  Overlap check: PASS (0 collisions among {len(fp_data)} footprints)")
+    if n_overlaps == 0:
+        print(f"  Overlap check: PASS (0 collisions among {len(fp_data)} footprints)")
+    else:
+        overlaps.sort(key=lambda x: -x[3])
+        print(f"  Overlap check: {n_overlaps} overlaps")
+        for la, lb, kind, area in overlaps[:20]:
+            print(f"    - {la} <-> {lb} ({kind}, {area:.1f}mm²)")
 
     # Label overlap check — informational only (doesn't block placement)
     label_data = []
     for fp in footprints:
-        ref_bbox = tracker.get_ref_text_bbox(fp, pcbnew)
+        ref_bbox = get_ref_text_bbox(fp, pcbnew)
         if ref_bbox:
             side = "F" if fp.GetLayer() == board.GetLayerID("F.Cu") else "B"
             label_data.append((fp.GetReference(), ref_bbox, side))
@@ -1529,8 +1270,11 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         print(f"  Label overlaps: 0 (clean)")
 
     board.Save(output_pcb)
+    n_fixed = regenerate_duplicate_uuids(output_pcb)
+    if n_fixed:
+        print(f"  Fixed {n_fixed} duplicate pad UUIDs")
     print(f"  Saved to {output_pcb}")
-    return 0
+    return n_overlaps
 
 
 def detect_board_type(input_pcb):
@@ -1539,6 +1283,426 @@ def detect_board_type(input_pcb):
     if "main" in basename:
         return "main"
     return "control"
+
+
+# ---------------------------------------------------------------------------
+# Variant-aware placement (strategy system)
+# ---------------------------------------------------------------------------
+
+
+def _setup_board_outline(board, w_mm, h_mm, pcbnew):
+    """Set board edge cuts and copper layer count."""
+    board.SetCopperLayerCount(4)
+    edge_layer = board.GetLayerID("Edge.Cuts")
+    for x1, y1, x2, y2 in [
+        (0, 0, w_mm, 0), (w_mm, 0, w_mm, h_mm),
+        (w_mm, h_mm, 0, h_mm), (0, h_mm, 0, 0),
+    ]:
+        seg = pcbnew.PCB_SHAPE(board)
+        seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
+        seg.SetStart(pcbnew.VECTOR2I(pcbnew.FromMM(x1), pcbnew.FromMM(y1)))
+        seg.SetEnd(pcbnew.VECTOR2I(pcbnew.FromMM(x2), pcbnew.FromMM(y2)))
+        seg.SetLayer(edge_layer)
+        seg.SetWidth(pcbnew.FromMM(0.1))
+        board.Add(seg)
+
+
+def _build_addr_map(board):
+    """Build lookup from atopile_address to footprint."""
+    addr_map = {}
+    for fp in board.GetFootprints():
+        if fp.HasFieldByName("atopile_address"):
+            addr = fp.GetFieldText("atopile_address")
+            addr_map[addr] = fp
+    return addr_map
+
+
+def _place_fixed_main(board, addr_map, config, pcbnew):
+    """Place fixed components on main board. Returns set of fixed addresses
+    and dict of address → Placement."""
+    from placement.helpers import extract_footprint_dims, is_tht as is_tht_fn
+    from placement.strategies import Placement
+
+    main_config = config["boards"]["main"]
+    board_w = main_config["dimensions"]["width_mm"]
+    board_h = main_config["dimensions"]["height_mm"]
+    named_pos = main_config["placement"].get("named_positions", {})
+
+    fixed_placements = {}
+
+    for addr, pos in named_pos.items():
+        if addr not in addr_map:
+            continue
+        fp = addr_map[addr]
+        x, y = pos["x"], pos["y"]
+        front = pos["front"]
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
+        if not front:
+            if fp.GetLayer() == board.GetLayerID("F.Cu"):
+                fp.Flip(fp.GetPosition(), False)
+        fixed_placements[addr] = Placement(x=x, y=y,
+                                            side="F" if front else "B")
+
+    # USB-C
+    usb_addr = "usb"
+    if usb_addr in addr_map:
+        fp = addr_map[usb_addr]
+        usb_x, usb_y = 5.0, board_h / 2
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(usb_x),
+                                        pcbnew.FromMM(usb_y)))
+        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+            fp.Flip(fp.GetPosition(), False)
+        fp.SetOrientationDegrees(90)
+        fixed_placements[usb_addr] = Placement(x=usb_x, y=usb_y, side="B",
+                                                rotation=90)
+
+    # Bootsel button
+    bootsel_addr = "mcu.sw_bootsel"
+    if bootsel_addr in addr_map:
+        fp = addr_map[bootsel_addr]
+        bx, by = 5.0, board_h / 2 + 10
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(bx), pcbnew.FromMM(by)))
+        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+            fp.Flip(fp.GetPosition(), False)
+        fixed_placements[bootsel_addr] = Placement(x=bx, y=by, side="B")
+
+    return fixed_placements
+
+
+def _place_fixed_control(board, addr_map, config, pcbnew):
+    """Place fixed components on control board (THT from panel layout +
+    named positions). Returns dict of address → Placement."""
+    from placement.strategies import Placement
+
+    layout = load_layout()
+    comp_map = load_component_map()
+    pcb_dims = comp_map["pcb"]
+    ox = pcb_dims["origin_x_mm"]
+    oy = pcb_dims["origin_y_mm"]
+
+    fixed_placements = {}
+
+    def place_fixed(addr, x_mm, y_mm, front=True, faceplate_coords=True,
+                    rotation_deg=0):
+        if addr not in addr_map:
+            return
+        fp = addr_map[addr]
+        px = x_mm - ox if faceplate_coords else x_mm
+        py = y_mm - oy if faceplate_coords else y_mm
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(px), pcbnew.FromMM(py)))
+        if not front:
+            if fp.GetLayer() == board.GetLayerID("F.Cu"):
+                fp.Flip(fp.GetPosition(), False)
+        if rotation_deg:
+            fp.SetOrientationDegrees(rotation_deg)
+        fixed_placements[addr] = Placement(
+            x=px, y=py, side="F" if front else "B", rotation=rotation_deg,
+        )
+
+    # --- THT components from panel layout ---
+    jack_rotation = layout["constants"].get("jack_rotation_deg", 0)
+
+    utility_addr_map = {
+        "clk_in": "jacks.j_clk_in", "clk_out": "jacks.j_clk_out",
+        "rst_in": "jacks.j_rst_in", "rst_out": "jacks.j_rst_out",
+        "midi_in": "midi.jack_in", "midi_out": "midi.jack_out",
+    }
+    for jack in layout["jacks"]["utility"]:
+        if jack["id"] in ("midi_in", "midi_out"):
+            continue
+        addr = utility_addr_map.get(jack["id"])
+        if addr:
+            place_fixed(addr, jack["x_mm"], jack["y_mm"],
+                        rotation_deg=jack_rotation)
+    for jack in layout["jacks"].get("clock", []):
+        addr = utility_addr_map.get(jack["id"])
+        if addr:
+            place_fixed(addr, jack["x_mm"], jack["y_mm"],
+                        rotation_deg=jack_rotation)
+    for jack in layout["jacks"].get("utility", []):
+        if jack["id"] not in ("midi_in", "midi_out"):
+            continue
+        addr = utility_addr_map[jack["id"]]
+        place_fixed(addr, jack["x_mm"], jack["y_mm"],
+                    rotation_deg=jack_rotation)
+    for jack in layout["jacks"]["output"]:
+        place_fixed(f"jacks.j_{jack['id']}", jack["x_mm"], jack["y_mm"],
+                    rotation_deg=jack_rotation)
+    for jack in layout["jacks"]["cv_input"]:
+        place_fixed(f"jacks.j_{jack['id']}", jack["x_mm"], jack["y_mm"],
+                    rotation_deg=jack_rotation)
+
+    # Buttons
+    for btn in layout["buttons"]["track"]:
+        place_fixed(f"buttons.btn_{btn['id']}", btn["x_mm"], btn["y_mm"])
+    for btn in layout["buttons"]["subtrack"]:
+        place_fixed(f"buttons.btn_{btn['id']}", btn["x_mm"], btn["y_mm"])
+    pat = layout["buttons"].get("pat")
+    if pat:
+        place_fixed(f"buttons.btn_{pat['id']}", pat["x_mm"], pat["y_mm"])
+    feature_addr_map = {"trns": "xpose"}
+    for btn in layout["buttons"]["feature"]:
+        ato_id = feature_addr_map.get(btn["id"], btn["id"])
+        place_fixed(f"buttons.btn_{ato_id}", btn["x_mm"], btn["y_mm"])
+    for btn in layout["buttons"]["step"]:
+        place_fixed(f"buttons.btn_{btn['id']}", btn["x_mm"], btn["y_mm"])
+    for btn in layout["buttons"].get("transport", []):
+        if btn["id"] == "settings":
+            place_fixed("buttons.btn_settings", btn["x_mm"], btn["y_mm"])
+        else:
+            place_fixed(f"buttons.btn_{btn['id']}", btn["x_mm"], btn["y_mm"])
+    for btn in layout["buttons"].get("control_strip", []):
+        place_fixed(f"buttons.btn_{btn['id']}", btn["x_mm"], btn["y_mm"])
+
+    # Encoders
+    for enc in layout["encoders"]:
+        place_fixed(enc["id"], enc["x_mm"], enc["y_mm"])
+
+    # SD card slot
+    sd = layout.get("connectors", {}).get("sd_card", {})
+    if "x_mm" not in sd or "y_mm" not in sd:
+        sd = comp_map.get("connectors", {}).get("sd_card", {})
+    if "x_mm" in sd and "y_mm" in sd:
+        place_fixed("sd", sd["x_mm"], sd["y_mm"])
+
+    # Named positions from config (connectors, MIDI opto, etc.)
+    named_pos = config["boards"]["control"]["placement"].get(
+        "named_positions", {})
+    for addr, pos in named_pos.items():
+        place_fixed(addr, pos["x"], pos["y"], front=pos["front"],
+                    faceplate_coords=False)
+
+    # FPC connector for display
+    lcd = layout.get("lcd_cutout", {})
+    lcd_pcb_cx = lcd.get("center_x_mm", 54.78) - ox
+    lcd_pcb_cy = lcd.get("center_y_mm", 39.89) - oy
+    place_fixed("lcd_fpc", lcd_pcb_cx, lcd_pcb_cy, front=True,
+                faceplate_coords=False, rotation_deg=90)
+
+    return fixed_placements
+
+
+def _extract_component_info(addr, fp, pcbnew, power_nets):
+    """Extract ComponentInfo from a pcbnew footprint."""
+    from placement.helpers import extract_footprint_dims, is_tht as is_tht_fn, \
+        get_component_nets
+    from placement.strategies import ComponentInfo
+
+    w, h, cx_off, cy_off = extract_footprint_dims(fp, pcbnew)
+    tht = is_tht_fn(fp, pcbnew)
+    pin_count = len(list(fp.Pads()))
+    nets = get_component_nets(fp, power_nets)
+    return ComponentInfo(
+        address=addr, width=w, height=h, is_tht=tht,
+        pin_count=pin_count, nets=nets,
+        cx_offset=cx_off, cy_offset=cy_off,
+    )
+
+
+def place_variant(input_pcb, output_pcb, board_type, variant_name):
+    """Place components using a named variant from board-config.json.
+
+    Loads the strategy and params for the variant, places fixed components
+    using board-specific logic, then delegates free components to the strategy.
+    """
+    try:
+        import pcbnew
+    except ImportError:
+        print("pcbnew not available. Run with KiCad's Python.")
+        sys.exit(1)
+
+    # Import strategy system (absolute imports — script adds scripts/ to sys.path)
+    from placement.helpers import (
+        identify_power_nets, build_net_graph, regenerate_duplicate_uuids,
+    )
+    from placement.strategies import AntiAffinityRule, BoardContext, get_strategy
+    # Ensure all strategies are registered
+    from placement.strategies import constructive, force_directed, sa_refine  # noqa: F401
+
+    config = load_board_config()
+
+    # Look up variant config
+    placement_cfg = config.get("placement", {})
+    board_placement = config["boards"][board_type]["placement"]
+    variants = board_placement.get("variants", placement_cfg.get("variants", []))
+    variant_cfg = None
+    for v in variants:
+        if v["name"] == variant_name:
+            variant_cfg = v
+            break
+    if variant_cfg is None:
+        print(f"  ERROR: variant '{variant_name}' not found in config")
+        sys.exit(1)
+
+    algorithm = variant_cfg["algorithm"]
+    params = variant_cfg.get("params", {})
+
+    print(f"  Variant: {variant_name} (algorithm={algorithm})")
+    print(f"  Params: {params}")
+
+    # Load board
+    board = pcbnew.LoadBoard(input_pcb)
+    addr_map = _build_addr_map(board)
+
+    if not addr_map:
+        print("  No components with atopile_address found.")
+        board.Save(output_pcb)
+        return
+
+    # Board dimensions
+    if board_type == "main":
+        board_w = config["boards"]["main"]["dimensions"]["width_mm"]
+        board_h = config["boards"]["main"]["dimensions"]["height_mm"]
+    else:
+        comp_map = load_component_map()
+        pcb_dims = comp_map["pcb"]
+        board_w = pcb_dims["width_mm"]
+        board_h = pcb_dims["height_mm"]
+
+    _setup_board_outline(board, board_w, board_h, pcbnew)
+
+    # Place fixed components
+    if board_type == "main":
+        fixed_placements = _place_fixed_main(board, addr_map, config, pcbnew)
+    else:
+        fixed_placements = _place_fixed_control(board, addr_map, config,
+                                                 pcbnew)
+
+    print(f"  Fixed: {len(fixed_placements)} components")
+
+    # Extract ComponentInfo for ALL components (fixed + free)
+    power_nets = identify_power_nets(board)
+    fixed_info = {}
+    free_components = {}
+    for addr, fp in addr_map.items():
+        info = _extract_component_info(addr, fp, pcbnew, power_nets)
+        if addr in fixed_placements:
+            fixed_info[addr] = info
+        else:
+            free_components[addr] = info
+
+    print(f"  Free: {len(free_components)} components")
+
+    # Build net graph
+    net_graph = build_net_graph(board, addr_map, power_nets)
+    print(f"  Nets: {len(net_graph)} (non-power, 2+ connections)")
+
+    # Parse anti-affinity rules from board config or top-level placement config
+    anti_affinity_cfg = board_placement.get(
+        "anti_affinity", placement_cfg.get("anti_affinity", []))
+    anti_affinity_rules = [
+        AntiAffinityRule(
+            from_pattern=r["from"], to_pattern=r["to"], min_mm=r["min_mm"],
+        )
+        for r in anti_affinity_cfg
+    ]
+    if anti_affinity_rules:
+        print(f"  Anti-affinity: {len(anti_affinity_rules)} rules")
+
+    # Build context and run strategy
+    ctx = BoardContext(
+        width=board_w,
+        height=board_h,
+        fixed=fixed_placements,
+        free=free_components,
+        net_graph=net_graph,
+        config=board_placement,
+        fixed_info=fixed_info,
+        anti_affinity=anti_affinity_rules,
+    )
+
+    strategy = get_strategy(algorithm)
+    placements = strategy.place(ctx, params)
+
+    # Check all free components were placed
+    unplaced = [a for a in free_components if a not in placements]
+    if unplaced:
+        print(f"  FAIL: {len(unplaced)} components could not be placed: "
+              f"{', '.join(unplaced[:5])}"
+              f"{'...' if len(unplaced) > 5 else ''}")
+        print(f"  Skipping variant {variant_name} — incomplete placement")
+        sys.exit(1)
+
+    # Validate placement: all components must be in bounds and overlap-free
+    from placement.helpers import validate_placement, check_anti_affinity
+    all_info = {**fixed_info, **free_components}
+    ok, out_of_bounds, overlapping = validate_placement(
+        board_w, board_h, fixed_placements, placements, all_info,
+    )
+    if not ok:
+        if out_of_bounds:
+            print(f"  FAIL: {len(out_of_bounds)} components out of bounds: "
+                  f"{', '.join(out_of_bounds[:5])}"
+                  f"{'...' if len(out_of_bounds) > 5 else ''}")
+        if overlapping:
+            print(f"  FAIL: {len(overlapping)} components overlapping: "
+                  f"{', '.join(overlapping[:5])}"
+                  f"{'...' if len(overlapping) > 5 else ''}")
+        print(f"  Skipping variant {variant_name} — invalid placement")
+        sys.exit(1)
+
+    # Check anti-affinity rules (warn, don't fail — strategies do best-effort)
+    aa_violations = check_anti_affinity(placements, fixed_placements,
+                                         anti_affinity_rules)
+    if aa_violations:
+        print(f"  WARNING: {len(aa_violations)} anti-affinity violations:")
+        for a, b, dist, min_mm in aa_violations:
+            print(f"    {a} <-> {b}: {dist}mm (min {min_mm}mm)")
+
+    # Apply placements to pcbnew
+    placed = 0
+    for addr, p in placements.items():
+        if addr not in addr_map:
+            continue
+        fp = addr_map[addr]
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(p.x), pcbnew.FromMM(p.y)))
+        target_front = p.side == "F"
+        current_front = fp.GetLayer() == board.GetLayerID("F.Cu")
+        if target_front != current_front:
+            fp.Flip(fp.GetPosition(), False)
+        if p.rotation:
+            fp.SetOrientationDegrees(p.rotation)
+        placed += 1
+
+    print(f"  Strategy placed {placed} components")
+
+    # Add standoffs for control board
+    if board_type == "control":
+        comp_map_data = load_component_map()
+        standoffs = comp_map_data.get("standoffs", [])
+        standoff_drill = comp_map_data.get("footprints", {}).get(
+            "m3_standoff", {}).get("drill_mm", 3.2)
+        pcb_dims = comp_map_data["pcb"]
+        ox = pcb_dims["origin_x_mm"]
+        oy = pcb_dims["origin_y_mm"]
+        for so in standoffs:
+            so_pcb_x = so["x_mm"] - ox
+            so_pcb_y = so["y_mm"] - oy
+            fp = pcbnew.FOOTPRINT(board)
+            fp.SetReference(f"SO_{so['id'].upper()}")
+            fp.SetValue("M3_Standoff")
+            fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(so_pcb_x),
+                                            pcbnew.FromMM(so_pcb_y)))
+            fp.SetAttributes(pcbnew.FP_EXCLUDE_FROM_POS_FILES |
+                             pcbnew.FP_EXCLUDE_FROM_BOM)
+            pad = pcbnew.PAD(fp)
+            pad.SetShape(pcbnew.PAD_SHAPE_CIRCLE)
+            pad.SetAttribute(pcbnew.PAD_ATTRIB_NPTH)
+            pad.SetDrillSize(pcbnew.VECTOR2I(pcbnew.FromMM(standoff_drill),
+                                              pcbnew.FromMM(standoff_drill)))
+            pad.SetSize(pcbnew.VECTOR2I(pcbnew.FromMM(standoff_drill),
+                                         pcbnew.FromMM(standoff_drill)))
+            fp.Add(pad)
+            board.Add(fp)
+        if standoffs:
+            print(f"  {len(standoffs)} standoff mounting holes placed")
+
+    # Save and fix UUIDs
+    board.Save(output_pcb)
+    n_fixed = regenerate_duplicate_uuids(output_pcb)
+    if n_fixed:
+        print(f"  Fixed {n_fixed} duplicate pad UUIDs")
+    print(f"  Saved to {output_pcb}")
 
 
 def main():
@@ -1552,18 +1716,34 @@ def main():
         help="Board type: 'control' (panel layout) or 'main' (compact grid). "
              "Auto-detected from filename if not specified.",
     )
+    parser.add_argument(
+        "--variant",
+        default=None,
+        help="Variant name from board-config.json (enables strategy-based "
+             "placement). Without this flag, uses legacy placement.",
+    )
     parser.add_argument("input_pcb", help="Input .kicad_pcb file")
-    parser.add_argument("output_pcb", nargs="?", default=None, help="Output .kicad_pcb file")
+    parser.add_argument("output_pcb", nargs="?", default=None,
+                        help="Output .kicad_pcb file")
     args = parser.parse_args()
 
     board_type = args.board or detect_board_type(args.input_pcb)
     print(f"  Board type: {board_type}")
 
-    if board_type == "main":
+    if args.variant:
+        # Strategy-based variant placement
+        output = args.output_pcb or args.input_pcb
+        place_variant(args.input_pcb, output, board_type, args.variant)
+    elif board_type == "main":
         place_main_board(args.input_pcb, args.output_pcb)
     else:
         place_components(args.input_pcb, args.output_pcb)
 
 
 if __name__ == "__main__":
+    # Add scripts/ to sys.path so absolute imports (placement.helpers, etc.) work
+    # when this file is run directly as a script.
+    _scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _scripts_dir not in sys.path:
+        sys.path.insert(0, _scripts_dir)
     main()

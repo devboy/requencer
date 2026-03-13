@@ -382,7 +382,7 @@ def make_pga2350():
 def main():
     # Map: (footprint_filename, part_directory, factory_function)
     footprints = [
-        ("PJ398SM.kicad_mod", "PJ398SM", make_pj398sm),
+        # PJ398SM: uses KiCad standard footprint (manually adapted), not auto-generated
         ("TC002-N11AS1XT-RGB.kicad_mod", "TC002-RGB", make_tc002_rgb),
         ("EC11E.kicad_mod", "EC11E", make_ec11e),
         ("RaspberryPiPico.kicad_mod", "RaspberryPiPico", make_rpi_pico),
