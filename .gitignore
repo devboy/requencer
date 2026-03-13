@@ -17,6 +17,12 @@ web/coverage/
 
 # Python
 .venv/
+__pycache__/
+
+# Hardware build artifacts
+hardware/boards/build/3d/.stamp
+hardware/logs/
+logs/
 
 # Misc
 .worktrees/
