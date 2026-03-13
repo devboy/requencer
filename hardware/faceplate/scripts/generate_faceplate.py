@@ -289,17 +289,17 @@ def generate_faceplate(layout, output_path):
     pcb.add_silkscreen_text(112.05, 10.0, "FN", size=1.2, thickness=0.15, font_face=font)
     pcb.add_silkscreen_text(55.0, 85.0, "STEPS", size=1.2, thickness=0.15, font_face=font)
 
-    # Output jack section label
-    pcb.add_silkscreen_text(149.55, 52.0, "OUTPUT", size=1.5, thickness=0.2, font_face=font)
+    # Output jack section label (between clock and cv rows)
+    pcb.add_silkscreen_text(149.55, 52.4, "OUTPUT", size=1.5, thickness=0.2, font_face=font)
 
-    # CV input section label
-    pcb.add_silkscreen_text(149.55, 103.0, "CV IN", size=1.2, thickness=0.15, font_face=font)
+    # CV input section label (between vel and mod rows)
+    pcb.add_silkscreen_text(149.55, 103.6, "CV IN", size=1.2, thickness=0.15, font_face=font)
 
-    # Row labels for output jacks
-    pcb.add_silkscreen_text(122.0, 57.0, "G", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 69.4, "P", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 81.8, "V", size=1.2, thickness=0.15, font_face=font)
-    pcb.add_silkscreen_text(122.0, 94.2, "M", size=1.2, thickness=0.15, font_face=font)
+    # Row labels for output jacks (uniform 12.8mm spacing from gate=71.6)
+    pcb.add_silkscreen_text(122.0, 65.2, "G", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 78.0, "P", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 90.8, "V", size=1.2, thickness=0.15, font_face=font)
+    pcb.add_silkscreen_text(122.0, 103.6, "M", size=1.2, thickness=0.15, font_face=font)
 
     print("  Silkscreen labels added")
 

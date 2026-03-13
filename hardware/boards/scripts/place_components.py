@@ -42,10 +42,10 @@ class CollisionTracker:
       - All checks use actual footprint bounding boxes + clearance margin
     """
 
-    def __init__(self, board_w, board_h, clearance=0.5):
+    def __init__(self, board_w, board_h, clearance=0.5, extra_padding=0.0):
         self.board_w = board_w
         self.board_h = board_h
-        self.clearance = clearance
+        self.clearance = clearance + extra_padding
         # Each entry: (x1, y1, x2, y2, side, label)
         # side is "F", "B", or "both" (for THT)
         self._rects = []
@@ -284,6 +284,33 @@ class CollisionTracker:
     def count(self):
         return len(self._rects)
 
+    def repulsion_offset(self, cx, cy, radius=15.0, strength=2.0, max_offset=8.0):
+        """Compute a damped repulsion vector pushing (cx, cy) away from crowding.
+
+        For each registered rect within `radius` mm, adds a linear repulsion
+        force (stronger when closer, zero at radius edge). The total offset
+        is capped at `max_offset` mm to prevent components from flying to
+        board edges. This creates local spreading without losing connectivity.
+        """
+        rx, ry = 0.0, 0.0
+        for x1, y1, x2, y2, _side, _label in self._rects:
+            px = (x1 + x2) / 2
+            py = (y1 + y2) / 2
+            dx = cx - px
+            dy = cy - py
+            dist = (dx * dx + dy * dy) ** 0.5
+            if 0 < dist < radius:
+                # Linear falloff: full force at dist=0, zero at dist=radius
+                force = strength * (1.0 - dist / radius)
+                rx += (dx / dist) * force
+                ry += (dy / dist) * force
+        # Cap total offset to prevent edge-flinging
+        mag = (rx * rx + ry * ry) ** 0.5
+        if mag > max_offset:
+            rx = rx / mag * max_offset
+            ry = ry / mag * max_offset
+        return rx, ry
+
     def overlap_report(self):
         """Return list of all current overlaps between actual component bodies.
 
@@ -446,13 +473,22 @@ def size_sort(addrs, addr_map, pcbnew):
 
 
 
-def place_main_board(input_pcb, output_pcb=None):
-    """Place components on the main board using compact grid layout.
+PLACEMENT_PADDINGS = [2.0, 1.5, 1.0, 0.5, 0.0]
+MAIN_BOARD_PADDINGS = [4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.0]
+"""Extra padding (mm per side) for iterative placement.
 
-    The main board has no panel-facing THT components (those are on the control
-    board). It contains SMD ICs and passives plus THT board-to-board headers.
-    All components are placed in a compact grid with connectivity-aware ordering
-    and collision-free placement.
+Start generous for label readability and routing channels.
+If overlaps occur, retry with less padding until 0 overlaps.
+Main board gets +2mm to give FreeRouting more routing space.
+"""
+
+
+def place_main_board(input_pcb, output_pcb=None):
+    """Place components on the main board with iterative padding.
+
+    Tries placement with decreasing extra padding (4.0 → 0.0mm per side).
+    Stops at the first padding level that produces zero overlaps, giving
+    maximum spacing for label readability and routing channels.
     """
     try:
         import pcbnew
@@ -462,6 +498,19 @@ def place_main_board(input_pcb, output_pcb=None):
 
     if output_pcb is None:
         output_pcb = input_pcb
+
+    for padding in MAIN_BOARD_PADDINGS:
+        n_overlaps = _place_main_board_pass(input_pcb, output_pcb, padding, pcbnew)
+        if n_overlaps == 0:
+            print(f"  Padding: {padding:.1f}mm per side (0 overlaps)")
+            break
+        print(f"  Padding {padding:.1f}mm: {n_overlaps} overlaps — retrying with less")
+    else:
+        print(f"  WARNING: overlaps remain even at 0mm padding")
+
+
+def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
+    """Single placement pass with given extra_padding. Returns overlap count."""
 
     board = pcbnew.LoadBoard(input_pcb)
 
@@ -509,10 +558,10 @@ def place_main_board(input_pcb, output_pcb=None):
     ics = size_sort(ics, addr_map, pcbnew)
     passives = size_sort(passives, addr_map, pcbnew)
 
-    # Board dimensions: match control board so the two boards stack in a sandwich.
-    # Control board PCB is 177.88 x 107.5mm (from component-map.json).
-    board_w = 177.88
-    board_h = 107.5
+    # Board dimensions: sized symmetrically around bridge connectors.
+    # Connectors at (15, 42) and (88, 42) → 73mm span + 15mm overhang each side.
+    board_w = 103.0
+    board_h = 84.0
     margin = 3.0
 
     # Measure tallest header for zone sizing
@@ -526,12 +575,12 @@ def place_main_board(input_pcb, output_pcb=None):
             max_header_h = max(max_header_h, h)
     header_zone_h = max(max_header_h + 4, 20.0)
 
-    # Layout zones (generous spacing with full board area available)
-    ic_spacing = 14.0
+    # Layout zones — smaller board, dual-side SMD placement
+    ic_spacing = 12.0
     ic_cols = max(1, int((board_w - 2 * margin) / ic_spacing))
     ic_rows_count = (len(ics) + ic_cols - 1) // ic_cols if ics else 0
     ic_start_y = margin + header_zone_h + 5
-    passive_spacing = 6.0
+    passive_spacing = 5.0
     passive_start_y = ic_start_y + ic_rows_count * ic_spacing + 5
     p_cols = max(1, int((board_w - 2 * margin) / passive_spacing))
     passive_rows = (len(passives) + p_cols - 1) // p_cols if passives else 0
@@ -550,8 +599,8 @@ def place_main_board(input_pcb, output_pcb=None):
         seg.SetWidth(pcbnew.FromMM(0.1))
         board.Add(seg)
 
-    # Initialize collision tracker
-    tracker = CollisionTracker(board_w, board_h, clearance=0.5)
+    # Initialize collision tracker with extra padding for this pass
+    tracker = CollisionTracker(board_w, board_h, clearance=0.5, extra_padding=extra_padding)
     placed = 0
 
     def place(addr, x, y, front=True):
@@ -564,8 +613,9 @@ def place_main_board(input_pcb, output_pcb=None):
         if not front:
             if fp.GetLayer() == board.GetLayerID("F.Cu"):
                 fp.Flip(fp.GetPosition(), False)
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
         is_through = tracker.is_tht(fp, pcbnew)
+        # THT: body-only dims (text on headers is huge). SMD: include label.
+        w, h = tracker.get_footprint_dims(fp, pcbnew)
         side = "F" if front else "B"
         tracker.register(x, y, w, h, side, is_through, label=addr)
         placed += 1
@@ -576,8 +626,8 @@ def place_main_board(input_pcb, output_pcb=None):
         if addr not in addr_map:
             return
         fp = addr_map[addr]
-        w, h = tracker.get_footprint_dims(fp, pcbnew)
         is_through = tracker.is_tht(fp, pcbnew)
+        w, h = tracker.get_footprint_dims(fp, pcbnew)
         side = "F" if front else "B"
         x, y = tracker.find_free(desired_x, desired_y, w, h, side, is_through,
                                   zone_bounds, step=0.5)
@@ -589,15 +639,15 @@ def place_main_board(input_pcb, output_pcb=None):
         placed += 1
 
     # Place THT components with explicit positions.
-    # Board connectors align with control board back-side positions (x=25, x=40).
-    # Power header near right edge (eurorack cable entry).
-    # MCU module centered on board.
+    # Bridge connectors spread wide to match control board positions and
+    # open routing channels between them (old 15mm span was a routing wall).
+    # MCU centered between connectors. Power header on back, bottom-center.
     tht_positions = {
-        "connector.header_a": (25, 28, True),    # front, aligned with control board
-        "connector.header_b": (40, 28, True),    # front, aligned with control board
-        "power.header":       (165, 15, False),  # back side — accessible from behind in rack
-        "mcu.pga":            (90, 28, False),    # back, center of board
-        "display.header":     (90, 40, False),   # back side, near MCU (moved up to avoid passive zone overlap)
+        "connector.header_a": (20, 42, True),    # front, matches control board
+        "connector.header_b": (88, 42, True),    # front, matches control board
+        "mcu.pga":            (51, 42, False),   # back, centered between headers
+        "power.header":       (95.5, 42, False), # back, right side — centered between header_b (88) and board edge (103), y aligned with bridges
+        "display.header":     (51, 14, False),   # back, top-center near MCU
     }
     for addr in headers:
         if addr in tht_positions:
@@ -611,20 +661,23 @@ def place_main_board(input_pcb, output_pcb=None):
         place_collision_free(addr, hx, hy, front=front,
                              zone_bounds=(margin, margin, board_w - 2 * margin, header_zone_h))
 
-    # USB-C — edge-mounted at right board edge for side-entry cable access.
+    # USB-C — edge-mounted at right board edge, back side for cable access from behind.
     # Mid-mount connector: body on board, mouth flush with edge.
     # At 90° rotation, connector Y- (mouth, 6.5mm) maps to board X+.
-    # Inset so mouth is ~1.5mm past edge (accessible for cable).
     usb_addr = "usb"
     if usb_addr in addr_map:
         fp = addr_map[usb_addr]
-        usb_x = board_w - 5.0  # inset so mouth is flush with board edge
-        usb_y = board_h / 2    # vertically centered
+        usb_x = 5.0             # left edge — cable plugs in from side of module
+        usb_y = board_h / 2    # vertically centered (42mm)
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(usb_x), pcbnew.FromMM(usb_y)))
-        fp.SetOrientationDegrees(90)  # rotate so mouth faces right (toward rack side)
+        # Flip to back side
+        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+            fp.Flip(fp.GetPosition(), False)
+        fp.SetOrientationDegrees(90)  # rotate so mouth faces left (toward rack side)
         w, h = tracker.get_footprint_dims(fp, pcbnew)
-        is_through = tracker.is_tht(fp, pcbnew)
-        tracker.register(usb_x, usb_y, w, h, "F", is_through, label=usb_addr)
+        # Register as through-hole — mid-mount USB-C has shield tabs/holding
+        # pins that poke through, so no SMDs on opposite side.
+        tracker.register(usb_x, usb_y, w, h, "B", True, label=usb_addr)
         placed += 1
         # Remove from generic lists to prevent double placement
         if usb_addr in ics:
@@ -632,55 +685,126 @@ def place_main_board(input_pcb, output_pcb=None):
         if usb_addr in passives:
             passives.remove(usb_addr)
 
-    # Place ICs below headers (back side) with collision detection
-    ic_zone_h = passive_start_y - ic_start_y
-    ic_start_x = margin + 5
-    for i, addr in enumerate(ics):
-        col = i % ic_cols
-        row = i // ic_cols
-        if row % 2 == 1:
-            col = ic_cols - 1 - col
-        x = ic_start_x + col * ic_spacing
-        y = ic_start_y + row * ic_spacing
-        place_collision_free(addr, x, y, front=False,
-                             zone_bounds=(margin, ic_start_y - 2,
-                                          board_w - 2 * margin, ic_zone_h + 2))
+    # Bootsel button — back side near USB-C for easy access.
+    # PTS645 has mechanical anchor pins that poke through, so treat as through-hole
+    # for exclusion purposes (no SMDs on opposite side at this position).
+    bootsel_addr = "mcu.sw_bootsel"
+    if bootsel_addr in addr_map:
+        fp = addr_map[bootsel_addr]
+        bx = 5.0        # near USB-C on left edge
+        by = board_h / 2 + 10  # just below USB-C
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(bx), pcbnew.FromMM(by)))
+        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+            fp.Flip(fp.GetPosition(), False)
+        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        # Register as through-hole to create exclusion on both sides
+        tracker.register(bx, by, w, h, "B", True, label=bootsel_addr)
+        placed += 1
+        if bootsel_addr in ics:
+            ics.remove(bootsel_addr)
+        if bootsel_addr in passives:
+            passives.remove(bootsel_addr)
 
-    # Place passives below ICs (back side) with collision detection
-    passive_zone_h = board_h - passive_start_y - margin
-    for i, addr in enumerate(passives):
-        col = i % p_cols
-        row = i // p_cols
-        if row % 2 == 1:
-            col = p_cols - 1 - col
-        x = margin + 2 + col * passive_spacing
-        y = passive_start_y + row * passive_spacing
-        place_collision_free(addr, x, y, front=False,
-                             zone_bounds=(margin, passive_start_y - 2,
-                                          board_w - 2 * margin, passive_zone_h + 2))
+    # --- Connectivity-aware SMD placement ---
+    # For each IC and passive, compute the target position as the centroid
+    # of its already-placed connected neighbors. Search for the nearest free
+    # spot on BOTH sides, pick whichever is closer. This naturally spreads
+    # components across both sides based on available space and connectivity.
+    board_zone = (margin, margin, board_w - 2 * margin, board_h - 2 * margin)
 
-    # Report overlaps
+    def connectivity_target(addr):
+        """Compute target (x, y) as centroid of placed neighbors + repulsion.
+
+        Attraction: centroid of electrically connected placed components.
+        Repulsion: push away from nearby placed components to prevent clustering.
+        """
+        neighbors = conn_graph.get(addr, {})
+        positions = []
+        for n in neighbors:
+            nfp = addr_map.get(n)
+            if nfp and n in placed_addrs_set:
+                npos = nfp.GetPosition()
+                positions.append((pcbnew.ToMM(npos.x), pcbnew.ToMM(npos.y)))
+        if positions:
+            cx = sum(p[0] for p in positions) / len(positions)
+            cy = sum(p[1] for p in positions) / len(positions)
+        else:
+            cx, cy = board_w / 2, board_h / 2
+
+        # Apply repulsion from nearby placed components
+        rx, ry = tracker.repulsion_offset(cx, cy)
+        tx = max(margin, min(board_w - margin, cx + rx))
+        ty = max(margin, min(board_h - margin, cy + ry))
+        return (tx, ty)
+
+    def place_nearest_side(addr):
+        """Place component on whichever side has a closer free spot."""
+        nonlocal placed
+        if addr not in addr_map:
+            return
+        fp = addr_map[addr]
+        w, h = tracker.get_footprint_dims(fp, pcbnew)
+        is_through = tracker.is_tht(fp, pcbnew)
+        tx, ty = connectivity_target(addr)
+
+        # Search both sides
+        fx, fy = tracker.find_free(tx, ty, w, h, "F", is_through, board_zone, step=0.5)
+        bx, by = tracker.find_free(tx, ty, w, h, "B", is_through, board_zone, step=0.5)
+
+        dist_f = (fx - tx) ** 2 + (fy - ty) ** 2
+        dist_b = (bx - tx) ** 2 + (by - ty) ** 2
+
+        if dist_f <= dist_b:
+            x, y, front = fx, fy, True
+        else:
+            x, y, front = bx, by, False
+
+        fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
+        if not front:
+            if fp.GetLayer() == board.GetLayerID("F.Cu"):
+                fp.Flip(fp.GetPosition(), False)
+        side = "F" if front else "B"
+        tracker.register(x, y, w, h, side, is_through, label=addr)
+        placed += 1
+        placed_addrs_set.add(addr)
+
+    placed_addrs_set = set()
+    # Record already-placed THT components
+    for addr in list(addr_map.keys()):
+        if addr not in ics and addr not in passives:
+            placed_addrs_set.add(addr)
+
+    # Place ICs first (larger, get priority), then passives
+    # Order by connectivity strength so well-connected parts place first
+    ics = connectivity_sort(ics, conn_graph)
+    passives = connectivity_sort(passives, conn_graph)
+
+    for addr in ics:
+        place_nearest_side(addr)
+
+    for addr in passives:
+        place_nearest_side(addr)
+
+    # Check overlaps
     overlaps = tracker.overlap_report()
     if overlaps:
-        print(f"  WARNING: {len(overlaps)} remaining overlaps after collision-free placement:")
-        for a, b, sa, sb, area in sorted(overlaps, key=lambda x: -x[4])[:10]:
-            print(f"    {a} <-> {b} ({sa}/{sb}, {area:.1f}mm²)")
-    else:
-        print(f"  Overlap check: PASS (0 collisions among {placed} components)")
+        # Don't save — caller will retry with less padding
+        return len(overlaps)
 
+    # Success: save and report
+    print(f"  Overlap check: PASS (0 collisions among {placed} components)")
     print(f"  Board dimensions: {board_w:.1f} x {board_h:.1f} mm")
     print(f"  Placed {placed}/{len(addr_map)} components")
-
     board.Save(output_pcb)
     print(f"  Saved to {output_pcb}")
+    return 0
 
 
 def place_components(input_pcb, output_pcb=None):
-    """Place components using pcbnew API (control board — full panel layout).
+    """Place components on control board with iterative padding.
 
-    Requires KiCad's Python environment:
-        DYLD_FRAMEWORK_PATH=...KiCad.app/Contents/Frameworks
-        PYTHONPATH=...KiCad.app/.../site-packages
+    Tries placement with decreasing extra padding (2.0 → 0.0mm per side).
+    Stops at the first padding level that produces zero overlaps.
     """
     try:
         import pcbnew
@@ -690,6 +814,19 @@ def place_components(input_pcb, output_pcb=None):
 
     if output_pcb is None:
         output_pcb = input_pcb
+
+    for padding in PLACEMENT_PADDINGS:
+        n_overlaps = _place_control_board_pass(input_pcb, output_pcb, padding, pcbnew)
+        if n_overlaps == 0:
+            print(f"  Padding: {padding:.1f}mm per side (0 overlaps)")
+            break
+        print(f"  Padding {padding:.1f}mm: {n_overlaps} overlaps — retrying with less")
+    else:
+        print(f"  WARNING: overlaps remain even at 0mm padding")
+
+
+def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
+    """Single control board placement pass. Returns overlap count."""
 
     layout = load_layout()
     panel = layout["panel"]
@@ -734,8 +871,8 @@ def place_components(input_pcb, output_pcb=None):
             addr = fp.GetFieldText("atopile_address")
             addr_map[addr] = fp
 
-    # Initialize collision tracker for the entire board
-    tracker = CollisionTracker(w_mm, h_mm, clearance=0.5)
+    # Initialize collision tracker with extra padding for this pass
+    tracker = CollisionTracker(w_mm, h_mm, clearance=0.5, extra_padding=extra_padding)
 
     placed = 0
     placed_addrs = set()
@@ -777,7 +914,7 @@ def place_components(input_pcb, output_pcb=None):
     # Jacks -- all rotated. Both PJ398SM and PJ366ST have origin at panel hole.
     jack_rotation = layout["constants"].get("jack_rotation_deg", 0)
 
-    # Jacks -- utility
+    # Jacks -- utility (non-MIDI)
     utility_addr_map = {
         "clk_in": "jacks.j_clk_in",
         "clk_out": "jacks.j_clk_out",
@@ -787,17 +924,32 @@ def place_components(input_pcb, output_pcb=None):
         "midi_out": "midi.jack_out",
     }
     for jack in layout["jacks"]["utility"]:
+        if jack["id"] in ("midi_in", "midi_out"):
+            continue  # placed separately below with rotation
         addr = utility_addr_map.get(jack["id"])
         if addr:
             place(addr, jack["x_mm"], jack["y_mm"],
                   rotation_deg=jack_rotation)
 
     # Jacks -- clock/reset
+    clock_positions = {}
     for jack in layout["jacks"].get("clock", []):
         addr = utility_addr_map.get(jack["id"])
+        clock_positions[jack["id"]] = (jack["x_mm"], jack["y_mm"])
         if addr:
             place(addr, jack["x_mm"], jack["y_mm"],
                   rotation_deg=jack_rotation)
+
+    # MIDI jacks — rotated 90° extra, aligned with clk_out/rst_out columns.
+    # DIN-5 MIDI jacks are larger than CV jacks; rotating 90° lets them
+    # sit in the clock row without extending past the top of the board.
+    clk_out_pos = clock_positions.get("clk_out", (159.0, 46.0))
+    rst_out_pos = clock_positions.get("rst_out", (173.0, 46.0))
+    midi_rotation = jack_rotation + 90  # extra 90° rotation
+    place("midi.jack_in", clk_out_pos[0], clk_out_pos[1] - 14.0,
+          rotation_deg=midi_rotation)
+    place("midi.jack_out", rst_out_pos[0], rst_out_pos[1] - 14.0,
+          rotation_deg=midi_rotation)
 
     # Jacks -- output (gate1..4, pitch1..4, vel1..4, mod1..4)
     for jack in layout["jacks"]["output"]:
@@ -892,34 +1044,31 @@ def place_components(input_pcb, output_pcb=None):
 
     # Board-to-board connector headers (THT, back side)
     # Two 2×16 shrouded headers (~11×43mm each) connecting control to main board.
-    # Placed side by side in the LCD area (LCD is front-side only, back is available).
-    place("connector.header_a", 25, 28, front=False, faceplate_coords=False)
-    place("connector.header_b", 40, 28, front=False, faceplate_coords=False)
+    # Spread wide to open routing channels — old 15mm span was a routing wall.
+    # header_a at x=20 (clear of track buttons at x≈3.5).
+    # Positions must match main board.
+    place("connector.header_a", 20, 42, front=False, faceplate_coords=False)
+    place("connector.header_b", 88, 42, front=False, faceplate_coords=False)
 
-    # FPC connector for display — front side, below LCD cutout
-    # Must be on front for ribbon cable access to display glass
-    place("lcd_fpc", lcd_pcb_cx, lcd_bottom_pcb + 3, front=True, faceplate_coords=False)
+    # FPC connector for display — front side, vertically centered with LCD.
+    # Rotated 90° so flatband cable enters from the side.
+    lcd_pcb_cy = lcd.get("center_y_mm", 39.89) - oy
+    place("lcd_fpc", lcd_pcb_cx, lcd_pcb_cy, front=True, faceplate_coords=False, rotation_deg=90)
 
-    # MIDI optoisolator (IC, back side) — behind LCD, right of connector headers
-    place("midi.opto", 80, 10, front=False, faceplate_coords=False)
+    # MIDI optoisolator (THT DIP-8, back side) — behind LCD area between connectors.
+    # LCD is front-only; back side available. Connectors at x=15 and x=88.
+    # Place centered between them, near top of LCD zone (y≈15 clear of LCD edge).
+    place("midi.opto", 55, 15, front=False, faceplate_coords=False)
 
-    # MIDI input resistor — near the protection diode (CATHODE net) for routability
-    place("midi.r_in", 25, 55, front=False, faceplate_coords=False)
+    # MIDI input resistor — near the MIDI opto for routability
+    place("midi.r_in", 65, 15, front=False, faceplate_coords=False)
 
     # --- Exclusion zones ---
-    # The LCD display area is front-side only (display sits on front).
-    # All placed components are already tracked by the CollisionTracker
-    # (THT as "both" sides, SMD as their respective side).
-    # Add the LCD zone as a static exclusion.
-    lcd_pcb_cx = lcd.get("center_x_mm", 54.78) - ox
-    lcd_pcb_cy = lcd.get("center_y_mm", 39.89) - oy
-    lcd_hw = lcd.get("width_mm", 73.44) / 2
-    lcd_hh = lcd.get("height_mm", 48.96) / 2
-    tracker.register_zone(
-        lcd_pcb_cx - lcd_hw - 2, lcd_pcb_cy - lcd_hh - 2,
-        lcd_pcb_cx + lcd_hw + 2, lcd_pcb_cy + lcd_hh + 2,
-        "F", label="LCD"
-    )
+    # LCD display: SMDs can go on the front side in the screen area (they're
+    # flat enough to fit under the display glass). No front-side zone exclusion
+    # needed — THT components are at fixed faceplate positions and won't land
+    # in the LCD area. The FPC connector is already registered as a collision
+    # rect from the place() call above.
 
     # M3 standoff mounting holes — NPTH 3.2mm drill at standoff positions
     # These are in faceplate coords; convert to PCB coords.
@@ -952,7 +1101,7 @@ def place_components(input_pcb, output_pcb=None):
                     if a in addr_map and tracker.is_tht(addr_map[a], pcbnew))
     smd_count = len(placed_addrs) - tht_count
     standoff_count = len(standoffs)
-    print(f"  Collision tracker: 1 LCD(F) + {tht_count} THT(both) + "
+    print(f"  Collision tracker: {tht_count} THT(both) + "
           f"{smd_count} SMD(sided) + {standoff_count} standoff(both) = {tracker.count} entries")
 
     # --- Zone layout ---
@@ -1191,58 +1340,58 @@ def place_components(input_pcb, output_pcb=None):
 
                 place(addr, place_x, place_y, front=False, faceplate_coords=False)
 
-        # Place SMD components — only need back-side free space
-        ic_sp_used, ic_scale = None, 1.0
-        pass_sp_used, pass_scale = None, 1.0
-        ic_rect_area, pass_rect_area = 0.0, 0.0
+        # Place SMD components — connectivity-aware, try both sides, pick closer.
+        board_zone = (0, 0, w_mm, h_mm)
+        for addr in smd_ics + smd_passives:
+            fp = addr_map.get(addr)
+            if not fp:
+                continue
+            needs_flip = (fp.GetLayer() == board.GetLayerID("F.Cu"))
+            if needs_flip:
+                fp.Flip(fp.GetPosition(), False)
+            fw, fh = tracker.get_footprint_dims(fp, pcbnew)
+            is_through = tracker.is_tht(fp, pcbnew)
+            if needs_flip:
+                fp.Flip(fp.GetPosition(), False)
 
-        if smd_ics or smd_passives:
-            free_rects = tracker.find_largest_free_rects("B", resolution=1.0, count=5)
-            if not free_rects:
-                print(f"    {label}: WARNING no free area found!")
+            # Target: centroid of placed connected neighbors + repulsion
+            neighbors = conn_graph.get(addr, {})
+            positions = []
+            for n in neighbors:
+                nfp = addr_map.get(n)
+                if nfp and n in placed_addrs:
+                    npos = nfp.GetPosition()
+                    positions.append((pcbnew.ToMM(npos.x) - ox,
+                                      pcbnew.ToMM(npos.y) - oy))
+            if positions:
+                tx = sum(p[0] for p in positions) / len(positions)
+                ty = sum(p[1] for p in positions) / len(positions)
             else:
-                if smd_ics:
-                    rect = free_rects[0]
-                    zx, zy, zw, zh = rect
-                    ic_rect_area = zw * zh
-                    base_sp = module_ic_spacing.get(label, ic_spacing)
-                    ic_sp_used, ic_scale = compute_adaptive_spacing(
-                        ic_rect_area, smd_ics, base_sp)
-                    place_in_rect(smd_ics, zx, zy, zw, zh, ic_sp_used, label,
-                                  label_aware=True)
-                    free_rects = tracker.find_largest_free_rects("B", resolution=1.0, count=5)
-                if smd_passives and free_rects:
-                    rect = free_rects[0]
-                    zx, zy, zw, zh = rect
-                    pass_rect_area = zw * zh
-                    pass_sp_used, pass_scale = compute_adaptive_spacing(
-                        pass_rect_area, smd_passives, passive_spacing)
-                    place_in_rect(smd_passives, zx, zy, zw, zh, pass_sp_used, label,
-                                  label_aware=False)
+                tx, ty = w_mm / 2, h_mm / 2
+
+            # Apply repulsion from nearby placed components
+            rx, ry = tracker.repulsion_offset(tx, ty)
+            tx = max(0, min(w_mm, tx + rx))
+            ty = max(0, min(h_mm, ty + ry))
+
+            # Search both sides, pick whichever is closer to target
+            fx, fy = tracker.find_free(tx, ty, fw, fh, "F", is_through, board_zone, step=0.5)
+            bx, by = tracker.find_free(tx, ty, fw, fh, "B", is_through, board_zone, step=0.5)
+            dist_f = (fx - tx) ** 2 + (fy - ty) ** 2
+            dist_b = (bx - tx) ** 2 + (by - ty) ** 2
+
+            if dist_f <= dist_b:
+                place(addr, fx + ox, fy + oy, front=True, faceplate_coords=True)
+            else:
+                place(addr, bx + ox, by + oy, front=False, faceplate_coords=True)
 
         n_ics = len(ics)
         n_pass = len(passives)
         n_tht = len(tht_ics) + len(tht_passives)
+        n_smd = len(smd_ics) + len(smd_passives)
         tht_note = f" ({n_tht} THT)" if n_tht else ""
-
-        ic_sp_str = f"{ic_sp_used:.1f}mm" if ic_sp_used else f"{module_ic_spacing.get(label, ic_spacing):.0f}mm"
-        if ic_scale > 1.01:
-            ic_sp_str += f" (adaptive {ic_scale:.1f}×)"
-        pass_sp_str = f"{pass_sp_used:.1f}mm" if pass_sp_used else f"{passive_spacing:.0f}mm"
-        if pass_scale > 1.01:
-            pass_sp_str += f" (adaptive {pass_scale:.1f}×)"
-
-        utilization = ""
-        if ic_rect_area > 0:
-            total_comp = sum(
-                tracker.get_footprint_dims(addr_map[a], pcbnew)[0]
-                * tracker.get_footprint_dims(addr_map[a], pcbnew)[1]
-                for a in smd_ics if addr_map.get(a))
-            pct = (total_comp / ic_rect_area * 100) if ic_rect_area else 0
-            utilization = f" | {pct:.0f}% of {ic_rect_area:.0f}mm²"
-
-        print(f"    {label:12s}: {n_ics:2d} ICs ({ic_sp_str}) + {n_pass:2d} passives "
-              f"({pass_sp_str}){tht_note}{utilization}")
+        print(f"    {label:12s}: {n_ics:2d} ICs + {n_pass:2d} passives"
+              f" ({n_smd} SMD connectivity-placed){tht_note}")
 
     # Place each module group, largest modules first (they need the most space)
     module_order = sorted(zone_groups.keys(),
@@ -1340,17 +1489,15 @@ def place_components(input_pcb, output_pcb=None):
                 if area >= min_overlap_mm2:
                     overlaps.append((label_a, label_b, kind, area))
 
-    if overlaps:
-        overlaps.sort(key=lambda x: -x[3])
-        print(f"  WARNING: {len(overlaps)} footprint overlaps detected:")
-        for label_a, label_b, kind, area in overlaps[:30]:
-            print(f"    - {label_a} <-> {label_b} ({kind}, {area:.1f}mm²)")
-        if len(overlaps) > 30:
-            print(f"    ... and {len(overlaps) - 30} more")
-    else:
-        print(f"  Overlap check: PASS (0 collisions among {len(fp_data)} footprints)")
+    n_overlaps = len(overlaps)
+    if n_overlaps > 0:
+        # Don't save — caller will retry with less padding
+        return n_overlaps
 
-    # 3. Label overlap check — informational warnings
+    # Success — report and save
+    print(f"  Overlap check: PASS (0 collisions among {len(fp_data)} footprints)")
+
+    # Label overlap check — informational only (doesn't block placement)
     label_data = []
     for fp in footprints:
         ref_bbox = tracker.get_ref_text_bbox(fp, pcbnew)
@@ -1359,12 +1506,10 @@ def place_components(input_pcb, output_pcb=None):
             label_data.append((fp.GetReference(), ref_bbox, side))
 
     label_overlaps = []
-    # Label vs body overlaps (same side)
     for ref_name, lbox, lside in label_data:
         for fp_name, fbox, fside, tht in fp_data:
             if lside != fside and not tht:
                 continue
-            # Skip self (ref belongs to this footprint)
             if ref_name in fp_name:
                 continue
             dx = min(lbox[2], fbox[2]) - max(lbox[0], fbox[0])
@@ -1375,7 +1520,6 @@ def place_components(input_pcb, output_pcb=None):
                     label_overlaps.append((
                         f"label:{ref_name}", fp_name, "label-body", area))
 
-    # Label vs label overlaps (same side)
     for i in range(len(label_data)):
         ref_a, lbox_a, side_a = label_data[i]
         for j in range(i + 1, len(label_data)):
@@ -1395,13 +1539,12 @@ def place_components(input_pcb, output_pcb=None):
         print(f"  Label overlaps: {len(label_overlaps)} (informational)")
         for la, lb, kind, area in label_overlaps[:15]:
             print(f"    - {la} <-> {lb} ({kind}, {area:.1f}mm²)")
-        if len(label_overlaps) > 15:
-            print(f"    ... and {len(label_overlaps) - 15} more")
     else:
         print(f"  Label overlaps: 0 (clean)")
 
     board.Save(output_pcb)
     print(f"  Saved to {output_pcb}")
+    return 0
 
 
 def detect_board_type(input_pcb):
