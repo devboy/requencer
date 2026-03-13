@@ -13,10 +13,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
 /** Board stack-up Z positions from export_3d_assembly.py (mm) */
+/** Stack-up: faceplate back (Z=0) rests on jack body shoulders.
+ *  PJ398SM model: 16.4mm above origin, ~4.5mm bushing → shoulder at ~11.9mm.
+ *  STEP export: board bottom at Z=0, F.Cu at Z=1.6 → shoulder at 1.6+11.9=13.5.
+ *  Control→Main gap: 1.6mm PCB + 8.5mm 2x16 header pins. */
 const BOARD_DEFS = [
   { name: 'Faceplate', file: 'faceplate.glb', z: 0, color: 0x1a1a1a, pcbColor: 0x111111 },
-  { name: 'Control', file: 'control.glb', z: -3.2, color: 0x006633, pcbColor: 0x0a5c2a },
-  { name: 'Main', file: 'main.glb', z: -13.3, color: 0x003366, pcbColor: 0x0a5c2a },
+  { name: 'Control', file: 'control.glb', z: -11.7, color: 0x006633, pcbColor: 0x0a5c2a },
+  { name: 'Main', file: 'main.glb', z: -21.8, color: 0x003366, pcbColor: 0x0a5c2a },
 ] as const
 
 /** Materials for different part types (DoubleSide: STEP tessellation has inconsistent normals) */
@@ -310,10 +314,10 @@ function createOverlayDOM() {
 
   const slider = document.createElement('input')
   slider.type = 'range'
-  slider.min = '1'
-  slider.max = '5'
-  slider.step = '0.1'
-  slider.value = '1'
+  slider.min = '0'
+  slider.max = '1'
+  slider.step = '0.01'
+  slider.value = '0'
   slider.style.cssText = 'flex: 1; max-width: 300px; accent-color: #6a6;'
 
   const explodedLabel = document.createElement('span')
@@ -351,11 +355,20 @@ export async function openViewer(): Promise<void> {
     dom.controls.appendChild(btn)
   }
 
-  // Explode slider
+  // Explode slider — control board stays anchored, faceplate lifts up, main drops down
+  const controlZ = boards.find((b) => b.name === 'Control')?.baseZ ?? -11.7
+  const explodeRange = 25 // mm of travel at full explode
   dom.slider.addEventListener('input', () => {
-    const factor = parseFloat(dom.slider.value)
+    const t = parseFloat(dom.slider.value) // 0 = assembled, 1 = exploded
     for (const board of boards) {
-      board.group.position.z = board.baseZ * factor
+      if (board.name === 'Control') {
+        board.group.position.z = board.baseZ
+      } else if (board.name === 'Faceplate') {
+        board.group.position.z = board.baseZ + t * explodeRange
+      } else {
+        // Main board moves down
+        board.group.position.z = board.baseZ - t * explodeRange
+      }
     }
   })
 

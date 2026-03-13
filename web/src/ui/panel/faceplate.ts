@@ -152,6 +152,19 @@ export function createFaceplate(): FaceplateElements {
     modulePanel.appendChild(screw)
   }
 
+  // --- Standoff mounting points ---
+  const standoffs = (panelLayout as Record<string, unknown>).standoffs as
+    | { x_mm: number; y_mm: number }[]
+    | undefined
+  if (standoffs) {
+    for (const so of standoffs) {
+      const dot = document.createElement('div')
+      dot.className = 'standoff'
+      placeAt(dot, so.x_mm, so.y_mm)
+      modulePanel.appendChild(dot)
+    }
+  }
+
   // --- LCD bezel from lcd_cutout center ---
   const lcd = panelLayout.lcd_cutout
   const lcdBezel = document.createElement('div')
@@ -219,12 +232,11 @@ export function createFaceplate(): FaceplateElements {
   const encoderA = createEncoder(modulePanel, encAData)
   const encoderB = createEncoder(modulePanel, encBData)
 
-  // --- Control strip buttons (BACK, RAND, CLR, SET) ---
+  // --- Control strip buttons (BACK, RAND, CLR) ---
   const ctrlStrip = panelLayout.buttons.control_strip
   const backBtn = createCircleBtn(modulePanel, 'back-btn', ctrlStrip[0].x_mm, ctrlStrip[0].y_mm, 'BACK')
   const randBtn = createCircleBtn(modulePanel, 'rand-btn', ctrlStrip[1].x_mm, ctrlStrip[1].y_mm, 'RAND')
   const clrBtn = createCircleBtn(modulePanel, 'clr-btn', ctrlStrip[2].x_mm, ctrlStrip[2].y_mm, 'CLR')
-  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', ctrlStrip[3].x_mm, ctrlStrip[3].y_mm, 'SET')
 
   // --- Step buttons (2 rows of 8) ---
   const stepBtns: HTMLButtonElement[] = []
@@ -238,7 +250,7 @@ export function createFaceplate(): FaceplateElements {
     stepBtns.push(btn)
   }
 
-  // --- Transport buttons (PLAY, RESET) ---
+  // --- Transport buttons (PLAY, RESET, SET) ---
   const transportData = panelLayout.buttons.transport
   const playBtn = createCircleBtn(
     modulePanel,
@@ -254,18 +266,10 @@ export function createFaceplate(): FaceplateElements {
     transportData[1].y_mm,
     'RESET',
   )
+  const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', transportData[2].x_mm, transportData[2].y_mm, 'SET')
 
   // --- Utility jacks (MIDI stereo) ---
   for (const jack of panelLayout.jacks.utility) {
-    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
-  }
-
-  // --- Clock/Reset jacks (CLK IN/OUT, RST IN/OUT) ---
-  for (const jack of (panelLayout.jacks as Record<string, unknown>).clock as Array<{
-    x_mm: number
-    y_mm: number
-    label: string
-  }>) {
     createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
@@ -284,15 +288,15 @@ export function createFaceplate(): FaceplateElements {
 
   // --- Connectors (USB-C, SD) ---
   // Position the body at the coordinate; label floats above via CSS
-  const connectors = panelLayout.connectors as
+  const connectors = panelLayout.connectors as unknown as
     | {
         _note?: string
-        usb_c?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
-        sd_card?: { x_mm: number; y_mm: number; width_mm: number; height_mm: number }
+        usb_c?: { x_mm?: number; y_mm?: number; width_mm?: number; height_mm?: number }
+        sd_card?: { x_mm?: number; y_mm?: number; width_mm?: number; height_mm?: number }
       }
     | undefined
   const usbData = connectors?.usb_c
-  if (usbData) {
+  if (usbData?.x_mm != null && usbData.y_mm != null && usbData.width_mm != null && usbData.height_mm != null) {
     const usbEl = document.createElement('div')
     usbEl.className = 'connector-body usb-c-body'
     usbEl.innerHTML = `<div class="usb-c-port"></div>`
@@ -307,7 +311,7 @@ export function createFaceplate(): FaceplateElements {
   }
 
   const sdData = connectors?.sd_card
-  if (sdData) {
+  if (sdData?.x_mm != null && sdData.y_mm != null && sdData.width_mm != null && sdData.height_mm != null) {
     const sdEl = document.createElement('div')
     sdEl.className = 'connector-body sd-slot-body'
     sdEl.innerHTML = `<div class="sd-slot-opening"></div>`
@@ -658,6 +662,22 @@ const PANEL_CSS = `
     background: #111;
     border: 1px solid #333;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05);
+    z-index: 10;
+    transform: translate(-50%, -50%);
+  }
+
+  /* ══════════════════════════════════════════
+     STANDOFFS
+     ══════════════════════════════════════════ */
+
+  .standoff {
+    position: absolute;
+    width: ${3.2 * SCALE}px;
+    height: ${3.2 * SCALE}px;
+    border-radius: 50%;
+    background: #111;
+    border: 1px solid #333;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
     z-index: 10;
     transform: translate(-50%, -50%);
   }

@@ -5,7 +5,7 @@
     "height_mm": 127.5
   },
   "pcb": {
-    "_note": "Main PCB is smaller than faceplate — sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
+    "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
     "height_mm": 107.5,
     "origin_x_mm": 2.0,
@@ -16,12 +16,12 @@
     "component_gap_mm": 5.33,
     "btn_diameter_mm": 5.0,
     "btn_cc_mm": 10.7,
-    "step_btn_diameter_mm": 5.0,
-    "step_btn_cc_mm": 10.7,
+    "step_btn_diameter_mm": 4.5,
+    "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
     "jack_spacing_mm": 15.0,
-    "output_jack_spacing_mm": 14.0,
+    "output_jack_spacing_mm": 12.0,
     "jack_rotation_deg": -90,
     "encoder_diameter_mm": 14.5,
     "rect_btn_height_mm": 10.0,
@@ -39,15 +39,13 @@
     "sd_slot_h_mm": 2.5
   },
   "lcd_cutout": {
-    "_note": "Sized for bare glass seating (JC3248A035N-1). 1.5mm lip all around. Glass: 85.5x54.94mm, active: 73.44x48.96mm.",
+    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around for the glass to rest on. Full active area visible with margin.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
     "width_mm": 82.5,
     "height_mm": 52.0,
     "glass_w_mm": 85.5,
-    "glass_h_mm": 54.94,
-    "active_w_mm": 73.44,
-    "active_h_mm": 48.96
+    "glass_h_mm": 54.94
   },
   "mounting_slots": [
     {
@@ -71,29 +69,43 @@
       "y_mm": 124.5
     }
   ],
+  "standoffs": [
+    {
+      "id": "so_tl",
+      "x_mm": 5.5,
+      "y_mm": 12.5,
+      "_note": "Top-left M3 standoff, aligned with track button column"
+    },
+    {
+      "id": "so_bl",
+      "x_mm": 5.5,
+      "y_mm": 114.0,
+      "_note": "Bottom-left M3 standoff, aligned with track button column"
+    }
+  ],
   "buttons": {
     "track": [
       {
         "id": "t1",
-        "x_mm": 5.5,
+        "x_mm": 7.0,
         "y_mm": 19.5,
         "label": "1"
       },
       {
         "id": "t2",
-        "x_mm": 5.5,
+        "x_mm": 7.0,
         "y_mm": 30.2,
         "label": "2"
       },
       {
         "id": "t3",
-        "x_mm": 5.5,
+        "x_mm": 7.0,
         "y_mm": 40.9,
         "label": "3"
       },
       {
         "id": "t4",
-        "x_mm": 5.5,
+        "x_mm": 7.0,
         "y_mm": 51.6,
         "label": "4"
       }
@@ -166,82 +178,82 @@
       {
         "id": "step1",
         "x_mm": 17.33,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step2",
         "x_mm": 28.03,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step3",
         "x_mm": 38.73,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step4",
         "x_mm": 49.43,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step5",
         "x_mm": 60.13,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step6",
         "x_mm": 70.83,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step7",
         "x_mm": 81.53,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step8",
         "x_mm": 92.23,
-        "y_mm": 102.8
+        "y_mm": 101.8
       },
       {
         "id": "step9",
         "x_mm": 17.33,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step10",
         "x_mm": 28.03,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step11",
         "x_mm": 38.73,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step12",
         "x_mm": 49.43,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step13",
         "x_mm": 60.13,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step14",
         "x_mm": 70.83,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step15",
         "x_mm": 81.53,
-        "y_mm": 113.5
+        "y_mm": 112.5
       },
       {
         "id": "step16",
         "x_mm": 92.23,
-        "y_mm": 113.5
+        "y_mm": 112.5
       }
     ],
     "transport": [
@@ -256,6 +268,12 @@
         "x_mm": 145.0,
         "y_mm": 19.5,
         "label": "RESET"
+      },
+      {
+        "id": "settings",
+        "x_mm": 70.83,
+        "y_mm": 83.36,
+        "label": "SET"
       }
     ],
     "control_strip": [
@@ -276,12 +294,6 @@
         "x_mm": 60.13,
         "y_mm": 83.36,
         "label": "CLR"
-      },
-      {
-        "id": "settings",
-        "x_mm": 70.83,
-        "y_mm": 83.36,
-        "label": "SET"
       }
     ]
   },
@@ -303,14 +315,14 @@
     "utility": [
       {
         "id": "midi_in",
-        "x_mm": 158.0,
-        "y_mm": 20.0,
+        "x_mm": 159.0,
+        "y_mm": 32.0,
         "label": "MIDI IN"
       },
       {
         "id": "midi_out",
         "x_mm": 173.0,
-        "y_mm": 20.0,
+        "y_mm": 32.0,
         "label": "MIDI OUT"
       }
     ],
@@ -322,16 +334,16 @@
         "label": "CLK IN"
       },
       {
-        "id": "rst_in",
-        "x_mm": 145.0,
-        "y_mm": 46.0,
-        "label": "RST IN"
-      },
-      {
         "id": "clk_out",
         "x_mm": 159.0,
         "y_mm": 46.0,
         "label": "CLK OUT"
+      },
+      {
+        "id": "rst_in",
+        "x_mm": 145.0,
+        "y_mm": 46.0,
+        "label": "RST IN"
       },
       {
         "id": "rst_out",
@@ -340,37 +352,11 @@
         "label": "RST OUT"
       }
     ],
-    "cv_input": [
-      {
-        "id": "cv_a",
-        "x_mm": 131.0,
-        "y_mm": 59.0,
-        "label": "A"
-      },
-      {
-        "id": "cv_b",
-        "x_mm": 145.0,
-        "y_mm": 59.0,
-        "label": "B"
-      },
-      {
-        "id": "cv_c",
-        "x_mm": 159.0,
-        "y_mm": 59.0,
-        "label": "C"
-      },
-      {
-        "id": "cv_d",
-        "x_mm": 173.0,
-        "y_mm": 59.0,
-        "label": "D"
-      }
-    ],
     "output": [
       {
         "id": "gate1",
         "x_mm": 131.0,
-        "y_mm": 72.0,
+        "y_mm": 71.6,
         "label": "G1",
         "row": "gate",
         "track": 1
@@ -378,7 +364,7 @@
       {
         "id": "gate2",
         "x_mm": 145.0,
-        "y_mm": 72.0,
+        "y_mm": 71.6,
         "label": "G2",
         "row": "gate",
         "track": 2
@@ -386,7 +372,7 @@
       {
         "id": "gate3",
         "x_mm": 159.0,
-        "y_mm": 72.0,
+        "y_mm": 71.6,
         "label": "G3",
         "row": "gate",
         "track": 3
@@ -394,7 +380,7 @@
       {
         "id": "gate4",
         "x_mm": 173.0,
-        "y_mm": 72.0,
+        "y_mm": 71.6,
         "label": "G4",
         "row": "gate",
         "track": 4
@@ -402,7 +388,7 @@
       {
         "id": "pitch1",
         "x_mm": 131.0,
-        "y_mm": 85.0,
+        "y_mm": 84.4,
         "label": "P1",
         "row": "pitch",
         "track": 1
@@ -410,7 +396,7 @@
       {
         "id": "pitch2",
         "x_mm": 145.0,
-        "y_mm": 85.0,
+        "y_mm": 84.4,
         "label": "P2",
         "row": "pitch",
         "track": 2
@@ -418,7 +404,7 @@
       {
         "id": "pitch3",
         "x_mm": 159.0,
-        "y_mm": 85.0,
+        "y_mm": 84.4,
         "label": "P3",
         "row": "pitch",
         "track": 3
@@ -426,7 +412,7 @@
       {
         "id": "pitch4",
         "x_mm": 173.0,
-        "y_mm": 85.0,
+        "y_mm": 84.4,
         "label": "P4",
         "row": "pitch",
         "track": 4
@@ -434,7 +420,7 @@
       {
         "id": "vel1",
         "x_mm": 131.0,
-        "y_mm": 98.0,
+        "y_mm": 97.2,
         "label": "V1",
         "row": "vel",
         "track": 1
@@ -442,7 +428,7 @@
       {
         "id": "vel2",
         "x_mm": 145.0,
-        "y_mm": 98.0,
+        "y_mm": 97.2,
         "label": "V2",
         "row": "vel",
         "track": 2
@@ -450,7 +436,7 @@
       {
         "id": "vel3",
         "x_mm": 159.0,
-        "y_mm": 98.0,
+        "y_mm": 97.2,
         "label": "V3",
         "row": "vel",
         "track": 3
@@ -458,7 +444,7 @@
       {
         "id": "vel4",
         "x_mm": 173.0,
-        "y_mm": 98.0,
+        "y_mm": 97.2,
         "label": "V4",
         "row": "vel",
         "track": 4
@@ -466,7 +452,7 @@
       {
         "id": "mod1",
         "x_mm": 131.0,
-        "y_mm": 111.0,
+        "y_mm": 110.0,
         "label": "M1",
         "row": "mod",
         "track": 1
@@ -474,7 +460,7 @@
       {
         "id": "mod2",
         "x_mm": 145.0,
-        "y_mm": 111.0,
+        "y_mm": 110.0,
         "label": "M2",
         "row": "mod",
         "track": 2
@@ -482,7 +468,7 @@
       {
         "id": "mod3",
         "x_mm": 159.0,
-        "y_mm": 111.0,
+        "y_mm": 110.0,
         "label": "M3",
         "row": "mod",
         "track": 3
@@ -490,22 +476,57 @@
       {
         "id": "mod4",
         "x_mm": 173.0,
-        "y_mm": 111.0,
+        "y_mm": 110.0,
         "label": "M4",
         "row": "mod",
         "track": 4
       }
+    ],
+    "cv_input": [
+      {
+        "id": "cv_a",
+        "x_mm": 131.0,
+        "y_mm": 58.8,
+        "label": "A"
+      },
+      {
+        "id": "cv_b",
+        "x_mm": 145.0,
+        "y_mm": 58.8,
+        "label": "B"
+      },
+      {
+        "id": "cv_c",
+        "x_mm": 159.0,
+        "y_mm": 58.8,
+        "label": "C"
+      },
+      {
+        "id": "cv_d",
+        "x_mm": 173.0,
+        "y_mm": 58.8,
+        "label": "D"
+      }
     ]
   },
   "connectors": {
-    "_note": "SD card on control board, protrudes through faceplate cutout. USB-C is edge-mounted on main board (not on faceplate).",
+    "_note": "SD card on control board (protrudes through faceplate). USB-C is edge-mounted on main board.",
     "sd_card": {
-      "id": "sd_card",
+      "part": "PJS008U-3000-0 (Yamaichi vertical MicroSD)",
+      "height_above_pcb_mm": 14.18,
+      "protrusion_above_panel_mm": 2.6,
+      "faceplate_cutout_mm": "13 x 3",
       "x_mm": 131.0,
       "y_mm": 32.0,
       "width_mm": 13.0,
       "height_mm": 3.0,
       "label": "SD"
+    },
+    "usb_c": {
+      "_note": "Edge-mounted on main board, not on faceplate",
+      "part": "TYPE-C-31-M-12 (Korean Hroparts Elec, SMD mid-mount)",
+      "lcsc": "C165948",
+      "location": "main_board_edge"
     }
   },
   "footprints": {
@@ -573,6 +594,42 @@
         "x2": 8.0,
         "y2": 9.0
       }
+    },
+    "fpc_18p_05mm": {
+      "description": "18-pin 0.5mm FPC ZIF connector for display",
+      "body": {
+        "x1": -5.75,
+        "y1": -2.5,
+        "x2": 5.75,
+        "y2": 2.5
+      },
+      "courtyard": {
+        "x1": -6.5,
+        "y1": -3.5,
+        "x2": 6.5,
+        "y2": 3.5
+      }
+    },
+    "pjs008u": {
+      "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
+      "body": {
+        "x1": -6.0,
+        "y1": -1.25,
+        "x2": 6.0,
+        "y2": 1.25
+      },
+      "courtyard": {
+        "x1": -6.5,
+        "y1": -1.75,
+        "x2": 6.5,
+        "y2": 1.75
+      }
+    },
+    "m3_standoff": {
+      "description": "M3 female-female hex standoff, 10mm length, 5.5mm hex body",
+      "drill_mm": 3.2,
+      "hex_af_mm": 5.5,
+      "clearance_mm": 6.0
     }
   }
 }

@@ -1,0 +1,76 @@
+{
+  "boards": {
+    "control": {
+      "pcb_source": "elec/layout/control/control.kicad_pcb",
+      "dimensions_from": "component-map",
+      "placement": {
+        "strategy": "panel-layout",
+        "padding_sequence": [2.0, 1.5, 1.0, 0.5, 0.0],
+        "named_positions": {
+          "connector.header_a": {"x": 20, "y": 42, "front": false},
+          "connector.header_b": {"x": 88, "y": 42, "front": false},
+          "midi.opto": {"x": 55, "y": 15, "front": false},
+          "midi.r_in": {"x": 65, "y": 15, "front": false}
+        },
+        "module_ic_spacing": {
+          "leds.": 13.0
+        }
+      }
+    },
+    "main": {
+      "pcb_source": "elec/layout/main/main.kicad_pcb",
+      "dimensions": {"width_mm": 103.0, "height_mm": 84.0},
+      "placement": {
+        "strategy": "compact-grid",
+        "padding_sequence": [4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.0],
+        "named_positions": {
+          "connector.header_a": {"x": 20, "y": 42, "front": true},
+          "connector.header_b": {"x": 88, "y": 42, "front": true},
+          "mcu.pga": {"x": 51, "y": 42, "front": false},
+          "power.header": {"x": 95.5, "y": 42, "front": false},
+          "display.header": {"x": 51, "y": 14, "front": false}
+        },
+        "ic_spacing": 12.0,
+        "passive_spacing": 5.0,
+        "margin": 3.0
+      }
+    }
+  },
+  "drc": {
+    "control": {
+      "expected_errors": [
+        {
+          "description": "Clearance violation",
+          "component": "X54",
+          "comment": "SD card footprint: 1.1mm pad pitch < netclass clearance"
+        },
+        {
+          "description": "solder mask aperture bridges",
+          "component": "X54",
+          "comment": "SD card footprint: adjacent pads too close for mask slivers"
+        },
+        {
+          "description": "Board edge clearance violation",
+          "comment": "Components near board edge within 0.3mm constraint"
+        }
+      ]
+    },
+    "main": {
+      "expected_errors": [
+        {
+          "description": "Board edge clearance violation",
+          "comment": "Components near board edge within 0.3mm constraint"
+        }
+      ]
+    }
+  },
+  "routing": {
+    "max_passes": 20,
+    "threads": 1,
+    "optimization_improvement_threshold": 1,
+    "timeout": 3600,
+    "java_opts": "-Xmx512m",
+    "ses_min_size_bytes": 50000,
+    "headless": false
+  }
+}

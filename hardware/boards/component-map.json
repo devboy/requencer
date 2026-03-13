@@ -77,6 +77,11 @@
     { "id": "br", "x_mm": 174.38, "y_mm": 124.5 }
   ],
 
+  "standoffs": [
+    { "id": "so_tl", "x_mm": 5.5, "y_mm": 12.5, "_note": "Top-left M3 standoff, aligned with track button column" },
+    { "id": "so_bl", "x_mm": 5.5, "y_mm": 114.0, "_note": "Bottom-left M3 standoff, aligned with track button column" }
+  ],
+
   "footprints": {
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "pj398sm": {
@@ -110,8 +115,14 @@
     },
     "pjs008u": {
       "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",
-      "body":      { "x1": -7.0, "y1": -6.5, "x2": 7.0, "y2": 6.5 },
-      "courtyard": { "x1": -8.0, "y1": -7.5, "x2": 8.0, "y2": 7.5 }
+      "body":      { "x1": -6.0, "y1": -1.25, "x2": 6.0, "y2": 1.25 },
+      "courtyard": { "x1": -6.5, "y1": -1.75, "x2": 6.5, "y2": 1.75 }
+    },
+    "m3_standoff": {
+      "description": "M3 female-female hex standoff, 10mm length, 5.5mm hex body",
+      "drill_mm": 3.2,
+      "hex_af_mm": 5.5,
+      "clearance_mm": 6.0
     }
   },
 
@@ -121,7 +132,11 @@
       "part": "PJS008U-3000-0 (Yamaichi vertical MicroSD)",
       "height_above_pcb_mm": 14.18,
       "protrusion_above_panel_mm": 2.6,
-      "faceplate_cutout_mm": "13 x 3"
+      "faceplate_cutout_mm": "13 x 3",
+      "x_mm": 131.0,
+      "y_mm": 32.0,
+      "width_mm": 13.0,
+      "height_mm": 3.0
     },
     "usb_c": {
       "_note": "Edge-mounted on main board, not on faceplate",
@@ -132,10 +147,10 @@
   },
 
   "components": {
-    "jacks.j_clk_in":   { "group": "jacks.utility",  "id": "clk_in",  "label": "CLK IN",   "type": "jack" },
-    "jacks.j_clk_out":  { "group": "jacks.utility",  "id": "clk_out", "label": "CLK OUT",  "type": "jack" },
-    "jacks.j_rst_in":   { "group": "jacks.utility",  "id": "rst_in",  "label": "RST IN",   "type": "jack" },
-    "jacks.j_rst_out":  { "group": "jacks.utility",  "id": "rst_out", "label": "RST OUT",  "type": "jack" },
+    "jacks.j_clk_in":   { "group": "jacks.clock",    "id": "clk_in",  "label": "CLK IN",   "type": "jack" },
+    "jacks.j_clk_out":  { "group": "jacks.clock",    "id": "clk_out", "label": "CLK OUT",  "type": "jack" },
+    "jacks.j_rst_in":   { "group": "jacks.clock",    "id": "rst_in",  "label": "RST IN",   "type": "jack" },
+    "jacks.j_rst_out":  { "group": "jacks.clock",    "id": "rst_out", "label": "RST OUT",  "type": "jack" },
     "midi.jack_in":     { "group": "jacks.utility",  "id": "midi_in", "label": "MIDI IN",  "type": "jack" },
     "midi.jack_out":    { "group": "jacks.utility",  "id": "midi_out","label": "MIDI OUT", "type": "jack" },
 

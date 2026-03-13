@@ -1,0 +1,45 @@
+{
+  "board_minimums": {
+    "track_min_width": 0.15,
+    "min_clearance": 0.127,
+    "via_min_size": 0.45,
+    "via_min_drill": 0.2,
+    "via_min_annular_width": 0.13,
+    "copper_edge_clearance": 0.3,
+    "hole_clearance": 0.25,
+    "hole_to_hole_min": 0.5,
+    "min_through_drill": 0.2
+  },
+  "solder_mask": {
+    "expansion": 0.05,
+    "min_width": 0.1
+  },
+  "silkscreen": {
+    "min_text_height": 1.0,
+    "min_text_thickness": 0.15
+  },
+  "netclasses": {
+    "Default": {
+      "track_width": 0.2,
+      "clearance": 0.127,
+      "via_diameter": 0.6,
+      "via_drill": 0.3
+    },
+    "Power": {
+      "track_width": 0.3,
+      "clearance": 0.15,
+      "via_diameter": 0.8,
+      "via_drill": 0.4
+    },
+    "Analog": {
+      "track_width": 0.3,
+      "clearance": 0.15,
+      "via_diameter": 0.6,
+      "via_drill": 0.3
+    }
+  },
+  "net_assignments": {
+    "Power": ["hv", "lv", "v12p", "v12n"],
+    "Analog": ["^(gate\\d|pitch\\d|vel\\d|mod\\d|cv_[a-d]|clk_in|clk_out|rst_in|rst_out)$"]
+  }
+}
