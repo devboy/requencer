@@ -29,9 +29,12 @@
 - `make build-firmware` — Build RP2350 firmware
 - `make flash` — Flash firmware to RP2350
 - `make hw-build` — Build Atopile schematic
-- `make hw-all` — Full hardware pipeline (build → footprints → faceplate → place → route → export)
-- `make hw-export-layout` — Export panel layout JSON from placed PCB
-- `make hw-fetch-pcb` — Fetch latest placed PCB from GitHub Actions
+- `make hw-all` — Full hardware pipeline (place → route → gnd-pours → faceplate → 3d → export)
+- `make hw-place` — Place both boards + export panel layout
+- `make hw-route` — Route both boards (FreeRouting)
+- `make hw-3d` — Add 3D models → export STEP → convert to GLB for web viewer
+- `make hw-3d-models` — Regenerate custom STEP files for parts
+- `make hw-clean` — Remove hardware build artifacts
 
 ### Rust (from repo root)
 - `cargo test` — Run Rust tests
@@ -81,21 +84,25 @@ web/
     ui/              # TS: Canvas rendering
     main.ts          # Entry point
 hardware/
-  boards/            # Atopile: Multi-board PCB project
-    ato.yaml           # Build config (control + main + system entries)
-    component-map.json # UI metadata keyed by atopile address (source of truth for dims)
+  Makefile             # Hardware pipeline with file-based dependencies
+  boards/              # Atopile: Multi-board PCB project
+    ato.yaml             # Build config (control + main + system entries)
+    board-config.json    # Per-board placement/routing settings
+    component-map.json   # UI metadata keyed by atopile address (source of truth for dims)
+    design-rules.json    # Netclasses, clearances, net assignments
     elec/
-      src/             # Atopile source (.ato files)
+      src/               # Atopile source (.ato files)
       layout/
-        control/       # KiCad output for control board
-        main/          # KiCad output for main board
+        control/         # KiCad output for control board
+        main/            # KiCad output for main board
     scripts/
-      export_layout.py     # KiCad PCB → web/src/panel-layout.json exporter
-      place_components.py  # Component placement (--board control|main)
-      gen_validation.py    # Generate system.ato validation build
-      preflight_check.py   # Fast pre-build validation
-  faceplate/         # Atopile: Front panel PCB
-  docker/            # Docker image for hardware build tools
+      common/            # Shared: design_rules.py, kicad_env.py
+      build/             # gen_validation.py, generate_footprints.py, preflight_check.py
+      placement/         # place_components.py, export_layout.py
+      routing/           # autoroute.py, import_ses.py, add_ground_pours.py
+      export/            # export_manufacturing.py, export_3d_assembly.py, export_gltf.py
+      models/            # KiCad 3D models: generate_3d_models.py, add_3d_models.py
+  faceplate/           # Atopile: Front panel PCB
 web/
   src/
     panel-layout.json # Generated layout (positions from PCB + metadata from component-map)
