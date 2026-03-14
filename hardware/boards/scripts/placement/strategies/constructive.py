@@ -44,8 +44,10 @@ class ConstructiveStrategy:
         order = params.get("order", "connectivity")
         padding = params.get("padding", 1.0)
 
+        tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
         tracker = CollisionTracker(
             ctx.width, ctx.height, clearance=0.5, extra_padding=padding,
+            tht_extra_clearance=tht_extra,
         )
 
         # Register fixed components at their BBOX CENTER, not footprint origin.
@@ -89,6 +91,7 @@ class ConstructiveStrategy:
             result = find_best_side(
                 tracker, search_cx, search_cy,
                 info.width, info.height, info.is_tht,
+                smd_side=ctx.smd_side,
             )
             if result is None:
                 continue  # can't place — validation will catch it

@@ -182,7 +182,9 @@ class ForceDirectedStrategy:
                 positions[addr] = (nx, ny)
 
         # Legalization: snap to collision-free positions
-        tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5)
+        tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
+        tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
+                                   tht_extra_clearance=tht_extra)
 
         # Register fixed components at bbox center
         for addr, p in ctx.fixed.items():
@@ -211,6 +213,7 @@ class ForceDirectedStrategy:
             result = find_best_side(
                 tracker, search_cx, search_cy,
                 info.width, info.height, info.is_tht,
+                smd_side=ctx.smd_side,
             )
             if result is None:
                 continue  # can't place — validation will catch it

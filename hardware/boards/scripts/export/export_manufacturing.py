@@ -9,15 +9,21 @@ Generates:
 Usage:
     python export_manufacturing.py <board.kicad_pcb> [output_dir]
 
-Requires: kicad-cli (set PATH to include KiCad.app/Contents/MacOS)
+Must be run with KiCad's Python (KICAD_PYTHON) for pcbnew access.
 """
 
 import csv
-import json
 import os
 import subprocess
 import sys
 import zipfile
+
+# Add parent dirs to path for common imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from common.kicad_env import setup_kicad_env, get_kicad_cli
+
+setup_kicad_env()
+import pcbnew
 
 
 def run(cmd, **kwargs):
@@ -25,24 +31,35 @@ def run(cmd, **kwargs):
     subprocess.run(cmd, check=True, **kwargs)
 
 
+def sanitize_value(value):
+    """Replace special characters that cause JLCPCB CSV parse issues."""
+    replacements = {
+        "±": "+-",
+        "Ω": "Ohm",
+        "µ": "u",
+        "°": "deg",
+    }
+    for char, repl in replacements.items():
+        value = value.replace(char, repl)
+    return value
+
+
 def export_gerbers(pcb_path, output_dir):
     """Export Gerber files + drill files."""
     gerber_dir = os.path.join(output_dir, "gerbers")
     os.makedirs(gerber_dir, exist_ok=True)
+    cli = get_kicad_cli()
 
-    # Gerber layers
-    run(["kicad-cli", "pcb", "export", "gerbers", pcb_path,
+    run([cli, "pcb", "export", "gerbers", pcb_path,
          "-o", gerber_dir + "/",
          "--no-protel-ext"])
 
-    # Drill files
-    run(["kicad-cli", "pcb", "export", "drill", pcb_path,
+    run([cli, "pcb", "export", "drill", pcb_path,
          "-o", gerber_dir + "/",
          "--format", "excellon",
          "--drill-origin", "absolute",
          "--excellon-units", "mm"])
 
-    # Package into ZIP
     zip_path = os.path.join(output_dir, "requencer-gerbers.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(gerber_dir):
@@ -54,89 +71,102 @@ def export_gerbers(pcb_path, output_dir):
     return zip_path
 
 
-def export_bom(pcb_path, output_dir):
-    """Export BOM CSV with LCSC part numbers.
+def _get_components(board):
+    """Extract SMD component data from a pcbnew Board object.
 
-    JLCPCB BOM format:
-    Comment, Designator, Footprint, LCSC Part Number
+    Returns list of dicts with reference, value, footprint, lcsc.
+    Skips components excluded from BOM or position files.
+    """
+    # Use auxiliary origin (drill origin) so CPL coordinates match gerbers/drills.
+    # JLCPCB expects positions relative to this origin.
+    aux_origin = board.GetDesignSettings().GetAuxOrigin()
+    ox = pcbnew.ToMM(aux_origin.x)
+    oy = pcbnew.ToMM(aux_origin.y)
 
-    Sources (in priority order):
-    1. Atopile BOM at hardware/boards/build/builds/<board>/<board>.bom.csv
-    2. KiCad schematic adjacent to PCB (kicad-cli sch export bom)
+    components = []
+    for fp in board.GetFootprints():
+        attrs = fp.GetAttributes()
+        if attrs & pcbnew.FP_EXCLUDE_FROM_BOM:
+            continue
+        if attrs & pcbnew.FP_EXCLUDE_FROM_POS_FILES:
+            continue
+        if not (attrs & pcbnew.FP_SMD):
+            continue
+
+        ref = fp.GetReference()
+        if not ref or ref == "REF**":
+            continue
+
+        fp_name = fp.GetFPID().GetUniStringLibItemName()
+        lcsc = fp.GetFieldText("LCSC") if fp.HasFieldByName("LCSC") else ""
+
+        pos = fp.GetPosition()
+        layer = fp.GetLayer()
+
+        components.append({
+            "reference": ref,
+            "value": fp.GetValue(),
+            "footprint": fp_name,
+            "lcsc": lcsc,
+            "x": pcbnew.ToMM(pos.x) - ox,
+            "y": -(pcbnew.ToMM(pos.y) - oy),
+            "rotation": fp.GetOrientationDegrees(),
+            "layer": "Top" if layer == pcbnew.F_Cu else "Bottom",
+        })
+
+    return components
+
+
+def export_bom(components, output_dir):
+    """Export BOM CSV matching the Bouni/kicad-jlcpcb-tools format.
+
+    Header: Comment, Designator, Footprint, LCSC
+    Groups identical components into one row.
     """
     bom_path = os.path.join(output_dir, "jlcpcb-bom.csv")
 
-    # Try atopile BOM first (has LCSC part numbers from EasyEDA picker)
-    # Detect board name from PCB filename (e.g., "control-routed.kicad_pcb" -> "control")
-    boards_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-    pcb_basename = os.path.basename(pcb_path)
-    board_name = pcb_basename.split("-")[0] if "-" in pcb_basename else "default"
-    ato_bom = os.path.join(boards_dir, "build", "builds", board_name, f"{board_name}.bom.csv")
-    ato_bom = os.path.normpath(ato_bom)
+    groups = {}
+    for c in components:
+        key = (c["value"], c["footprint"], c["lcsc"])
+        groups.setdefault(key, []).append(c["reference"])
 
-    if os.path.exists(ato_bom):
-        print(f"  Using atopile BOM: {ato_bom}")
-        with open(ato_bom) as fin, open(bom_path, "w", newline="") as fout:
-            reader = csv.DictReader(fin)
-            writer = csv.writer(fout)
-            writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
-            for row in reader:
-                writer.writerow([
-                    row.get("Value", ""),
-                    row.get("Designator", ""),
-                    row.get("Footprint", ""),
-                    row.get("LCSC Part #", ""),
-                ])
-        print(f"  BOM: {bom_path}")
-        return bom_path
+    with open(bom_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Comment", "Designator", "Footprint", "LCSC"])
+        for (value, footprint, lcsc), refs in sorted(groups.items()):
+            writer.writerow([
+                sanitize_value(value),
+                ", ".join(sorted(refs)),
+                footprint,
+                lcsc,
+            ])
 
-    # Fallback: kicad-cli from schematic
-    raw_bom = os.path.join(output_dir, "raw-bom.csv")
-    schematic = pcb_path.replace(".kicad_pcb", ".kicad_sch")
-
-    if os.path.exists(schematic):
-        run(["kicad-cli", "sch", "export", "bom", schematic,
-             "-o", raw_bom,
-             "--fields", "Reference,Value,Footprint,LCSC"])
-        if os.path.exists(raw_bom):
-            with open(raw_bom) as fin, open(bom_path, "w", newline="") as fout:
-                reader = csv.DictReader(fin)
-                writer = csv.writer(fout)
-                writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
-                for row in reader:
-                    writer.writerow([
-                        row.get("Value", ""),
-                        row.get("Reference", ""),
-                        row.get("Footprint", ""),
-                        row.get("LCSC", ""),
-                    ])
-            os.remove(raw_bom)
-    else:
-        print(f"  WARNING: No BOM source found (no atopile BOM, no schematic)")
-        with open(bom_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Comment", "Designator", "Footprint", "LCSC Part Number"])
-
-    print(f"  BOM: {bom_path}")
+    print(f"  BOM: {bom_path} ({len(groups)} unique parts, {len(components)} placements)")
     return bom_path
 
 
-def export_cpl(pcb_path, output_dir):
-    """Export component placement list (pick-and-place).
+def export_cpl(components, output_dir):
+    """Export CPL CSV matching JLCPCB format.
 
-    JLCPCB CPL format:
-    Designator, Val, Package, Mid X, Mid Y, Rotation, Layer
+    Header: Designator, Val, Package, Mid X, Mid Y, Rotation, Layer
     """
     cpl_path = os.path.join(output_dir, "jlcpcb-cpl.csv")
 
-    run(["kicad-cli", "pcb", "export", "pos", pcb_path,
-         "-o", cpl_path,
-         "--format", "csv",
-         "--units", "mm",
-         "--side", "both",
-         "--use-drill-file-origin"])
+    with open(cpl_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Designator", "Val", "Package", "Mid X", "Mid Y", "Rotation", "Layer"])
+        for c in sorted(components, key=lambda c: c["reference"]):
+            writer.writerow([
+                c["reference"],
+                sanitize_value(c["value"]),
+                c["footprint"],
+                f"{c['x']:.6f}",
+                f"{c['y']:.6f}",
+                f"{c['rotation']:.6f}",
+                c["layer"],
+            ])
 
-    print(f"  CPL: {cpl_path}")
+    print(f"  CPL: {cpl_path} ({len(components)} placements)")
     return cpl_path
 
 
@@ -153,8 +183,37 @@ def main():
 
     print(f"=== Exporting manufacturing files from {pcb_path} ===")
     export_gerbers(pcb_path, output_dir)
-    export_bom(pcb_path, output_dir)
-    export_cpl(pcb_path, output_dir)
+
+    board = pcbnew.LoadBoard(pcb_path)
+    components = _get_components(board)
+    print(f"  {len(components)} SMD components for assembly")
+
+    bom_path = export_bom(components, output_dir)
+    cpl_path = export_cpl(components, output_dir)
+
+    # Cross-check: BOM and CPL should have identical designator sets
+    bom_desigs = set()
+    with open(bom_path) as f:
+        for row in csv.DictReader(f):
+            for d in row.get("Designator", "").split(","):
+                d = d.strip()
+                if d:
+                    bom_desigs.add(d)
+    cpl_desigs = set()
+    with open(cpl_path) as f:
+        for row in csv.DictReader(f):
+            cpl_desigs.add(row.get("Designator", "").strip())
+
+    if bom_desigs != cpl_desigs:
+        bom_only = bom_desigs - cpl_desigs
+        cpl_only = cpl_desigs - bom_desigs
+        if bom_only:
+            print(f"  WARNING: {len(bom_only)} BOM-only: {', '.join(sorted(bom_only)[:10])}")
+        if cpl_only:
+            print(f"  WARNING: {len(cpl_only)} CPL-only: {', '.join(sorted(cpl_only)[:10])}")
+    else:
+        print(f"  BOM/CPL match: {len(bom_desigs)} designators")
+
     print(f"\n=== Manufacturing files ready in {output_dir} ===")
     print("Upload to JLCPCB:")
     print(f"  Gerbers: {output_dir}/requencer-gerbers.zip")

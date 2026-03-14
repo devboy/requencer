@@ -153,9 +153,7 @@ export function createFaceplate(): FaceplateElements {
   }
 
   // --- Standoff mounting points ---
-  const standoffs = (panelLayout as Record<string, unknown>).standoffs as
-    | { x_mm: number; y_mm: number }[]
-    | undefined
+  const standoffs = (panelLayout as Record<string, unknown>).standoffs as { x_mm: number; y_mm: number }[] | undefined
   if (standoffs) {
     for (const so of standoffs) {
       const dot = document.createElement('div')
@@ -691,7 +689,7 @@ const PANEL_CSS = `
     border-radius: 1px;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.9);
     /* Asymmetric bezels: L=8.40 R=3.66 T=2.99 B=2.99 mm */
-    padding: ${2.99 * SCALE}px ${3.66 * SCALE}px ${2.99 * SCALE}px ${8.40 * SCALE}px;
+    padding: ${2.99 * SCALE}px ${3.66 * SCALE}px ${2.99 * SCALE}px ${8.4 * SCALE}px;
   }
 
   #lcd-canvas {

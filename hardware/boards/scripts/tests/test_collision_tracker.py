@@ -183,6 +183,49 @@ class TestOverlapReport:
         assert t.overlap_report() == []
 
 
+class TestThtExtraClearance:
+    def test_tht_gets_extra_clearance(self):
+        """THT component with extra clearance pushes nearby SMD away."""
+        t = CollisionTracker(100, 100, clearance=0.5, tht_extra_clearance=2.0)
+        # Register THT at (50,50) with 5x5 body.
+        # Margin = 0.5 + 2.0 = 2.5, rect: x in (45.0..55.0).
+        t.register(50, 50, 5, 5, "F", True, "tht_part")
+        # SMD at (56, 50) with 3x3: body spans 54.5..57.5 — overlaps rect (45..55).
+        # With standard 0.5 clearance only, rect would be (47..53), no overlap.
+        assert t.collides(56, 50, 3, 3, "F")
+        # Further away, no collision
+        assert not t.collides(60, 50, 3, 3, "F")
+
+    def test_smd_unaffected(self):
+        """SMD components keep standard clearance even when tht_extra > 0."""
+        t = CollisionTracker(100, 100, clearance=0.5, tht_extra_clearance=2.0)
+        t.register(50, 50, 5, 5, "F", False, "smd_part")
+        # Margin = 0.5 only (no extra). Rect: (47..53).
+        # SMD at (56.5, 50) with 3x3 body: body 55..58 — no overlap with 47..53.
+        assert not t.collides(56.5, 50, 3, 3, "F")
+
+    def test_overlap_report_uses_per_rect_margin(self):
+        """overlap_report shrinks each rect by its own margin, not global clearance."""
+        t = CollisionTracker(100, 100, clearance=0.5, tht_extra_clearance=2.0)
+        # THT at (50, 50), 5x5 — margin=2.5, rect=(44..56). Body=(47.5..52.5).
+        t.register(50, 50, 5, 5, "F", True, "tht")
+        # SMD at (55, 50), 5x5 — margin=0.5, rect=(52..58). Body=(52.5..57.5).
+        t.register(55, 50, 5, 5, "F", False, "smd")
+        # Bodies don't overlap (52.5..52.5 = zero overlap), so no physical overlap.
+        overlaps = t.overlap_report()
+        assert len(overlaps) == 0
+
+    def test_default_zero_preserves_behavior(self):
+        """When tht_extra_clearance is omitted (default 0), behavior is unchanged."""
+        t = CollisionTracker(100, 100, clearance=0.5)
+        t.register(10, 10, 5, 5, "F", True, "tht")
+        # Same behavior as test_tht_collides_both_sides
+        assert t.collides(13, 10, 5, 5, "F")
+        assert t.collides(13, 10, 5, 5, "B")
+        # At sufficient distance, no collision
+        assert not t.collides(20, 10, 5, 5, "F")
+
+
 class TestFindLargestFreeRects:
     def test_finds_rects_on_empty_board(self):
         t = CollisionTracker(100, 100, clearance=0.5)

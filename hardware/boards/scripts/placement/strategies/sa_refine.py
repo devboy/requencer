@@ -30,7 +30,9 @@ from . import BoardContext, Placement, register
 
 def _initial_constructive(ctx, rng):
     """Quick constructive placement as starting point for SA."""
-    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5)
+    tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
+                               tht_extra_clearance=tht_extra)
 
     # Register fixed at bbox center
     for addr, p in ctx.fixed.items():
@@ -82,6 +84,7 @@ def _initial_constructive(ctx, rng):
         result = find_best_side(
             tracker, search_cx, search_cy,
             info.width, info.height, info.is_tht,
+            smd_side=ctx.smd_side,
         )
         if result is None:
             continue  # can't place — validation will catch it
@@ -99,7 +102,9 @@ def _initial_constructive(ctx, rng):
 
 def _rebuild_tracker(ctx, placements, fixed_info):
     """Build a fresh collision tracker from current placements + fixed."""
-    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5)
+    tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
+                               tht_extra_clearance=tht_extra)
     for addr, p in ctx.fixed.items():
         info = fixed_info[addr]
         tracker.register(p.x + info.cx_offset, p.y + info.cy_offset,
@@ -199,8 +204,12 @@ class SARefineStrategy:
         bcx = new_x + info.cx_offset
         bcy = new_y + info.cy_offset
 
-        # Try both sides
-        for side in [old_p.side, "F" if old_p.side == "B" else "B"]:
+        # Try allowed sides (current side first, then opposite if permitted)
+        allowed = [old_p.side]
+        other = "F" if old_p.side == "B" else "B"
+        if ctx.smd_side == "both" or ctx.smd_side == other:
+            allowed.append(other)
+        for side in allowed:
             if not tracker.collides(bcx, bcy, info.width, info.height,
                                     side, info.is_tht):
                 new_p = Placement(x=new_x, y=new_y, side=side)

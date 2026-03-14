@@ -15,11 +15,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 /** Visual properties per board (Z positions loaded from stack-up.json at runtime) */
 const BOARD_STYLE: Record<string, { file: string; color: number; pcbColor: number }> = {
   faceplate: { file: 'faceplate.glb', color: 0x1a1a1a, pcbColor: 0x111111 },
-  control:   { file: 'control.glb',   color: 0x006633, pcbColor: 0x0a5c2a },
-  main:      { file: 'main.glb',      color: 0x003366, pcbColor: 0x0a5c2a },
+  control: { file: 'control.glb', color: 0x006633, pcbColor: 0x0a5c2a },
+  main: { file: 'main.glb', color: 0x003366, pcbColor: 0x0a5c2a },
 }
 
-interface StackUpEntry { z: number; thickness: number }
+interface StackUpEntry {
+  z: number
+  thickness: number
+}
 interface StackUpData {
   stack_up: Record<string, StackUpEntry>
   pcb_origin: { x: number; y: number }
@@ -27,8 +30,11 @@ interface StackUpData {
 }
 
 interface BoardDef {
-  name: string; file: string; z: number
-  color: number; pcbColor: number
+  name: string
+  file: string
+  z: number
+  color: number
+  pcbColor: number
 }
 
 async function loadStackUp(): Promise<{ defs: BoardDef[]; pcbOrigin: { x: number; y: number } }> {
@@ -36,7 +42,7 @@ async function loadStackUp(): Promise<{ defs: BoardDef[]; pcbOrigin: { x: number
   const resp = await fetch(url)
   const data: StackUpData = await resp.json()
 
-  const defs: BoardDef[] = data.boards.map(name => {
+  const defs: BoardDef[] = data.boards.map((name) => {
     const style = BOARD_STYLE[name] ?? { file: `${name}.glb`, color: 0x006633, pcbColor: 0x0a5c2a }
     const entry = data.stack_up[name] ?? { z: 0, thickness: 1.6 }
     return {
@@ -53,8 +59,7 @@ async function loadStackUp(): Promise<{ defs: BoardDef[]; pcbOrigin: { x: number
 
 /** Materials for different part types (DoubleSide: STEP tessellation has inconsistent normals) */
 const SIDE = THREE.DoubleSide
-const mat = (props: THREE.MeshStandardMaterialParameters) =>
-  new THREE.MeshStandardMaterial({ side: SIDE, ...props })
+const mat = (props: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ side: SIDE, ...props })
 
 /** polygonOffset prevents Z-fighting between coplanar PCB layers.
  *  Positive factor = pushed back in depth. Real PCB layer order (top to bottom):
@@ -62,20 +67,42 @@ const mat = (props: THREE.MeshStandardMaterialParameters) =>
  *  Soldermask covers copper traces; pads poke through the mask. */
 const MATERIALS = {
   // FR4 PCB substrate (bottommost)
-  pcb: (color: number) => mat({ color, roughness: 0.7, metalness: 0.05,
-    polygonOffset: true, polygonOffsetFactor: 6, polygonOffsetUnits: 6 }),
+  pcb: (color: number) =>
+    mat({ color, roughness: 0.7, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: 6, polygonOffsetUnits: 6 }),
   // Faceplate — anodized aluminum
   faceplate: () => mat({ color: 0x1a1a1e, roughness: 0.3, metalness: 0.8 }),
   // Copper traces / zones (under soldermask, visible as subtle pattern)
-  copper: () => mat({ color: 0xb87333, roughness: 0.4, metalness: 0.8,
-    polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 4 }),
+  copper: () =>
+    mat({
+      color: 0xb87333,
+      roughness: 0.4,
+      metalness: 0.8,
+      polygonOffset: true,
+      polygonOffsetFactor: 4,
+      polygonOffsetUnits: 4,
+    }),
   // Soldermask — semi-transparent green coating over copper
-  soldermask: (color: number) => mat({ color, roughness: 0.4, metalness: 0.05,
-    transparent: true, opacity: 0.85,
-    polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }),
+  soldermask: (color: number) =>
+    mat({
+      color,
+      roughness: 0.4,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.85,
+      polygonOffset: true,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 2,
+    }),
   // Pads — HASL tin finish (exposed through soldermask openings)
-  pad: () => mat({ color: 0xc0c0c0, roughness: 0.3, metalness: 0.9,
-    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+  pad: () =>
+    mat({
+      color: 0xc0c0c0,
+      roughness: 0.3,
+      metalness: 0.9,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    }),
   // Silkscreen — white ink (on top of everything)
   silkscreen: () => mat({ color: 0xf0f0f0, roughness: 0.8, metalness: 0.0 }),
   // Via barrels (vertical, no Z-fighting)
@@ -207,7 +234,9 @@ function applyBoardMaterials(root: THREE.Object3D, boardName: string, pcbColor: 
       case 'component': {
         // Keep original materials from GLB (PBR fixed in post-processing).
         // Just ensure double-sided rendering for STEP tessellation quirks.
-        const setSide = (m: THREE.Material) => { m.side = SIDE }
+        const setSide = (m: THREE.Material) => {
+          m.side = SIDE
+        }
         const orig = child.material
         if (Array.isArray(orig)) orig.forEach(setSide)
         else setSide(orig)
@@ -332,7 +361,10 @@ async function loadBoards(scene: THREE.Scene, statusEl: HTMLElement): Promise<Bo
     // Fallback if stack-up.json missing
     boardDefs = Object.entries(BOARD_STYLE).map(([name, style]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
-      file: style.file, z: 0, color: style.color, pcbColor: style.pcbColor,
+      file: style.file,
+      z: 0,
+      color: style.color,
+      pcbColor: style.pcbColor,
     }))
   }
 
