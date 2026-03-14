@@ -313,7 +313,10 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         board.Add(seg)
 
     # Initialize collision tracker with extra padding for this pass
-    tracker = CollisionTracker(board_w, board_h, clearance=0.5, extra_padding=extra_padding)
+    tht_extra = main_config["placement"].get("tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(board_w, board_h, clearance=0.5,
+                               extra_padding=extra_padding,
+                               tht_extra_clearance=tht_extra)
     placed = 0
 
     def place(addr, x, y, front=True):
@@ -603,7 +606,12 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             addr_map[addr] = fp
 
     # Initialize collision tracker with extra padding for this pass
-    tracker = CollisionTracker(w_mm, h_mm, clearance=0.5, extra_padding=extra_padding)
+    ctrl_config = load_board_config()
+    tht_extra = ctrl_config["boards"]["control"]["placement"].get(
+        "tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(w_mm, h_mm, clearance=0.5,
+                               extra_padding=extra_padding,
+                               tht_extra_clearance=tht_extra)
 
     placed = 0
     placed_addrs = set()
@@ -1626,8 +1634,10 @@ def place_variant(input_pcb, output_pcb, board_type, variant_name):
     # Validate placement: all components must be in bounds and overlap-free
     from placement.helpers import validate_placement, check_anti_affinity
     all_info = {**fixed_info, **free_components}
+    tht_extra_val = board_placement.get("tht_extra_clearance_mm", 0.0)
     ok, out_of_bounds, overlapping = validate_placement(
         board_w, board_h, fixed_placements, placements, all_info,
+        tht_extra_clearance=tht_extra_val,
     )
     if not ok:
         if out_of_bounds:

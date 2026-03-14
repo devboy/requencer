@@ -30,7 +30,9 @@ from . import BoardContext, Placement, register
 
 def _initial_constructive(ctx, rng):
     """Quick constructive placement as starting point for SA."""
-    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5)
+    tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
+                               tht_extra_clearance=tht_extra)
 
     # Register fixed at bbox center
     for addr, p in ctx.fixed.items():
@@ -99,7 +101,9 @@ def _initial_constructive(ctx, rng):
 
 def _rebuild_tracker(ctx, placements, fixed_info):
     """Build a fresh collision tracker from current placements + fixed."""
-    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5)
+    tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
+    tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
+                               tht_extra_clearance=tht_extra)
     for addr, p in ctx.fixed.items():
         info = fixed_info[addr]
         tracker.register(p.x + info.cx_offset, p.y + info.cy_offset,

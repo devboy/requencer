@@ -73,36 +73,39 @@ class CollisionTracker:
       - All checks use actual footprint bounding boxes + clearance margin
     """
 
-    def __init__(self, board_w, board_h, clearance=0.5, extra_padding=0.0):
+    def __init__(self, board_w, board_h, clearance=0.5, extra_padding=0.0,
+                 tht_extra_clearance=0.0):
         self.board_w = board_w
         self.board_h = board_h
         self.clearance = clearance + extra_padding
-        # Each entry: (x1, y1, x2, y2, side, label)
+        self.tht_extra_clearance = tht_extra_clearance
+        # Each entry: (x1, y1, x2, y2, side, label, margin)
         # side is "F", "B", or "both" (for THT)
+        # margin is the clearance used when registering (for overlap_report shrinkback)
         self._rects = []
 
     def register(self, cx, cy, w, h, side, is_tht, label=""):
         """Register a placed component. cx/cy is center, w/h is full extent."""
-        margin = self.clearance
+        margin = self.clearance + (self.tht_extra_clearance if is_tht else 0.0)
         x1 = cx - w / 2 - margin
         y1 = cy - h / 2 - margin
         x2 = cx + w / 2 + margin
         y2 = cy + h / 2 + margin
         effective_side = "both" if is_tht else side
-        self._rects.append((x1, y1, x2, y2, effective_side, label))
+        self._rects.append((x1, y1, x2, y2, effective_side, label, margin))
 
     def register_bbox(self, x1, y1, x2, y2, side, is_tht, label=""):
         """Register using actual bounding box coords (not center+dims)."""
-        margin = self.clearance
+        margin = self.clearance + (self.tht_extra_clearance if is_tht else 0.0)
         effective_side = "both" if is_tht else side
         self._rects.append((
             x1 - margin, y1 - margin, x2 + margin, y2 + margin,
-            effective_side, label,
+            effective_side, label, margin,
         ))
 
     def register_zone(self, x1, y1, x2, y2, side, label="zone"):
         """Register a static exclusion zone (e.g. LCD area)."""
-        self._rects.append((x1, y1, x2, y2, side, label))
+        self._rects.append((x1, y1, x2, y2, side, label, 0.0))
 
     def collides(self, cx, cy, w, h, side, is_tht=False):
         """Check if placing a component at (cx, cy) would collide."""
@@ -112,7 +115,7 @@ class CollisionTracker:
         ax2, ay2 = cx + hx, cy + hy
         check_side = "both" if is_tht else side
 
-        for bx1, by1, bx2, by2, bside, _ in self._rects:
+        for bx1, by1, bx2, by2, bside, _, _m in self._rects:
             if not self._sides_conflict(check_side, bside):
                 continue
             if ax1 < bx2 and ax2 > bx1 and ay1 < by2 and ay2 > by1:
@@ -272,7 +275,7 @@ class CollisionTracker:
         self._rects.append((
             x1 - label_clearance, y1 - label_clearance,
             x2 + label_clearance, y2 + label_clearance,
-            side, f"label:{fp.GetReference()}"
+            side, f"label:{fp.GetReference()}", label_clearance,
         ))
 
     def repulsion_offset(self, cx, cy, radius=15.0, strength=2.0,
@@ -285,7 +288,7 @@ class CollisionTracker:
         board edges.
         """
         rx, ry = 0.0, 0.0
-        for x1, y1, x2, y2, _side, _label in self._rects:
+        for x1, y1, x2, y2, _side, _label, _m in self._rects:
             px = (x1 + x2) / 2
             py = (y1 + y2) / 2
             dx = cx - px
@@ -308,15 +311,14 @@ class CollisionTracker:
         comparing to report real physical overlaps.
         """
         overlaps = []
-        c = self.clearance
         for i in range(len(self._rects)):
-            ax1, ay1, ax2, ay2, aside, alabel = self._rects[i]
-            ax1, ay1, ax2, ay2 = ax1 + c, ay1 + c, ax2 - c, ay2 - c
+            ax1, ay1, ax2, ay2, aside, alabel, am = self._rects[i]
+            ax1, ay1, ax2, ay2 = ax1 + am, ay1 + am, ax2 - am, ay2 - am
             for j in range(i + 1, len(self._rects)):
-                bx1, by1, bx2, by2, bside, blabel = self._rects[j]
+                bx1, by1, bx2, by2, bside, blabel, bm = self._rects[j]
                 if not self._sides_conflict(aside, bside):
                     continue
-                bx1, by1, bx2, by2 = bx1 + c, by1 + c, bx2 - c, by2 - c
+                bx1, by1, bx2, by2 = bx1 + bm, by1 + bm, bx2 - bm, by2 - bm
                 dx = min(ax2, bx2) - max(ax1, bx1)
                 dy = min(ay2, by2) - max(ay1, by1)
                 if dx > 0 and dy > 0:
@@ -346,7 +348,7 @@ def find_best_side(tracker, cx, cy, w, h, is_tht, step=0.5):
 
 
 def validate_placement(board_w, board_h, fixed, placements, component_info,
-                       clearance=0.25):
+                       clearance=0.25, tht_extra_clearance=0.0):
     """Validate that all placements are in bounds and overlap-free.
 
     Args:
@@ -364,7 +366,8 @@ def validate_placement(board_w, board_h, fixed, placements, component_info,
     to correctly handle asymmetric footprints like SIP-9 resistor
     networks and shrouded headers where the origin is at pin 1.
     """
-    tracker = CollisionTracker(board_w, board_h, clearance=clearance)
+    tracker = CollisionTracker(board_w, board_h, clearance=clearance,
+                               tht_extra_clearance=tht_extra_clearance)
 
     # Register fixed components at bbox center — require real dimensions
     for addr, p in fixed.items():

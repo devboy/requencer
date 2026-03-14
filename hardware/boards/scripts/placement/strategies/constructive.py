@@ -44,8 +44,10 @@ class ConstructiveStrategy:
         order = params.get("order", "connectivity")
         padding = params.get("padding", 1.0)
 
+        tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
         tracker = CollisionTracker(
             ctx.width, ctx.height, clearance=0.5, extra_padding=padding,
+            tht_extra_clearance=tht_extra,
         )
 
         # Register fixed components at their BBOX CENTER, not footprint origin.

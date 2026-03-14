@@ -198,11 +198,16 @@ $(VENV)/.deps-installed:
 3d: 3d-glb
 
 # --- Manufacturing export (uses poured PCBs) ---
-export: $(CONTROL_POURED) $(MAIN_POURED)
-	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
-		python3 $(SCRIPTS)/export/export_manufacturing.py $(CONTROL_POURED) $(BUILD)/manufacturing/control
-	PATH="$(KICAD_APP)/Contents/MacOS:$$PATH" \
-		python3 $(SCRIPTS)/export/export_manufacturing.py $(MAIN_POURED) $(BUILD)/manufacturing/main
+export: export-control export-main export-faceplate
+
+export-control: $(CONTROL_POURED)
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/export/export_manufacturing.py $(CONTROL_POURED) $(BUILD)/manufacturing/control
+
+export-main: $(MAIN_POURED)
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/export/export_manufacturing.py $(MAIN_POURED) $(BUILD)/manufacturing/main
+
+export-faceplate: $(FACEPLATE_PCB)
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/export/export_manufacturing.py $(FACEPLATE_PCB) $(BUILD)/manufacturing/faceplate
 
 # --- Tests ---
 test-hw: $(VENV)/.deps-installed
