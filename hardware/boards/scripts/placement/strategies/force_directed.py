@@ -213,6 +213,7 @@ class ForceDirectedStrategy:
             result = find_best_side(
                 tracker, search_cx, search_cy,
                 info.width, info.height, info.is_tht,
+                smd_side=ctx.smd_side,
             )
             if result is None:
                 continue  # can't place — validation will catch it

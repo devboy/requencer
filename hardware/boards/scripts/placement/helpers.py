@@ -326,10 +326,17 @@ class CollisionTracker:
         return overlaps
 
 
-def find_best_side(tracker, cx, cy, w, h, is_tht, step=0.5):
-    """Try both sides, return (x, y, side) or None if neither works."""
-    result_f = tracker.find_free(cx, cy, w, h, "F", is_tht, step=step)
-    result_b = tracker.find_free(cx, cy, w, h, "B", is_tht, step=step)
+def find_best_side(tracker, cx, cy, w, h, is_tht, step=0.5, smd_side="both"):
+    """Try allowed sides, return (x, y, side) or None if none works.
+
+    Args:
+        smd_side: "F", "B", or "both" — restricts which side(s) to search.
+    """
+    try_f = smd_side in ("both", "F")
+    try_b = smd_side in ("both", "B")
+
+    result_f = tracker.find_free(cx, cy, w, h, "F", is_tht, step=step) if try_f else None
+    result_b = tracker.find_free(cx, cy, w, h, "B", is_tht, step=step) if try_b else None
 
     if result_f is None and result_b is None:
         return None

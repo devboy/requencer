@@ -220,8 +220,8 @@ def place_main_board(input_pcb, output_pcb=None):
 def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     """Single placement pass with given extra_padding. Returns overlap count."""
     from placement.helpers import (
-        CollisionTracker, extract_footprint_dims, is_tht as is_tht_fn,
-        regenerate_duplicate_uuids,
+        CollisionTracker, extract_footprint_dims, find_best_side,
+        is_tht as is_tht_fn, regenerate_duplicate_uuids,
     )
 
     board = pcbnew.LoadBoard(input_pcb)
@@ -276,6 +276,7 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     board_w = main_config["dimensions"]["width_mm"]
     board_h = main_config["dimensions"]["height_mm"]
     margin = main_config["placement"].get("margin", 3.0)
+    smd_side = main_config["placement"].get("smd_side", "both")
 
     # Measure tallest header for zone sizing
     header_spacing = 18.0
@@ -376,23 +377,23 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         place_collision_free(addr, hx, hy, front=front,
                              zone_bounds=(margin, margin, board_w - 2 * margin, header_zone_h))
 
-    # USB-C — edge-mounted at right board edge, back side for cable access from behind.
+    # USB-C — edge-mounted at left board edge, front side for single-side SMD assembly.
     # Mid-mount connector: body on board, mouth flush with edge.
     # At 90° rotation, connector Y- (mouth, 6.5mm) maps to board X+.
     usb_addr = "usb"
     if usb_addr in addr_map:
         fp = addr_map[usb_addr]
         usb_x = 5.0             # left edge — cable plugs in from side of module
-        usb_y = board_h / 2    # vertically centered (42mm)
+        usb_y = board_h / 2 + 10  # below center (52mm), swapped with bootsel
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(usb_x), pcbnew.FromMM(usb_y)))
-        # Flip to back side
-        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+        # Ensure on front side
+        if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
         fp.SetOrientationDegrees(90)  # rotate so mouth faces left (toward rack side)
         w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         # Register as through-hole — mid-mount USB-C has shield tabs/holding
         # pins that poke through, so no SMDs on opposite side.
-        tracker.register(usb_x, usb_y, w, h, "B", True, label=usb_addr)
+        tracker.register(usb_x, usb_y, w, h, "F", True, label=usb_addr)
         placed += 1
         # Remove from generic lists to prevent double placement
         if usb_addr in ics:
@@ -400,20 +401,21 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         if usb_addr in passives:
             passives.remove(usb_addr)
 
-    # Bootsel button — back side near USB-C for easy access.
+    # Bootsel button — front side near USB-C for single-side SMD assembly.
     # PTS645 has mechanical anchor pins that poke through, so treat as through-hole
     # for exclusion purposes (no SMDs on opposite side at this position).
     bootsel_addr = "mcu.sw_bootsel"
     if bootsel_addr in addr_map:
         fp = addr_map[bootsel_addr]
         bx = 5.0        # near USB-C on left edge
-        by = board_h / 2 + 10  # just below USB-C
+        by = board_h / 2  # vertically centered (42mm), swapped with USB-C
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(bx), pcbnew.FromMM(by)))
-        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+        # Ensure on front side
+        if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
         w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         # Register as through-hole to create exclusion on both sides
-        tracker.register(bx, by, w, h, "B", True, label=bootsel_addr)
+        tracker.register(bx, by, w, h, "F", True, label=bootsel_addr)
         placed += 1
         if bootsel_addr in ics:
             ics.remove(bootsel_addr)
@@ -422,9 +424,8 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
 
     # --- Connectivity-aware SMD placement ---
     # For each IC and passive, compute the target position as the centroid
-    # of its already-placed connected neighbors. Search for the nearest free
-    # spot on BOTH sides, pick whichever is closer. This naturally spreads
-    # components across both sides based on available space and connectivity.
+    # of its already-placed connected neighbors. Side restricted by
+    # smd_side config ("F", "B", or "both").
     board_zone = (margin, margin, board_w - 2 * margin, board_h - 2 * margin)
 
     def connectivity_target(addr):
@@ -453,7 +454,7 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         return (tx, ty)
 
     def place_nearest_side(addr):
-        """Place component on whichever side has a closer free spot."""
+        """Place component on the allowed SMD side(s) per config."""
         nonlocal placed
         if addr not in addr_map:
             return
@@ -462,25 +463,18 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         is_through = is_tht_fn(fp, pcbnew)
         tx, ty = connectivity_target(addr)
 
-        # Search both sides
-        result_f = tracker.find_free(tx, ty, w, h, "F", is_through, board_zone, step=0.5)
-        result_b = tracker.find_free(tx, ty, w, h, "B", is_through, board_zone, step=0.5)
-        fx, fy = result_f if result_f else (tx, ty)
-        bx, by = result_b if result_b else (tx, ty)
-
-        dist_f = (fx - tx) ** 2 + (fy - ty) ** 2
-        dist_b = (bx - tx) ** 2 + (by - ty) ** 2
-
-        if dist_f <= dist_b:
-            x, y, front = fx, fy, True
+        result = find_best_side(tracker, tx, ty, w, h, is_through,
+                                step=0.5, smd_side=smd_side)
+        if result:
+            x, y, side = result
         else:
-            x, y, front = bx, by, False
+            x, y, side = tx, ty, smd_side if smd_side != "both" else "F"
 
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
-        if not front:
-            if fp.GetLayer() == board.GetLayerID("F.Cu"):
-                fp.Flip(fp.GetPosition(), False)
-        side = "F" if front else "B"
+        target_front = side == "F"
+        current_front = fp.GetLayer() == board.GetLayerID("F.Cu")
+        if target_front != current_front:
+            fp.Flip(fp.GetPosition(), False)
         tracker.register(x, y, w, h, side, is_through, label=addr)
         placed += 1
         placed_addrs_set.add(addr)
@@ -1351,28 +1345,28 @@ def _place_fixed_main(board, addr_map, config, pcbnew):
         fixed_placements[addr] = Placement(x=x, y=y,
                                             side="F" if front else "B")
 
-    # USB-C
+    # USB-C — front side, below center (swapped Y with bootsel)
     usb_addr = "usb"
     if usb_addr in addr_map:
         fp = addr_map[usb_addr]
-        usb_x, usb_y = 5.0, board_h / 2
+        usb_x, usb_y = 5.0, board_h / 2 + 10
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(usb_x),
                                         pcbnew.FromMM(usb_y)))
-        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+        if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
         fp.SetOrientationDegrees(90)
-        fixed_placements[usb_addr] = Placement(x=usb_x, y=usb_y, side="B",
+        fixed_placements[usb_addr] = Placement(x=usb_x, y=usb_y, side="F",
                                                 rotation=90)
 
-    # Bootsel button
+    # Bootsel button — front side, centered (swapped Y with USB-C)
     bootsel_addr = "mcu.sw_bootsel"
     if bootsel_addr in addr_map:
         fp = addr_map[bootsel_addr]
-        bx, by = 5.0, board_h / 2 + 10
+        bx, by = 5.0, board_h / 2
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(bx), pcbnew.FromMM(by)))
-        if fp.GetLayer() == board.GetLayerID("F.Cu"):
+        if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
-        fixed_placements[bootsel_addr] = Placement(x=bx, y=by, side="B")
+        fixed_placements[bootsel_addr] = Placement(x=bx, y=by, side="F")
 
     return fixed_placements
 
@@ -1608,6 +1602,7 @@ def place_variant(input_pcb, output_pcb, board_type, variant_name):
         print(f"  Anti-affinity: {len(anti_affinity_rules)} rules")
 
     # Build context and run strategy
+    smd_side = board_placement.get("smd_side", "both")
     ctx = BoardContext(
         width=board_w,
         height=board_h,
@@ -1617,6 +1612,7 @@ def place_variant(input_pcb, output_pcb, board_type, variant_name):
         config=board_placement,
         fixed_info=fixed_info,
         anti_affinity=anti_affinity_rules,
+        smd_side=smd_side,
     )
 
     strategy = get_strategy(algorithm)

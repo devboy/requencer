@@ -84,6 +84,7 @@ def _initial_constructive(ctx, rng):
         result = find_best_side(
             tracker, search_cx, search_cy,
             info.width, info.height, info.is_tht,
+            smd_side=ctx.smd_side,
         )
         if result is None:
             continue  # can't place — validation will catch it
@@ -203,8 +204,12 @@ class SARefineStrategy:
         bcx = new_x + info.cx_offset
         bcy = new_y + info.cy_offset
 
-        # Try both sides
-        for side in [old_p.side, "F" if old_p.side == "B" else "B"]:
+        # Try allowed sides (current side first, then opposite if permitted)
+        allowed = [old_p.side]
+        other = "F" if old_p.side == "B" else "B"
+        if ctx.smd_side == "both" or ctx.smd_side == other:
+            allowed.append(other)
+        for side in allowed:
             if not tracker.collides(bcx, bcy, info.width, info.height,
                                     side, info.is_tht):
                 new_p = Placement(x=new_x, y=new_y, side=side)

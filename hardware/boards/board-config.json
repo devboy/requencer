@@ -6,6 +6,7 @@
       "placement": {
         "strategy": "panel-layout",
         "tht_extra_clearance_mm": 1.5,
+        "smd_side": "B",
         "padding_sequence": [2.0, 1.5, 1.0, 0.5, 0.0],
         "named_positions": {
           "connector.header_a": {"x": 20, "y": 42, "front": false},
@@ -24,13 +25,13 @@
       "placement": {
         "strategy": "compact-grid",
         "tht_extra_clearance_mm": 1.5,
+        "smd_side": "F",
         "padding_sequence": [4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.0],
         "named_positions": {
           "connector.header_a": {"x": 20, "y": 42, "front": true},
           "connector.header_b": {"x": 88, "y": 42, "front": true},
           "mcu.pga": {"x": 51, "y": 42, "front": false},
-          "power.header": {"x": 95.5, "y": 42, "front": false},
-          "display.header": {"x": 51, "y": 14, "front": false}
+          "power.header": {"x": 95.5, "y": 42, "front": false}
         },
         "ic_spacing": 12.0,
         "passive_spacing": 5.0,

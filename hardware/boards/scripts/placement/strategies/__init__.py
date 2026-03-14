@@ -64,6 +64,7 @@ class BoardContext:
     config: dict = field(default_factory=dict)  # board-config.json placement section
     fixed_info: dict[str, ComponentInfo] = field(default_factory=dict)  # dimensions for fixed components
     anti_affinity: list[AntiAffinityRule] = field(default_factory=list)
+    smd_side: str = "both"  # "F", "B", or "both" — restricts SMD placement side
 
 
 class PlacementStrategy(Protocol):
