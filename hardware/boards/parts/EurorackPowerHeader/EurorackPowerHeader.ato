@@ -7,9 +7,9 @@ import has_designator_prefix
 import has_part_picked
 
 component EurorackPowerHeader:
-    trait is_atomic_part<manufacturer="Generic", partnumber="2x5_shrouded_header", footprint="EurorackPowerHeader_2x5.kicad_mod", symbol="EurorackPowerHeader.kicad_sym">
+    trait is_atomic_part<manufacturer="Wurth Elektronik", partnumber="61201021621", footprint="EurorackPowerHeader_2x5.kicad_mod", symbol="EurorackPowerHeader.kicad_sym">
     trait has_designator_prefix<prefix="J">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2685177", manufacturer="Generic", partno="2x5_shrouded_header">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2685177", manufacturer="Wurth Elektronik", partno="61201021621">
     # Standard eurorack pinout
     signal NEG12V_1 ~ pin 1
     signal NEG12V_2 ~ pin 2

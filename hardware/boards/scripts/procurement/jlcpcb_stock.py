@@ -7,6 +7,7 @@ Download URL: GitHub releases → jlcpcb-components.db
 Cache: hardware/boards/build/jlcpcb-parts.sqlite3 (7-day TTL)
 """
 
+import json
 import os
 import sqlite3
 import time
@@ -16,8 +17,7 @@ from pathlib import Path
 import requests
 
 DB_URL = (
-    "https://github.com/CDFER/jlcpcb-parts-database/releases/latest/download/"
-    "cache.sqlite3"
+    "https://cdfer.github.io/jlcpcb-parts-database/jlcpcb-components.sqlite3"
 )
 CACHE_MAX_AGE_SECONDS = 7 * 24 * 3600  # 7 days
 
@@ -154,9 +154,15 @@ def check_stock(db_path: Path, lcsc_numbers: list[str]) -> dict[str, StockInfo]:
             results[lcsc] = NOT_FOUND
             continue
 
+        # LCSC column may be integer (CDFER DB stores without "C" prefix)
+        lookup_val: str | int = lcsc
+        if lcsc.startswith("C") and lcsc[1:].isdigit():
+            lookup_val = int(lcsc[1:])
+
         try:
             cursor = conn.execute(
-                f"SELECT * FROM {table} WHERE {lcsc_col} = ? LIMIT 1", (lcsc,)
+                f"SELECT * FROM {table} WHERE {lcsc_col} = ? LIMIT 1",
+                (lookup_val,),
             )
             row = cursor.fetchone()
         except sqlite3.OperationalError:
@@ -181,14 +187,34 @@ def check_stock(db_path: Path, lcsc_numbers: list[str]) -> dict[str, StockInfo]:
 
         price_val = None
         if price_col and price_col in row_dict:
+            raw_price = row_dict[price_col]
             try:
-                price_val = float(row_dict[price_col])
+                price_val = float(raw_price)
             except (ValueError, TypeError):
-                pass
+                # CDFER DB stores tiered pricing as JSON array
+                if isinstance(raw_price, str) and raw_price.startswith("["):
+                    try:
+                        tiers = json.loads(raw_price)
+                        if tiers:
+                            # Use lowest-quantity tier price
+                            price_val = float(tiers[0].get("price", 0))
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        pass
 
+        # Library type: CDFER DB uses "basic" (int 1) + "preferred" (int 1) columns
         lib_val = ""
         if lib_col and lib_col in row_dict:
             lib_val = str(row_dict[lib_col] or "")
+        # Derive from basic/preferred integer flags if lib_val is just "0"/"1"
+        if lib_val in ("0", "1", ""):
+            basic = row_dict.get("basic", 0)
+            preferred = row_dict.get("preferred", 0)
+            if basic:
+                lib_val = "basic"
+            elif preferred:
+                lib_val = "preferred"
+            else:
+                lib_val = "extended"
 
         desc_val = ""
         if desc_col and desc_col in row_dict:

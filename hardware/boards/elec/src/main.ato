@@ -43,8 +43,11 @@ module Main:
     # +3.3V rail → control board peripherals (shift registers, LCD, MIDI, etc.)
     power.v3v3 ~ connector.v3v3
 
+    # +3.3V rail → DAC VIO (logic level for DAC80508 SPI interface)
+    power.v3v3 ~ dac.v3v3
+
     # +5V rail → control board (LED drivers)
-    #           → DAC analog supply + level shifter
+    #           → DAC analog supply
     #           → clock/reset output buffers (on main board)
     power.v5v ~ connector.v5v
     power.v5v ~ dac.avdd

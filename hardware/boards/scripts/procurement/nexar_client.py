@@ -15,10 +15,11 @@ Register at https://nexar.com/api to get credentials.
 import json
 import os
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
+
+from procurement.types import Offer, SupplierResult
 
 TOKEN_URL = "https://identity.nexar.com/connect/token"
 GRAPHQL_URL = "https://api.nexar.com/graphql"
@@ -65,26 +66,6 @@ query SearchMPN($mpn: String!) {
   }
 }
 """
-
-
-@dataclass
-class Offer:
-    seller: str
-    seller_url: str
-    stock: int  # -1 means "in stock" (exact qty unknown)
-    moq: int
-    unit_price: float | None
-    currency: str
-    buy_url: str
-
-
-@dataclass
-class SupplierResult:
-    mpn: str
-    manufacturer: str
-    offers: list[Offer] = field(default_factory=list)
-    found: bool = True
-    error: str = ""
 
 
 def _get_credentials() -> tuple[str, str] | None:

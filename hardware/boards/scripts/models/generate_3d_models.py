@@ -391,31 +391,31 @@ class StepWriter:
 
 
 def generate_tc002_rgb():
-    """Generate TC002-N11AS1XT-RGB illuminated tactile switch with long actuator.
+    """Generate TC002-N11AS1XT-RGB illuminated tactile switch with S1 cap.
 
-    Dimensions (from datasheet + measurement):
-      Body: 7.0 × 7.0 × 3.5mm (centered at origin XY, base at Z=0)
-      Actuator: 3.2mm diameter cylinder, centered, extending from body top
-      Total height above PCB: ~12mm (long actuator for panel-mount)
-      LED window: small recess in body top (simplified)
-      Pins extend 3.5mm below PCB (Z < 0)
+    Dimensions (from Well Buying TC002 datasheet):
+      Body: 6.0 × 6.0 × 8.2mm above PCB (centered at origin XY, base at Z=0)
+      S1 cap: 4.0mm diameter lens, 9.6mm tall, 2.3mm overlap with body
+      Cap adds 7.3mm above body top (9.6 - 2.3 overlap)
+      Total height above PCB: 8.2 + 7.3 = 15.5mm
+      Pins extend 1.8mm below PCB (Z < 0)
 
-    The long actuator version is needed for the buttons to protrude through
-    the faceplate in the sandwich assembly.
+    The S1 cap protrudes through the faceplate in the sandwich assembly
+    (~1.9mm above faceplate front surface).
     """
-    sw = StepWriter("TC002-RGB", "TC002-N11AS1XT-RGB illuminated tactile switch, long actuator")
+    sw = StepWriter("TC002-RGB", "TC002-N11AS1XT-RGB illuminated tactile switch with S1 cap")
 
-    body_half = 3.5  # 7mm body
-    body_h = 3.5     # body height
-    act_r = 1.6      # actuator radius (3.2mm diameter)
-    act_h = 12.0     # total height from PCB to actuator tip
-    pin_depth = 3.5   # pin length below PCB
+    body_half = 3.0  # 6mm body
+    body_h = 8.2     # body height above PCB
+    cap_r = 2.0      # S1 cap radius (4.0mm diameter lens)
+    cap_h = 15.5     # total height from PCB to cap tip (8.2 + 9.6 - 2.3)
+    pin_depth = 1.8  # pin length below PCB
 
     # Body (centered at origin, base at z=0)
     sw.add_box(-body_half, -body_half, 0, body_half, body_half, body_h, "Body")
 
-    # Actuator (cylinder from body top to full height)
-    sw.add_prism(0, 0, body_h, act_h, act_r, sides=16, label="Actuator")
+    # S1 cap (cylinder from overlap point to full height)
+    sw.add_prism(0, 0, body_h, cap_h, cap_r, sides=16, label="S1 Cap")
 
     # Pin representation (simplified: 4 small boxes for corner pins)
     pin_w = 0.5

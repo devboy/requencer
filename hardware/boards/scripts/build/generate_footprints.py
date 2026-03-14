@@ -5,7 +5,7 @@ Writes KiCad S-expression format directly — no external dependencies.
 Output: hardware/boards/parts/<PartName>/<footprint>.kicad_mod
 
 Components:
-  - PJ398SM (Thonkiconn 3.5mm mono jack)
+  - WQP518MA (Thonkiconn 3.5mm mono jack)
   - TC002-N11AS1XT-RGB (Well Buying RGB tactile switch)
   - EC11E (Alps rotary encoder with push switch)
   - RPi Pico (castellated pad module)
@@ -92,15 +92,15 @@ def write_footprint(name, description, tags, items):
     return header + "\n".join(items) + "\n)\n"
 
 
-def make_pj398sm():
-    """Thonkiconn PJ398SM 3.5mm mono jack.
+def make_wqp518ma():
+    """Thonkiconn WQP518MA 3.5mm mono jack.
 
     3 pins: tip, sleeve (GND), switch (NC)
     Mounting: 6mm panel drill hole
     """
     items = [
         fp_text("reference", "REF**", 0, -7, "F.SilkS"),
-        fp_text("value", "PJ398SM", 0, 7, "F.Fab"),
+        fp_text("value", "WQP518MA", 0, 7, "F.Fab"),
         # Pin 1: Tip (signal)
         tht_pad(1, 0, 0, 2.0, 1.0),
         # Pin 2: Sleeve (GND)
@@ -118,8 +118,8 @@ def make_pj398sm():
         fp_circle(0, 0, 5.0, "F.Fab", 0.1),
     ]
     return write_footprint(
-        "PJ398SM",
-        "Thonkiconn PJ398SM 3.5mm mono jack, through-hole",
+        "WQP518MA",
+        "Thonkiconn WQP518MA 3.5mm mono jack, through-hole",
         "jack audio 3.5mm thonkiconn eurorack",
         items,
     )
@@ -382,7 +382,7 @@ def make_pga2350():
 def main():
     # Map: (footprint_filename, part_directory, factory_function)
     footprints = [
-        # PJ398SM: uses KiCad standard footprint (manually adapted), not auto-generated
+        # WQP518MA: uses KiCad standard footprint (manually adapted), not auto-generated
         ("TC002-N11AS1XT-RGB.kicad_mod", "TC002-RGB", make_tc002_rgb),
         ("EC11E.kicad_mod", "EC11E", make_ec11e),
         ("RaspberryPiPico.kicad_mod", "RaspberryPiPico", make_rpi_pico),

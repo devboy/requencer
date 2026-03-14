@@ -15,7 +15,7 @@
 # using mechanical footprints (mounting holes, cutouts).
 #
 # Hole specifications (from china-pcb-ordering.md):
-#   Jack holes:     6.0mm drill (PJ398SM)
+#   Jack holes:     6.0mm drill (WQP518MA)
 #   Button holes:   per TC002 datasheet
 #   Encoder holes:  7.0mm drill (EC11E shaft)
 #   LCD cutout:     82.5 × 52.0mm at center (54.78, 39.89) — glass seating with 1.5mm lip

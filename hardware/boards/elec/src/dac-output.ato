@@ -1,13 +1,13 @@
 # DAC + Analog Output Stage
-# 2× DAC8568 (16-bit, 8-ch each) → 5× OPA4172 (quad op-amp) → 16 buffered outputs
+# 2× DAC80508 (16-bit, 8-ch each) → 5× OPA4171A (quad op-amp) → 16 buffered outputs
 # Uses dedicated SPI1 bus (GP30/GP31) — no contention with display/SD card
-# 74HCT125 level shifter on SPI1 (3.3V → 5V for DAC8568 VIH compliance)
+# DAC80508 VIO pin connected to 3.3V — direct MCU GPIO drive, no level shifter
 #
 # Channel mapping:
-#   DAC1 channels A-D: GATE 1-4 (unity buffer, 0–5V)
-#   DAC1 channels E-H: PITCH 1-4 (non-inv, gain=2, offset=-2V → -2V to +8V)
-#   DAC2 channels A-D: VEL 1-4 (non-inv, gain≈1.6, 0–8V)
-#   DAC2 channels E-H: MOD 1-4 (inv, gain=-2, offset=+5V → +5V to -5V)
+#   DAC1 channels 0-3: GATE 1-4 (unity buffer, 0–5V)
+#   DAC1 channels 4-7: PITCH 1-4 (non-inv, gain=2, offset=-2V → -2V to +8V)
+#   DAC2 channels 0-3: VEL 1-4 (non-inv, gain≈1.6, 0–8V)
+#   DAC2 channels 4-7: MOD 1-4 (inv, gain=-2, offset=+5V → +5V to -5V)
 #
 # Opamp5 is a reference buffer quad:
 #   Ch1: 2V pitch reference buffer (low-impedance output)
@@ -17,19 +17,19 @@
 import Resistor
 import Capacitor
 
-from "../../parts/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
-from "../../parts/OPA4172ID/OPA4172ID.ato" import OPA4172ID
-from "../../parts/74HCT125D/74HCT125D.ato" import _74HCT125D
+from "../../parts/DAC80508ZRTER/DAC80508ZRTER.ato" import DAC80508ZRTER
+from "../../parts/OPA4171AIPWR/OPA4171AIPWR.ato" import OPA4171AIPWR
 
 module DACOutputStage:
-    # SPI bus (3.3V from MCU — level shifted internally to 5V for DAC)
+    # SPI bus (3.3V from MCU — DAC80508 VIO set to 3.3V, no level shifting)
     signal spi_mosi
     signal spi_sck
     signal dac1_cs
     signal dac2_cs
 
     # Power rails
-    signal avdd       # +5V for DAC analog supply and level shifter
+    signal avdd       # +5V for DAC analog supply
+    signal v3v3       # +3.3V for DAC VIO (logic level)
     signal v12p       # +12V for op-amp V+
     signal v12n       # -12V for op-amp V-
     signal gnd
@@ -56,63 +56,27 @@ module DACOutputStage:
     signal v_ref_2v   # Buffered 2V for pitch offset
     signal v_ref_mod  # Buffered 1.667V for mod offset
 
-    # === SPI LEVEL SHIFTER (3.3V → 5V) ===
-    # DAC8568 VIH = 0.7×AVDD = 3.5V at 5V supply — 3.3V GPIO is out of spec
-    # 74HCT125 accepts VIH = 2.0V (TTL-compatible) and outputs 5V CMOS
-    lvl = new _74HCT125D
-    lvl.VCC ~ avdd   # 5V
-    lvl.GND ~ gnd
+    # --- DAC chips (direct 3.3V SPI — no level shifter needed) ---
+    dac1 = new DAC80508ZRTER
+    dac2 = new DAC80508ZRTER
 
-    # All outputs always enabled (OE active low)
-    lvl.OE1_N ~ gnd
-    lvl.OE2_N ~ gnd
-    lvl.OE3_N ~ gnd
-    lvl.OE4_N ~ gnd
-
-    # Bypass cap for level shifter
-    c_lvl = new Capacitor
-    c_lvl.capacitance = 100nF +/- 20%
-    c_lvl.unnamed[0] ~ avdd
-    c_lvl.unnamed[1] ~ gnd
-
-    # Channel mapping: A1→Y1=MOSI, A2→Y2=SCK, A3→Y3=CS1, A4→Y4=CS2
-    spi_mosi ~ lvl.A1
-    spi_sck ~ lvl.A2
-    dac1_cs ~ lvl.A3
-    dac2_cs ~ lvl.A4
-
-    # Internal 5V SPI signals (after level shift)
-    signal spi5v_mosi
-    signal spi5v_sck
-    signal spi5v_cs1
-    signal spi5v_cs2
-
-    lvl.Y1 ~ spi5v_mosi
-    lvl.Y2 ~ spi5v_sck
-    lvl.Y3 ~ spi5v_cs1
-    lvl.Y4 ~ spi5v_cs2
-
-    # --- DAC chips ---
-    dac1 = new DAC8568SPMR
-    dac2 = new DAC8568SPMR
-
-    # DAC1 SPI (5V level-shifted signals)
-    dac1.DIN ~ spi5v_mosi
-    dac1.SCLK ~ spi5v_sck
-    dac1.SYNC ~ spi5v_cs1
+    # DAC1 SPI (direct 3.3V signals from MCU)
+    dac1.DIN ~ spi_mosi
+    dac1.SCLK ~ spi_sck
+    dac1.SYNC ~ dac1_cs
     dac1.GND ~ gnd
+    dac1.PAD ~ gnd
     dac1.AVDD ~ avdd
-    dac1.CLR ~ avdd       # CLR tied high (no clear)
-    dac1.LDAC ~ gnd       # LDAC tied low (synchronous update)
+    dac1.VIO ~ v3v3
 
-    # DAC2 SPI (5V level-shifted signals)
-    dac2.DIN ~ spi5v_mosi
-    dac2.SCLK ~ spi5v_sck
-    dac2.SYNC ~ spi5v_cs2
+    # DAC2 SPI (direct 3.3V signals from MCU)
+    dac2.DIN ~ spi_mosi
+    dac2.SCLK ~ spi_sck
+    dac2.SYNC ~ dac2_cs
     dac2.GND ~ gnd
+    dac2.PAD ~ gnd
     dac2.AVDD ~ avdd
-    dac2.CLR ~ avdd
-    dac2.LDAC ~ gnd
+    dac2.VIO ~ v3v3
 
     # DAC bypass caps (100nF HF + 10µF bulk per chip)
     c_dac1_1 = new Capacitor
@@ -135,23 +99,34 @@ module DACOutputStage:
     c_dac2_2.unnamed[0] ~ avdd
     c_dac2_2.unnamed[1] ~ gnd
 
-    # DAC reference decoupling (1µF on VREFIN/VREFOUT pin)
+    # VIO bypass caps (100nF per DAC, close to VIO pin)
+    c_vio1 = new Capacitor
+    c_vio1.capacitance = 100nF +/- 20%
+    c_vio1.unnamed[0] ~ v3v3
+    c_vio1.unnamed[1] ~ gnd
+
+    c_vio2 = new Capacitor
+    c_vio2.capacitance = 100nF +/- 20%
+    c_vio2.unnamed[0] ~ v3v3
+    c_vio2.unnamed[1] ~ gnd
+
+    # DAC reference decoupling (1µF on VREF pin)
     c_ref1 = new Capacitor
     c_ref1.capacitance = 1uF +/- 20%
-    c_ref1.unnamed[0] ~ dac1.VREFIN_VREFOUT
+    c_ref1.unnamed[0] ~ dac1.VREF
     c_ref1.unnamed[1] ~ gnd
 
     c_ref2 = new Capacitor
     c_ref2.capacitance = 1uF +/- 20%
-    c_ref2.unnamed[0] ~ dac2.VREFIN_VREFOUT
+    c_ref2.unnamed[0] ~ dac2.VREF
     c_ref2.unnamed[1] ~ gnd
 
     # --- Op-Amp chips ---
-    opamp1 = new OPA4172ID  # Gates 1-4 (unity buffer)
-    opamp2 = new OPA4172ID  # Pitch 1-4 (non-inv, gain=2, offset)
-    opamp3 = new OPA4172ID  # Velocity 1-4 (non-inv, gain=1.6)
-    opamp4 = new OPA4172ID  # Mod 1-4 (inv, gain=-2, offset)
-    opamp5 = new OPA4172ID  # Reference buffers + 2 spare channels
+    opamp1 = new OPA4171AIPWR  # Gates 1-4 (unity buffer)
+    opamp2 = new OPA4171AIPWR  # Pitch 1-4 (non-inv, gain=2, offset)
+    opamp3 = new OPA4171AIPWR  # Velocity 1-4 (non-inv, gain=1.6)
+    opamp4 = new OPA4171AIPWR  # Mod 1-4 (inv, gain=-2, offset)
+    opamp5 = new OPA4171AIPWR  # Reference buffers + 2 spare channels
 
     # Op-amp power (±12V) — all 5 op-amps
     opamp1.VCC_P ~ v12p
@@ -283,23 +258,23 @@ module DACOutputStage:
     opamp5.OUT4 ~ opamp5.IN4_N
 
     # === GATE CHANNELS (unity buffer, opamp1) ===
-    # DAC1 channels A-D → opamp1 channels 1-4 (voltage follower)
-    dac1.VOUTA ~ opamp1.IN1_P
+    # DAC1 channels 0-3 → opamp1 channels 1-4 (voltage follower)
+    dac1.OUT0 ~ opamp1.IN1_P
     opamp1.OUT1 ~ opamp1.IN1_N
 
-    dac1.VOUTB ~ opamp1.IN2_P
+    dac1.OUT1 ~ opamp1.IN2_P
     opamp1.OUT2 ~ opamp1.IN2_N
 
-    dac1.VOUTC ~ opamp1.IN3_P
+    dac1.OUT2 ~ opamp1.IN3_P
     opamp1.OUT3 ~ opamp1.IN3_N
 
-    dac1.VOUTD ~ opamp1.IN4_P
+    dac1.OUT3 ~ opamp1.IN4_P
     opamp1.OUT4 ~ opamp1.IN4_N
 
     # === PITCH CHANNELS (non-inverting, gain=2, offset=-2V, opamp2) ===
     # Vout = (1 + Rf/Rg)*Vdac - (Rf/Rg)*Vref_2v
     # Rf=Rg=10k (0.1%): Vout = 2*Vdac - 1*2V = 2*Vdac - 2V
-    # At Vdac=0V: -2V, at Vdac=5V: +8V ✓ (10 octave range)
+    # At Vdac=0V: -2V, at Vdac=5V: +8V (10 octave range)
     # Non-inverting topology:
     #   V+ = Vdac (direct)
     #   V- = junction of Rf (to output) and Rg (to buffered 2V reference)
@@ -309,7 +284,7 @@ module DACOutputStage:
     r_pitch1_gnd = new Resistor
     r_pitch1_gnd.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTE ~ opamp2.IN1_P
+    dac1.OUT4 ~ opamp2.IN1_P
     opamp2.OUT1 ~ r_pitch1_fb.unnamed[0]
     r_pitch1_fb.unnamed[1] ~ opamp2.IN1_N
     r_pitch1_gnd.unnamed[0] ~ opamp2.IN1_N
@@ -320,7 +295,7 @@ module DACOutputStage:
     r_pitch2_gnd = new Resistor
     r_pitch2_gnd.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTF ~ opamp2.IN2_P
+    dac1.OUT5 ~ opamp2.IN2_P
     opamp2.OUT2 ~ r_pitch2_fb.unnamed[0]
     r_pitch2_fb.unnamed[1] ~ opamp2.IN2_N
     r_pitch2_gnd.unnamed[0] ~ opamp2.IN2_N
@@ -331,7 +306,7 @@ module DACOutputStage:
     r_pitch3_gnd = new Resistor
     r_pitch3_gnd.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTG ~ opamp2.IN3_P
+    dac1.OUT6 ~ opamp2.IN3_P
     opamp2.OUT3 ~ r_pitch3_fb.unnamed[0]
     r_pitch3_fb.unnamed[1] ~ opamp2.IN3_N
     r_pitch3_gnd.unnamed[0] ~ opamp2.IN3_N
@@ -342,7 +317,7 @@ module DACOutputStage:
     r_pitch4_gnd = new Resistor
     r_pitch4_gnd.resistance = 10kohm +/- 0.1%
 
-    dac1.VOUTH ~ opamp2.IN4_P
+    dac1.OUT7 ~ opamp2.IN4_P
     opamp2.OUT4 ~ r_pitch4_fb.unnamed[0]
     r_pitch4_fb.unnamed[1] ~ opamp2.IN4_N
     r_pitch4_gnd.unnamed[0] ~ opamp2.IN4_N
@@ -350,14 +325,14 @@ module DACOutputStage:
 
     # === VELOCITY CHANNELS (non-inverting, gain=1.604, opamp3) ===
     # Vout = (1 + Rf/Rg)*Vin = (1 + 6.04k/10k)*Vin = 1.604*Vin
-    # At Vin=5V: Vout=8.02V ✓
+    # At Vin=5V: Vout=8.02V
 
     r_vel1_fb = new Resistor
     r_vel1_fb.resistance = 6.04kohm +/- 1%
     r_vel1_gnd = new Resistor
     r_vel1_gnd.resistance = 10kohm +/- 1%
 
-    dac2.VOUTA ~ opamp3.IN1_P
+    dac2.OUT0 ~ opamp3.IN1_P
     opamp3.OUT1 ~ r_vel1_fb.unnamed[0]
     r_vel1_fb.unnamed[1] ~ opamp3.IN1_N
     r_vel1_gnd.unnamed[0] ~ opamp3.IN1_N
@@ -368,7 +343,7 @@ module DACOutputStage:
     r_vel2_gnd = new Resistor
     r_vel2_gnd.resistance = 10kohm +/- 1%
 
-    dac2.VOUTB ~ opamp3.IN2_P
+    dac2.OUT1 ~ opamp3.IN2_P
     opamp3.OUT2 ~ r_vel2_fb.unnamed[0]
     r_vel2_fb.unnamed[1] ~ opamp3.IN2_N
     r_vel2_gnd.unnamed[0] ~ opamp3.IN2_N
@@ -379,7 +354,7 @@ module DACOutputStage:
     r_vel3_gnd = new Resistor
     r_vel3_gnd.resistance = 10kohm +/- 1%
 
-    dac2.VOUTC ~ opamp3.IN3_P
+    dac2.OUT2 ~ opamp3.IN3_P
     opamp3.OUT3 ~ r_vel3_fb.unnamed[0]
     r_vel3_fb.unnamed[1] ~ opamp3.IN3_N
     r_vel3_gnd.unnamed[0] ~ opamp3.IN3_N
@@ -390,7 +365,7 @@ module DACOutputStage:
     r_vel4_gnd = new Resistor
     r_vel4_gnd.resistance = 10kohm +/- 1%
 
-    dac2.VOUTD ~ opamp3.IN4_P
+    dac2.OUT3 ~ opamp3.IN4_P
     opamp3.OUT4 ~ r_vel4_fb.unnamed[0]
     r_vel4_fb.unnamed[1] ~ opamp3.IN4_N
     r_vel4_gnd.unnamed[0] ~ opamp3.IN4_N
@@ -401,14 +376,14 @@ module DACOutputStage:
     # Vout = -(Rf/Rin)*Vdac + (1+Rf/Rin)*V_ref_mod
     # Rf=20k, Rin=10k, V_ref_mod=1.667V (buffered, low-impedance)
     # Vout = -2*Vdac + 3*1.667V = -2*Vdac + 5V
-    # At Vdac=0V: +5V, at Vdac=5V: -5V ✓ (bipolar output)
+    # At Vdac=0V: +5V, at Vdac=5V: -5V (bipolar output)
 
     r_mod1_in = new Resistor
     r_mod1_in.resistance = 10kohm +/- 1%
     r_mod1_fb = new Resistor
     r_mod1_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTE ~ r_mod1_in.unnamed[0]
+    dac2.OUT4 ~ r_mod1_in.unnamed[0]
     r_mod1_in.unnamed[1] ~ opamp4.IN1_N
     opamp4.OUT1 ~ r_mod1_fb.unnamed[0]
     r_mod1_fb.unnamed[1] ~ opamp4.IN1_N
@@ -419,7 +394,7 @@ module DACOutputStage:
     r_mod2_fb = new Resistor
     r_mod2_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTF ~ r_mod2_in.unnamed[0]
+    dac2.OUT5 ~ r_mod2_in.unnamed[0]
     r_mod2_in.unnamed[1] ~ opamp4.IN2_N
     opamp4.OUT2 ~ r_mod2_fb.unnamed[0]
     r_mod2_fb.unnamed[1] ~ opamp4.IN2_N
@@ -430,7 +405,7 @@ module DACOutputStage:
     r_mod3_fb = new Resistor
     r_mod3_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTG ~ r_mod3_in.unnamed[0]
+    dac2.OUT6 ~ r_mod3_in.unnamed[0]
     r_mod3_in.unnamed[1] ~ opamp4.IN3_N
     opamp4.OUT3 ~ r_mod3_fb.unnamed[0]
     r_mod3_fb.unnamed[1] ~ opamp4.IN3_N
@@ -441,7 +416,7 @@ module DACOutputStage:
     r_mod4_fb = new Resistor
     r_mod4_fb.resistance = 20kohm +/- 1%
 
-    dac2.VOUTH ~ r_mod4_in.unnamed[0]
+    dac2.OUT7 ~ r_mod4_in.unnamed[0]
     r_mod4_in.unnamed[1] ~ opamp4.IN4_N
     opamp4.OUT4 ~ r_mod4_fb.unnamed[0]
     r_mod4_fb.unnamed[1] ~ opamp4.IN4_N

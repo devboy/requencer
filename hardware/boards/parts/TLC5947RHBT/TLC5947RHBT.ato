@@ -1,0 +1,49 @@
+# TLC5947RHBT — TI 24-Channel Constant-Current LED Driver, VQFN-32 (5×5mm)
+# LCSC: C181402
+# 12-bit PWM per channel, daisy-chainable SPI-like interface
+# QFN variant of TLC5947 — same function, different pin numbering vs HTSSOP (DAP)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component TLC5947RHBT:
+    trait is_atomic_part<manufacturer="TI", partnumber="TLC5947RHBT", footprint="VQFN-32.kicad_mod", symbol="TLC5947RHBT.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C181402", manufacturer="TI", partno="TLC5947RHBT">
+
+    # RHB (QFN-32) pin mapping — from TI datasheet SBVS114B, Table "Pin Functions"
+    signal OUT0 ~ pin 1
+    signal OUT1 ~ pin 2
+    signal OUT2 ~ pin 3
+    signal OUT3 ~ pin 4
+    signal OUT4 ~ pin 5
+    signal OUT5 ~ pin 6
+    signal OUT6 ~ pin 7
+    signal OUT7 ~ pin 8
+    signal OUT8 ~ pin 9
+    signal OUT9 ~ pin 10
+    signal OUT10 ~ pin 11
+    signal OUT11 ~ pin 12
+    signal OUT12 ~ pin 13
+    signal OUT13 ~ pin 14
+    signal OUT14 ~ pin 15
+    signal OUT15 ~ pin 16
+    signal OUT16 ~ pin 17
+    signal OUT17 ~ pin 18
+    signal OUT18 ~ pin 19
+    signal OUT19 ~ pin 20
+    signal OUT20 ~ pin 21
+    signal OUT21 ~ pin 22
+    signal OUT22 ~ pin 23
+    signal OUT23 ~ pin 24
+    signal SOUT ~ pin 25
+    signal XLAT ~ pin 26
+    signal IREF ~ pin 27
+    signal VCC ~ pin 28
+    signal GND ~ pin 29
+    signal BLANK ~ pin 30
+    signal SCLK ~ pin 31
+    signal SIN ~ pin 32
+    signal PAD ~ pin 33

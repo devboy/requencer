@@ -14,8 +14,8 @@
           "midi.opto": {"x": 55, "y": 15, "front": false},
           "midi.r_in": {"x": 65, "y": 15, "front": false}
         },
-        "module_ic_spacing": {
-          "leds.": 13.0
+        "component_padding": {
+          "lcd_fpc": {"left": 5.0}
         }
       }
     },
@@ -36,6 +36,9 @@
         "ic_spacing": 12.0,
         "passive_spacing": 5.0,
         "margin": 3.0,
+        "component_padding": {
+          "dacs.dac": {"left": 3.0, "right": 3.0, "top": 3.0, "bottom": 3.0}
+        },
         "anti_affinity": [
           {"from": "power.reg_5v", "to": "dacs.", "min_mm": 20, "reason": "thermal: 12V-5V linear reg (1W) away from precision DAC"},
           {"from": "power.reg_3v3", "to": "dacs.", "min_mm": 15, "reason": "thermal: 5V-3.3V linear reg away from precision DAC"}
@@ -85,7 +88,7 @@
     }
   },
   "routing": {
-    "max_passes": 20,
+    "max_passes": 30,
     "threads": 1,
     "optimization_improvement_threshold": 1,
     "timeout": 3600,

@@ -1,0 +1,29 @@
+# OPA4171AIPWR — TI Quad Rail-to-Rail Op-Amp, TSSOP-14
+# LCSC: C529553
+# ±18V max supply, rail-to-rail output, no phase reversal
+# 2 µV/°C offset drift (vs 0.3 µV/°C for OPA4172 — still excellent for 1V/oct)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component OPA4171AIPWR:
+    trait is_atomic_part<manufacturer="TI", partnumber="OPA4171AIPWR", footprint="TSSOP-14.kicad_mod", symbol="OPA4171AIPWR.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C529553", manufacturer="TI", partno="OPA4171AIPWR">
+
+    signal OUT1 ~ pin 1
+    signal IN1_N ~ pin 2
+    signal IN1_P ~ pin 3
+    signal VCC_P ~ pin 4
+    signal IN2_P ~ pin 5
+    signal IN2_N ~ pin 6
+    signal OUT2 ~ pin 7
+    signal OUT3 ~ pin 8
+    signal IN3_N ~ pin 9
+    signal IN3_P ~ pin 10
+    signal VCC_N ~ pin 11
+    signal IN4_P ~ pin 12
+    signal IN4_N ~ pin 13
+    signal OUT4 ~ pin 14

@@ -1,4 +1,4 @@
-# LED Driver — 2× TLC5947 Daisy-Chained
+# LED Driver — 2× TLC5947DAP Daisy-Chained (HTSSOP-32)
 # 48 channels total (16 bi-color step buttons × 2 = 32 used, 16 spare)
 # 12-bit PWM brightness control per channel
 #

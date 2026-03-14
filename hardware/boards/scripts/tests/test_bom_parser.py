@@ -33,16 +33,16 @@ SAMPLE_PART_ATO = textwrap.dedent("""\
 """)
 
 SAMPLE_THT_ATO = textwrap.dedent("""\
-    # PJ398SM — Thonkiconn 3.5mm Mono Jack, Through-Hole
+    # WQP518MA — Thonkiconn 3.5mm Mono Jack, Through-Hole
     #pragma experiment("TRAITS")
     import is_atomic_part
     import has_designator_prefix
     import has_part_picked
 
-    component PJ398SM:
-        trait is_atomic_part<manufacturer="Thonkiconn", partnumber="PJ398SM", footprint="PJ398SM.kicad_mod", symbol="PJ398SM.kicad_sym">
+    component WQP518MA:
+        trait is_atomic_part<manufacturer="Thonkiconn", partnumber="WQP518MA", footprint="WQP518MA.kicad_mod", symbol="WQP518MA.kicad_sym">
         trait has_designator_prefix<prefix="J">
-        trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2907129", manufacturer="Thonkiconn", partno="PJ398SM">
+        trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2907129", manufacturer="Thonkiconn", partno="WQP518MA">
 
         signal TIP ~ pin 1
         signal SLEEVE ~ pin 2
@@ -50,16 +50,16 @@ SAMPLE_THT_ATO = textwrap.dedent("""\
 
 SAMPLE_SRC_ATO = textwrap.dedent("""\
     from "../../parts/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
-    from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
+    from "../../parts/WQP518MA/WQP518MA.ato" import WQP518MA
     import Resistor
     import Capacitor
 
     module TestModule:
         dac1 = new DAC8568SPMR
         dac2 = new DAC8568SPMR
-        j1 = new PJ398SM
-        j2 = new PJ398SM
-        j3 = new PJ398SM
+        j1 = new WQP518MA
+        j2 = new WQP518MA
+        j3 = new WQP518MA
         r1 = new Resistor
         c1 = new Capacitor
 """)
@@ -81,16 +81,16 @@ class TestParsePartFile:
         assert result["footprint"] == "TSSOP-16.kicad_mod"
 
     def test_extracts_tht_part(self, tmp_path):
-        ato = tmp_path / "PJ398SM" / "PJ398SM.ato"
+        ato = tmp_path / "WQP518MA" / "WQP518MA.ato"
         ato.parent.mkdir()
         ato.write_text(SAMPLE_THT_ATO)
 
         result = parse_part_file(ato)
 
         assert result is not None
-        assert result["name"] == "PJ398SM"
+        assert result["name"] == "WQP518MA"
         assert result["lcsc"] == "C2907129"
-        assert result["mpn"] == "PJ398SM"
+        assert result["mpn"] == "WQP518MA"
         assert result["manufacturer"] == "Thonkiconn"
 
     def test_returns_none_for_no_traits(self, tmp_path):
@@ -110,7 +110,7 @@ class TestCountInstantiations:
         counts = count_instantiations(tmp_path)
 
         assert counts["DAC8568SPMR"] == 2
-        assert counts["PJ398SM"] == 3
+        assert counts["WQP518MA"] == 3
         # Generic stdlib types should be excluded
         assert "Resistor" not in counts
         assert "Capacitor" not in counts
@@ -125,7 +125,7 @@ class TestClassifyPart:
         assert classify_part("DAC8568SPMR", "C524819") == "smd"
 
     def test_tht_part(self):
-        assert classify_part("PJ398SM", "C2907129") == "tht"
+        assert classify_part("WQP518MA", "C2907129") == "tht"
 
     def test_placeholder_lcsc(self):
         assert classify_part("PGA2350", "C0000") == "manual"
@@ -145,9 +145,9 @@ class TestBuildBom:
         dac_dir.mkdir(parents=True)
         (dac_dir / "DAC8568SPMR.ato").write_text(SAMPLE_PART_ATO)
 
-        jack_dir = parts_dir / "PJ398SM"
+        jack_dir = parts_dir / "WQP518MA"
         jack_dir.mkdir()
-        (jack_dir / "PJ398SM.ato").write_text(SAMPLE_THT_ATO)
+        (jack_dir / "WQP518MA.ato").write_text(SAMPLE_THT_ATO)
 
         # Set up source directory
         src_dir = tmp_path / "src"
@@ -165,7 +165,7 @@ class TestBuildBom:
         assert dac.category == "smd"
         assert dac.lcsc == "C524819"
 
-        jack = next(p for p in bom if p.name == "PJ398SM")
+        jack = next(p for p in bom if p.name == "WQP518MA")
         assert jack.quantity == 15  # 3 instances × 5 boards
         assert jack.category == "tht"
 

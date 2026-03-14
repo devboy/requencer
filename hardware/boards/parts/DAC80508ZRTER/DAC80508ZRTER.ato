@@ -1,0 +1,32 @@
+# DAC80508ZRTER — TI 16-bit 8-channel DAC, WQFN-16 (3×3mm)
+# LCSC: C2679499
+# Internal 2.5V reference, SPI register-mapped interface, per-channel gain
+# VIO pin allows direct 3.3V logic — no level shifter needed
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component DAC80508ZRTER:
+    trait is_atomic_part<manufacturer="TI", partnumber="DAC80508ZRTER", footprint="WQFN-16.kicad_mod", symbol="DAC80508ZRTER.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2679499", manufacturer="TI", partno="DAC80508ZRTER">
+
+    signal OUT0 ~ pin 1
+    signal OUT1 ~ pin 2
+    signal OUT2 ~ pin 3
+    signal OUT3 ~ pin 4
+    signal OUT4 ~ pin 5
+    signal OUT5 ~ pin 6
+    signal OUT6 ~ pin 7
+    signal OUT7 ~ pin 8
+    signal VIO ~ pin 9
+    signal SDO ~ pin 10
+    signal SCLK ~ pin 11
+    signal SYNC ~ pin 12
+    signal DIN ~ pin 13
+    signal AVDD ~ pin 14
+    signal VREF ~ pin 15
+    signal GND ~ pin 16
+    signal PAD ~ pin 17

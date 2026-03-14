@@ -36,6 +36,20 @@ def load_board_config():
         return json.load(f)
 
 
+def get_component_padding(addr, component_padding):
+    """Look up per-side courtyard padding for a component address.
+
+    Config keys are prefix-matched against the address, so "leds.tlc"
+    matches "leds.tlc1" and "leds.tlc2". Returns (left, right, top, bottom)
+    in mm, defaulting to 0.0 for unspecified sides.
+    """
+    for prefix, pad in component_padding.items():
+        if addr.startswith(prefix):
+            return (pad.get("left", 0.0), pad.get("right", 0.0),
+                    pad.get("top", 0.0), pad.get("bottom", 0.0))
+    return (0.0, 0.0, 0.0, 0.0)
+
+
 def load_layout():
     with open(LAYOUT_PATH) as f:
         return json.load(f)
@@ -389,7 +403,7 @@ def _place_main_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         # Ensure on front side
         if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
-        fp.SetOrientationDegrees(90)  # rotate so mouth faces left (toward rack side)
+        fp.SetOrientationDegrees(270)  # rotate so mouth faces outward (toward rack side)
         w, h, _, _ = extract_footprint_dims(fp, pcbnew)
         # Register as through-hole — mid-mount USB-C has shield tabs/holding
         # pins that poke through, so no SMDs on opposite side.
@@ -607,6 +621,9 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                                extra_padding=extra_padding,
                                tht_extra_clearance=tht_extra)
 
+    # Per-component courtyard padding overrides (left/right/top/bottom in mm)
+    component_padding = ctrl_config["boards"]["control"]["placement"].get("component_padding", {})
+
     placed = 0
     placed_addrs = set()
     warnings = []
@@ -637,6 +654,12 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
         by2 = pcbnew.ToMM(bbox.GetBottom())
         is_through = is_tht_fn(fp, pcbnew)
         side = "F" if front else "B"
+        # Apply per-component courtyard padding
+        pad_l, pad_r, pad_t, pad_b = get_component_padding(addr, component_padding)
+        bx1 -= pad_l
+        bx2 += pad_r
+        by1 -= pad_t
+        by2 += pad_b
         tracker.register_bbox(bx1, by1, bx2, by2, side, is_through, label=addr)
         tracker.register_label(fp, pcbnew, side)
         placed += 1
@@ -880,9 +903,6 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
     ic_spacing = 10.0
     passive_spacing = 5.5
 
-    # Per-module IC spacing overrides from config
-    module_ic_spacing = config["boards"]["control"]["placement"].get("module_ic_spacing", {})
-
     def classify_component(addr):
         fp = addr_map.get(addr)
         if not fp:
@@ -949,6 +969,11 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                 fp.Flip(fp.GetPosition(), False)
             fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
             is_through = is_tht_fn(fp, pcbnew)
+
+            # Inflate search dimensions with per-component padding
+            pad_l, pad_r, pad_t, pad_b = get_component_padding(addr, component_padding)
+            fw += pad_l + pad_r
+            fh += pad_t + pad_b
 
             # For ICs: inflate search envelope to include ref text
             if label_aware:
@@ -1019,6 +1044,11 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
                     fp.Flip(fp.GetPosition(), False)
                 fw, fh, _, _ = extract_footprint_dims(fp, pcbnew)
 
+                # Inflate search dimensions with per-component padding
+                pad_l, pad_r, pad_t, pad_b = get_component_padding(addr, component_padding)
+                fw += pad_l + pad_r
+                fh += pad_t + pad_b
+
                 # Compute bbox center offset from footprint reference point
                 orig_pos = fp.GetPosition()
                 fp.SetPosition(pcbnew.VECTOR2I(0, 0))
@@ -1079,6 +1109,11 @@ def _place_control_board_pass(input_pcb, output_pcb, extra_padding, pcbnew):
             is_through = is_tht_fn(fp, pcbnew)
             if needs_flip:
                 fp.Flip(fp.GetPosition(), False)
+
+            # Inflate search dimensions with per-component padding
+            pad_l, pad_r, pad_t, pad_b = get_component_padding(addr, component_padding)
+            fw += pad_l + pad_r
+            fh += pad_t + pad_b
 
             # Target: centroid of placed connected neighbors + repulsion
             neighbors = conn_graph.get(addr, {})
@@ -1354,9 +1389,9 @@ def _place_fixed_main(board, addr_map, config, pcbnew):
                                         pcbnew.FromMM(usb_y)))
         if fp.GetLayer() != board.GetLayerID("F.Cu"):
             fp.Flip(fp.GetPosition(), False)
-        fp.SetOrientationDegrees(90)
+        fp.SetOrientationDegrees(270)
         fixed_placements[usb_addr] = Placement(x=usb_x, y=usb_y, side="F",
-                                                rotation=90)
+                                                rotation=270)
 
     # Bootsel button — front side, centered (swapped Y with USB-C)
     bootsel_addr = "mcu.sw_bootsel"
@@ -1573,11 +1608,17 @@ def place_variant(input_pcb, output_pcb, board_type, variant_name):
     print(f"  Fixed: {len(fixed_placements)} components")
 
     # Extract ComponentInfo for ALL components (fixed + free)
+    # Apply per-component courtyard padding to inflate dimensions
+    component_padding = board_placement.get("component_padding", {})
     power_nets = identify_power_nets(board)
     fixed_info = {}
     free_components = {}
     for addr, fp in addr_map.items():
         info = _extract_component_info(addr, fp, pcbnew, power_nets)
+        pad_l, pad_r, pad_t, pad_b = get_component_padding(addr, component_padding)
+        if pad_l or pad_r or pad_t or pad_b:
+            info.width += pad_l + pad_r
+            info.height += pad_t + pad_b
         if addr in fixed_placements:
             fixed_info[addr] = info
         else:

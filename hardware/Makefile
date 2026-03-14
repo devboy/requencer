@@ -211,8 +211,11 @@ export-faceplate: $(FACEPLATE_PCB)
 
 # --- Parts availability check ---
 BOARD_COUNT ?= 5
+KIT_COUNT ?= 2
+SUPPLIERS ?= tme,digikey
 check-parts: $(VENV)/.deps-installed
-	$(VENV_PYTHON) $(SCRIPTS)/procurement/check_parts.py --boards $(BOARD_COUNT)
+	env $$(cat $(BOARDS)/../../.env 2>/dev/null | grep -v '^\#' | xargs) \
+	$(VENV_PYTHON) $(SCRIPTS)/procurement/check_parts.py --boards $(BOARD_COUNT) --kits $(KIT_COUNT) --suppliers $(SUPPLIERS)
 
 # --- Tests ---
 test-hw: $(VENV)/.deps-installed

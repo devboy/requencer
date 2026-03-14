@@ -1,6 +1,7 @@
 # TLC5947DAP — TI 24-Channel Constant-Current LED Driver, HTSSOP-32
-# LCSC: C1554203
+# LCSC: C2873022 (tape-and-reel variant TLC5947DAPR)
 # 12-bit PWM per channel, daisy-chainable SPI-like interface
+# NOTE: Superseded by TLC5947RHBT (QFN-32) for JLCPCB availability
 
 #pragma experiment("TRAITS")
 import is_atomic_part
@@ -10,7 +11,7 @@ import has_part_picked
 component TLC5947DAP:
     trait is_atomic_part<manufacturer="TI", partnumber="TLC5947DAP", footprint="HTSSOP-32.kicad_mod", symbol="TLC5947DAP.kicad_sym">
     trait has_designator_prefix<prefix="U">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C1554203", manufacturer="TI", partno="TLC5947DAP">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2873022", manufacturer="TI", partno="TLC5947DAPR">
 
     signal OUT0 ~ pin 1
     signal OUT1 ~ pin 2

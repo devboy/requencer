@@ -1,11 +1,11 @@
-# I/O Jacks — All 26 Thonkiconn PJ398SM jacks
+# I/O Jacks — All 26 WQP518MA jacks
 # 16 analog outputs, 2 clock/reset inputs, 2 clock/reset outputs,
 # 4 CV inputs, 2 MIDI (handled in midi.ato)
 #
 # This is a pure breakout board — jacks connect directly to connector signals.
 # Signal conditioning (input protection, output buffers) lives on main board.
 
-from "../../parts/PJ398SM/PJ398SM.ato" import PJ398SM
+from "../../parts/WQP518MA/WQP518MA.ato" import WQP518MA
 
 module IOJacks:
     # Power
@@ -42,22 +42,22 @@ module IOJacks:
     signal cv_d_gpio      # Raw 0-10V → connector → protection on main → GP43
 
     # --- 16 Analog Output Jacks ---
-    j_gate1 = new PJ398SM
-    j_gate2 = new PJ398SM
-    j_gate3 = new PJ398SM
-    j_gate4 = new PJ398SM
-    j_pitch1 = new PJ398SM
-    j_pitch2 = new PJ398SM
-    j_pitch3 = new PJ398SM
-    j_pitch4 = new PJ398SM
-    j_vel1 = new PJ398SM
-    j_vel2 = new PJ398SM
-    j_vel3 = new PJ398SM
-    j_vel4 = new PJ398SM
-    j_mod1 = new PJ398SM
-    j_mod2 = new PJ398SM
-    j_mod3 = new PJ398SM
-    j_mod4 = new PJ398SM
+    j_gate1 = new WQP518MA
+    j_gate2 = new WQP518MA
+    j_gate3 = new WQP518MA
+    j_gate4 = new WQP518MA
+    j_pitch1 = new WQP518MA
+    j_pitch2 = new WQP518MA
+    j_pitch3 = new WQP518MA
+    j_pitch4 = new WQP518MA
+    j_vel1 = new WQP518MA
+    j_vel2 = new WQP518MA
+    j_vel3 = new WQP518MA
+    j_vel4 = new WQP518MA
+    j_mod1 = new WQP518MA
+    j_mod2 = new WQP518MA
+    j_mod3 = new WQP518MA
+    j_mod4 = new WQP518MA
 
     # Wire analog outputs to jack tips
     gate1 ~ j_gate1.TIP
@@ -98,31 +98,31 @@ module IOJacks:
     # --- Clock/Reset Input Jacks ---
     # Raw eurorack signals (0-10V) pass through connector to main board
     # where input protection conditions them for MCU ADC
-    j_clk_in = new PJ398SM
+    j_clk_in = new WQP518MA
     j_clk_in.TIP ~ clk_in_gpio
     j_clk_in.SLEEVE ~ gnd
 
-    j_rst_in = new PJ398SM
+    j_rst_in = new WQP518MA
     j_rst_in.TIP ~ rst_in_gpio
     j_rst_in.SLEEVE ~ gnd
 
     # --- Clock/Reset Output Jacks ---
     # Buffered 5V gate signals come from main board through connector
-    j_clk_out = new PJ398SM
+    j_clk_out = new WQP518MA
     j_clk_out.TIP ~ clk_out_gpio
     j_clk_out.SLEEVE ~ gnd
 
-    j_rst_out = new PJ398SM
+    j_rst_out = new WQP518MA
     j_rst_out.TIP ~ rst_out_gpio
     j_rst_out.SLEEVE ~ gnd
 
     # --- CV Input Jacks ---
     # Raw eurorack signals (0-10V) pass through connector to main board
     # where input protection conditions them for MCU ADC
-    j_cv_a = new PJ398SM
-    j_cv_b = new PJ398SM
-    j_cv_c = new PJ398SM
-    j_cv_d = new PJ398SM
+    j_cv_a = new WQP518MA
+    j_cv_b = new WQP518MA
+    j_cv_c = new WQP518MA
+    j_cv_d = new WQP518MA
 
     j_cv_a.TIP ~ cv_a_gpio
     j_cv_a.SLEEVE ~ gnd
