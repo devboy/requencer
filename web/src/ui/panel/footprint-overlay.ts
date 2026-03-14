@@ -83,9 +83,7 @@ export function createFootprintOverlay(): void {
   }
 
   // Standoffs — 3.2mm drill + 6mm clearance circle
-  const standoffs = (panelLayout as Record<string, unknown>).standoffs as
-    | { x_mm: number; y_mm: number }[]
-    | undefined
+  const standoffs = (panelLayout as Record<string, unknown>).standoffs as { x_mm: number; y_mm: number }[] | undefined
   if (standoffs) {
     for (const so of standoffs) {
       parts.push(svgOval(mm(so.x_mm), mm(so.y_mm), mm(1.6), mm(1.6), '#ff00ff'))
