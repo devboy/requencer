@@ -27,7 +27,7 @@ KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks \
 # Python venv for non-KiCad scripts (trimesh, cascadio, etc.)
 VENV         := ../.venv
 VENV_PYTHON  := $(VENV)/bin/python3
-VENV_DEPS    := trimesh cascadio numpy pytest
+VENV_DEPS    := trimesh cascadio numpy pytest requests
 
 # Parallelism for variant pipeline (placement + routing)
 # Each FreeRouting instance uses ~2GB heap. Override: make PARALLEL=4 all
@@ -76,7 +76,7 @@ MAIN_VARIANT_PLACED    := $(patsubst %,$(BUILD)/main-%.kicad_pcb,$(VARIANTS))
 CONTROL_RESULT_FILES   := $(patsubst %,$(BUILD)/control-%-result.json,$(VARIANTS))
 MAIN_RESULT_FILES      := $(patsubst %,$(BUILD)/main-%-result.json,$(VARIANTS))
 
-.PHONY: all place faceplate route gnd-pours 3d 3d-models 3d-glb export clean test-hw
+.PHONY: all place faceplate route gnd-pours 3d 3d-models 3d-glb export check-parts clean test-hw
 
 # --- Full pipeline ---
 all: gnd-pours faceplate 3d export
@@ -208,6 +208,11 @@ export-main: $(MAIN_POURED)
 
 export-faceplate: $(FACEPLATE_PCB)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/export/export_manufacturing.py $(FACEPLATE_PCB) $(BUILD)/manufacturing/faceplate
+
+# --- Parts availability check ---
+BOARD_COUNT ?= 5
+check-parts: $(VENV)/.deps-installed
+	$(VENV_PYTHON) $(SCRIPTS)/procurement/check_parts.py --boards $(BOARD_COUNT)
 
 # --- Tests ---
 test-hw: $(VENV)/.deps-installed
