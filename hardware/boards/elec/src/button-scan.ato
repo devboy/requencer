@@ -1,5 +1,5 @@
 # Button Scanning — 5× 74HC165 Shift Register Chain
-# 36 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
+# 34 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
 #
 # SR1 (bits 0-7):   Step buttons 1-8
 # SR2 (bits 8-15):  Step buttons 9-16

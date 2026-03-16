@@ -363,6 +363,16 @@ def _load_expected_drc_errors(board_type):
         return []
 
 
+def _load_expected_drc_warnings(board_type):
+    """Load expected DRC warnings for a board from board-config.json."""
+    try:
+        with open(BOARD_CONFIG_PATH) as f:
+            cfg = json.load(f)
+        return cfg.get("drc", {}).get(board_type, {}).get("expected_warnings", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
 def _build_footprint_map(pcb_path):
     """Build a designator → footprint name map from a .kicad_pcb file.
 
@@ -457,14 +467,18 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
     errors = [v for v in violations if v.get("severity", "") == "error"]
     warnings = [v for v in violations if v.get("severity", "") == "warning"]
 
-    # Split errors into expected vs unexpected
-    expected_patterns = _load_expected_drc_errors(board_type)
+    # Split errors and warnings into expected vs unexpected
+    expected_error_patterns = _load_expected_drc_errors(board_type)
+    expected_warning_patterns = _load_expected_drc_warnings(board_type)
     footprint_map = _build_footprint_map(output_pcb)
-    expected_errors = [e for e in errors if _is_expected_error(e, expected_patterns, footprint_map)]
-    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_patterns, footprint_map)]
+    expected_errors = [e for e in errors if _is_expected_error(e, expected_error_patterns, footprint_map)]
+    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_error_patterns, footprint_map)]
+    expected_warnings = [w for w in warnings if _is_expected_error(w, expected_warning_patterns, footprint_map)]
+    unexpected_warnings = [w for w in warnings if not _is_expected_error(w, expected_warning_patterns, footprint_map)]
 
     print(f"  {len(errors)} errors ({len(expected_errors)} expected, {len(unexpected_errors)} unexpected), "
-          f"{len(warnings)} warnings, {len(unconnected)} unconnected")
+          f"{len(warnings)} warnings ({len(expected_warnings)} expected, {len(unexpected_warnings)} unexpected), "
+          f"{len(unconnected)} unconnected")
 
     if expected_errors:
         seen = {}
@@ -472,7 +486,7 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
             desc = v.get("description", v.get("type", "unknown"))
             seen[desc] = seen.get(desc, 0) + 1
         for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
-            print(f"  - [expected] {desc} (x{count})")
+            print(f"  - [expected error] {desc} (x{count})")
 
     if unexpected_errors:
         seen = {}
@@ -480,7 +494,15 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
             desc = v.get("description", v.get("type", "unknown"))
             seen[desc] = seen.get(desc, 0) + 1
         for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
-            print(f"  - [UNEXPECTED] {desc} (x{count})")
+            print(f"  - [UNEXPECTED ERROR] {desc} (x{count})")
+
+    if unexpected_warnings:
+        seen = {}
+        for v in unexpected_warnings:
+            desc = v.get("description", v.get("type", "unknown"))
+            seen[desc] = seen.get(desc, 0) + 1
+        for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
+            print(f"  - [UNEXPECTED WARNING] {desc} (x{count})")
 
     if unconnected:
         nets = {}
@@ -498,9 +520,16 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
         if len(nets) > 10:
             print(f"    ... and {len(nets) - 10} more nets")
 
-    # STRICT: fail on unexpected errors or any unconnected items
-    if unexpected_errors or unconnected:
-        raise RoutingError(f"DRC check failed: {len(unexpected_errors)} unexpected errors, {len(unconnected)} unconnected. Review: {drc_dest}")
+    # STRICT: fail on unexpected errors, unexpected warnings, or any unconnected items
+    failures = []
+    if unexpected_errors:
+        failures.append(f"{len(unexpected_errors)} unexpected errors")
+    if unexpected_warnings:
+        failures.append(f"{len(unexpected_warnings)} unexpected warnings")
+    if unconnected:
+        failures.append(f"{len(unconnected)} unconnected")
+    if failures:
+        raise RoutingError(f"DRC check failed: {', '.join(failures)}. Review: {drc_dest}")
 
     print("  PASS: DRC clean" if not expected_errors else "  PASS: DRC clean (expected errors only)")
 
@@ -670,20 +699,38 @@ def autoroute(input_pcb, output_pcb=None, result_json_path=None):
                   f"{drc_metrics['unconnected_count']} unconnected")
 
             if result_json_path:
-                # Variant mode: check for unexpected DRC errors
-                expected_patterns = _load_expected_drc_errors(board_type)
+                # Variant mode: check for unexpected DRC errors AND warnings
+                expected_error_patterns = _load_expected_drc_errors(board_type)
+                expected_warning_patterns = _load_expected_drc_warnings(board_type)
                 footprint_map = _build_footprint_map(output_pcb)
                 violations = drc_report.get("violations", [])
                 errors = [v for v in violations if v.get("severity") == "error"]
+                warnings = [v for v in violations if v.get("severity") == "warning"]
                 unconnected = drc_report.get("unconnected_items", [])
-                unexpected = [e for e in errors
-                              if not _is_expected_error(e, expected_patterns,
-                                                        footprint_map)]
+                unexpected_errors = [e for e in errors
+                                     if not _is_expected_error(e, expected_error_patterns,
+                                                               footprint_map)]
+                unexpected_warnings = [w for w in warnings
+                                       if not _is_expected_error(w, expected_warning_patterns,
+                                                                  footprint_map)]
 
-                if unexpected or unconnected:
-                    reason = (f"{len(unexpected)} unexpected DRC errors, "
-                              f"{len(unconnected)} unconnected")
+                if unexpected_errors or unexpected_warnings or unconnected:
+                    parts = []
+                    if unexpected_errors:
+                        parts.append(f"{len(unexpected_errors)} unexpected DRC errors")
+                    if unexpected_warnings:
+                        parts.append(f"{len(unexpected_warnings)} unexpected DRC warnings")
+                    if unconnected:
+                        parts.append(f"{len(unconnected)} unconnected")
+                    reason = ", ".join(parts)
                     print(f"  FAIL: {reason}")
+                    if unexpected_warnings:
+                        seen = {}
+                        for w in unexpected_warnings:
+                            d = w.get("description", "unknown")[:80]
+                            seen[d] = seen.get(d, 0) + 1
+                        for d, c in sorted(seen.items(), key=lambda x: -x[1]):
+                            print(f"  - [UNEXPECTED WARNING] {d} (x{c})")
                     result = build_result(status="fail", reason=reason)
                     write_result_json(result_json_path, result)
                     print(f"  Result written to {result_json_path}")

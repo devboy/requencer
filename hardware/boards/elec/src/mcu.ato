@@ -116,6 +116,11 @@ module PGA2350_MCU:
     c_vb.unnamed[0] ~ pga.VB
     c_vb.unnamed[1] ~ gnd
 
+    c_vb_hf = new Capacitor
+    c_vb_hf.capacitance = 100nF +/- 20%
+    c_vb_hf.unnamed[0] ~ pga.VB
+    c_vb_hf.unnamed[1] ~ gnd
+
     c_3v3 = new Capacitor
     c_3v3.capacitance = 100nF +/- 20%
     c_3v3.unnamed[0] ~ v3v3
@@ -212,9 +217,15 @@ module PGA2350_MCU:
     r_run.unnamed[0] ~ v3v3
     r_run.unnamed[1] ~ pga.RUN
 
-    # --- ADC_VREF decoupling (clean reference for CV input ADC channels) ---
+    # --- ADC_VREF supply + filtering (Pico 2 reference design) ---
+    # RC low-pass filter isolates ADC analog supply from digital 3V3 noise
+    r_aref = new Resistor
+    r_aref.resistance = 200ohm +/- 5%
+    r_aref.unnamed[0] ~ v3v3
+    r_aref.unnamed[1] ~ pga.ADC_VREF
+
     c_aref = new Capacitor
-    c_aref.capacitance = 100nF +/- 20%
+    c_aref.capacitance = 2.2uF +/- 20%
     c_aref.unnamed[0] ~ pga.ADC_VREF
     c_aref.unnamed[1] ~ gnd
 

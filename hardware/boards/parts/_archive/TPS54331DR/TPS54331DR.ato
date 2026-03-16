@@ -1,0 +1,23 @@
+# TPS54331DR — TI 3A 28V Step-Down DC-DC Converter, SOIC-8
+# LCSC: C9865
+# 570kHz fixed frequency, adjustable output via feedback divider
+# Non-synchronous (external catch diode required)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component TPS54331DR:
+    trait is_atomic_part<manufacturer="TI", partnumber="TPS54331DR", footprint="SOIC-8.kicad_mod", symbol="TPS54331DR.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C9865", manufacturer="TI", partno="TPS54331DR">
+
+    signal BOOT ~ pin 1
+    signal VIN ~ pin 2
+    signal EN ~ pin 3
+    signal SS ~ pin 4
+    signal VSENSE ~ pin 5
+    signal COMP ~ pin 6
+    signal GND ~ pin 7
+    signal PH ~ pin 8

@@ -727,7 +727,7 @@ def estimate_hpwl(placements, net_graph):
 
 
 # ---------------------------------------------------------------------------
-# pcbnew utility functions (used by orchestrator to build BoardContext)
+# pcbnew utility functions (used by orchestrator to build ComponentInfo)
 # ---------------------------------------------------------------------------
 
 

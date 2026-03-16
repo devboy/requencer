@@ -9,7 +9,7 @@ import has_part_picked
 component WQP518MA:
     trait is_atomic_part<manufacturer="Thonkiconn", partnumber="WQP518MA", footprint="WQP518MA.kicad_mod", symbol="WQP518MA.kicad_sym">
     trait has_designator_prefix<prefix="J">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2907129", manufacturer="Thonkiconn", partno="WQP518MA">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C5378060", manufacturer="QingPu", partno="WQP518MA">
 
     signal TIP ~ pin 1
     signal SLEEVE ~ pin 2

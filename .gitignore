@@ -24,5 +24,8 @@ hardware/boards/build/3d/.stamp
 hardware/logs/
 logs/
 
+# Environment
+.env
+
 # Misc
 .worktrees/

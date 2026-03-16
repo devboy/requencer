@@ -38,8 +38,10 @@ module LEDDriverChain:
     # Power
     tlc1.VCC ~ vcc
     tlc1.GND ~ gnd
+    tlc1.PAD ~ gnd
     tlc2.VCC ~ vcc
     tlc2.GND ~ gnd
+    tlc2.PAD ~ gnd
 
     # LED anode power (connect to 5V, NOT 3.3V VCC)
     led_vcc ~ v5v
@@ -55,12 +57,36 @@ module LEDDriverChain:
     c2.unnamed[0] ~ vcc
     c2.unnamed[1] ~ gnd
 
+    # Bulk cap on TLC5947 VCC (3.3V) — per datasheet recommendation
+    c_bulk = new Capacitor
+    c_bulk.capacitance = 10uF +/- 20%
+    c_bulk.unnamed[0] ~ vcc
+    c_bulk.unnamed[1] ~ gnd
+
+    # Local decoupling on 5V LED anode supply — absorbs switching transients
+    c_led_bulk = new Capacitor
+    c_led_bulk.capacitance = 10uF +/- 20%
+    c_led_bulk.unnamed[0] ~ v5v
+    c_led_bulk.unnamed[1] ~ gnd
+
+    c_led_hf = new Capacitor
+    c_led_hf.capacitance = 100nF +/- 20%
+    c_led_hf.unnamed[0] ~ v5v
+    c_led_hf.unnamed[1] ~ gnd
+
     # Shared control lines
     tlc1.XLAT ~ xlat
     tlc2.XLAT ~ xlat
 
     tlc1.BLANK ~ blank
     tlc2.BLANK ~ blank
+
+    # Pull-up on BLANK ensures LEDs are OFF at power-on before firmware runs.
+    # Without this, GPIO floats and BLANK=LOW enables all outputs (624mA inrush).
+    r_blank_pu = new Resistor
+    r_blank_pu.resistance = 10kohm +/- 5%
+    r_blank_pu.unnamed[0] ~ vcc
+    r_blank_pu.unnamed[1] ~ blank
 
     tlc1.SCLK ~ sclk
     tlc2.SCLK ~ sclk

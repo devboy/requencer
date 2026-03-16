@@ -7,41 +7,631 @@
         "strategy": "panel-layout",
         "tht_extra_clearance_mm": 1.5,
         "smd_side": "B",
-        "padding_sequence": [2.0, 1.5, 1.0, 0.5, 0.0],
-        "named_positions": {
-          "connector.header_a": {"x": 20, "y": 42, "front": false},
-          "connector.header_b": {"x": 88, "y": 42, "front": false},
-          "midi.opto": {"x": 55, "y": 15, "front": false},
-          "midi.r_in": {"x": 65, "y": 15, "front": false}
+        "padding_sequence": [
+          2.0,
+          1.5,
+          1.0,
+          0.5,
+          0.0
+        ],
+        "fixed": {
+          "_comment": "Positions for THT components from panel-layout.json (faceplate coords) and named back-side components (pcb coords).",
+          "jacks.j_clk_in": {
+            "x": 136.9,
+            "y": 27.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_clk_out": {
+            "x": 160.9,
+            "y": 27.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_rst_in": {
+            "x": 148.9,
+            "y": 27.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_rst_out": {
+            "x": 172.9,
+            "y": 27.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "midi.jack_in": {
+            "x": 124.9,
+            "y": 95.1,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "midi.jack_out": {
+            "x": 124.9,
+            "y": 110.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_gate1": {
+            "x": 136.9,
+            "y": 57.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_gate2": {
+            "x": 148.9,
+            "y": 57.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_gate3": {
+            "x": 160.9,
+            "y": 57.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_gate4": {
+            "x": 172.9,
+            "y": 57.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_pitch1": {
+            "x": 136.9,
+            "y": 73.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_pitch2": {
+            "x": 148.9,
+            "y": 73.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_pitch3": {
+            "x": 160.9,
+            "y": 73.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_pitch4": {
+            "x": 172.9,
+            "y": 73.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_vel1": {
+            "x": 136.9,
+            "y": 88.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_vel2": {
+            "x": 148.9,
+            "y": 88.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_vel3": {
+            "x": 160.9,
+            "y": 88.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_vel4": {
+            "x": 172.9,
+            "y": 88.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_mod1": {
+            "x": 136.9,
+            "y": 104.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_mod2": {
+            "x": 148.9,
+            "y": 104.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_mod3": {
+            "x": 160.9,
+            "y": 104.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_mod4": {
+            "x": 172.9,
+            "y": 104.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_cv_a": {
+            "x": 136.9,
+            "y": 42.4,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_cv_b": {
+            "x": 148.9,
+            "y": 42.4,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_cv_c": {
+            "x": 160.9,
+            "y": 42.4,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "jacks.j_cv_d": {
+            "x": 172.9,
+            "y": 42.4,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_t1": {
+            "x": 7.0,
+            "y": 19.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_t2": {
+            "x": 7.0,
+            "y": 30.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_t3": {
+            "x": 7.0,
+            "y": 40.9,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_t4": {
+            "x": 7.0,
+            "y": 51.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_gate": {
+            "x": 104.23,
+            "y": 19.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_pitch": {
+            "x": 104.23,
+            "y": 30.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_vel": {
+            "x": 104.23,
+            "y": 40.9,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_mod": {
+            "x": 104.23,
+            "y": 51.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_pat": {
+            "x": 104.23,
+            "y": 62.3,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_mute": {
+            "x": 114.93,
+            "y": 19.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_route": {
+            "x": 114.93,
+            "y": 30.2,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_drift": {
+            "x": 114.93,
+            "y": 40.9,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_xpose": {
+            "x": 114.93,
+            "y": 51.6,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_var": {
+            "x": 114.93,
+            "y": 62.3,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step1": {
+            "x": 17.33,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step2": {
+            "x": 28.03,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step3": {
+            "x": 38.73,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step4": {
+            "x": 49.43,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step5": {
+            "x": 60.13,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step6": {
+            "x": 70.83,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step7": {
+            "x": 81.53,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step8": {
+            "x": 92.23,
+            "y": 101.8,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step9": {
+            "x": 17.33,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step10": {
+            "x": 28.03,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step11": {
+            "x": 38.73,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step12": {
+            "x": 49.43,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step13": {
+            "x": 60.13,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step14": {
+            "x": 70.83,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step15": {
+            "x": 81.53,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_step16": {
+            "x": 92.23,
+            "y": 112.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_play": {
+            "x": 131.0,
+            "y": 19.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_reset": {
+            "x": 141.7,
+            "y": 19.5,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_settings": {
+            "x": 70.83,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_back": {
+            "x": 38.73,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_rand": {
+            "x": 49.43,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "buttons.btn_clr": {
+            "x": 60.13,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "enc_a": {
+            "x": 13.53,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "enc_b": {
+            "x": 96.03,
+            "y": 83.36,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "sd": {
+            "x": 172.25,
+            "y": 17.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "faceplate"
+          },
+          "lcd_fpc": {
+            "x": 61.33,
+            "y": 30.39,
+            "side": "F",
+            "rotation": 270,
+            "coords": "pcb"
+          },
+          "connector.header_a": {
+            "x": 20,
+            "y": 42,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "connector.header_c": {
+            "x": 123.5,
+            "y": 42,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          }
         },
         "component_padding": {
-          "lcd_fpc": {"left": 5.0}
-        }
+          "lcd_fpc": {
+            "left": 5.0
+          }
+        },
+        "standoffs": [
+          {
+            "id": "so_tl",
+            "x": 5.5,
+            "y": 12.5,
+            "coords": "faceplate",
+            "drill_mm": 3.2,
+            "clearance_mm": 6.0
+          },
+          {
+            "id": "so_bl",
+            "x": 5.5,
+            "y": 114.0,
+            "coords": "faceplate",
+            "drill_mm": 3.2,
+            "clearance_mm": 6.0
+          }
+        ]
       }
     },
     "main": {
       "pcb_source": "elec/layout/main/main.kicad_pcb",
-      "dimensions": {"width_mm": 103.0, "height_mm": 84.0},
+      "dimensions": {
+        "width_mm": 140.0,
+        "height_mm": 84.0
+      },
       "placement": {
         "strategy": "compact-grid",
         "tht_extra_clearance_mm": 1.5,
         "smd_side": "F",
-        "padding_sequence": [4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.0],
-        "named_positions": {
-          "connector.header_a": {"x": 20, "y": 42, "front": true},
-          "connector.header_b": {"x": 88, "y": 42, "front": true},
-          "mcu.pga": {"x": 51, "y": 42, "front": false},
-          "power.header": {"x": 95.5, "y": 42, "front": false}
+        "padding_sequence": [
+          4.0,
+          3.5,
+          3.0,
+          2.5,
+          2.0,
+          1.5,
+          1.0,
+          0.5,
+          0.0
+        ],
+        "fixed": {
+          "_comment": "All positions in PCB coordinates.",
+          "connector.header_a": {
+            "x": 20,
+            "y": 42,
+            "side": "F",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "connector.header_c": {
+            "x": 123.5,
+            "y": 42,
+            "side": "F",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "mcu.pga": {
+            "x": 51,
+            "y": 42,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "power.header": {
+            "x": 95.5,
+            "y": 42,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "usb": {
+            "x": 5.0,
+            "y": 52.0,
+            "side": "F",
+            "rotation": 270,
+            "coords": "pcb"
+          },
+          "mcu.sw_bootsel": {
+            "x": 5.0,
+            "y": 42.0,
+            "side": "F",
+            "rotation": 0,
+            "coords": "pcb"
+          }
         },
         "ic_spacing": 12.0,
         "passive_spacing": 5.0,
         "margin": 3.0,
         "component_padding": {
-          "dacs.dac": {"left": 3.0, "right": 3.0, "top": 3.0, "bottom": 3.0}
+          "dacs.dac": {
+            "left": 3.0,
+            "right": 3.0,
+            "top": 3.0,
+            "bottom": 3.0
+          },
+          "dac.opamp": {
+            "left": 2.0,
+            "right": 2.0,
+            "top": 2.0,
+            "bottom": 2.0
+          },
+          "connector.header": {
+            "left": 2.0,
+            "right": 2.0,
+            "top": 2.0,
+            "bottom": 2.0
+          }
         },
         "anti_affinity": [
-          {"from": "power.reg_5v", "to": "dacs.", "min_mm": 20, "reason": "thermal: 12V-5V linear reg (1W) away from precision DAC"},
-          {"from": "power.reg_3v3", "to": "dacs.", "min_mm": 15, "reason": "thermal: 5V-3.3V linear reg away from precision DAC"}
+          {
+            "from": "power.reg_5v",
+            "to": "dac.",
+            "min_mm": 20,
+            "reason": "thermal: 12V-5V linear reg (1W) away from precision DAC"
+          },
+          {
+            "from": "power.reg_3v3",
+            "to": "dac.",
+            "min_mm": 15,
+            "reason": "thermal: 5V-3.3V linear reg away from precision DAC"
+          },
+          {
+            "from": "dac.dac1",
+            "to": "dac.dac2",
+            "min_mm": 12,
+            "reason": "routing: QFN pads on all sides need escape clearance"
+          },
+          {
+            "from": "dac.opamp*",
+            "to": "dac.opamp*",
+            "min_mm": 6,
+            "reason": "routing: TSSOP ICs need trace clearance between them"
+          }
         ]
       }
     }
@@ -61,7 +651,33 @@
         },
         {
           "description": "Board edge clearance violation",
-          "comment": "Components near board edge within 0.3mm constraint"
+          "comment": "Components near board edge \u2014 within JLCPCB 0.2mm standard"
+        },
+        {
+          "description": "Hole clearance violation",
+          "comment": "THT component holes close to copper \u2014 within JLCPCB 0.2mm standard"
+        }
+      ],
+      "expected_warnings": [
+        {
+          "description": "does not include the footprint library",
+          "comment": "Missing local KiCad lib references \u2014 footprints are embedded in PCB"
+        },
+        {
+          "description": "Silkscreen overlap",
+          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact"
+        },
+        {
+          "description": "Silkscreen clipped by solder mask",
+          "comment": "Cosmetic: text under pads auto-trimmed by fab"
+        },
+        {
+          "description": "Silkscreen clipped by board edge",
+          "comment": "Cosmetic: text near board edge trimmed"
+        },
+        {
+          "description": "Drilled hole too close to other hole",
+          "comment": "Via spacing \u2014 rules now match JLCPCB 0.254mm min, should not fire"
         }
       ]
     },
@@ -69,17 +685,80 @@
       "expected_errors": [
         {
           "description": "Board edge clearance violation",
-          "comment": "Components near board edge within 0.3mm constraint"
+          "comment": "Components near board edge \u2014 rules now match JLCPCB 0.2mm min"
+        }
+      ],
+      "expected_warnings": [
+        {
+          "description": "does not include the footprint library",
+          "comment": "Missing local KiCad lib references \u2014 footprints are embedded in PCB"
+        },
+        {
+          "description": "Silkscreen overlap",
+          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact"
+        },
+        {
+          "description": "Silkscreen clipped by solder mask",
+          "comment": "Cosmetic: text under pads auto-trimmed by fab"
+        },
+        {
+          "description": "Silkscreen clipped by board edge",
+          "comment": "Cosmetic: text near board edge trimmed"
+        },
+        {
+          "description": "Drilled hole too close to other hole",
+          "comment": "Via spacing within JLCPCB 0.254mm minimum"
         }
       ]
     }
   },
   "placement": {
     "variants": [
-      {"name": "constructive-a", "algorithm": "constructive", "params": {"order": "connectivity", "padding": 1.5}},
-      {"name": "constructive-b", "algorithm": "constructive", "params": {"order": "size", "padding": 1.0}},
-      {"name": "force-directed-a", "algorithm": "force_directed", "params": {"attraction": 1.0, "repulsion": 0.5, "iterations": 200}},
-      {"name": "sa-refine-a", "algorithm": "sa_refine", "params": {"initial_temp": 5.0, "cooling_rate": 0.95, "seed": 42}}
+      {
+        "name": "constructive-a",
+        "algorithm": "constructive",
+        "params": {
+          "order": "connectivity",
+          "padding": 1.5
+        }
+      },
+      {
+        "name": "constructive-b",
+        "algorithm": "constructive",
+        "params": {
+          "order": "size",
+          "padding": 1.0
+        }
+      },
+      {
+        "name": "grid-spread-a",
+        "algorithm": "grid_spread",
+        "params": {
+          "margin": 2.0,
+          "connectivity_weight": 1.0,
+          "density_weight": 3.0,
+          "seed": 42
+        }
+      },
+      {
+        "name": "grid-spread-b",
+        "algorithm": "grid_spread",
+        "params": {
+          "margin": 3.0,
+          "connectivity_weight": 1.0,
+          "density_weight": 5.0,
+          "seed": 7
+        }
+      },
+      {
+        "name": "sa-refine-a",
+        "algorithm": "sa_refine",
+        "params": {
+          "initial_temp": 5.0,
+          "cooling_rate": 0.95,
+          "seed": 42
+        }
+      }
     ],
     "score_weights": {
       "via_count": 1.0,

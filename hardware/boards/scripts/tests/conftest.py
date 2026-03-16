@@ -2,7 +2,38 @@
 
 import pytest
 
-from placement.strategies import AntiAffinityRule, BoardContext, ComponentInfo, Placement
+from placement.strategies import AntiAffinityRule, BoardState, ComponentInfo, Placement
+
+
+class FixtureData:
+    """Simple container for test fixture data (replaces BoardContext in tests)."""
+    def __init__(self, width, height, fixed, free, net_graph,
+                 config=None, fixed_info=None, anti_affinity=None,
+                 smd_side="both"):
+        self.width = width
+        self.height = height
+        self.fixed = fixed
+        self.free = free
+        self.net_graph = net_graph
+        self.config = config or {}
+        self.fixed_info = fixed_info or {}
+        self.anti_affinity = anti_affinity or []
+        self.smd_side = smd_side
+
+
+def board_state_from_ctx(ctx):
+    """Convert fixture data to (components_list, BoardState) for strategy interface."""
+    components = list(ctx.free.values())
+    board = BoardState(
+        width=ctx.width, height=ctx.height,
+        fixed=ctx.fixed, fixed_info=ctx.fixed_info,
+        net_graph=ctx.net_graph,
+        anti_affinity=ctx.anti_affinity,
+        smd_side=ctx.smd_side,
+        tht_extra_clearance=ctx.config.get("tht_extra_clearance_mm", 0.0),
+        clearance=0.5,
+    )
+    return components, board
 
 
 @pytest.fixture
@@ -62,13 +93,12 @@ def small_board_ctx():
         "net3": ["fixed_b", "comp_d", "comp_e"],
         "net4": ["comp_a", "comp_d"],
     }
-    return BoardContext(
+    return FixtureData(
         width=50.0,
         height=50.0,
         fixed=fixed,
         free=free,
         net_graph=net_graph,
-        config={},
         fixed_info=fixed_info,
     )
 
@@ -106,13 +136,12 @@ def tht_board_ctx():
     net_graph = {
         "net1": ["header_a", "tht_comp", "smd_front", "smd_back"],
     }
-    return BoardContext(
+    return FixtureData(
         width=40.0,
         height=50.0,
         fixed=fixed,
         free=free,
         net_graph=net_graph,
-        config={},
         fixed_info=fixed_info,
     )
 
@@ -157,13 +186,12 @@ def anti_affinity_ctx():
     rules = [
         AntiAffinityRule(from_pattern="power.", to_pattern="dacs.", min_mm=30.0),
     ]
-    return BoardContext(
+    return FixtureData(
         width=100.0,
         height=100.0,
         fixed=fixed,
         free=free,
         net_graph=net_graph,
-        config={},
         fixed_info=fixed_info,
         anti_affinity=rules,
     )

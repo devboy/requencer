@@ -3,7 +3,7 @@
 # Defines all signals crossing between the two boards via 2× 2×16 shrouded headers
 #
 # Header A: Digital + Power (pins 1-32)
-# Header B: Analog + Remaining Digital (pins 1-32)
+# Header C: Analog bridge near jacks (pins 1-32)
 #
 # See docs/plans/pcb-stacking-restructure.md for full pinout table
 
@@ -13,7 +13,7 @@ from "../../parts/ShroudedSocket2x16/ShroudedSocket2x16.ato" import ShroudedSock
 module BoardConnectorInterface:
     # --- Physical headers ---
     header_a = new ShroudedHeader2x16
-    header_b = new ShroudedHeader2x16
+    header_c = new ShroudedHeader2x16
 
     # === POWER SIGNALS ===
     signal gnd
@@ -23,8 +23,8 @@ module BoardConnectorInterface:
     signal v12n       # -12V
 
     # === MIDI ===
-    signal midi_tx    # GP21
-    signal midi_rx    # GP22
+    signal midi_tx    # GP20 (UART1_TX)
+    signal midi_rx    # GP21 (UART1_RX)
 
     # === Button Scanning ===
     signal sr_clk     # GP8
@@ -45,7 +45,7 @@ module BoardConnectorInterface:
     # === Encoder B ===
     signal enc_b_a    # GP18
     signal enc_b_b    # GP19
-    signal enc_b_sw   # GP20
+    signal enc_b_sw   # GP6
 
     # === Display SPI (shared bus with SD card) ===
     signal spi0_mosi    # GP3 — SPI0 TX (shared: display + SD)
@@ -117,10 +117,10 @@ module BoardConnectorInterface:
     # Pins 17-18: MIDI_TX / MIDI_RX
     header_a.PIN17 ~ midi_tx
     header_a.PIN18 ~ midi_rx
-    # Pins 19-22: spare (3 remaining)
-    # PIN19: spare
-    # PIN20: spare
-    # PIN21: spare
+    # Pins 19-21: Encoder B
+    header_a.PIN19 ~ enc_b_a
+    header_a.PIN20 ~ enc_b_b
+    header_a.PIN21 ~ enc_b_sw
     header_a.PIN22 ~ sr_clk
     # Pins 23-24: SR_LATCH / SR_DATA
     header_a.PIN23 ~ sr_latch
@@ -138,55 +138,39 @@ module BoardConnectorInterface:
     header_a.PIN31 ~ enc_a_sw
     header_a.PIN32 ~ gnd
 
-    # === HEADER B PINOUT: Analog + Remaining Digital ===
-    # Pins 1-2: GND
-    header_b.PIN1 ~ gnd
-    header_b.PIN2 ~ gnd
-    # Pins 3-4: ENC_B_A / ENC_B_B
-    header_b.PIN3 ~ enc_b_a
-    header_b.PIN4 ~ enc_b_b
-    # Pins 5-6: ENC_B_SW / CLK_IN
-    header_b.PIN5 ~ enc_b_sw
-    header_b.PIN6 ~ clk_in
-    # Pins 7-8: RST_IN / CLK_OUT
-    header_b.PIN7 ~ rst_in
-    header_b.PIN8 ~ clk_out
-    # Pins 9-10: RST_OUT / CV_A
-    header_b.PIN9 ~ rst_out
-    header_b.PIN10 ~ cv_a
-    # Pins 11-12: CV_B / CV_C
-    header_b.PIN11 ~ cv_b
-    header_b.PIN12 ~ cv_c
-    # Pins 13-14: CV_D / GATE1
-    header_b.PIN13 ~ cv_d
-    header_b.PIN14 ~ gate1
-    # Pins 15-16: GATE2 / GATE3
-    header_b.PIN15 ~ gate2
-    header_b.PIN16 ~ gate3
-    # Pins 17-18: GATE4 / PITCH1
-    header_b.PIN17 ~ gate4
-    header_b.PIN18 ~ pitch1
-    # Pins 19-20: PITCH2 / PITCH3
-    header_b.PIN19 ~ pitch2
-    header_b.PIN20 ~ pitch3
-    # Pins 21-22: PITCH4 / VEL1
-    header_b.PIN21 ~ pitch4
-    header_b.PIN22 ~ vel1
-    # Pins 23-24: VEL2 / VEL3
-    header_b.PIN23 ~ vel2
-    header_b.PIN24 ~ vel3
-    # Pins 25-26: VEL4 / MOD1
-    header_b.PIN25 ~ vel4
-    header_b.PIN26 ~ mod1
-    # Pins 27-28: MOD2 / MOD3
-    header_b.PIN27 ~ mod2
-    header_b.PIN28 ~ mod3
-    # Pins 29-30: MOD4 / +5V
-    header_b.PIN29 ~ mod4
-    header_b.PIN30 ~ v5v
-    # Pins 31-32: GND / GND
-    header_b.PIN31 ~ gnd
-    header_b.PIN32 ~ gnd
+    # === HEADER C PINOUT: Analog bridge (near jacks) ===
+    header_c.PIN1  ~ gnd
+    header_c.PIN2  ~ gnd
+    header_c.PIN3  ~ clk_in
+    header_c.PIN4  ~ clk_out
+    header_c.PIN5  ~ rst_in
+    header_c.PIN6  ~ rst_out
+    header_c.PIN7  ~ gnd
+    header_c.PIN8  ~ cv_a
+    header_c.PIN9  ~ cv_b
+    header_c.PIN10 ~ cv_c
+    header_c.PIN11 ~ cv_d
+    header_c.PIN12 ~ gnd
+    header_c.PIN13 ~ gate1
+    header_c.PIN14 ~ gate2
+    header_c.PIN15 ~ gate3
+    header_c.PIN16 ~ gate4
+    header_c.PIN17 ~ gnd
+    header_c.PIN18 ~ pitch1
+    header_c.PIN19 ~ pitch2
+    header_c.PIN20 ~ pitch3
+    header_c.PIN21 ~ pitch4
+    header_c.PIN22 ~ gnd
+    header_c.PIN23 ~ vel1
+    header_c.PIN24 ~ vel2
+    header_c.PIN25 ~ vel3
+    header_c.PIN26 ~ vel4
+    header_c.PIN27 ~ gnd
+    header_c.PIN28 ~ mod1
+    header_c.PIN29 ~ mod2
+    header_c.PIN30 ~ mod3
+    header_c.PIN31 ~ mod4
+    header_c.PIN32 ~ gnd
 
 # Board-to-Board Connector Socket (Female IDC)
 # Used on control board — mates with male header on main board
@@ -195,7 +179,7 @@ module BoardConnectorInterface:
 module BoardConnectorSocket:
     # --- Physical headers (female sockets) ---
     header_a = new ShroudedSocket2x16
-    header_b = new ShroudedSocket2x16
+    header_c = new ShroudedSocket2x16
 
     # === POWER SIGNALS ===
     signal gnd
@@ -295,10 +279,10 @@ module BoardConnectorSocket:
     # Pins 17-18: MIDI_TX / MIDI_RX
     header_a.PIN17 ~ midi_tx
     header_a.PIN18 ~ midi_rx
-    # Pins 19-22: spare (3 remaining)
-    # PIN19: spare
-    # PIN20: spare
-    # PIN21: spare
+    # Pins 19-21: Encoder B
+    header_a.PIN19 ~ enc_b_a
+    header_a.PIN20 ~ enc_b_b
+    header_a.PIN21 ~ enc_b_sw
     header_a.PIN22 ~ sr_clk
     header_a.PIN23 ~ sr_latch
     header_a.PIN24 ~ sr_data
@@ -311,36 +295,36 @@ module BoardConnectorSocket:
     header_a.PIN31 ~ enc_a_sw
     header_a.PIN32 ~ gnd
 
-    # === HEADER B PINOUT: Analog + Remaining Digital ===
-    header_b.PIN1 ~ gnd
-    header_b.PIN2 ~ gnd
-    header_b.PIN3 ~ enc_b_a
-    header_b.PIN4 ~ enc_b_b
-    header_b.PIN5 ~ enc_b_sw
-    header_b.PIN6 ~ clk_in
-    header_b.PIN7 ~ rst_in
-    header_b.PIN8 ~ clk_out
-    header_b.PIN9 ~ rst_out
-    header_b.PIN10 ~ cv_a
-    header_b.PIN11 ~ cv_b
-    header_b.PIN12 ~ cv_c
-    header_b.PIN13 ~ cv_d
-    header_b.PIN14 ~ gate1
-    header_b.PIN15 ~ gate2
-    header_b.PIN16 ~ gate3
-    header_b.PIN17 ~ gate4
-    header_b.PIN18 ~ pitch1
-    header_b.PIN19 ~ pitch2
-    header_b.PIN20 ~ pitch3
-    header_b.PIN21 ~ pitch4
-    header_b.PIN22 ~ vel1
-    header_b.PIN23 ~ vel2
-    header_b.PIN24 ~ vel3
-    header_b.PIN25 ~ vel4
-    header_b.PIN26 ~ mod1
-    header_b.PIN27 ~ mod2
-    header_b.PIN28 ~ mod3
-    header_b.PIN29 ~ mod4
-    header_b.PIN30 ~ v5v
-    header_b.PIN31 ~ gnd
-    header_b.PIN32 ~ gnd
+    # === HEADER C PINOUT: Analog bridge (near jacks) ===
+    header_c.PIN1  ~ gnd
+    header_c.PIN2  ~ gnd
+    header_c.PIN3  ~ clk_in
+    header_c.PIN4  ~ clk_out
+    header_c.PIN5  ~ rst_in
+    header_c.PIN6  ~ rst_out
+    header_c.PIN7  ~ gnd
+    header_c.PIN8  ~ cv_a
+    header_c.PIN9  ~ cv_b
+    header_c.PIN10 ~ cv_c
+    header_c.PIN11 ~ cv_d
+    header_c.PIN12 ~ gnd
+    header_c.PIN13 ~ gate1
+    header_c.PIN14 ~ gate2
+    header_c.PIN15 ~ gate3
+    header_c.PIN16 ~ gate4
+    header_c.PIN17 ~ gnd
+    header_c.PIN18 ~ pitch1
+    header_c.PIN19 ~ pitch2
+    header_c.PIN20 ~ pitch3
+    header_c.PIN21 ~ pitch4
+    header_c.PIN22 ~ gnd
+    header_c.PIN23 ~ vel1
+    header_c.PIN24 ~ vel2
+    header_c.PIN25 ~ vel3
+    header_c.PIN26 ~ vel4
+    header_c.PIN27 ~ gnd
+    header_c.PIN28 ~ mod1
+    header_c.PIN29 ~ mod2
+    header_c.PIN30 ~ mod3
+    header_c.PIN31 ~ mod4
+    header_c.PIN32 ~ gnd

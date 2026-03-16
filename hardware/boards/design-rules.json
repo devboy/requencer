@@ -1,14 +1,15 @@
 {
+  "_fab": "JLCPCB 2-layer standard process — no advanced options, no extra cost",
   "board_minimums": {
-    "track_min_width": 0.15,
+    "track_min_width": 0.127,
     "min_clearance": 0.127,
     "via_min_size": 0.45,
-    "via_min_drill": 0.2,
-    "via_min_annular_width": 0.13,
-    "copper_edge_clearance": 0.3,
-    "hole_clearance": 0.25,
-    "hole_to_hole_min": 0.5,
-    "min_through_drill": 0.2
+    "via_min_drill": 0.3,
+    "via_min_annular_width": 0.075,
+    "copper_edge_clearance": 0.2,
+    "hole_clearance": 0.2,
+    "hole_to_hole_min": 0.254,
+    "min_through_drill": 0.3
   },
   "solder_mask": {
     "expansion": 0.05,
@@ -40,8 +41,8 @@
     "LED": {
       "track_width": 0.15,
       "clearance": 0.127,
-      "via_diameter": 0.46,
-      "via_drill": 0.2
+      "via_diameter": 0.45,
+      "via_drill": 0.3
     }
   },
   "net_assignments": {

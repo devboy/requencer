@@ -14,7 +14,8 @@ module MIDIInterface:
     signal uart_rx    # GP21 — UART1 RX
 
     # Power
-    signal vcc        # +3.3V
+    signal vcc        # +3.3V (opto, logic)
+    signal v5v        # +5V (MIDI OUT current source — spec requires ≥5mA)
     signal gnd
 
     # --- MIDI OUT ---
@@ -31,8 +32,8 @@ module MIDIInterface:
     uart_tx ~ r_out_tip.unnamed[0]
     r_out_tip.unnamed[1] ~ jack_out.TIP
 
-    # Ring carries +V through 220Ω (current return path)
-    vcc ~ r_out_ring.unnamed[0]
+    # Ring carries +5V through 220Ω (MIDI spec requires ≥5mA current source)
+    v5v ~ r_out_ring.unnamed[0]
     r_out_ring.unnamed[1] ~ jack_out.RING
 
     # Sleeve to GND (shield)
@@ -53,7 +54,7 @@ module MIDIInterface:
 
     # Optocoupler output pull-up
     r_pullup = new Resistor
-    r_pullup.resistance = 470ohm +/- 5%
+    r_pullup.resistance = 1kohm +/- 5%
 
     # Optocoupler base resistor
     r_base = new Resistor
@@ -77,7 +78,7 @@ module MIDIInterface:
     opto.VCC ~ vcc
     opto.GND ~ gnd
 
-    # VE (base) to GND via resistor for proper biasing
+    # VE (emitter) pull-down — speeds up turn-off, standard 6N138 application circuit
     opto.VE ~ r_base.unnamed[0]
     r_base.unnamed[1] ~ gnd
 

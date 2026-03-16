@@ -72,7 +72,6 @@ def export_step(pcb_path: Path, output_path: Path) -> bool:
     cmd = [
         KICAD_CLI, "pcb", "export", "step",
         "--subst-models",
-        "--include-tracks",
         "--include-pads",
         "--include-zones",
         "--include-silkscreen",

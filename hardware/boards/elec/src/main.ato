@@ -187,39 +187,49 @@ module Main:
     prot_rst = new InputProtection
 
     # CV inputs: connector (raw 0-10V) → protection → MCU ADC
+    # 100nF filter (f3dB ≈ 159Hz) — adequate for slowly-varying CV signals
+    prot_cv_a.c_filter.capacitance = 100nF +/- 20%
     connector.cv_a ~ prot_cv_a.input
     prot_cv_a.output ~ mcu.cv_a
     prot_cv_a.vclamp ~ power.v3v3
     prot_cv_a.gnd ~ gnd
 
+    prot_cv_b.c_filter.capacitance = 100nF +/- 20%
     connector.cv_b ~ prot_cv_b.input
     prot_cv_b.output ~ mcu.cv_b
     prot_cv_b.vclamp ~ power.v3v3
     prot_cv_b.gnd ~ gnd
 
+    prot_cv_c.c_filter.capacitance = 100nF +/- 20%
     connector.cv_c ~ prot_cv_c.input
     prot_cv_c.output ~ mcu.cv_c
     prot_cv_c.vclamp ~ power.v3v3
     prot_cv_c.gnd ~ gnd
 
+    prot_cv_d.c_filter.capacitance = 100nF +/- 20%
     connector.cv_d ~ prot_cv_d.input
     prot_cv_d.output ~ mcu.cv_d
     prot_cv_d.vclamp ~ power.v3v3
     prot_cv_d.gnd ~ gnd
 
     # Clock/Reset inputs: connector (raw 0-10V) → protection → MCU GPIO
+    # Use 10nF filter (f3dB ≈ 1.6kHz) instead of 100nF to preserve fast clock edges
+    prot_clk.c_filter.capacitance = 10nF +/- 20%
     connector.clk_in ~ prot_clk.input
     prot_clk.output ~ mcu.clk_in
     prot_clk.vclamp ~ power.v3v3
     prot_clk.gnd ~ gnd
 
+    prot_rst.c_filter.capacitance = 10nF +/- 20%
     connector.rst_in ~ prot_rst.input
     prot_rst.output ~ mcu.rst_in
     prot_rst.vclamp ~ power.v3v3
     prot_rst.gnd ~ gnd
 
     # === CLK/RST OUTPUT BUFFERS (moved from control board) ===
-    # MCU GPIO (3.3V) → NPN transistor buffer → 5V gate signal → connector → jack
+    # MCU GPIO (3.3V) → NPN common-emitter (INVERTING) → 5V gate signal → connector → jack
+    # GPIO HIGH = transistor ON = output LOW. GPIO LOW = transistor OFF = output HIGH (5V via pull-up).
+    # Firmware must drive these GPIOs inverted relative to desired output polarity.
     q_clk = new _2N3904
     r_clk_base = new Resistor
     r_clk_base.resistance = 1kohm +/- 5%
@@ -264,7 +274,8 @@ module Main:
 
     usb.GND ~ gnd
     usb.SHIELD ~ gnd
-    usb.VBUS ~ gnd    # Not used — data-only USB, tie to GND
+    # VBUS left unconnected — data-only USB, no power draw.
+    # Do NOT tie to GND (shorts host VBUS supply).
 
     # ESD protection on USB data lines (at connector side of series resistors)
     esd = new PRTR5V0U2X

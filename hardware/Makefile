@@ -8,6 +8,7 @@
 #
 # Usage:
 #   make place        # place+route all variants, select best, export panel layout
+#   make place-fixed  # place only fixed components (inspectable artifacts)
 #   make route        # (included in place via variant pipeline)
 #   make 3d           # add 3D models + export STEP + convert to GLB
 #   make all          # full pipeline
@@ -31,7 +32,7 @@ VENV_DEPS    := trimesh cascadio numpy pytest requests
 
 # Parallelism for variant pipeline (placement + routing)
 # Each FreeRouting instance uses ~2GB heap. Override: make PARALLEL=4 all
-PARALLEL ?= 8
+PARALLEL ?= 10
 MAKEFLAGS += -j$(PARALLEL) -k
 
 # --- Paths (relative to hardware/) ---
@@ -76,7 +77,12 @@ MAIN_VARIANT_PLACED    := $(patsubst %,$(BUILD)/main-%.kicad_pcb,$(VARIANTS))
 CONTROL_RESULT_FILES   := $(patsubst %,$(BUILD)/control-%-result.json,$(VARIANTS))
 MAIN_RESULT_FILES      := $(patsubst %,$(BUILD)/main-%-result.json,$(VARIANTS))
 
-.PHONY: all place faceplate route gnd-pours 3d 3d-models 3d-glb export check-parts clean test-hw
+# Fixed-only placement (inspectable, not in main build chain)
+CONTROL_FIXED := $(BUILD)/control-fixed.kicad_pcb
+MAIN_FIXED    := $(BUILD)/main-fixed.kicad_pcb
+
+.PHONY: all place place-fixed faceplate route gnd-pours 3d 3d-models 3d-glb export check-parts clean test-hw
+.PRECIOUS: $(CONTROL_FIXED) $(MAIN_FIXED) $(CONTROL_VARIANT_PLACED) $(MAIN_VARIANT_PLACED)
 
 # --- Full pipeline ---
 all: gnd-pours faceplate 3d export
@@ -88,9 +94,15 @@ all: gnd-pours faceplate 3d export
 
 # --- Atopile build → KiCad PCBs ---
 # GNU Make 3.81 doesn't support &: grouped targets — use a stamp file.
+# Set REPICK=1 to let atopile re-pick parts (e.g. after adding/removing components).
+ATO_FLAGS ?= --keep-picked-parts --keep-designators
+ifdef REPICK
+  ATO_FLAGS :=
+endif
+
 $(BUILD)/.ato-stamp: $(ATO_DEPS)
 	python3 $(SCRIPTS)/build/gen_validation.py
-	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato build --keep-picked-parts --keep-designators
+	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato build $(ATO_FLAGS)
 	@mkdir -p $(BUILD) && touch $@
 
 $(CONTROL_SRC): $(BUILD)/.ato-stamp
@@ -104,14 +116,28 @@ footprints:
 3d-models:
 	python3 $(SCRIPTS)/models/generate_3d_models.py
 
-# --- Variant placement (parallel) ---
-# Place a single control variant
+# --- Fixed placement (inspectable artifacts, not in main build chain) ---
+$(CONTROL_FIXED): $(CONTROL_SRC) $(COMP_MAP) $(BOARD_CONFIG)
+	@mkdir -p $(BUILD)
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \
+		--board control --fixed-only $< $@
+
+$(MAIN_FIXED): $(MAIN_SRC) $(BOARD_CONFIG)
+	@mkdir -p $(BUILD)
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \
+		--board main --fixed-only $< $@
+
+place-fixed: $(CONTROL_FIXED) $(MAIN_FIXED)
+	@echo "=== Fixed placement complete — inspect in KiCad: ==="
+	@echo "  Control: $(CONTROL_FIXED)"
+	@echo "  Main:    $(MAIN_FIXED)"
+
+# --- Variant placement (parallel, from source PCB) ---
 $(BUILD)/control-%.kicad_pcb: $(CONTROL_SRC) $(COMP_MAP) $(BOARD_CONFIG)
 	@mkdir -p $(BUILD)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \
 		--board control --variant $* $< $@
 
-# Place a single main variant
 $(BUILD)/main-%.kicad_pcb: $(MAIN_SRC) $(BOARD_CONFIG)
 	@mkdir -p $(BUILD)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/placement/place_components.py \

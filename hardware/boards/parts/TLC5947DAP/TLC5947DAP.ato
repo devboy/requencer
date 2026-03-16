@@ -1,7 +1,6 @@
-# TLC5947DAP — TI 24-Channel Constant-Current LED Driver, HTSSOP-32
+# TLC5947DAP — TI 24-Channel Constant-Current LED Driver, HTSSOP-32 (PowerPAD)
 # LCSC: C2873022 (tape-and-reel variant TLC5947DAPR)
 # 12-bit PWM per channel, daisy-chainable SPI-like interface
-# NOTE: Superseded by TLC5947RHBT (QFN-32) for JLCPCB availability
 
 #pragma experiment("TRAITS")
 import is_atomic_part
@@ -45,3 +44,6 @@ component TLC5947DAP:
     signal OUT21 ~ pin 30
     signal OUT22 ~ pin 31
     signal OUT23 ~ pin 32
+
+    # Exposed thermal pad (PowerPAD) — must connect to GND
+    signal PAD ~ pin 33

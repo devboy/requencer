@@ -1,0 +1,14 @@
+(kicad_symbol_lib (version 20220914) (generator "custom")
+  (symbol "SWPA4030S220MT" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "L" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "22µH" (at 0 -3.81 0) (effects (font (size 1.27 1.27))))
+    (symbol "SWPA4030S220MT_0_1"
+      (arc (start -2.54 0) (mid -1.27 1.27) (end 0 0) (stroke (width 0) (type default)) (fill (type none)))
+      (arc (start 0 0) (mid 1.27 1.27) (end 2.54 0) (stroke (width 0) (type default)) (fill (type none)))
+    )
+    (symbol "SWPA4030S220MT_1_1"
+      (pin passive line (at -5.08 0 0) (length 2.54) (name "1" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at 5.08 0 180) (length 2.54) (name "2" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
+    )
+  )
+)

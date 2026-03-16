@@ -110,16 +110,26 @@ module DACOutputStage:
     c_vio2.unnamed[0] ~ v3v3
     c_vio2.unnamed[1] ~ gnd
 
-    # DAC reference decoupling (1µF on VREF pin)
+    # DAC reference decoupling (10µF + 100nF per VREF pin, per DAC80508 datasheet §9.3.1)
     c_ref1 = new Capacitor
-    c_ref1.capacitance = 1uF +/- 20%
+    c_ref1.capacitance = 10uF +/- 20%
     c_ref1.unnamed[0] ~ dac1.VREF
     c_ref1.unnamed[1] ~ gnd
 
+    c_ref1_hf = new Capacitor
+    c_ref1_hf.capacitance = 100nF +/- 20%
+    c_ref1_hf.unnamed[0] ~ dac1.VREF
+    c_ref1_hf.unnamed[1] ~ gnd
+
     c_ref2 = new Capacitor
-    c_ref2.capacitance = 1uF +/- 20%
+    c_ref2.capacitance = 10uF +/- 20%
     c_ref2.unnamed[0] ~ dac2.VREF
     c_ref2.unnamed[1] ~ gnd
+
+    c_ref2_hf = new Capacitor
+    c_ref2_hf.capacitance = 100nF +/- 20%
+    c_ref2_hf.unnamed[0] ~ dac2.VREF
+    c_ref2_hf.unnamed[1] ~ gnd
 
     # --- Op-Amp chips ---
     opamp1 = new OPA4171AIPWR  # Gates 1-4 (unity buffer)
@@ -281,47 +291,51 @@ module DACOutputStage:
 
     r_pitch1_fb = new Resistor
     r_pitch1_fb.resistance = 10kohm +/- 0.1%
-    r_pitch1_gnd = new Resistor
-    r_pitch1_gnd.resistance = 10kohm +/- 0.1%
+    r_pitch1_ref = new Resistor
+    r_pitch1_ref.resistance = 10kohm +/- 0.1%
+
+    # Feedback taps AFTER the 470Ω protection resistor (at pitch1-4 signal)
+    # so the op-amp compensates for voltage drop across it under load.
+    # This ensures accurate 1V/oct tracking regardless of load impedance.
 
     dac1.OUT4 ~ opamp2.IN1_P
-    opamp2.OUT1 ~ r_pitch1_fb.unnamed[0]
+    pitch1 ~ r_pitch1_fb.unnamed[0]
     r_pitch1_fb.unnamed[1] ~ opamp2.IN1_N
-    r_pitch1_gnd.unnamed[0] ~ opamp2.IN1_N
-    r_pitch1_gnd.unnamed[1] ~ v_ref_2v
+    r_pitch1_ref.unnamed[0] ~ opamp2.IN1_N
+    r_pitch1_ref.unnamed[1] ~ v_ref_2v
 
     r_pitch2_fb = new Resistor
     r_pitch2_fb.resistance = 10kohm +/- 0.1%
-    r_pitch2_gnd = new Resistor
-    r_pitch2_gnd.resistance = 10kohm +/- 0.1%
+    r_pitch2_ref = new Resistor
+    r_pitch2_ref.resistance = 10kohm +/- 0.1%
 
     dac1.OUT5 ~ opamp2.IN2_P
-    opamp2.OUT2 ~ r_pitch2_fb.unnamed[0]
+    pitch2 ~ r_pitch2_fb.unnamed[0]
     r_pitch2_fb.unnamed[1] ~ opamp2.IN2_N
-    r_pitch2_gnd.unnamed[0] ~ opamp2.IN2_N
-    r_pitch2_gnd.unnamed[1] ~ v_ref_2v
+    r_pitch2_ref.unnamed[0] ~ opamp2.IN2_N
+    r_pitch2_ref.unnamed[1] ~ v_ref_2v
 
     r_pitch3_fb = new Resistor
     r_pitch3_fb.resistance = 10kohm +/- 0.1%
-    r_pitch3_gnd = new Resistor
-    r_pitch3_gnd.resistance = 10kohm +/- 0.1%
+    r_pitch3_ref = new Resistor
+    r_pitch3_ref.resistance = 10kohm +/- 0.1%
 
     dac1.OUT6 ~ opamp2.IN3_P
-    opamp2.OUT3 ~ r_pitch3_fb.unnamed[0]
+    pitch3 ~ r_pitch3_fb.unnamed[0]
     r_pitch3_fb.unnamed[1] ~ opamp2.IN3_N
-    r_pitch3_gnd.unnamed[0] ~ opamp2.IN3_N
-    r_pitch3_gnd.unnamed[1] ~ v_ref_2v
+    r_pitch3_ref.unnamed[0] ~ opamp2.IN3_N
+    r_pitch3_ref.unnamed[1] ~ v_ref_2v
 
     r_pitch4_fb = new Resistor
     r_pitch4_fb.resistance = 10kohm +/- 0.1%
-    r_pitch4_gnd = new Resistor
-    r_pitch4_gnd.resistance = 10kohm +/- 0.1%
+    r_pitch4_ref = new Resistor
+    r_pitch4_ref.resistance = 10kohm +/- 0.1%
 
     dac1.OUT7 ~ opamp2.IN4_P
-    opamp2.OUT4 ~ r_pitch4_fb.unnamed[0]
+    pitch4 ~ r_pitch4_fb.unnamed[0]
     r_pitch4_fb.unnamed[1] ~ opamp2.IN4_N
-    r_pitch4_gnd.unnamed[0] ~ opamp2.IN4_N
-    r_pitch4_gnd.unnamed[1] ~ v_ref_2v
+    r_pitch4_ref.unnamed[0] ~ opamp2.IN4_N
+    r_pitch4_ref.unnamed[1] ~ v_ref_2v
 
     # === VELOCITY CHANNELS (non-inverting, gain=1.604, opamp3) ===
     # Vout = (1 + Rf/Rg)*Vin = (1 + 6.04k/10k)*Vin = 1.604*Vin

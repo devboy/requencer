@@ -1,0 +1,17 @@
+# SWPA4030S220MT — Sunlord 22µH Shielded Power Inductor, 4x4x3mm
+# LCSC: C83472
+# Isat: 0.85A, Irms: 0.7A, DCR: 0.55Ω typ
+# Suitable for buck converter output filter (TPS54331 at 500mA)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component SWPA4030S220MT:
+    trait is_atomic_part<manufacturer="Sunlord", partnumber="SWPA4030S220MT", footprint="IND_4030.kicad_mod", symbol="SWPA4030S220MT.kicad_sym">
+    trait has_designator_prefix<prefix="L">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C83472", manufacturer="Sunlord", partno="SWPA4030S220MT">
+
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2

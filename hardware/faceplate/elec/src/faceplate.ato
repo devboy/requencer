@@ -8,7 +8,7 @@
 # - White silkscreen labels on black soldermask
 #
 # Material: FR4, 1.6mm, matte black soldermask both sides
-# Dimensions: 128.5mm × ~303mm (60HP × 5.08mm/HP)
+# Dimensions: 128.0mm × 181.88mm (36HP × 5.08mm/HP)
 #
 # This file defines the panel outline and hole positions.
 # Actual drill holes and cutouts are placed in the KiCad PCB layout

@@ -11,7 +11,7 @@
 //! **Priority 3:** Display render (~30 fps, SPI0), LED update, MIDI TX
 //!
 //! SPI0 = display + SD card (shared, firmware-arbitrated).
-//! SPI1 = DACs (dedicated bus, via 74HCT125 level shifter, zero contention).
+//! SPI1 = DACs (dedicated bus, direct 3.3V via DAC80508 VIO, zero contention).
 
 // On embedded target: full firmware binary.
 // On host: empty stub — lib tests run via `cargo test --lib`, binary is a no-op.
@@ -99,9 +99,7 @@ async fn main(_spawner: Spawner) {
     let mut spi0_config = spi::Config::default();
     spi0_config.frequency = 62_500_000; // ST7796 max write speed
 
-    // RP2350 SPI0 function assignments: GP2=CLK, GP3=MOSI, GP0=MISO
-    // Note: PCB schematic says GP0=MOSI, GP3=DC but RP2350 GPIO function
-    // select requires GP3=MOSI. Schematic needs updating before manufacture.
+    // RP2350 SPI0 function assignments: GP2=SCK, GP3=MOSI (TX), GP0=MISO (RX)
     let mut spi0 = Spi::new_blocking(
         p.SPI0,
         p.PIN_2,  // SCK
@@ -122,16 +120,16 @@ async fn main(_spawner: Spawner) {
     let sd_detect = Input::new(p.PIN_25, Pull::Up);
     let mut sd_storage = storage::SdStorage::new(sd_cs, sd_detect);
 
-    // ── SPI1: DACs (dedicated bus, via 74HCT125) ───────────────────
+    // ── SPI1: DACs (dedicated bus, direct 3.3V via VIO) ────────────
 
     let mut spi1_config = spi::Config::default();
-    spi1_config.frequency = 50_000_000; // DAC8568 max
+    spi1_config.frequency = 50_000_000; // DAC80508 max
 
     // RP2350 SPI1 function assignments: GP30=CLK, GP31=MOSI
     let spi1 = Spi::new_blocking_txonly(
         p.SPI1,
         p.PIN_30, // SCK
-        p.PIN_31, // MOSI (TX to DACs via 74HCT125)
+        p.PIN_31, // MOSI (TX to DACs, direct 3.3V)
         spi1_config,
     );
 
@@ -199,7 +197,7 @@ async fn main(_spawner: Spawner) {
     _spawner.spawn(clock_io::reset_input_task(reset_in)).unwrap();
 
     let clock_out = Output::new(p.PIN_28, Level::High); // Inverted: high GPIO = low output
-    let reset_out = Output::new(p.PIN_4, Level::High);
+    let reset_out = Output::new(p.PIN_4, Level::High); // Inverted: high GPIO = low output
     let mut clock_io = clock_io::ClockIo::new(clock_out, reset_out);
     info!("Clock/Reset I/O initialized (interrupt-driven input)");
 

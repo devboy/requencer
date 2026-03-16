@@ -1,5 +1,5 @@
 # Input Protection — Reusable voltage divider + Schottky clamp + filter
-# Scales eurorack 0–10V signals down to 0–3.3V safe for Pico GPIO
+# Scales eurorack -5V to +10V signals down to 0–3.3V safe for RP2350 GPIO
 #
 # Circuit:
 #   input ── 22kΩ ──┬── output (to GPIO)
@@ -9,7 +9,7 @@
 #                  GND
 #                   │
 #              BAT54S clamp (to 3.3V and GND)
-#              100nF filter cap
+#              filter cap (100nF for CV, 10nF for clock/reset)
 
 import Resistor
 import Capacitor
@@ -34,15 +34,15 @@ module InputProtection:
     r_bottom.unnamed[0] ~ output
     r_bottom.unnamed[1] ~ gnd
 
-    # Filter cap (noise rejection)
+    # Filter cap (noise rejection) — capacitance set per instance:
+    # 100nF for CV inputs (f3dB ≈ 159Hz), 10nF for clock/reset (f3dB ≈ 1.6kHz)
     c_filter = new Capacitor
-    c_filter.capacitance = 100nF +/- 20%
     c_filter.unnamed[0] ~ output
     c_filter.unnamed[1] ~ gnd
 
     # Schottky clamp diode (BAT54S dual series)
-    # Clamps output between GND-0.3V and VCC+0.3V
+    # Clamps output between GND-0.3V and 3.3V+0.3V
     clamp = new BAT54S
     clamp.COMMON ~ output
-    clamp.ANODE ~ gnd        # D1: clamps output below GND + Vf
-    clamp.CATHODE ~ vclamp   # D2: clamps output above 3.3V - Vf
+    clamp.ANODE ~ gnd        # D1: clamps output below GND - Vf (~-0.3V)
+    clamp.CATHODE ~ vclamp   # D2: clamps output above 3.3V + Vf (~3.6V)
