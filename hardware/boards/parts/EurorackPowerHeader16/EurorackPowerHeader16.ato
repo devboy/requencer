@@ -10,7 +10,7 @@ import has_part_picked
 component EurorackPowerHeader16:
     trait is_atomic_part<manufacturer="Wurth Elektronik", partnumber="61201621621", footprint="EurorackPowerHeader_2x8.kicad_mod", symbol="EurorackPowerHeader16.kicad_sym">
     trait has_designator_prefix<prefix="J">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="TBD", manufacturer="Wurth Elektronik", partno="61201621621">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C917645", manufacturer="Wurth Elektronik", partno="61201621621">
 
     # Standard Doepfer 16-pin eurorack pinout
     signal NEG12V_1 ~ pin 1

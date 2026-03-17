@@ -1,14 +1,14 @@
 {
-  "_fab": "JLCPCB 2-layer standard process — no advanced options, no extra cost",
+  "_fab": "JLCPCB 4-layer standard process",
   "board_minimums": {
-    "track_min_width": 0.127,
-    "min_clearance": 0.127,
+    "track_min_width": 0.09,
+    "min_clearance": 0.2,
     "via_min_size": 0.45,
     "via_min_drill": 0.3,
-    "via_min_annular_width": 0.075,
-    "copper_edge_clearance": 0.2,
-    "hole_clearance": 0.2,
-    "hole_to_hole_min": 0.254,
+    "via_min_annular_width": 0.15,
+    "copper_edge_clearance": 0.3,
+    "hole_clearance": 0.25,
+    "hole_to_hole_min": 0.5,
     "min_through_drill": 0.3
   },
   "solder_mask": {
@@ -22,31 +22,31 @@
   "netclasses": {
     "Default": {
       "track_width": 0.15,
-      "clearance": 0.127,
+      "clearance": 0.2,
       "via_diameter": 0.6,
       "via_drill": 0.3
     },
     "Power": {
-      "track_width": 0.3,
-      "clearance": 0.15,
-      "via_diameter": 0.8,
-      "via_drill": 0.4
+      "track_width": 0.2,
+      "clearance": 0.2,
+      "via_diameter": 0.6,
+      "via_drill": 0.3
     },
     "Analog": {
       "track_width": 0.15,
-      "clearance": 0.127,
+      "clearance": 0.2,
       "via_diameter": 0.6,
       "via_drill": 0.3
     },
     "LED": {
       "track_width": 0.15,
-      "clearance": 0.127,
-      "via_diameter": 0.45,
+      "clearance": 0.2,
+      "via_diameter": 0.6,
       "via_drill": 0.3
     }
   },
   "net_assignments": {
-    "Power": ["hv", "lv", "v12p", "v12n"],
+    "Power": ["hv", "lv", "v12p", "v12n", "v5v", "v3v3"],
     "Analog": ["^(gate\\d|pitch\\d|vel\\d|mod\\d|cv_[a-d]|clk_in|clk_out|rst_in|rst_out)$"],
     "LED": ["^LED_(RED|GREEN)-\\d+$", "XLAT", "BLANK", "SCLK", "^SIN$", "SOUT", "IREF"]
   }

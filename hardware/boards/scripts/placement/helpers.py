@@ -331,9 +331,15 @@ def find_best_side(tracker, cx, cy, w, h, is_tht, step=0.5, smd_side="both"):
 
     Args:
         smd_side: "F", "B", or "both" — restricts which side(s) to search.
+                  THT components ignore this and always search both sides.
     """
-    try_f = smd_side in ("both", "F")
-    try_b = smd_side in ("both", "B")
+    if is_tht:
+        # THT goes through both sides — always try both
+        try_f = True
+        try_b = True
+    else:
+        try_f = smd_side in ("both", "F")
+        try_b = smd_side in ("both", "B")
 
     result_f = tracker.find_free(cx, cy, w, h, "F", is_tht, step=step) if try_f else None
     result_b = tracker.find_free(cx, cy, w, h, "B", is_tht, step=step) if try_b else None
@@ -419,18 +425,29 @@ def validate_placement(board_w, board_h, fixed, placements, component_info,
 _POWER_PATTERN = re.compile(
     r"(^|\W)(gnd|vcc|vdd|vss|avdd|avss|dvdd|dvss"
     r"|v5v|v3v3|v12p|v12n|\+12v|\-12v|\+5v|\+3\.3v"
-    r"|hv|vsys|vbus|vref|agnd|dgnd|pgnd)"
+    r"|hv|lv|vsys|vbus|vref|agnd|dgnd|pgnd)"
+    r"($|\W)",
+    re.IGNORECASE,
+)
+
+# Bus signals that connect many components but shouldn't drive placement
+# (like power nets, they indicate shared bus membership, not physical proximity)
+_BUS_PATTERN = re.compile(
+    r"(^|\W)(sda|scl|i2c|spi.*clk|spi.*mosi|spi.*miso"
+    r"|sr_clk|sr_latch|sclk|xlat|blank|sin\b)"
     r"($|\W)",
     re.IGNORECASE,
 )
 
 
 def identify_power_nets(board):
-    """Return set of net names that are power/ground.
+    """Return set of net names that are power/ground/bus.
 
-    Uses two heuristics:
+    Uses three heuristics:
       1. Name patterns: gnd, vcc, vdd, 3v3, 5v, 12v, avdd, etc.
-      2. High fanout: any net connected to >15 pads is likely power.
+      2. Bus patterns: sda, scl, spi_clk, etc. — shared bus signals
+         connect many components but don't indicate physical proximity.
+      3. High fanout: any net connected to >15 pads is likely power.
 
     Requires pcbnew board object.
     """
@@ -440,6 +457,8 @@ def identify_power_nets(board):
     for net in netinfo.NetsByName():
         name = str(net)
         if _POWER_PATTERN.search(name):
+            power_nets.add(name)
+        elif _BUS_PATTERN.search(name):
             power_nets.add(name)
 
     pad_count = defaultdict(int)
@@ -773,6 +792,9 @@ def extract_footprint_dims(fp, pcbnew):
     """
     orig_pos = fp.GetPosition()
     fp.SetPosition(pcbnew.VECTOR2I(0, 0))
+    # Use body-only bounding box. GetBoundingBox(True, True) includes
+    # reference text which makes THT component bboxes unrealistically large,
+    # causing false overlap detection between fixed components.
     bbox = fp.GetBoundingBox(False, False)
     cx_offset = (pcbnew.ToMM(bbox.GetLeft()) + pcbnew.ToMM(bbox.GetRight())) / 2
     cy_offset = (pcbnew.ToMM(bbox.GetTop()) + pcbnew.ToMM(bbox.GetBottom())) / 2
@@ -798,3 +820,605 @@ def get_component_nets(fp, power_nets):
             if net_name not in nets:
                 nets.append(net_name)
     return nets
+
+
+def extract_pad_sides(fp, pcbnew, power_nets):
+    """Classify footprint pads by edge (N/S/E/W).
+
+    Skips thermal/exposed center pads and power nets.
+    Returns dict with keys "N", "S", "E", "W", each mapping to a list
+    of signal net names on that edge.
+
+    Uses KiCad coordinates: +Y points down, so:
+      - North (top) = most negative Y
+      - South (bottom) = most positive Y
+    """
+    pads = list(fp.Pads())
+    if not pads:
+        return {"N": [], "S": [], "E": [], "W": []}
+
+    fp_pos = fp.GetPosition()
+    fp_x = pcbnew.ToMM(fp_pos.x)
+    fp_y = pcbnew.ToMM(fp_pos.y)
+
+    pad_data = []
+    for pad in pads:
+        pos = pad.GetPosition()
+        px = pcbnew.ToMM(pos.x) - fp_x
+        py = pcbnew.ToMM(pos.y) - fp_y
+        net = pad.GetNetname()
+        pad_data.append((px, py, net))
+
+    if not pad_data:
+        return {"N": [], "S": [], "E": [], "W": []}
+
+    xs = [p[0] for p in pad_data]
+    ys = [p[1] for p in pad_data]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    cx = (min_x + max_x) / 2
+    cy = (min_y + max_y) / 2
+    span_x = max_x - min_x
+    span_y = max_y - min_y
+
+    center_thresh_x = span_x * 0.2 if span_x > 0 else 0.1
+    center_thresh_y = span_y * 0.2 if span_y > 0 else 0.1
+
+    sides = {"N": [], "S": [], "E": [], "W": []}
+
+    for px, py, net in pad_data:
+        if (abs(px - cx) < center_thresh_x and
+                abs(py - cy) < center_thresh_y):
+            continue
+        if net in power_nets:
+            continue
+        if not net:
+            continue
+
+        dist_w = abs(px - min_x)
+        dist_e = abs(px - max_x)
+        dist_n = abs(py - min_y)
+        dist_s = abs(py - max_y)
+
+        min_dist = min(dist_w, dist_e, dist_n, dist_s)
+        if min_dist == dist_w:
+            sides["W"].append(net)
+        elif min_dist == dist_e:
+            sides["E"].append(net)
+        elif min_dist == dist_n:
+            sides["N"].append(net)
+        else:
+            sides["S"].append(net)
+
+    return sides
+
+
+def rotate_pad_sides(pad_sides, degrees):
+    """Rotate pad-side mapping by given degrees (KiCad CCW convention).
+
+    Supports 0, 90, 180, 270 (mod 360). Other values raise ValueError.
+    Works for both dict[str, list[str]] (pad_sides) and dict[str, int] (edge_signal_count).
+    """
+    deg = int(degrees) % 360
+    if deg == 0:
+        return dict(pad_sides)
+    # CCW rotation: each edge moves to the next edge counter-clockwise
+    # 90° CCW: N→W, W→S, S→E, E→N
+    _CCW = {"N": "W", "W": "S", "S": "E", "E": "N"}
+    steps = {90: 1, 180: 2, 270: 3}.get(deg)
+    if steps is None:
+        raise ValueError(f"Only 0/90/180/270 rotations supported, got {degrees}")
+    mapping = dict(_CCW)
+    for _ in range(steps - 1):
+        mapping = {k: _CCW[v] for k, v in mapping.items()}
+    return {mapping[edge]: (list(v) if isinstance(v, list) else v)
+            for edge, v in pad_sides.items()}
+
+
+# ---------------------------------------------------------------------------
+# Passive component detection
+# ---------------------------------------------------------------------------
+
+_PASSIVE_PREFIXES = ("r_", "c_", "l_", "r.", "c.", "l.")
+
+
+def _is_passive_addr(addr):
+    """Check if address looks like a passive component (R, C, L)."""
+    parts = addr.rsplit(".", 1)
+    leaf = parts[-1] if len(parts) > 1 else addr
+    return any(leaf.lower().startswith(p) for p in _PASSIVE_PREFIXES)
+
+
+# ---------------------------------------------------------------------------
+# Circuit detection & wave distances
+# ---------------------------------------------------------------------------
+
+
+def build_circuits(net_graph, all_addrs):
+    """Compute connected components in the net graph using union-find.
+
+    Two addresses are in the same circuit if any path of non-power nets
+    connects them. Components with no net connections form singleton circuits.
+
+    Args:
+        net_graph: dict[str, list[str]] — net name → list of addresses
+        all_addrs: iterable of all component addresses (fixed + free)
+
+    Returns list of sets, each set = one circuit.
+    """
+    parent = {}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # path compression
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    # Initialize each address as its own root
+    for addr in all_addrs:
+        parent[addr] = addr
+
+    # Union addresses that share a net
+    for _net, addrs in net_graph.items():
+        if len(addrs) < 2:
+            continue
+        first = addrs[0]
+        for other in addrs[1:]:
+            if other in parent:
+                union(first, other)
+
+    # Group by root
+    groups = defaultdict(set)
+    for addr in all_addrs:
+        if addr in parent:
+            groups[find(addr)].add(addr)
+
+    return list(groups.values())
+
+
+def compute_wave_distances(net_graph, fixed_addrs, free_addrs):
+    """BFS from fixed components through the net graph.
+
+    Wave 0 = free components sharing a net directly with a fixed component.
+    Wave N = free components reachable in N+1 BFS steps from the nearest
+    fixed component.
+
+    Args:
+        net_graph: dict[str, list[str]] — net name → list of addresses
+        fixed_addrs: set of fixed component addresses
+        free_addrs: set of free component addresses
+
+    Returns:
+        (wave_map, orphans) where wave_map is dict[str, int] mapping each
+        reachable free address to its wave level, and orphans is the set of
+        free addresses not reachable from any fixed component.
+    """
+    # Build adjacency: addr → set of neighbor addrs (through shared nets)
+    adj = defaultdict(set)
+    for _net, addrs in net_graph.items():
+        for a in addrs:
+            for b in addrs:
+                if a != b:
+                    adj[a].add(b)
+
+    # BFS from all fixed components simultaneously
+    wave_map = {}  # free_addr → wave level
+    visited = set(fixed_addrs)
+    frontier = set(fixed_addrs)
+    wave = 0
+
+    while frontier:
+        next_frontier = set()
+        for addr in frontier:
+            for neighbor in adj.get(addr, set()):
+                if neighbor in visited:
+                    continue
+                visited.add(neighbor)
+                if neighbor in free_addrs:
+                    wave_map[neighbor] = wave
+                next_frontier.add(neighbor)
+        frontier = next_frontier
+        wave += 1
+
+    orphans = free_addrs - set(wave_map.keys())
+    return wave_map, orphans
+
+
+# ---------------------------------------------------------------------------
+# Cluster building
+# ---------------------------------------------------------------------------
+
+
+def build_clusters(components, net_graph):
+    """Build hierarchical clusters from component connectivity and address prefixes.
+
+    Algorithm:
+    1. Group by address prefix (first dotted segment)
+    2. Find anchors: non-passive ICs with most net connections per group
+    3. Find satellites: non-passive ICs sharing 2+ nets with anchor
+    4. Assign passives to satellites by shared net count
+    5. Bypass caps (no net connections): assign by address proximity to anchor
+
+    Args:
+        components: dict[str, ComponentInfo] — all free components
+        net_graph: dict[str, list[str]] — net → component addresses
+
+    Returns:
+        list[Cluster]
+    """
+    from placement.strategies import Cluster
+
+    # Group by prefix
+    groups = defaultdict(list)
+    for addr in components:
+        if "." in addr:
+            prefix = addr.split(".")[0]
+            groups[prefix].append(addr)
+
+    # Build adjacency
+    adjacency = defaultdict(lambda: defaultdict(int))
+    for net, net_addrs in net_graph.items():
+        group_addrs = [a for a in net_addrs if a in components]
+        for i in range(len(group_addrs)):
+            for j in range(i + 1, len(group_addrs)):
+                adjacency[group_addrs[i]][group_addrs[j]] += 1
+                adjacency[group_addrs[j]][group_addrs[i]] += 1
+
+    clusters = []
+    assigned = set()
+
+    for prefix, group_addrs in groups.items():
+        # Find anchor candidates: non-passive ICs with >4 pins and
+        # signal pins on 3+ edges (QFN/BGA-like packages that benefit
+        # from cluster-aware placement). SIP/DIP packages with all pins
+        # on 1-2 sides don't need clustering.
+        anchor_candidates = [
+            a for a in group_addrs
+            if (not _is_passive_addr(a)
+                and components[a].pin_count > 4
+                and sum(1 for nets in components[a].pad_sides.values()
+                        if len(nets) > 0) >= 3)
+        ]
+        if not anchor_candidates:
+            continue
+        anchor_candidates.sort(key=lambda a: len(components[a].nets), reverse=True)
+
+        for anchor_addr in anchor_candidates:
+            if anchor_addr in assigned:
+                continue
+
+            # Find satellite ICs: non-passive, 2+ shared nets with anchor
+            satellites = {}
+            for other_addr in group_addrs:
+                if other_addr == anchor_addr or other_addr in assigned:
+                    continue
+                if _is_passive_addr(other_addr):
+                    continue
+                shared = adjacency[anchor_addr].get(other_addr, 0)
+                if shared >= 2:
+                    satellites[other_addr] = []
+                    assigned.add(other_addr)
+
+            # Assign passives to satellites by shared nets
+            unassigned_passives = []
+            for other_addr in group_addrs:
+                if other_addr == anchor_addr or other_addr in assigned:
+                    continue
+                if not _is_passive_addr(other_addr):
+                    continue
+                best_sat = None
+                best_count = 0
+                for sat_addr in satellites:
+                    shared = adjacency[other_addr].get(sat_addr, 0)
+                    if shared > best_count:
+                        best_sat = sat_addr
+                        best_count = shared
+                if best_sat and best_count > 0:
+                    satellites[best_sat].append(other_addr)
+                    assigned.add(other_addr)
+                else:
+                    unassigned_passives.append(other_addr)
+
+            # Bypass caps: unassigned passives
+            bypass = []
+            for addr in unassigned_passives:
+                bypass.append(addr)
+                assigned.add(addr)
+
+            assigned.add(anchor_addr)
+            clusters.append(Cluster(
+                anchor=anchor_addr,
+                satellites=satellites,
+                bypass=bypass,
+            ))
+
+    return clusters
+
+
+# ---------------------------------------------------------------------------
+# Anti-affinity enforcement (post-placement)
+# ---------------------------------------------------------------------------
+
+
+def enforce_anti_affinity(placements, free_comps, fixed_placements, rules,
+                          board_state):
+    """Push apart any components that violate anti-affinity rules.
+
+    Iterates until no violations remain or max iterations reached.
+    Only moves free components (not fixed ones).
+
+    Args:
+        placements: dict[str, Placement] — strategy output (copied internally)
+        free_comps: dict[str, ComponentInfo] — free component info
+        fixed_placements: dict[str, Placement] — immovable positions
+        rules: list[AntiAffinityRule] — rules to enforce
+        board_state: BoardState — for collision-aware repositioning
+
+    Returns:
+        Updated placements dict.
+    """
+    if not rules:
+        return placements
+
+    from placement.strategies import Placement
+    import math
+
+    result = dict(placements)
+    max_iterations = 10
+
+    for iteration in range(max_iterations):
+        violations = check_anti_affinity(result, fixed_placements, rules)
+        if not violations:
+            break
+
+        for addr_a, addr_b, dist, min_mm in violations:
+            # Only move free components
+            movable_a = addr_a in result and addr_a in free_comps
+            movable_b = addr_b in result and addr_b in free_comps
+
+            if not movable_a and not movable_b:
+                continue  # both fixed — can't resolve
+
+            # Get positions
+            pos_a = result[addr_a] if addr_a in result else fixed_placements[addr_a]
+            pos_b = result[addr_b] if addr_b in result else fixed_placements[addr_b]
+
+            dx = pos_b.x - pos_a.x
+            dy = pos_b.y - pos_a.y
+            dist_actual = math.hypot(dx, dy)
+            if dist_actual < 0.01:
+                dx, dy, dist_actual = 0.0, 1.0, 1.0
+
+            # Normalize direction
+            nx, ny = dx / dist_actual, dy / dist_actual
+            push_dist = (min_mm - dist_actual) / 2 + 1.0  # extra 1mm margin
+
+            # Move both if both are movable, otherwise just one
+            if movable_a and movable_b:
+                # Push each half the distance in opposite directions
+                target_ax = pos_a.x - nx * push_dist
+                target_ay = pos_a.y - ny * push_dist
+                target_bx = pos_b.x + nx * push_dist
+                target_by = pos_b.y + ny * push_dist
+
+                # Rebuild tracker without both components
+                nudge_board = board_state.copy()
+                for addr, p in result.items():
+                    if addr in (addr_a, addr_b):
+                        continue
+                    comp = free_comps.get(addr)
+                    if comp:
+                        nudge_board.register_placement(
+                            addr, p.x, p.y, comp, p.side)
+
+                comp_a = free_comps[addr_a]
+                fx, fy, side = nudge_board.find_legal_position(
+                    target_ax, target_ay, comp_a, side=pos_a.side)
+                result[addr_a] = Placement(x=fx, y=fy, side=side,
+                                            rotation=pos_a.rotation)
+                nudge_board.register_placement(addr_a, fx, fy, comp_a, side)
+
+                comp_b = free_comps[addr_b]
+                fx, fy, side = nudge_board.find_legal_position(
+                    target_bx, target_by, comp_b, side=pos_b.side)
+                result[addr_b] = Placement(x=fx, y=fy, side=side,
+                                            rotation=pos_b.rotation)
+            elif movable_a:
+                # Push A away from fixed B
+                target_x = pos_a.x - nx * push_dist * 2
+                target_y = pos_a.y - ny * push_dist * 2
+                nudge_board = board_state.copy()
+                for addr, p in result.items():
+                    if addr == addr_a:
+                        continue
+                    comp = free_comps.get(addr)
+                    if comp:
+                        nudge_board.register_placement(
+                            addr, p.x, p.y, comp, p.side)
+                comp_a = free_comps[addr_a]
+                fx, fy, side = nudge_board.find_legal_position(
+                    target_x, target_y, comp_a, side=pos_a.side)
+                result[addr_a] = Placement(x=fx, y=fy, side=side,
+                                            rotation=pos_a.rotation)
+            else:
+                # Push B away from fixed A
+                target_x = pos_b.x + nx * push_dist * 2
+                target_y = pos_b.y + ny * push_dist * 2
+                nudge_board = board_state.copy()
+                for addr, p in result.items():
+                    if addr == addr_b:
+                        continue
+                    comp = free_comps.get(addr)
+                    if comp:
+                        nudge_board.register_placement(
+                            addr, p.x, p.y, comp, p.side)
+                comp_b = free_comps[addr_b]
+                fx, fy, side = nudge_board.find_legal_position(
+                    target_x, target_y, comp_b, side=pos_b.side)
+                result[addr_b] = Placement(x=fx, y=fy, side=side,
+                                            rotation=pos_b.rotation)
+
+        if iteration > 0:
+            print(f"  Anti-affinity enforcement: iteration {iteration + 1}")
+
+    remaining = check_anti_affinity(result, fixed_placements, rules)
+    if remaining:
+        print(f"  WARNING: {len(remaining)} anti-affinity violations remain "
+              f"after {max_iterations} iterations")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Cluster placement scoring helpers (used by strategies)
+# ---------------------------------------------------------------------------
+
+
+def edge_offset(edge, distance):
+    """Return (dx, dy) offset for a given edge direction and distance."""
+    offsets = {
+        "W": (-distance, 0),
+        "E": (distance, 0),
+        "N": (0, -distance),
+        "S": (0, distance),
+    }
+    return offsets.get(edge, (0, 0))
+
+
+def cluster_edge_affinity(anchor_comp, satellite_comp):
+    """Determine which anchor edge a satellite connects to most strongly.
+
+    Returns (best_edge, edge_counts) where best_edge is "N"/"S"/"E"/"W"
+    and edge_counts is dict of edge → shared net count.
+    Returns (None, {}) if no shared nets on any edge.
+    """
+    edge_counts = {edge: 0 for edge in ("N", "S", "E", "W")}
+    if not anchor_comp.pad_sides:
+        return None, edge_counts
+    sat_nets = set(satellite_comp.nets)
+    for edge, edge_nets in anchor_comp.pad_sides.items():
+        for net in edge_nets:
+            if net in sat_nets:
+                edge_counts[edge] += 1
+
+    best_edge = max(edge_counts, key=edge_counts.get)
+    if edge_counts[best_edge] == 0:
+        return None, edge_counts
+    return best_edge, edge_counts
+
+
+def satellite_target_position(anchor_pos, anchor_comp, satellite_comp, edge):
+    """Compute ideal position for a satellite IC near an anchor edge.
+
+    Uses pin-density-based gap: more signal pins on the edge → wider gap
+    for trace escape routing.
+
+    Returns (target_x, target_y, edge_gap).
+    """
+    edge_pins = (anchor_comp.edge_signal_count.get(edge, 0)
+                 if anchor_comp.edge_signal_count else 0)
+    edge_gap = max(2.0, 2.5 + edge_pins * 0.5)
+
+    offset_dist = (max(anchor_comp.width, anchor_comp.height) / 2 +
+                   max(satellite_comp.width, satellite_comp.height) / 2 +
+                   edge_gap)
+    dx, dy = edge_offset(edge, offset_dist)
+    return anchor_pos.x + dx, anchor_pos.y + dy, edge_gap
+
+
+def best_rotation_at_position(comp, position_x, position_y, net_graph,
+                               all_positions, addr):
+    """Score all 4 rotations at a position, return best rotation in degrees.
+
+    Scores by Manhattan wirelength from the component's pad edges to
+    the positions of connected components.
+
+    Args:
+        comp: ComponentInfo (unrotated)
+        position_x, position_y: candidate position
+        net_graph: dict[str, list[str]]
+        all_positions: dict[str, Placement] — positions of all other components
+        addr: this component's address
+
+    Returns:
+        Best rotation in degrees (0, 90, 180, or 270).
+    """
+    from placement.strategies import rotated_info
+
+    best_rot = 0.0
+    best_cost = float("inf")
+
+    for rot in (0.0, 90.0, 180.0, 270.0):
+        rotated = rotated_info(comp, rot)
+        cost = 0.0
+        for edge, nets in rotated.pad_sides.items():
+            if not nets:
+                continue
+            edx, edy = edge_offset(edge,
+                                    max(rotated.width, rotated.height) / 2)
+            pad_x = position_x + edx
+            pad_y = position_y + edy
+            for net in nets:
+                for other_addr in net_graph.get(net, []):
+                    if other_addr == addr:
+                        continue
+                    other_p = all_positions.get(other_addr)
+                    if other_p:
+                        cost += abs(pad_x - other_p.x) + abs(pad_y - other_p.y)
+        if cost < best_cost:
+            best_cost = cost
+            best_rot = rot
+
+    return best_rot
+
+
+def cluster_aware_sort(addrs, clusters, net_graph):
+    """Sort component addresses for cluster-aware placement order.
+
+    Places cluster anchors first, then their satellites (by edge affinity
+    strength), then their passives, then all remaining components.
+    Within each group, sorts by connectivity.
+
+    Args:
+        addrs: list of all free component addresses
+        clusters: list[Cluster]
+        net_graph: dict[str, list[str]]
+
+    Returns:
+        Sorted list of addresses.
+    """
+    cluster_ordered = []
+    in_cluster = set()
+
+    for cluster in clusters:
+        # Anchor first
+        if cluster.anchor in addrs:
+            cluster_ordered.append(cluster.anchor)
+            in_cluster.add(cluster.anchor)
+        # Then satellites
+        for sat_addr in cluster.satellites:
+            if sat_addr in addrs:
+                cluster_ordered.append(sat_addr)
+                in_cluster.add(sat_addr)
+            # Then that satellite's passives
+            for passive_addr in cluster.satellites[sat_addr]:
+                if passive_addr in addrs:
+                    cluster_ordered.append(passive_addr)
+                    in_cluster.add(passive_addr)
+        # Then bypass caps
+        for bypass_addr in cluster.bypass:
+            if bypass_addr in addrs:
+                cluster_ordered.append(bypass_addr)
+                in_cluster.add(bypass_addr)
+
+    # Remaining non-cluster components, sorted by connectivity
+    remaining = [a for a in addrs if a not in in_cluster]
+    remaining = connectivity_sort_by_net_graph(remaining, net_graph)
+
+    return cluster_ordered + remaining
+

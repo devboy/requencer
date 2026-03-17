@@ -1,10 +1,13 @@
 # MIDI I/O — TRS Type A (stereo jacks required)
-# MIDI OUT: PGA2350 UART TX → 220Ω resistors → TRS jack (tip=data, ring=+V, sleeve=GND)
-# MIDI IN: TRS jack → 220Ω → optocoupler (6N138) → PGA2350 UART RX
+# MIDI OUT: PGA2350 UART TX → 10Ω/33Ω (CA-033 spec) → TRS jack, all from 3.3V
+# MIDI IN: TRS jack → 220Ω → optocoupler (H11L1S) → PGA2350 UART RX
+#
+# H11L1S has built-in Schmitt trigger output — no base resistor or emitter
+# pin needed (simpler than 6N138 circuit). SOP-6 SMD package.
 
 import Resistor
 import Capacitor
-from "../../parts/6N138/6N138.ato" import _6N138
+from "../../parts/H11L1S/H11L1S.ato" import H11L1S
 from "../../parts/B5819W/B5819W.ato" import B5819W
 from "../../parts/PJ366ST/PJ366ST.ato" import PJ366ST
 
@@ -14,26 +17,27 @@ module MIDIInterface:
     signal uart_rx    # GP21 — UART1 RX
 
     # Power
-    signal vcc        # +3.3V (opto, logic)
-    signal v5v        # +5V (MIDI OUT current source — spec requires ≥5mA)
+    signal vcc        # +3.3V (opto, logic, MIDI OUT per CA-033)
     signal gnd
 
-    # --- MIDI OUT ---
-    # TRS Type A: tip = source (pin 5, data), ring = sink (pin 4, +V), sleeve = shield (GND)
+    # --- MIDI OUT (CA-033 3.3V spec) ---
+    # TRS Type A: tip = data (pin 5, TX), ring = current source (pin 4, +3.3V), sleeve = shield
     jack_out = new PJ366ST
 
     r_out_tip = new Resistor
-    r_out_tip.resistance = 220ohm +/- 5%
+    r_out_tip.resistance = 10ohm +/- 5%
 
     r_out_ring = new Resistor
-    r_out_ring.resistance = 220ohm +/- 5%
+    r_out_ring.resistance = 33ohm +/- 5%
 
-    # Tip carries UART TX data through 220Ω
+    # MIDI CA-033 spec: 3.3V transmitter uses reduced resistors (33Ω + 10Ω)
+    # to maintain ≥5mA loop current. Both rails from 3.3V (not 5V).
+    # Current: (3.3V - 1.7V Vf) / (33 + 10 + 220) = ~6mA ✓
     uart_tx ~ r_out_tip.unnamed[0]
     r_out_tip.unnamed[1] ~ jack_out.TIP
 
-    # Ring carries +5V through 220Ω (MIDI spec requires ≥5mA current source)
-    v5v ~ r_out_ring.unnamed[0]
+    # Ring: 3.3V through 33Ω (CA-033 spec for 3.3V transmitters)
+    vcc ~ r_out_ring.unnamed[0]
     r_out_ring.unnamed[1] ~ jack_out.RING
 
     # Sleeve to GND (shield)
@@ -44,7 +48,7 @@ module MIDIInterface:
     # Current path: Ring(HIGH) → opto ANODE → opto CATHODE → 220Ω → Tip(LOW)
     jack_in = new PJ366ST
 
-    opto = new _6N138
+    opto = new H11L1S
 
     # Input protection diode (reverse polarity across opto LED)
     d_protect = new B5819W
@@ -52,13 +56,9 @@ module MIDIInterface:
     r_in = new Resistor
     r_in.resistance = 220ohm +/- 5%
 
-    # Optocoupler output pull-up
+    # Optocoupler output pull-up (H11L1S is open collector)
     r_pullup = new Resistor
     r_pullup.resistance = 1kohm +/- 5%
-
-    # Optocoupler base resistor
-    r_base = new Resistor
-    r_base.resistance = 4.7kohm +/- 5%
 
     # Input circuit: Ring (source/VCC) → opto LED anode
     jack_in.RING ~ opto.ANODE
@@ -74,18 +74,14 @@ module MIDIInterface:
     d_protect.cathode ~ opto.CATHODE
     d_protect.anode ~ opto.ANODE
 
-    # Optocoupler output
+    # Optocoupler power
     opto.VCC ~ vcc
     opto.GND ~ gnd
 
-    # VE (emitter) pull-down — speeds up turn-off, standard 6N138 application circuit
-    opto.VE ~ r_base.unnamed[0]
-    r_base.unnamed[1] ~ gnd
-
-    # VO (collector) pulled up to VCC, output to UART RX
+    # Schmitt trigger output → UART RX (open collector, pulled up to VCC)
     r_pullup.unnamed[0] ~ vcc
-    r_pullup.unnamed[1] ~ opto.VO
-    opto.VO ~ uart_rx
+    r_pullup.unnamed[1] ~ opto.OUTPUT
+    opto.OUTPUT ~ uart_rx
 
     # Bypass cap on opto power
     c_opto = new Capacitor

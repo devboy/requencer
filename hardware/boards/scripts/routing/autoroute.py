@@ -40,12 +40,18 @@ def _load_routing_config():
     with open(BOARD_CONFIG_PATH) as f:
         config = json.load(f)
     rc = config.get("routing", {})
+
+    def _env_int(key, default):
+        """Get env var as int, falling back to default if unset or empty."""
+        val = os.environ.get(key, "")
+        return int(val) if val else default
+
     return {
-        "max_passes": int(os.environ.get("FREEROUTING_MP", rc.get("max_passes", 20))),
-        "threads": int(os.environ.get("FREEROUTING_MT", rc.get("threads", 1))),
-        "oit": int(os.environ.get("FREEROUTING_OIT", rc.get("optimization_improvement_threshold", 1))),
-        "timeout": int(os.environ.get("FREEROUTING_TIMEOUT", rc.get("timeout", 3600))),
-        "java_opts": os.environ.get("FREEROUTING_JAVA_OPTS", rc.get("java_opts", "-Xmx512m")),
+        "max_passes": _env_int("FREEROUTING_MP", rc.get("max_passes", 20)),
+        "threads": _env_int("FREEROUTING_MT", rc.get("threads", 1)),
+        "oit": _env_int("FREEROUTING_OIT", rc.get("optimization_improvement_threshold", 1)),
+        "timeout": _env_int("FREEROUTING_TIMEOUT", rc.get("timeout", 3600)),
+        "java_opts": os.environ.get("FREEROUTING_JAVA_OPTS", "") or rc.get("java_opts", "-Xmx512m"),
         "headless": os.environ.get("FREEROUTING_HEADLESS", str(rc.get("headless", True))).lower() == "true",
         "ses_min_size": rc.get("ses_min_size_bytes", 50000),
     }
@@ -409,8 +415,8 @@ def _is_expected_error(violation, expected_errors, footprint_map=None):
     component_refs = set()
     for item in items:
         item_desc = item.get("description", "")
-        # Extract component reference: "PTH pad 2 [cs] of X54" -> "X54"
-        match = re.search(r'\bof\s+(\S+)\s*$', item_desc)
+        # Extract component reference: "PTH pad 2 [cs] of X54 on B.Cu" -> "X54"
+        match = re.search(r'\bof\s+(\w+)', item_desc)
         if match:
             component_refs.add(match.group(1))
 

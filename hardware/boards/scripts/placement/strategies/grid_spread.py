@@ -4,19 +4,39 @@ Distributes components evenly across the board on a grid, then uses
 connectivity scoring to assign components to cells. Gives the autorouter
 maximum routing space at the cost of slightly longer traces.
 
+When clusters are provided, uses cluster-aware ordering: anchors are
+assigned first, then satellites get a strong pull toward the correct
+anchor edge, then passives toward their satellite.
+
 Parameterized by:
   - margin: mm inset from board edges for grid generation
   - connectivity_weight: strength of pull toward connected neighbors
   - density_weight: strength of repulsion between large/dense components
   - density_threshold_mm2: area threshold above which components repel
   - seed: random seed for tie-breaking
+  - clusters: list[Cluster] (optional, injected by orchestrator)
 """
 
 import math
 import random
 
-from ..helpers import connectivity_sort_by_net_graph
-from . import BoardState, ComponentInfo, Placement, register
+from ..helpers import (
+    cluster_aware_sort,
+    cluster_edge_affinity,
+    connectivity_sort_by_net_graph,
+    satellite_target_position,
+    best_rotation_at_position,
+)
+from . import BoardState, ComponentInfo, Placement, register, rotated_info
+
+
+_PASSIVE_PREFIXES = ("r_", "c_", "l_", "r.", "c.", "l.")
+
+
+def _is_passive_addr(addr):
+    parts = addr.rsplit(".", 1)
+    leaf = parts[-1] if len(parts) > 1 else addr
+    return any(leaf.lower().startswith(p) for p in _PASSIVE_PREFIXES)
 
 
 def _density_repulsion(
@@ -31,12 +51,7 @@ def _density_repulsion(
     threshold: float,
     weight: float,
 ) -> float:
-    """Repulsion penalty between dense/large components.
-
-    Uses sqrt(area) as characteristic size. Two ICs closer than the sum
-    of their characteristic sizes get a strong penalty that scales with
-    the weight parameter and overwhelms connectivity pull.
-    """
+    """Repulsion penalty between dense/large components."""
     size_a = info.routing_pressure if info.routing_pressure > 0 else info.width * info.height
     if size_a < threshold:
         return 0.0
@@ -78,12 +93,28 @@ class GridSpreadStrategy:
         density_weight = params.get("density_weight", 0.1)
         density_threshold = params.get("density_threshold_mm2", 10.0)
         seed = params.get("seed", 42)
+        clusters = params.get("clusters", [])
 
         rng = random.Random(seed)
         comp_map = {c.address: c for c in components}
         free_addrs = list(comp_map.keys())
         if not free_addrs:
             return {}
+
+        # Build cluster lookup
+        anchor_of = {}
+        cluster_of = {}
+        for cl in clusters:
+            cluster_of[cl.anchor] = cl
+            for sat_addr in cl.satellites:
+                anchor_of[sat_addr] = cl.anchor
+                cluster_of[sat_addr] = cl
+                for passive_addr in cl.satellites[sat_addr]:
+                    anchor_of[passive_addr] = cl.anchor
+                    cluster_of[passive_addr] = cl
+            for bypass_addr in cl.bypass:
+                anchor_of[bypass_addr] = cl.anchor
+                cluster_of[bypass_addr] = cl
 
         # --- 1. Build adjacency weights from net_graph ---
         adjacency: dict[str, dict[str, int]] = {addr: {} for addr in free_addrs}
@@ -112,7 +143,6 @@ class GridSpreadStrategy:
         cell_w = usable_w / cols
         cell_h = usable_h / rows
 
-        # Generate cell centers, excluding those that overlap fixed components
         cells: list[tuple[float, float]] = []
         for r in range(rows):
             for c in range(cols):
@@ -139,14 +169,17 @@ class GridSpreadStrategy:
                     cy = usable_y0 + (r + 0.5) * cell_h
                     cells.append((cx, cy))
 
-        # --- 3. Greedy assignment (most-connected first) ---
-        sorted_addrs = connectivity_sort_by_net_graph(free_addrs, board.net_graph)
+        # --- 3. Greedy assignment (cluster-aware order) ---
+        if clusters:
+            sorted_addrs = cluster_aware_sort(free_addrs, clusters,
+                                               board.net_graph)
+        else:
+            sorted_addrs = connectivity_sort_by_net_graph(free_addrs,
+                                                          board.net_graph)
 
         assigned: dict[str, tuple[float, float]] = {}
         used_cells: set[int] = set()
-        board_cx, board_cy = board.width / 2, board.height / 2
 
-        # Build fixed positions lookup for scoring
         fixed_pos: dict[str, tuple[float, float]] = {}
         for addr, p in board.fixed.items():
             fixed_pos[addr] = (p.x, p.y)
@@ -162,7 +195,7 @@ class GridSpreadStrategy:
 
                 score = 0.0
 
-                # Connectivity pull: distance to placed neighbors
+                # Connectivity pull
                 for neighbor, weight in adjacency.get(addr, {}).items():
                     if neighbor in assigned:
                         nx, ny = assigned[neighbor]
@@ -173,7 +206,42 @@ class GridSpreadStrategy:
                     dist = ((cx - nx) ** 2 + (cy - ny) ** 2) ** 0.5
                     score += connectivity_weight * weight * dist
 
-                # Group cohesion: pull toward same-group components
+                # Cluster edge affinity: strong pull toward correct anchor edge
+                if addr in anchor_of and anchor_of[addr] in assigned:
+                    anchor_addr = anchor_of[addr]
+                    anchor_comp = comp_map.get(anchor_addr)
+                    ax, ay = assigned[anchor_addr]
+
+                    if anchor_comp and not _is_passive_addr(addr):
+                        # Satellite IC: score by distance to ideal edge position
+                        best_edge, _ = cluster_edge_affinity(anchor_comp, info)
+                        if best_edge:
+                            from placement.strategies import Placement as _P
+                            ex, ey, _ = satellite_target_position(
+                                _P(x=ax, y=ay, side="F"), anchor_comp,
+                                info, best_edge)
+                            edge_dist = ((cx - ex) ** 2 + (cy - ey) ** 2) ** 0.5
+                            score += connectivity_weight * 3.0 * edge_dist
+                    elif anchor_comp:
+                        # Passive: pull toward satellite or anchor
+                        cl = cluster_of.get(addr)
+                        sat_target = None
+                        if cl:
+                            for sat_addr, passives in cl.satellites.items():
+                                if addr in passives and sat_addr in assigned:
+                                    sx, sy = assigned[sat_addr]
+                                    sat_target = (sx, sy)
+                                    break
+                        if sat_target:
+                            dist = ((cx - sat_target[0]) ** 2 +
+                                    (cy - sat_target[1]) ** 2) ** 0.5
+                            score += connectivity_weight * 2.0 * dist
+                        else:
+                            # Bypass cap: near anchor
+                            dist = ((cx - ax) ** 2 + (cy - ay) ** 2) ** 0.5
+                            score += connectivity_weight * 2.0 * dist
+
+                # Group cohesion
                 group = info.group
                 if group:
                     group_prefix = group + "."
@@ -182,7 +250,7 @@ class GridSpreadStrategy:
                             dist = ((cx - ox) ** 2 + (cy - oy) ** 2) ** 0.5
                             score += connectivity_weight * 0.5 * dist
 
-                # Anti-affinity: hard constraint
+                # Anti-affinity
                 for rule in board.anti_affinity:
                     for other_addr, (ox, oy) in assigned.items():
                         if not rule.matches(addr, other_addr):
@@ -207,11 +275,23 @@ class GridSpreadStrategy:
                     )
                     score += dr_cost
 
-                # Mild centering bias
-                center_dist = ((cx - board_cx) ** 2 + (cy - board_cy) ** 2) ** 0.5
-                score += 0.1 * center_dist
+                # Spread force: penalize proximity to all placed components
+                # Uses 1/dist so nearby components repel strongly, far ones weakly
+                spread_weight = params.get("spread_weight", 2.0)
+                if spread_weight > 0:
+                    for ox, oy in assigned.values():
+                        dist = ((cx - ox) ** 2 + (cy - oy) ** 2) ** 0.5
+                        if dist < 1.0:
+                            score += spread_weight * 50.0
+                        else:
+                            score += spread_weight / dist
+                    for ox, oy in fixed_pos.values():
+                        dist = ((cx - ox) ** 2 + (cy - oy) ** 2) ** 0.5
+                        if dist < 1.0:
+                            score += spread_weight * 50.0
+                        else:
+                            score += spread_weight / dist
 
-                # Small random jitter for tie-breaking
                 score += rng.uniform(0, 0.01)
 
                 if score < best_score:
@@ -222,7 +302,22 @@ class GridSpreadStrategy:
                 used_cells.add(best_idx)
                 assigned[addr] = cells[best_idx]
             else:
-                assigned[addr] = (board_cx, board_cy)
+                assigned[addr] = (board.width / 2, board.height / 2)
 
-        # --- 4. Batch legalization via BoardState ---
-        return board.legalize(assigned, comp_map)
+        # --- 4. Choose rotations, then batch legalize ---
+        rotations = {}
+        all_positions = {a: Placement(x=x, y=y, side="F")
+                         for a, (x, y) in assigned.items()}
+        all_positions.update(board.fixed)
+
+        if params.get("auto_rotate", False):
+            for addr in sorted_addrs:
+                info = comp_map[addr]
+                if info.pad_sides and info.pin_count > 4 and not _is_passive_addr(addr):
+                    x, y = assigned[addr]
+                    rot = best_rotation_at_position(
+                        info, x, y, board.net_graph, all_positions, addr)
+                    if rot:
+                        rotations[addr] = rot
+
+        return board.legalize(assigned, comp_map, rotations=rotations)

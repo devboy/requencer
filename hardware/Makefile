@@ -23,7 +23,8 @@ KICAD_APP    ?= /Applications/KiCad/KiCad.app
 KICAD_PYTHON := $(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3
 KICAD_CLI    := $(KICAD_APP)/Contents/MacOS/kicad-cli
 KICAD_ENV    := DYLD_FRAMEWORK_PATH=$(KICAD_APP)/Contents/Frameworks \
-                PYTHONPATH=$(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
+                PYTHONPATH=$(KICAD_APP)/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages \
+                PYTHONDONTWRITEBYTECODE=1
 
 # Python venv for non-KiCad scripts (trimesh, cascadio, etc.)
 VENV         := ../.venv
@@ -33,6 +34,9 @@ VENV_DEPS    := trimesh cascadio numpy pytest requests
 # Parallelism for variant pipeline (placement + routing)
 # Each FreeRouting instance uses ~2GB heap. Override: make PARALLEL=4 all
 PARALLEL ?= 10
+
+# FreeRouting max passes (default 60 from board-config.json). Override for faster builds:
+#   make FREEROUTING_MP=10 place
 MAKEFLAGS += -j$(PARALLEL) -k
 
 # --- Paths (relative to hardware/) ---
@@ -102,7 +106,7 @@ endif
 
 $(BUILD)/.ato-stamp: $(ATO_DEPS)
 	python3 $(SCRIPTS)/build/gen_validation.py
-	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato build $(ATO_FLAGS)
+	cd $(BOARDS) && PATH="$$HOME/.local/bin:$$PATH" ato --verbose build $(ATO_FLAGS)
 	@mkdir -p $(BUILD) && touch $@
 
 $(CONTROL_SRC): $(BUILD)/.ato-stamp

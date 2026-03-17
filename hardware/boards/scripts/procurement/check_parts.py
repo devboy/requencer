@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Check parts availability and pricing for Requencer BOM.
 
 Parses .ato schematic files to build BOM, checks JLCPCB stock for SMD parts,
@@ -22,6 +23,7 @@ PARTS_DIR = BOARDS_DIR / "parts"
 SRC_DIR = BOARDS_DIR / "elec" / "src"
 BUILD_DIR = BOARDS_DIR / "build"
 DB_CACHE = BUILD_DIR / "jlcpcb-parts.sqlite3"
+ORDERS_DIR = BOARDS_DIR / "procurement" / "orders"
 
 sys.path.insert(0, str(SCRIPT_DIR.parent))
 from procurement.bom_parser import Part, build_bom
@@ -56,17 +58,17 @@ MANUAL_PRICING = {
         "currency": "EUR",
         "stock": -1,
     },
-    "TC002-N11AS1XT-RGB": {
-        "seller": "Mouser",
-        "url": "https://www.mouser.com/ProductDetail/Well-Buying/TC002-N11AS1XT-RGB",
-        "unit_price": 3.69,  # 100+ tier pricing
+    "PB6149L": {
+        "seller": "AliExpress (GJW)",
+        "url": "https://www.aliexpress.com/item/PB6149L",
+        "unit_price": 0.61,  # 20-pack for €12.29
         "currency": "EUR",
-        "stock": 72,
+        "stock": -1,
     },
     "WQP518MA": {
-        "seller": "Thonk",
-        "url": "https://www.thonk.co.uk/shop/thonkiconn/",
-        "unit_price": 0.43,  # £0.37 excl VAT (same as PJ398SM)
+        "seller": "AliExpress (Jingteng)",
+        "url": "https://www.aliexpress.com/item/4000105739424.html",
+        "unit_price": 0.32,  # 100pcs for €31.59
         "currency": "EUR",
         "stock": -1,
     },
@@ -84,10 +86,10 @@ MANUAL_PRICING = {
         "currency": "EUR",
         "stock": -1,
     },
-    "JC3248A035N-1": {
-        "seller": "AliExpress",
-        "url": "",
-        "unit_price": 15.00,  # ~€11-15 depending on seller
+    "ST7796-32pin-panel": {
+        "seller": "AliExpress (maithoga)",
+        "url": "https://de.aliexpress.com/item/32286288684.html",
+        "unit_price": 7.59,  # ST7796 no-touch variant
         "currency": "EUR",
         "stock": -1,
     },
@@ -440,6 +442,111 @@ def write_json_report(
     print(f"\n  JSON report: {output_path}")
 
 
+def load_order(order_id: str) -> dict | None:
+    """Load an order file by ID. Returns parsed JSON or None."""
+    path = ORDERS_DIR / f"{order_id}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def get_order_index() -> dict[str, dict]:
+    """Build index of ordered parts from the active order: mpn → order entry."""
+    # Find the latest order file
+    if not ORDERS_DIR.exists():
+        return {}
+    order_files = sorted(ORDERS_DIR.glob("order-*.json"))
+    if not order_files:
+        return {}
+    order = json.loads(order_files[-1].read_text())
+    index = {}
+    for entry in order.get("parts", []):
+        if entry.get("status") == "ordered":
+            index[entry["mpn"]] = entry
+    return index, order
+
+
+def print_order_checklist(
+    bom: list[Part],
+    order: dict,
+    order_index: dict[str, dict],
+    supplier_results: dict[str, SupplierResult] | None = None,
+):
+    """Print order checklist: what's ordered vs still needed."""
+    print(f"\n{BOLD}ORDER CHECKLIST — {order['id']}: {order.get('description', '')}{RESET}")
+    print(f"  Created: {order.get('created', '?')}  |  Kits: {order.get('kits', '?')}")
+    print()
+
+    # Build BOM needs: mpn → total quantity needed
+    bom_needs: dict[str, tuple[str, int]] = {}
+    for part in bom:
+        bom_needs[part.mpn] = (part.name, part.quantity)
+
+    print(f"  {'Status':<10} {'Part':<22} {'MPN':<22} {'Need':>5} {'Ordered':>8} {'Cost':>10} {'Supplier'}")
+    print("  " + "-" * 105)
+
+    total_cost = 0.0
+    ordered_count = 0
+    pending_parts = []
+
+    # First show ordered parts
+    for entry in order.get("parts", []):
+        mpn = entry["mpn"]
+        name = entry.get("name", bom_needs.get(mpn, (mpn, 0))[0])
+        need = bom_needs.get(mpn, (name, 0))[1]
+        qty_ordered = entry.get("quantity_ordered", 0)
+        cost = entry.get("cost", 0)
+        currency = entry.get("currency", "EUR")
+        supplier = entry.get("supplier", "")
+        status = entry.get("status", "pending")
+
+        sym = {"USD": "$", "EUR": "€", "GBP": "£"}.get(currency, currency + " ")
+        cost_str = f"{sym}{cost:.2f}" if cost else ""
+
+        if status == "ordered":
+            icon = f"{GREEN}✓ ordered{RESET}"
+            ordered_count += 1
+            total_cost += cost
+        else:
+            icon = f"{YELLOW}○ pending{RESET}"
+
+        print(
+            f"  {icon:<22} {name:<22} {mpn:<22} {need:>5} {qty_ordered:>8} "
+            f"{cost_str:>10}  {DIM}{supplier}{RESET}"
+        )
+
+    # Now find BOM parts NOT in the order at all
+    ordered_mpns = {e["mpn"] for e in order.get("parts", [])}
+    missing_cost = 0.0
+    for part in sorted(bom, key=lambda p: p.name):
+        if part.mpn not in ordered_mpns and part.category in ("tht", "manual"):
+            pending_parts.append(part)
+
+            # Look up estimated unit price from supplier results
+            est_str = ""
+            result = (supplier_results or {}).get(part.mpn)
+            if result and result.offers and result.offers[0].unit_price is not None:
+                best = result.offers[0]
+                line_cost = best.unit_price * part.quantity
+                missing_cost += line_cost
+                sym = {"USD": "$", "EUR": "€", "GBP": "£"}.get(best.currency, best.currency + " ")
+                est_str = f"~{sym}{line_cost:.2f}"
+
+            print(
+                f"  {RED}✗ missing{RESET}  {part.name:<22} {part.mpn:<22} "
+                f"{part.quantity:>5} {'—':>8} {est_str:>10}  Not in order"
+            )
+
+    # Summary
+    total_tht_manual = len([p for p in bom if p.category in ("tht", "manual")])
+    missing_str = f"{len(pending_parts)} parts"
+    if missing_cost > 0:
+        missing_str += f" (~€{missing_cost:.2f} est.)"
+    print(f"\n  {BOLD}Ordered:{RESET} {ordered_count}/{total_tht_manual} parts  |  "
+          f"{BOLD}Spent:{RESET} ~€{total_cost:.2f}  |  "
+          f"{BOLD}Missing:{RESET} {missing_str}")
+
+
 def parse_suppliers(value: str) -> list[str]:
     """Parse --suppliers flag value into a list of supplier names."""
     if value == "all":
@@ -475,6 +582,10 @@ def main():
     parser.add_argument(
         "--json", type=str, default=None,
         help="Write JSON report to this path",
+    )
+    parser.add_argument(
+        "--order", type=str, default=None,
+        help="Order ID to show checklist for (e.g. order-001). Defaults to latest.",
     )
     args = parser.parse_args()
     kits = args.kits if args.kits is not None else args.boards
@@ -563,7 +674,22 @@ def main():
     print(f"\n{DIM}  Note: Excludes PCB fabrication, assembly fees, shipping, and passives "
           f"(auto-picked by Atopile).{RESET}")
 
-    # Step 5: JSON report
+    # Step 5: Order checklist
+    if args.order:
+        order_data = load_order(args.order)
+        if order_data:
+            order_idx = {e["mpn"]: e for e in order_data.get("parts", []) if e.get("status") == "ordered"}
+            print_order_checklist(bom, order_data, order_idx, supplier_results)
+        else:
+            print(f"\n{YELLOW}Order '{args.order}' not found in {ORDERS_DIR}{RESET}")
+    elif ORDERS_DIR.exists():
+        order_files = sorted(ORDERS_DIR.glob("order-*.json"))
+        if order_files:
+            order_data = json.loads(order_files[-1].read_text())
+            order_idx = {e["mpn"]: e for e in order_data.get("parts", []) if e.get("status") == "ordered"}
+            print_order_checklist(bom, order_data, order_idx, supplier_results)
+
+    # Step 6: JSON report
     json_path = Path(args.json) if args.json else BUILD_DIR / "parts-report.json"
     write_json_report(bom, stock_info, supplier_results, json_path)
 

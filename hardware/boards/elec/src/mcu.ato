@@ -34,6 +34,7 @@ module PGA2350_MCU:
     signal lcd_cs      # GP1
     signal lcd_dc      # GP7
     signal lcd_bl      # GP5 — backlight PWM
+    signal lcd_rst     # GP22 — display hardware reset (active low)
 
     # SD card
     signal sd_cs       # GP24
@@ -55,11 +56,9 @@ module PGA2350_MCU:
     signal btn_latch   # GP9
     signal btn_data    # GP10
 
-    # LED driver (TLC5947 chain)
-    signal led_sin     # GP11
-    signal led_sclk    # GP12
-    signal led_xlat    # GP13
-    signal led_blank   # GP14
+    # LED driver (2× IS31FL3236A via I2C0)
+    signal i2c_sda     # GP11 — I2C0 SDA
+    signal i2c_scl     # GP12 — I2C0 SCL
 
     # Encoder A
     signal enc_a_a     # GP15
@@ -168,6 +167,9 @@ module PGA2350_MCU:
     # Reset output
     pga.GP4 ~ rst_out
 
+    # LCD hardware reset
+    pga.GP22 ~ lcd_rst
+
     # SPI1: DACs (dedicated bus)
     pga.GP30 ~ spi1_sck     # GP30 = SPI1_SCK (hardware constraint)
     pga.GP31 ~ spi1_mosi    # GP31 = SPI1_TX (hardware constraint)
@@ -180,10 +182,9 @@ module PGA2350_MCU:
     pga.GP10 ~ btn_data
 
     # LED drivers
-    pga.GP11 ~ led_sin
-    pga.GP12 ~ led_sclk
-    pga.GP13 ~ led_xlat
-    pga.GP14 ~ led_blank
+    pga.GP11 ~ i2c_sda
+    pga.GP12 ~ i2c_scl
+    # GP13, GP14 freed (were LED_XLAT, LED_BLANK — no longer needed with I2C)
 
     # Encoders
     pga.GP15 ~ enc_a_a
@@ -229,5 +230,5 @@ module PGA2350_MCU:
     c_aref.unnamed[0] ~ pga.ADC_VREF
     c_aref.unnamed[1] ~ gnd
 
-    # Spare GPIO: GP22, GP23, GP29, GP34-39, GP44-47
+    # Spare GPIO: GP23, GP29, GP34-39, GP44-47
     # Left unconnected for future expansion

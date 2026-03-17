@@ -45,9 +45,9 @@ MODEL_MAP: dict[str, str] = {
     "6N138/DIP-8.kicad_mod": "Package_DIP.3dshapes/DIP-8_W7.62mm.step",
     "74HC165D/SOIC-16.kicad_mod": "Package_SO.3dshapes/SOIC-16_3.9x9.9mm_P1.27mm.step",
     "74HCT125D/SOIC-14.kicad_mod": "Package_SO.3dshapes/SOIC-14_3.9x8.7mm_P1.27mm.step",
-    "DAC8568SPMR/TSSOP-16.kicad_mod": "Package_SO.3dshapes/TSSOP-16_4.4x5mm_P0.65mm.step",
+    "DAC80508ZRTER/WQFN-16.kicad_mod": "Package_DFN_QFN.3dshapes/WQFN-16-1EP_3x3mm_P0.5mm_EP1.6x1.6mm.step",
     "OPA4171AIPWR/TSSOP-14.kicad_mod": "Package_SO.3dshapes/TSSOP-14_4.4x5mm_P0.65mm.step",
-    "TLC5947RHBT/VQFN-32.kicad_mod": "Package_DFN_QFN.3dshapes/QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm.step",
+    "TLC5947DAP/HTSSOP-32.kicad_mod": "Package_SO.3dshapes/HTSSOP-32-1EP_6.1x11mm_P0.65mm_EP5.2x11mm.step",
     "PinHeader1x9/PinHeader1x9.kicad_mod": "Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x09_P2.54mm_Vertical.step",
     "ResistorNetwork9/SIP-9.kicad_mod": "Resistor_THT.3dshapes/R_Array_SIP9.step",
     "EurorackPowerHeader/EurorackPowerHeader_2x5.kicad_mod": "Connector_IDC.3dshapes/IDC-Header_2x05_P2.54mm_Vertical.step",
@@ -101,7 +101,9 @@ LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
     "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, (0, 0, 180)),
     "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
     "FPC_18P_05MM/FPC_18P_05MM.kicad_mod": ("FPC_18P_05MM/FPC_18P_05MM.step", None, None),
+    "FPC_32P_05MM/FPC_32P_05MM.kicad_mod": ("FPC_32P_05MM/FPC_32P_05MM.step", None, None),
     "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", None, None),
+    "PB6149L/PB6149L.kicad_mod": ("PB6149L/PB6149L.step", None, (0, 0, 180)),
 }
 
 

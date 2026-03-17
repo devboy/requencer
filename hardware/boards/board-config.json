@@ -6,6 +6,7 @@
       "placement": {
         "strategy": "panel-layout",
         "tht_extra_clearance_mm": 1.5,
+        "per_pin_padding_mm": 0,
         "smd_side": "B",
         "padding_sequence": [
           2.0,
@@ -298,112 +299,112 @@
           },
           "buttons.btn_step1": {
             "x": 17.33,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step2": {
             "x": 28.03,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step3": {
             "x": 38.73,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step4": {
             "x": 49.43,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step5": {
             "x": 60.13,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step6": {
             "x": 70.83,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step7": {
             "x": 81.53,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step8": {
             "x": 92.23,
-            "y": 101.8,
+            "y": 101.05,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step9": {
             "x": 17.33,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step10": {
             "x": 28.03,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step11": {
             "x": 38.73,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step12": {
             "x": 49.43,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step13": {
             "x": 60.13,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step14": {
             "x": 70.83,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step15": {
             "x": 81.53,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_step16": {
             "x": 92.23,
-            "y": 112.5,
+            "y": 111.75,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
@@ -491,11 +492,26 @@
             "side": "B",
             "rotation": 0,
             "coords": "pcb"
+          },
+          "leds.led1": {
+            "x": 26,
+            "y": 76,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "midi.opto": {
+            "x": 123,
+            "y": 70,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
           }
         },
         "component_padding": {
           "lcd_fpc": {
-            "left": 5.0
+            "left": 0, "right": 10.0, "top": 0, "bottom": 0,
+            "_comment": "10mm clearance on right for ribbon cable insertion"
           }
         },
         "standoffs": [
@@ -556,15 +572,15 @@
             "coords": "pcb"
           },
           "mcu.pga": {
-            "x": 51,
+            "x": 70,
             "y": 42,
             "side": "B",
             "rotation": 0,
             "coords": "pcb"
           },
           "power.header": {
-            "x": 95.5,
-            "y": 42,
+            "x": 7,
+            "y": 13,
             "side": "B",
             "rotation": 0,
             "coords": "pcb"
@@ -588,23 +604,9 @@
         "passive_spacing": 5.0,
         "margin": 3.0,
         "component_padding": {
-          "dacs.dac": {
-            "left": 3.0,
-            "right": 3.0,
-            "top": 3.0,
-            "bottom": 3.0
-          },
-          "dac.opamp": {
-            "left": 2.0,
-            "right": 2.0,
-            "top": 2.0,
-            "bottom": 2.0
-          },
-          "connector.header": {
-            "left": 2.0,
-            "right": 2.0,
-            "top": 2.0,
-            "bottom": 2.0
+          "usb": {
+            "left": 2.0, "right": 5.0, "top": 3.0, "bottom": 3.0,
+            "_comment": "USB-C connector clearance for routing and plug insertion"
           }
         },
         "anti_affinity": [
@@ -650,6 +652,16 @@
           "comment": "SD card footprint: adjacent pads too close for mask slivers"
         },
         {
+          "description": "Clearance violation",
+          "footprint": "QFN-44-5x5",
+          "comment": "IS31FL3236A: exposed pad to signal pad gap 0.15mm — within JLCPCB QFN capability"
+        },
+        {
+          "description": "solder mask aperture bridges",
+          "footprint": "QFN-44-5x5",
+          "comment": "IS31FL3236A: exposed pad to signal pad solder mask — standard QFN manufacturing"
+        },
+        {
           "description": "Board edge clearance violation",
           "comment": "Components near board edge \u2014 within JLCPCB 0.2mm standard"
         },
@@ -678,6 +690,14 @@
         {
           "description": "Drilled hole too close to other hole",
           "comment": "Via spacing \u2014 rules now match JLCPCB 0.254mm min, should not fire"
+        },
+        {
+          "description": "Text thickness out of range",
+          "comment": "Cosmetic: atopile-generated text thickness below KiCad minimum"
+        },
+        {
+          "description": "Text height out of range",
+          "comment": "Cosmetic: atopile-generated text height below KiCad minimum"
         }
       ]
     },
@@ -713,7 +733,7 @@
     }
   },
   "placement": {
-    "variants": [
+    "_disabled_variants": [
       {
         "name": "constructive-a",
         "algorithm": "constructive",
@@ -760,6 +780,13 @@
         }
       }
     ],
+    "variants": [
+      {
+        "name": "wavefront-a",
+        "algorithm": "wavefront",
+        "params": {}
+      }
+    ],
     "score_weights": {
       "via_count": 1.0,
       "trace_length_mm": 0.1,
@@ -767,7 +794,7 @@
     }
   },
   "routing": {
-    "max_passes": 30,
+    "max_passes": 60,
     "threads": 1,
     "optimization_improvement_threshold": 1,
     "timeout": 3600,

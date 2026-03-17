@@ -1,17 +1,20 @@
 # Button Scanning — 5× 74HC165 Shift Register Chain
 # 34 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
 #
-# SR1 (bits 0-7):   Step buttons 1-8
-# SR2 (bits 8-15):  Step buttons 9-16
-# SR3 (bits 16-23): Track T1-T4, Subtrack GATE/PITCH/VEL/MOD
-# SR4 (bits 24-31): PAT, MUTE, ROUTE, DRIFT, XPOSE, VAR, PLAY, RESET
-# SR5 (bits 32-39): SETTINGS (D0), D1 spare, BACK (D2), RAND (D3), CLR (D4), D5-D7 spare
+# Grouped by PHYSICAL LOCATION for short routing:
+# LEFT SIDE (SR1-SR3, placed near left buttons):
+#   SR1 (bits 0-7):   Step buttons 1-8
+#   SR2 (bits 8-15):  Step buttons 9-16
+#   SR3 (bits 16-23): T1-T4, Settings, Back, Rand, Clr
+# RIGHT SIDE (SR4-SR5, placed near right buttons):
+#   SR4 (bits 24-31): Gate, Pitch, Vel, Mod, Pat, Mute, Route, Drift
+#   SR5 (bits 32-39): Xpose, Var, Play, Reset, D4-D7 spare
 
 import Capacitor
 
 from "../../parts/74HC165D/74HC165D.ato" import _74HC165D
-from "../../parts/TC002-RGB/TC002-RGB.ato" import TC002_RGB
-from "../../parts/ResistorNetwork9/ResistorNetwork9.ato" import ResistorNetwork9
+from "../../parts/PB6149L/PB6149L.ato" import PB6149L
+from "../../parts/ResArray4x0603/ResArray4x0603.ato" import ResArray4x0603
 
 module ButtonScanner:
     # Control lines from MCU
@@ -101,54 +104,59 @@ module ButtonScanner:
     # Each button: one side to shift register input, other side to GND
     # Pull-up resistors on each input to VCC
 
-    # Step buttons 1-8 (SR1, D0-D7)
-    btn_step1 = new TC002_RGB
-    btn_step2 = new TC002_RGB
-    btn_step3 = new TC002_RGB
-    btn_step4 = new TC002_RGB
-    btn_step5 = new TC002_RGB
-    btn_step6 = new TC002_RGB
-    btn_step7 = new TC002_RGB
-    btn_step8 = new TC002_RGB
+    # Step buttons 1-8
+    btn_step1 = new PB6149L
+    btn_step2 = new PB6149L
+    btn_step3 = new PB6149L
+    btn_step4 = new PB6149L
+    btn_step5 = new PB6149L
+    btn_step6 = new PB6149L
+    btn_step7 = new PB6149L
+    btn_step8 = new PB6149L
 
-    # Step buttons 9-16 (SR2, D0-D7)
-    btn_step9 = new TC002_RGB
-    btn_step10 = new TC002_RGB
-    btn_step11 = new TC002_RGB
-    btn_step12 = new TC002_RGB
-    btn_step13 = new TC002_RGB
-    btn_step14 = new TC002_RGB
-    btn_step15 = new TC002_RGB
-    btn_step16 = new TC002_RGB
+    # Step buttons 9-16
+    btn_step9 = new PB6149L
+    btn_step10 = new PB6149L
+    btn_step11 = new PB6149L
+    btn_step12 = new PB6149L
+    btn_step13 = new PB6149L
+    btn_step14 = new PB6149L
+    btn_step15 = new PB6149L
+    btn_step16 = new PB6149L
 
-    # Track/Subtrack buttons (SR3, D0-D7)
-    btn_t1 = new TC002_RGB
-    btn_t2 = new TC002_RGB
-    btn_t3 = new TC002_RGB
-    btn_t4 = new TC002_RGB
-    btn_gate = new TC002_RGB
-    btn_pitch = new TC002_RGB
-    btn_vel = new TC002_RGB
-    btn_mod = new TC002_RGB
+    # Track buttons (left side)
+    btn_t1 = new PB6149L
+    btn_t2 = new PB6149L
+    btn_t3 = new PB6149L
+    btn_t4 = new PB6149L
 
-    # Function buttons (SR4, D0-D7)
-    btn_pat = new TC002_RGB
-    btn_mute = new TC002_RGB
-    btn_route = new TC002_RGB
-    btn_drift = new TC002_RGB
-    btn_xpose = new TC002_RGB
-    btn_var = new TC002_RGB
-    btn_play = new TC002_RGB
-    btn_reset = new TC002_RGB
+    # Left-side function buttons
+    btn_settings = new PB6149L
+    btn_back = new PB6149L
+    btn_rand = new PB6149L
+    btn_clr = new PB6149L
 
-    # Settings + BACK/RAND/CLR buttons (SR5, D0, D2-D4)
-    btn_settings = new TC002_RGB
-    btn_back = new TC002_RGB
-    btn_rand = new TC002_RGB
-    btn_clr = new TC002_RGB
+    # Right-side subtrack buttons
+    btn_gate = new PB6149L
+    btn_pitch = new PB6149L
+    btn_vel = new PB6149L
+    btn_mod = new PB6149L
 
-    # Wire all button switch contacts: SW1 to shift register, SW2 to GND
-    # SR1 inputs
+    # Right-side function buttons
+    btn_pat = new PB6149L
+    btn_mute = new PB6149L
+    btn_route = new PB6149L
+    btn_drift = new PB6149L
+    btn_xpose = new PB6149L
+    btn_var = new PB6149L
+    btn_play = new PB6149L
+    btn_reset = new PB6149L
+
+    # =======================================================================
+    # LEFT SIDE — SR1, SR2, SR3 (step buttons + track + settings/back/rand/clr)
+    # =======================================================================
+
+    # SR1 (D0-D7): Step buttons 1-8
     btn_step1.SW1 ~ sr1.D0
     btn_step1.SW2 ~ gnd
     btn_step2.SW1 ~ sr1.D1
@@ -166,7 +174,7 @@ module ButtonScanner:
     btn_step8.SW1 ~ sr1.D7
     btn_step8.SW2 ~ gnd
 
-    # SR2 inputs
+    # SR2 (D0-D7): Step buttons 9-16
     btn_step9.SW1 ~ sr2.D0
     btn_step9.SW2 ~ gnd
     btn_step10.SW1 ~ sr2.D1
@@ -184,7 +192,7 @@ module ButtonScanner:
     btn_step16.SW1 ~ sr2.D7
     btn_step16.SW2 ~ gnd
 
-    # SR3 inputs
+    # SR3 (D0-D7): T1-T4, Settings, Back, Rand, Clr (all left side)
     btn_t1.SW1 ~ sr3.D0
     btn_t1.SW2 ~ gnd
     btn_t2.SW1 ~ sr3.D1
@@ -193,105 +201,113 @@ module ButtonScanner:
     btn_t3.SW2 ~ gnd
     btn_t4.SW1 ~ sr3.D3
     btn_t4.SW2 ~ gnd
-    btn_gate.SW1 ~ sr3.D4
-    btn_gate.SW2 ~ gnd
-    btn_pitch.SW1 ~ sr3.D5
-    btn_pitch.SW2 ~ gnd
-    btn_vel.SW1 ~ sr3.D6
-    btn_vel.SW2 ~ gnd
-    btn_mod.SW1 ~ sr3.D7
-    btn_mod.SW2 ~ gnd
-
-    # SR4 inputs
-    btn_pat.SW1 ~ sr4.D0
-    btn_pat.SW2 ~ gnd
-    btn_mute.SW1 ~ sr4.D1
-    btn_mute.SW2 ~ gnd
-    btn_route.SW1 ~ sr4.D2
-    btn_route.SW2 ~ gnd
-    btn_drift.SW1 ~ sr4.D3
-    btn_drift.SW2 ~ gnd
-    btn_xpose.SW1 ~ sr4.D4
-    btn_xpose.SW2 ~ gnd
-    btn_var.SW1 ~ sr4.D5
-    btn_var.SW2 ~ gnd
-    btn_play.SW1 ~ sr4.D6
-    btn_play.SW2 ~ gnd
-    btn_reset.SW1 ~ sr4.D7
-    btn_reset.SW2 ~ gnd
-
-    # SR5 inputs — settings on D0, D1 spare, BACK/RAND/CLR on D2-D4, D5-D7 spare
-    btn_settings.SW1 ~ sr5.D0
+    btn_settings.SW1 ~ sr3.D4
     btn_settings.SW2 ~ gnd
-    btn_back.SW1 ~ sr5.D2
+    btn_back.SW1 ~ sr3.D5
     btn_back.SW2 ~ gnd
-    btn_rand.SW1 ~ sr5.D3
+    btn_rand.SW1 ~ sr3.D6
     btn_rand.SW2 ~ gnd
-    btn_clr.SW1 ~ sr5.D4
+    btn_clr.SW1 ~ sr3.D7
     btn_clr.SW2 ~ gnd
 
-    # Pull-up resistor networks (10kΩ SIP-9 bussed arrays)
-    # Each network: pin 1 (COMMON) → VCC, pins 2-9 (R1-R8) → shift register inputs
-    # Replaces 34 discrete 10kΩ resistors with 5 SIP-9 packages
+    # =======================================================================
+    # RIGHT SIDE — SR4, SR5 (subtrack + function buttons)
+    # =======================================================================
 
-    # SR1 pull-ups (D0-D7)
-    rn1 = new ResistorNetwork9
-    rn1.COMMON ~ vcc
-    rn1.R1 ~ sr1.D0
-    rn1.R2 ~ sr1.D1
-    rn1.R3 ~ sr1.D2
-    rn1.R4 ~ sr1.D3
-    rn1.R5 ~ sr1.D4
-    rn1.R6 ~ sr1.D5
-    rn1.R7 ~ sr1.D6
-    rn1.R8 ~ sr1.D7
+    # SR4 (D0-D7): Gate, Pitch, Vel, Mod, Pat, Mute, Route, Drift
+    btn_gate.SW1 ~ sr4.D0
+    btn_gate.SW2 ~ gnd
+    btn_pitch.SW1 ~ sr4.D1
+    btn_pitch.SW2 ~ gnd
+    btn_vel.SW1 ~ sr4.D2
+    btn_vel.SW2 ~ gnd
+    btn_mod.SW1 ~ sr4.D3
+    btn_mod.SW2 ~ gnd
+    btn_pat.SW1 ~ sr4.D4
+    btn_pat.SW2 ~ gnd
+    btn_mute.SW1 ~ sr4.D5
+    btn_mute.SW2 ~ gnd
+    btn_route.SW1 ~ sr4.D6
+    btn_route.SW2 ~ gnd
+    btn_drift.SW1 ~ sr4.D7
+    btn_drift.SW2 ~ gnd
 
-    # SR2 pull-ups (D0-D7)
-    rn2 = new ResistorNetwork9
-    rn2.COMMON ~ vcc
-    rn2.R1 ~ sr2.D0
-    rn2.R2 ~ sr2.D1
-    rn2.R3 ~ sr2.D2
-    rn2.R4 ~ sr2.D3
-    rn2.R5 ~ sr2.D4
-    rn2.R6 ~ sr2.D5
-    rn2.R7 ~ sr2.D6
-    rn2.R8 ~ sr2.D7
+    # SR5 (D0-D3): Xpose, Var, Play, Reset + D4-D7 spare
+    btn_xpose.SW1 ~ sr5.D0
+    btn_xpose.SW2 ~ gnd
+    btn_var.SW1 ~ sr5.D1
+    btn_var.SW2 ~ gnd
+    btn_play.SW1 ~ sr5.D2
+    btn_play.SW2 ~ gnd
+    btn_reset.SW1 ~ sr5.D3
+    btn_reset.SW2 ~ gnd
 
-    # SR3 pull-ups (D0-D7)
-    rn3 = new ResistorNetwork9
-    rn3.COMMON ~ vcc
-    rn3.R1 ~ sr3.D0
-    rn3.R2 ~ sr3.D1
-    rn3.R3 ~ sr3.D2
-    rn3.R4 ~ sr3.D3
-    rn3.R5 ~ sr3.D4
-    rn3.R6 ~ sr3.D5
-    rn3.R7 ~ sr3.D6
-    rn3.R8 ~ sr3.D7
-
-    # SR4 pull-ups (D0-D7)
-    rn4 = new ResistorNetwork9
-    rn4.COMMON ~ vcc
-    rn4.R1 ~ sr4.D0
-    rn4.R2 ~ sr4.D1
-    rn4.R3 ~ sr4.D2
-    rn4.R4 ~ sr4.D3
-    rn4.R5 ~ sr4.D4
-    rn4.R6 ~ sr4.D5
-    rn4.R7 ~ sr4.D6
-    rn4.R8 ~ sr4.D7
-
-    # SR5 pull-ups (D0, D2-D4 for buttons, R2/R6-R8 unused — left floating)
-    rn5 = new ResistorNetwork9
-    rn5.COMMON ~ vcc
-    rn5.R1 ~ sr5.D0
-    rn5.R3 ~ sr5.D2
-    rn5.R4 ~ sr5.D3
-    rn5.R5 ~ sr5.D4
-
-    # Spare inputs D1, D5-D7 tied directly to VCC (low impedance, noise-immune)
-    sr5.D1 ~ vcc
+    # Spare inputs D4-D7 tied to VCC (low impedance, noise-immune)
+    sr5.D4 ~ vcc
     sr5.D5 ~ vcc
     sr5.D6 ~ vcc
     sr5.D7 ~ vcc
+
+    # Pull-up resistor arrays (10kΩ 0603×4 SMD arrays)
+    # Each array has 4 resistors. 2 arrays per SR (8 pull-ups).
+    # Convex pinout: R1=pin1↔pin8, R2=pin2↔pin7, R3=pin3↔pin6, R4=pin4↔pin5
+    # One side of each resistor → VCC, other side → shift register input
+
+    # SR1 pull-ups (D0-D3, D4-D7)
+    rn1a = new ResArray4x0603
+    rn1a.R1B ~ vcc;  rn1a.R1A ~ sr1.D0
+    rn1a.R2B ~ vcc;  rn1a.R2A ~ sr1.D1
+    rn1a.R3B ~ vcc;  rn1a.R3A ~ sr1.D2
+    rn1a.R4B ~ vcc;  rn1a.R4A ~ sr1.D3
+
+    rn1b = new ResArray4x0603
+    rn1b.R1B ~ vcc;  rn1b.R1A ~ sr1.D4
+    rn1b.R2B ~ vcc;  rn1b.R2A ~ sr1.D5
+    rn1b.R3B ~ vcc;  rn1b.R3A ~ sr1.D6
+    rn1b.R4B ~ vcc;  rn1b.R4A ~ sr1.D7
+
+    # SR2 pull-ups (D0-D3, D4-D7)
+    rn2a = new ResArray4x0603
+    rn2a.R1B ~ vcc;  rn2a.R1A ~ sr2.D0
+    rn2a.R2B ~ vcc;  rn2a.R2A ~ sr2.D1
+    rn2a.R3B ~ vcc;  rn2a.R3A ~ sr2.D2
+    rn2a.R4B ~ vcc;  rn2a.R4A ~ sr2.D3
+
+    rn2b = new ResArray4x0603
+    rn2b.R1B ~ vcc;  rn2b.R1A ~ sr2.D4
+    rn2b.R2B ~ vcc;  rn2b.R2A ~ sr2.D5
+    rn2b.R3B ~ vcc;  rn2b.R3A ~ sr2.D6
+    rn2b.R4B ~ vcc;  rn2b.R4A ~ sr2.D7
+
+    # SR3 pull-ups (D0-D3, D4-D7)
+    rn3a = new ResArray4x0603
+    rn3a.R1B ~ vcc;  rn3a.R1A ~ sr3.D0
+    rn3a.R2B ~ vcc;  rn3a.R2A ~ sr3.D1
+    rn3a.R3B ~ vcc;  rn3a.R3A ~ sr3.D2
+    rn3a.R4B ~ vcc;  rn3a.R4A ~ sr3.D3
+
+    rn3b = new ResArray4x0603
+    rn3b.R1B ~ vcc;  rn3b.R1A ~ sr3.D4
+    rn3b.R2B ~ vcc;  rn3b.R2A ~ sr3.D5
+    rn3b.R3B ~ vcc;  rn3b.R3A ~ sr3.D6
+    rn3b.R4B ~ vcc;  rn3b.R4A ~ sr3.D7
+
+    # SR4 pull-ups (D0-D3, D4-D7)
+    rn4a = new ResArray4x0603
+    rn4a.R1B ~ vcc;  rn4a.R1A ~ sr4.D0
+    rn4a.R2B ~ vcc;  rn4a.R2A ~ sr4.D1
+    rn4a.R3B ~ vcc;  rn4a.R3A ~ sr4.D2
+    rn4a.R4B ~ vcc;  rn4a.R4A ~ sr4.D3
+
+    rn4b = new ResArray4x0603
+    rn4b.R1B ~ vcc;  rn4b.R1A ~ sr4.D4
+    rn4b.R2B ~ vcc;  rn4b.R2A ~ sr4.D5
+    rn4b.R3B ~ vcc;  rn4b.R3A ~ sr4.D6
+    rn4b.R4B ~ vcc;  rn4b.R4A ~ sr4.D7
+
+    # SR5 pull-ups (D0-D3 for buttons)
+    rn5a = new ResArray4x0603
+    rn5a.R1B ~ vcc;  rn5a.R1A ~ sr5.D0
+    rn5a.R2B ~ vcc;  rn5a.R2A ~ sr5.D1
+    rn5a.R3B ~ vcc;  rn5a.R3A ~ sr5.D2
+    rn5a.R4B ~ vcc;  rn5a.R4A ~ sr5.D3

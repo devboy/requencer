@@ -34,15 +34,33 @@ def load_board_config():
         return json.load(f)
 
 
-def get_component_padding(addr, component_padding):
+def get_component_padding(addr, component_padding, edge_signal_counts=None):
     """Look up per-side courtyard padding for a component address.
 
     Config keys are prefix-matched against the address, so "leds.tlc"
-    matches "leds.tlc1" and "leds.tlc2". Returns (left, right, top, bottom)
-    in mm, defaulting to 0.0 for unspecified sides.
+    matches "leds.tlc1" and "leds.tlc2".
+
+    Supports two formats:
+      - Explicit: {"left": N, "right": N, "top": N, "bottom": N}
+      - Auto: {"auto_from_pins": true, "base": N, "per_signal_pin": N}
+        Computes per-edge padding from signal pin count, uses max as uniform.
+
+    Returns (left, right, top, bottom) in mm.
     """
     for prefix, pad in component_padding.items():
         if addr.startswith(prefix):
+            if pad.get("auto_from_pins"):
+                base = pad.get("base", 0.0)
+                per_pin = pad.get("per_signal_pin", 0.0)
+                if edge_signal_counts:
+                    edge_paddings = {
+                        edge: base + count * per_pin
+                        for edge, count in edge_signal_counts.items()
+                    }
+                    max_pad = max(edge_paddings.values()) if edge_paddings else base
+                else:
+                    max_pad = base
+                return (max_pad, max_pad, max_pad, max_pad)
             return (pad.get("left", 0.0), pad.get("right", 0.0),
                     pad.get("top", 0.0), pad.get("bottom", 0.0))
     return (0.0, 0.0, 0.0, 0.0)
@@ -226,17 +244,25 @@ def _place_fixed_components(board, addr_map, board_name, config, pcbnew):
 
         fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(px), pcbnew.FromMM(py)))
 
-        # Set side
+        # Set side first
         current_front = fp.GetLayer() == board.GetLayerID("F.Cu")
         if front != current_front:
             fp.Flip(fp.GetPosition(), False)
 
-        # Set rotation
+        # Set rotation after flip (absolute orientation via EDA_ANGLE)
         if rotation:
-            fp.SetOrientationDegrees(rotation)
+            fp.SetOrientation(pcbnew.EDA_ANGLE(rotation, pcbnew.DEGREES_T))
+
+        # BoardState._effective_rotation adds 180° for B-side components,
+        # assuming rotation is pre-flip. Since config rotation is absolute
+        # (post-flip), subtract 180° so effective_rotation recovers the
+        # correct physical orientation: (r-180)+180 = r
+        stored_rotation = rotation
+        if side == "B" and rotation:
+            stored_rotation = rotation - 180
 
         fixed_placements[addr] = Placement(
-            x=px, y=py, side=side, rotation=rotation,
+            x=px, y=py, side=side, rotation=stored_rotation,
         )
 
     if warnings:
@@ -254,17 +280,23 @@ def _place_fixed_components(board, addr_map, board_name, config, pcbnew):
 def _extract_component_info(addr, fp, pcbnew, power_nets):
     """Extract ComponentInfo from a pcbnew footprint."""
     from placement.helpers import extract_footprint_dims, is_tht as is_tht_fn, \
-        get_component_nets
+        get_component_nets, extract_pad_sides
     from placement.strategies import ComponentInfo
 
     w, h, cx_off, cy_off = extract_footprint_dims(fp, pcbnew)
     tht = is_tht_fn(fp, pcbnew)
     pin_count = len(list(fp.Pads()))
     nets = get_component_nets(fp, power_nets)
+    pad_sides = extract_pad_sides(fp, pcbnew, power_nets)
+    edge_signal_count = {edge: len(nets_list)
+                         for edge, nets_list in pad_sides.items()}
     return ComponentInfo(
         address=addr, width=w, height=h, is_tht=tht,
         pin_count=pin_count, nets=nets,
         cx_offset=cx_off, cy_offset=cy_off,
+        pad_sides=pad_sides,
+        edge_signal_count=edge_signal_count,
+        group=addr.split(".")[0] if "." in addr else None,
     )
 
 
@@ -364,10 +396,10 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
     )
     from placement.strategies import (
         AntiAffinityRule, BoardState, ComponentInfo, Placement,
-        get_strategy,
+        get_strategy, rotated_info,
     )
     # Ensure all strategies are registered
-    from placement.strategies import constructive, force_directed, sa_refine, grid_spread  # noqa: F401
+    from placement.strategies import constructive, force_directed, sa_refine, grid_spread, wavefront  # noqa: F401
 
     config = load_board_config()
     board_cfg = config["boards"][board_name]
@@ -423,17 +455,32 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
     standoff_zones = _place_standoffs(board, board_name, config, pcbnew)
 
     # 5. Extract ComponentInfo for ALL components
+    # Automatic per-pin-per-side padding: each signal pin on an edge needs
+    # escape routing space (track width + clearance ≈ 0.35mm). We add
+    # per_pin_padding mm per signal pin per edge so the autorouter has room.
+    per_pin_padding = placement_cfg.get("per_pin_padding_mm", 0.2)
     component_padding = placement_cfg.get("component_padding", {})
     power_nets = identify_power_nets(board)
     fixed_info = {}
     free_components = {}
     for addr, fp in addr_map.items():
         info = _extract_component_info(addr, fp, pcbnew, power_nets)
+        # Manual per-component overrides take priority
         pad_l, pad_r, pad_t, pad_b = get_component_padding(
-            addr, component_padding)
+            addr, component_padding,
+            edge_signal_counts=info.edge_signal_count)
         if pad_l or pad_r or pad_t or pad_b:
             info.width += pad_l + pad_r
             info.height += pad_t + pad_b
+        elif per_pin_padding > 0 and info.edge_signal_count:
+            # Auto padding: per_pin_padding mm per signal pin per edge
+            esc = info.edge_signal_count
+            auto_l = esc.get("W", 0) * per_pin_padding
+            auto_r = esc.get("E", 0) * per_pin_padding
+            auto_t = esc.get("N", 0) * per_pin_padding
+            auto_b = esc.get("S", 0) * per_pin_padding
+            info.width += auto_l + auto_r
+            info.height += auto_t + auto_b
         if addr in fixed_placements:
             fixed_info[addr] = info
         else:
@@ -478,7 +525,14 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
             so_x, so_y, so_clr, so_clr,
             "both", is_tht=False, label="standoff")
 
-    # 9. Run strategy
+    # 9. Build clusters and run strategy
+    from placement.helpers import build_clusters
+    clusters = build_clusters(free_components, net_graph)
+    if clusters:
+        print(f"  Clusters: {len(clusters)} "
+              f"({', '.join(c.anchor for c in clusters)})")
+        params = dict(params, clusters=clusters)
+
     strategy = get_strategy(strategy_name)
     components_list = list(free_components.values())
     placements = strategy.place(components_list, board_state, params)
@@ -486,10 +540,30 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
     print(f"  Strategy placed {len(placements)} components")
 
     # 10. Validate placement (fail fast — no point routing invalid placements)
-    all_info = {**fixed_info, **free_components}
+    # Build rotation-aware component info for validation
+    # B.Cu rotation R physically equals F.Cu rotation (R + 180)
+    def _eff_rot(rot, side):
+        return rot + 180.0 if side == "B" else rot
+
+    all_info = {}
+    for addr, info in fixed_info.items():
+        if addr in fixed_placements:
+            p = fixed_placements[addr]
+            eff = _eff_rot(p.rotation, p.side)
+            all_info[addr] = rotated_info(info, eff) if eff else info
+        else:
+            all_info[addr] = info
+    for addr, info in free_components.items():
+        if addr in placements:
+            p = placements[addr]
+            eff = _eff_rot(p.rotation, p.side)
+            all_info[addr] = rotated_info(info, eff) if eff else info
+        else:
+            all_info[addr] = info
+
     ok, out_of_bounds, overlapping = validate_placement(
         board_w, board_h, fixed_placements, placements, all_info,
-        tht_extra_clearance=tht_extra,
+        clearance=0.5, tht_extra_clearance=tht_extra,
     )
     if out_of_bounds:
         print(f"  FAIL: {len(out_of_bounds)} components out of bounds: "
@@ -499,6 +573,13 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
         print(f"  FAIL: {len(overlapping)} overlapping components: "
               f"{', '.join(overlapping[:5])}"
               f"{'...' if len(overlapping) > 5 else ''}")
+    if overlapping or out_of_bounds:
+        n_errors = len(overlapping) + len(out_of_bounds)
+        failed_pcb = output_pcb.replace(".kicad_pcb", ".failed.kicad_pcb")
+        print(f"  Aborting — {n_errors} placement errors")
+        board.Save(failed_pcb)
+        print(f"  Failed placement saved to {failed_pcb}")
+        return n_errors
 
     # Check anti-affinity (warn, don't fail)
     aa_violations = check_anti_affinity(placements, fixed_placements,
@@ -607,7 +688,9 @@ def place_variant(input_pcb, output_pcb, board_type, variant_name):
     print(f"  Variant: {variant_name} (algorithm={algorithm})")
     print(f"  Params: {params}")
 
-    place_board(board_type, algorithm, params, input_pcb, output_pcb, pcbnew)
+    n_errors = place_board(board_type, algorithm, params, input_pcb, output_pcb, pcbnew)
+    if n_errors:
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

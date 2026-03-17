@@ -3,15 +3,35 @@
 Models nets as springs pulling connected components together. Iterates
 force equilibrium, then legalizes by snapping to collision-free positions.
 
+When clusters are provided, adds additional forces:
+  - Satellites are pulled toward their anchor's correct edge
+  - Passives are pulled toward their satellite
+  - These forces are stronger than generic connectivity pull
+
 Parameterized by:
   - attraction: spring constant for net connectivity pull
   - repulsion: push strength for overlap prevention
   - iterations: simulation steps
+  - clusters: list[Cluster] (optional, injected by orchestrator)
 """
 
 import random
 
-from . import BoardState, ComponentInfo, Placement, register
+from ..helpers import (
+    cluster_edge_affinity,
+    satellite_target_position,
+    best_rotation_at_position,
+)
+from . import BoardState, ComponentInfo, Placement, register, rotated_info
+
+
+_PASSIVE_PREFIXES = ("r_", "c_", "l_", "r.", "c.", "l.")
+
+
+def _is_passive_addr(addr):
+    parts = addr.rsplit(".", 1)
+    leaf = parts[-1] if len(parts) > 1 else addr
+    return any(leaf.lower().startswith(p) for p in _PASSIVE_PREFIXES)
 
 
 @register("force_directed")
@@ -24,6 +44,7 @@ class ForceDirectedStrategy:
         repulsion_strength = params.get("repulsion", 0.5)
         iterations = params.get("iterations", 200)
         seed = params.get("seed", 42)
+        clusters = params.get("clusters", [])
 
         rng = random.Random(seed)
         comp_map = {c.address: c for c in components}
@@ -31,7 +52,22 @@ class ForceDirectedStrategy:
         if not free_addrs:
             return {}
 
-        # Build adjacency from net_graph for force computation
+        # Build cluster lookup
+        anchor_of = {}
+        cluster_of = {}
+        for cl in clusters:
+            cluster_of[cl.anchor] = cl
+            for sat_addr in cl.satellites:
+                anchor_of[sat_addr] = cl.anchor
+                cluster_of[sat_addr] = cl
+                for passive_addr in cl.satellites[sat_addr]:
+                    anchor_of[passive_addr] = cl.anchor
+                    cluster_of[passive_addr] = cl
+            for bypass_addr in cl.bypass:
+                anchor_of[bypass_addr] = cl.anchor
+                cluster_of[bypass_addr] = cl
+
+        # Build adjacency from net_graph
         adjacency: dict[str, dict[str, int]] = {}
         for addr in free_addrs:
             adjacency[addr] = {}
@@ -46,7 +82,7 @@ class ForceDirectedStrategy:
                     if b in adjacency:
                         adjacency[b][a] = adjacency[b].get(a, 0) + 1
 
-        # Initialize: use connectivity_target for initial positions with jitter
+        # Initialize positions
         positions: dict[str, tuple[float, float]] = {}
         placed_so_far: dict[str, Placement] = {}
         for addr in free_addrs:
@@ -90,7 +126,7 @@ class ForceDirectedStrategy:
                         fx += (dx / dist) * f
                         fy += (dy / dist) * f
 
-                # Group cohesion: pull toward same-group components
+                # Group cohesion
                 group = comp_map[addr].group
                 if group:
                     group_prefix = group + "."
@@ -106,6 +142,45 @@ class ForceDirectedStrategy:
                             f = attraction * 0.5 * dist * 0.01
                             fx += (dx / dist) * f
                             fy += (dy / dist) * f
+
+                # Cluster edge affinity: pull satellites toward anchor edge
+                if addr in anchor_of and anchor_of[addr] in positions:
+                    anchor_addr = anchor_of[addr]
+                    anchor_comp = comp_map.get(anchor_addr)
+                    anch_x, anch_y = positions[anchor_addr]
+
+                    if anchor_comp and not _is_passive_addr(addr):
+                        # Satellite IC: pull toward correct edge
+                        best_edge, _ = cluster_edge_affinity(
+                            anchor_comp, comp_map[addr])
+                        if best_edge:
+                            anchor_p = Placement(x=anch_x, y=anch_y, side="F")
+                            ex, ey, _ = satellite_target_position(
+                                anchor_p, anchor_comp, comp_map[addr],
+                                best_edge)
+                            dx = ex - ax
+                            dy = ey - ay
+                            dist = (dx * dx + dy * dy) ** 0.5
+                            if dist > 0.1:
+                                # Strong pull (3x connectivity)
+                                f = attraction * 3.0 * dist * 0.01
+                                fx += (dx / dist) * f
+                                fy += (dy / dist) * f
+                    elif anchor_comp:
+                        # Passive: pull toward satellite
+                        cl = cluster_of.get(addr)
+                        if cl:
+                            for sat_addr, passives in cl.satellites.items():
+                                if addr in passives and sat_addr in positions:
+                                    sx, sy = positions[sat_addr]
+                                    dx = sx - ax
+                                    dy = sy - ay
+                                    dist = (dx * dx + dy * dy) ** 0.5
+                                    if dist > 0.1:
+                                        f = attraction * 2.0 * dist * 0.01
+                                        fx += (dx / dist) * f
+                                        fy += (dy / dist) * f
+                                    break
 
                 forces[addr] = (fx, fy)
 
@@ -136,7 +211,6 @@ class ForceDirectedStrategy:
 
             # Anti-affinity: strong repulsion between constrained pairs
             for rule in board.anti_affinity:
-                # Check free-free pairs
                 for i in range(len(addr_list)):
                     for j in range(i + 1, len(addr_list)):
                         a, b = addr_list[i], addr_list[j]
@@ -154,7 +228,6 @@ class ForceDirectedStrategy:
                             fb = forces[b]
                             forces[a] = (fa[0] + nx * f, fa[1] + ny * f)
                             forces[b] = (fb[0] - nx * f, fb[1] - ny * f)
-                # Check free-fixed pairs (only push the free component)
                 for addr in free_addrs:
                     for faddr, fp in board.fixed.items():
                         if not rule.matches(addr, faddr):
@@ -182,5 +255,20 @@ class ForceDirectedStrategy:
                 ny = max(0, min(board.height, oy + fy))
                 positions[addr] = (nx, ny)
 
-        # Batch legalization via BoardState
-        return board.legalize(positions, comp_map)
+        # Choose rotations, then batch legalize
+        rotations = {}
+        all_positions = {a: Placement(x=x, y=y, side="F")
+                         for a, (x, y) in positions.items()}
+        all_positions.update(board.fixed)
+
+        if params.get("auto_rotate", False):
+            for addr in free_addrs:
+                info = comp_map[addr]
+                if info.pad_sides and info.pin_count > 4 and not _is_passive_addr(addr):
+                    x, y = positions[addr]
+                    rot = best_rotation_at_position(
+                        info, x, y, board.net_graph, all_positions, addr)
+                    if rot:
+                        rotations[addr] = rot
+
+        return board.legalize(positions, comp_map, rotations=rotations)

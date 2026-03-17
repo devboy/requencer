@@ -1,0 +1,48 @@
+{
+  "id": "order-001",
+  "description": "First prototype run",
+  "created": "2026-03-16",
+  "kits": 2,
+  "parts": [
+    {
+      "mpn": "WQP518MA",
+      "name": "Mono jacks",
+      "status": "ordered",
+      "quantity_ordered": 100,
+      "cost": 31.59,
+      "currency": "EUR",
+      "supplier": "AliExpress (Jingteng)",
+      "notes": ""
+    },
+    {
+      "mpn": "PB6149L",
+      "name": "LED buttons",
+      "status": "ordered",
+      "quantity_ordered": 100,
+      "cost": 68.40,
+      "currency": "EUR",
+      "supplier": "AliExpress (GJW)",
+      "notes": ""
+    },
+    {
+      "mpn": "ST7796-32pin-panel",
+      "name": "Displays",
+      "status": "ordered",
+      "quantity_ordered": 2,
+      "cost": 21.77,
+      "currency": "EUR",
+      "supplier": "AliExpress (maithoga)",
+      "notes": ""
+    },
+    {
+      "mpn": "PIM722",
+      "name": "PGA2350 modules",
+      "status": "ordered",
+      "quantity_ordered": 2,
+      "cost": 23.86,
+      "currency": "GBP",
+      "supplier": "Pimoroni",
+      "notes": ""
+    }
+  ]
+}

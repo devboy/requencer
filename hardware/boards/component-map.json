@@ -18,9 +18,9 @@
   "constants": {
     "rail_zone_mm": 10.0,
     "component_gap_mm": 5.33,
-    "btn_diameter_mm": 5.0,
+    "btn_diameter_mm": 6.0,
     "btn_cc_mm": 10.7,
-    "step_btn_diameter_mm": 4.5,
+    "step_btn_diameter_mm": 6.0,
     "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
@@ -44,37 +44,37 @@
   },
 
   "display": {
-    "_note": "JC3248A035N-1: bare ST7796 3.5\" SPI TFT panel (no carrier PCB). Glass sits in faceplate cutout, FPC ribbon connects to 18-pin ZIF on control board.",
-    "part": "JC3248A035N-1",
-    "driver": "ST7796S",
+    "_note": "ST7796 3.5\" bare TFT panel (maithoga, AliExpress). Glass sits in faceplate cutout, FPC ribbon connects to 32-pin ZIF on control board.",
+    "part": "ST7796 32-pin bare panel",
+    "driver": "ST7796",
     "resolution": "480x320",
-    "interface": "4-wire SPI (pre-configured, no IM pins)",
-    "glass_w_mm": 85.5,
-    "glass_h_mm": 54.94,
-    "glass_thickness_mm": 2.5,
+    "interface": "4-wire SPI (IM pins tied high via 10k pull-ups)",
+    "glass_w_mm": 84.52,
+    "glass_h_mm": 55.26,
+    "glass_thickness_mm": 4.13,
     "active_w_mm": 73.44,
     "active_h_mm": 48.96,
-    "fpc_pins": 18,
+    "fpc_pins": 32,
     "fpc_pitch_mm": 0.5,
-    "fpc_edge": "left (landscape orientation, driver/COG bond side)",
-    "backlight": "4 parallel LED cathodes (K1-K4), anode to 3.3V, cathodes switched via N-FET",
+    "fpc_edge": "right (landscape orientation)",
+    "backlight": "Single LED cathode, anode to 3.3V via 33R, cathode switched via N-FET",
     "bezel_landscape_mm": {
-      "_note": "From datasheet mechanical drawing. FPC/driver side (left) is wider due to COG bond area.",
-      "left": 8.40,
-      "right": 3.66,
-      "top": 2.99,
-      "bottom": 2.99
+      "_note": "Approximate from dimension drawing. Verify with physical panel.",
+      "left": 3.15,
+      "right": 5.65,
+      "top": 2.75,
+      "bottom": 2.75
     }
   },
 
   "lcd_cutout": {
-    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around for the glass to rest on. Full active area visible with margin.",
+    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around. Center may need adjustment after measuring bezel asymmetry on physical panel.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
-    "width_mm": 82.5,
-    "height_mm": 52.0,
-    "glass_w_mm": 85.5,
-    "glass_h_mm": 54.94
+    "width_mm": 81.5,
+    "height_mm": 52.3,
+    "glass_w_mm": 84.52,
+    "glass_h_mm": 55.26
   },
 
   "mounting_slots": [
@@ -103,11 +103,12 @@
       "body":      { "x1": -5.0, "y1": -7.9, "x2": 5.0, "y2": 6.5 },
       "courtyard": { "x1": -5.0, "y1": -7.9, "x2": 5.0, "y2": 6.5 }
     },
-    "tc002_rgb": {
-      "description": "Well Buying TC002 RGB tactile switch",
-      "drill_mm": 3.2,
-      "body":      { "x1": -3.5, "y1": -3.5, "x2": 3.5, "y2": 3.5 },
-      "courtyard": { "x1": -4.5, "y1": -4.5, "x2": 4.5, "y2": 4.5 }
+    "pb6149l": {
+      "description": "PB6149L 6x6mm illuminated tactile switch with translucent cap",
+      "drill_mm": 6.0,
+      "cap_diameter_mm": 5.6,
+      "body":      { "x1": -3.1, "y1": -2.7, "x2": 3.1, "y2": 2.7 },
+      "courtyard": { "x1": -4.0, "y1": -4.0, "x2": 4.0, "y2": 5.0 }
     },
     "ec11e": {
       "description": "Alps EC11E rotary encoder with push switch",
@@ -115,10 +116,10 @@
       "body":      { "x1": -6.5, "y1": -6.5, "x2": 6.5, "y2": 6.5 },
       "courtyard": { "x1": -8.0, "y1": -9.0, "x2": 8.0, "y2": 9.0 }
     },
-    "fpc_18p_05mm": {
-      "description": "18-pin 0.5mm FPC ZIF connector for display",
-      "body":      { "x1": -5.75, "y1": -2.5, "x2": 5.75, "y2": 2.5 },
-      "courtyard": { "x1": -6.5, "y1": -3.5, "x2": 6.5, "y2": 3.5 }
+    "fpc_32p_05mm": {
+      "description": "32-pin 0.5mm FPC ZIF connector for display (JUSHUO AFC01-S32FCA-00)",
+      "body":      { "x1": -8.75, "y1": -3.05, "x2": 8.75, "y2": 3.05 },
+      "courtyard": { "x1": -9.85, "y1": -3.55, "x2": 9.85, "y2": 3.55 }
     },
     "pjs008u": {
       "description": "Yamaichi PJS008U-3000-0 vertical MicroSD",

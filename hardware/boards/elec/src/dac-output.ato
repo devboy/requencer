@@ -56,6 +56,21 @@ module DACOutputStage:
     signal v_ref_2v   # Buffered 2V for pitch offset
     signal v_ref_mod  # Buffered 1.667V for mod offset
 
+    # --- DAC AVDD filter (isolates DAC analog supply from LED switching noise) ---
+    # The +5V rail is shared with TLC5947 LED drivers which PWM-switch up to 700mA.
+    # 10Ω + 10µF low-pass filter (f3dB ≈ 1.6kHz) blocks high-frequency transients.
+    # Voltage drop at DAC quiescent current (~12mA): 10Ω × 12mA = 0.12V — negligible.
+    signal avdd_filtered   # Clean 5V for DAC AVDD (after filter)
+    r_avdd_filter = new Resistor
+    r_avdd_filter.resistance = 10ohm +/- 5%
+    c_avdd_filter = new Capacitor
+    c_avdd_filter.capacitance = 10uF +/- 20%
+
+    avdd ~ r_avdd_filter.unnamed[0]
+    r_avdd_filter.unnamed[1] ~ avdd_filtered
+    c_avdd_filter.unnamed[0] ~ avdd_filtered
+    c_avdd_filter.unnamed[1] ~ gnd
+
     # --- DAC chips (direct 3.3V SPI — no level shifter needed) ---
     dac1 = new DAC80508ZRTER
     dac2 = new DAC80508ZRTER
@@ -66,7 +81,7 @@ module DACOutputStage:
     dac1.SYNC ~ dac1_cs
     dac1.GND ~ gnd
     dac1.PAD ~ gnd
-    dac1.AVDD ~ avdd
+    dac1.AVDD ~ avdd_filtered
     dac1.VIO ~ v3v3
 
     # DAC2 SPI (direct 3.3V signals from MCU)
@@ -75,28 +90,28 @@ module DACOutputStage:
     dac2.SYNC ~ dac2_cs
     dac2.GND ~ gnd
     dac2.PAD ~ gnd
-    dac2.AVDD ~ avdd
+    dac2.AVDD ~ avdd_filtered
     dac2.VIO ~ v3v3
 
-    # DAC bypass caps (100nF HF + 10µF bulk per chip)
+    # DAC bypass caps (100nF HF + 10µF bulk per chip, on filtered rail)
     c_dac1_1 = new Capacitor
     c_dac1_1.capacitance = 100nF +/- 20%
-    c_dac1_1.unnamed[0] ~ avdd
+    c_dac1_1.unnamed[0] ~ avdd_filtered
     c_dac1_1.unnamed[1] ~ gnd
 
     c_dac1_2 = new Capacitor
     c_dac1_2.capacitance = 10uF +/- 20%
-    c_dac1_2.unnamed[0] ~ avdd
+    c_dac1_2.unnamed[0] ~ avdd_filtered
     c_dac1_2.unnamed[1] ~ gnd
 
     c_dac2_1 = new Capacitor
     c_dac2_1.capacitance = 100nF +/- 20%
-    c_dac2_1.unnamed[0] ~ avdd
+    c_dac2_1.unnamed[0] ~ avdd_filtered
     c_dac2_1.unnamed[1] ~ gnd
 
     c_dac2_2 = new Capacitor
     c_dac2_2.capacitance = 10uF +/- 20%
-    c_dac2_2.unnamed[0] ~ avdd
+    c_dac2_2.unnamed[0] ~ avdd_filtered
     c_dac2_2.unnamed[1] ~ gnd
 
     # VIO bypass caps (100nF per DAC, close to VIO pin)
@@ -215,7 +230,7 @@ module DACOutputStage:
     # === REFERENCE VOLTAGE GENERATION (BUFFERED) ===
 
     # --- Pitch reference: 2V (buffered by opamp5 ch1) ---
-    # Divider: 5V × 10k/(15k+10k) = 2V
+    # Divider from filtered 5V: avdd_filtered × 10k/(15k+10k) = 2V
     # Buffer eliminates loading from pitch summing network
     signal v_ref_2v_raw
     r_pitch_ref_top = new Resistor
@@ -225,7 +240,7 @@ module DACOutputStage:
     c_pitch_ref = new Capacitor
     c_pitch_ref.capacitance = 1uF +/- 20%
 
-    avdd ~ r_pitch_ref_top.unnamed[0]
+    avdd_filtered ~ r_pitch_ref_top.unnamed[0]
     r_pitch_ref_top.unnamed[1] ~ v_ref_2v_raw
     r_pitch_ref_bot.unnamed[0] ~ v_ref_2v_raw
     r_pitch_ref_bot.unnamed[1] ~ gnd
@@ -238,7 +253,7 @@ module DACOutputStage:
     opamp5.OUT1 ~ v_ref_2v
 
     # --- Mod reference: 1.667V (buffered by opamp5 ch2) ---
-    # Divider: 5V × 10k/(20k+10k) = 1.667V
+    # Divider from filtered 5V: avdd_filtered × 10k/(20k+10k) = 1.667V
     # Buffer eliminates loading from mod op-amp non-inverting inputs
     signal v_ref_mod_raw
     r_ref_top = new Resistor
@@ -248,7 +263,7 @@ module DACOutputStage:
     c_ref_filt = new Capacitor
     c_ref_filt.capacitance = 1uF +/- 20%
 
-    avdd ~ r_ref_top.unnamed[0]
+    avdd_filtered ~ r_ref_top.unnamed[0]
     r_ref_top.unnamed[1] ~ v_ref_mod_raw
     r_ref_bot.unnamed[0] ~ v_ref_mod_raw
     r_ref_bot.unnamed[1] ~ gnd

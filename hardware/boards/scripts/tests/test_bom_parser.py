@@ -157,7 +157,7 @@ class TestBuildBom:
         bom = build_bom(parts_dir, src_dir, board_count=5)
 
         # Should have 2 project parts + 1 hardcoded extra
-        project_parts = [p for p in bom if p.name != "JC3248A035N-1"]
+        project_parts = [p for p in bom if p.name != "ST7796-32pin-panel"]
         assert len(project_parts) == 2
 
         dac = next(p for p in bom if p.name == "DAC8568SPMR")

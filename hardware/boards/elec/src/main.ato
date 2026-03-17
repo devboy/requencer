@@ -75,6 +75,7 @@ module Main:
     mcu.lcd_cs ~ connector.lcd_cs
     mcu.lcd_dc ~ connector.lcd_dc
     mcu.lcd_bl ~ connector.lcd_bl    # Raw PWM, MOSFET on control board
+    mcu.lcd_rst ~ connector.lcd_rst  # Hardware reset, active low
 
     # === SD CARD → CONNECTOR (physical slot on control board) ===
     # SPI0 MOSI/SCK/MISO already wired above (shared bus with display)
@@ -88,11 +89,9 @@ module Main:
     mcu.btn_latch ~ connector.sr_latch
     mcu.btn_data ~ connector.sr_data
 
-    # LED drivers (TLC5947 chain on control board)
-    mcu.led_sin ~ connector.led_sin
-    mcu.led_sclk ~ connector.led_sclk
-    mcu.led_xlat ~ connector.led_xlat
-    mcu.led_blank ~ connector.led_blank
+    # LED drivers (2× IS31FL3236A via I2C on control board)
+    mcu.i2c_sda ~ connector.i2c_sda
+    mcu.i2c_scl ~ connector.i2c_scl
 
     # Encoder A
     mcu.enc_a_a ~ connector.enc_a_a
@@ -136,34 +135,36 @@ module Main:
     r_enc_b_sw.unnamed[0] ~ power.v3v3
     r_enc_b_sw.unnamed[1] ~ connector.enc_b_sw
 
-    # 100nF debounce caps on encoder signals
+    # 10nF debounce caps on encoder signals (reduced from 100nF)
+    # τ = 10kΩ × 10nF = 0.1ms — provides RF filtering without slowing edges.
+    # Real debounce handled by RP2350 PIO gray-code state machine.
     c_enc_a_a = new Capacitor
-    c_enc_a_a.capacitance = 100nF +/- 20%
+    c_enc_a_a.capacitance = 10nF +/- 20%
     c_enc_a_a.unnamed[0] ~ connector.enc_a_a
     c_enc_a_a.unnamed[1] ~ gnd
 
     c_enc_a_b = new Capacitor
-    c_enc_a_b.capacitance = 100nF +/- 20%
+    c_enc_a_b.capacitance = 10nF +/- 20%
     c_enc_a_b.unnamed[0] ~ connector.enc_a_b
     c_enc_a_b.unnamed[1] ~ gnd
 
     c_enc_b_a = new Capacitor
-    c_enc_b_a.capacitance = 100nF +/- 20%
+    c_enc_b_a.capacitance = 10nF +/- 20%
     c_enc_b_a.unnamed[0] ~ connector.enc_b_a
     c_enc_b_a.unnamed[1] ~ gnd
 
     c_enc_b_b = new Capacitor
-    c_enc_b_b.capacitance = 100nF +/- 20%
+    c_enc_b_b.capacitance = 10nF +/- 20%
     c_enc_b_b.unnamed[0] ~ connector.enc_b_b
     c_enc_b_b.unnamed[1] ~ gnd
 
     c_enc_a_sw = new Capacitor
-    c_enc_a_sw.capacitance = 100nF +/- 20%
+    c_enc_a_sw.capacitance = 10nF +/- 20%
     c_enc_a_sw.unnamed[0] ~ connector.enc_a_sw
     c_enc_a_sw.unnamed[1] ~ gnd
 
     c_enc_b_sw = new Capacitor
-    c_enc_b_sw.capacitance = 100nF +/- 20%
+    c_enc_b_sw.capacitance = 10nF +/- 20%
     c_enc_b_sw.unnamed[0] ~ connector.enc_b_sw
     c_enc_b_sw.unnamed[1] ~ gnd
 
@@ -255,6 +256,14 @@ module Main:
     power.v5v ~ r_rst_collector.unnamed[0]
     r_rst_collector.unnamed[1] ~ q_rst.COLLECTOR
     q_rst.COLLECTOR ~ connector.rst_out
+
+    # === SWD DEBUG — Test pads on main board for prototype debugging ===
+    # Route to exposed pads/vias on PCB for pogo-pin or header access.
+    # Not needed for production but critical if USB doesn't enumerate on first boot.
+    signal swd_clk
+    signal swd_dio
+    swd_clk ~ mcu.swd_clk
+    swd_dio ~ mcu.swd_dio
 
     # === USB-C — Edge-mounted SMD receptacle for firmware programming ===
     # Data only (no VBUS power), USB 2.0 Full Speed

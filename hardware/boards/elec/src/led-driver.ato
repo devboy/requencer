@@ -1,52 +1,73 @@
-# LED Driver — 2× TLC5947DAP Daisy-Chained (HTSSOP-32)
-# 48 channels total (16 bi-color step buttons × 2 = 32 used, 16 spare)
-# 12-bit PWM brightness control per channel
+# LED Driver — 2× IS31FL3236A I2C Constant-Current LED Drivers (QFN-44)
+# 36 channels each (22 used across both chips, 50 spare for future LEDs)
+# 8-bit PWM brightness control per channel, I2C interface
 #
-# TLC5947 VCC powered from 3.3V (not 5V) to ensure SPI logic level compatibility
-# with PGA2350 3.3V GPIO. At VCC=3.3V, VIH = 0.7×3.3 = 2.31V — well within 3.3V logic.
-# LED anodes powered separately from 5V (led_vcc).
-# TLC5947 constant-current sinks work correctly regardless of VCC —
-# IREF is set by internal bandgap reference, not VCC.
+# Two chips on same I2C bus with different AD pin addresses:
+#   led1 (AD→GND, addr 0x3C): Step buttons 1-16 (16 channels)
+#   led2 (AD→VCC, addr 0x3F): T1-T4, Play, Clr (6 channels, 30 spare)
 #
-# TLC1 (ch 0-15):  Step buttons 1-8  (RED/GREEN × 8), ch 16-23 spare
-# TLC2 (ch 0-15):  Step buttons 9-16 (RED/GREEN × 8), ch 16-23 spare
+# Each chip placed near its button group for short cathode traces.
+# R_EXT = 3.3kΩ → ~23mA max per channel
 
 import Resistor
 import Capacitor
 
-from "../../parts/TLC5947DAP/TLC5947DAP.ato" import TLC5947DAP
+from "../../parts/IS31FL3236A/IS31FL3236A.ato" import IS31FL3236A
 
 module LEDDriverChain:
-    # Control lines from MCU
-    signal sin       # GP11 — serial data in
-    signal sclk      # GP12 — serial clock
-    signal xlat      # GP13 — latch
-    signal blank     # GP14 — blanking/output enable
+    # I2C bus (shared by both chips)
+    signal sda       # I2C data
+    signal scl       # I2C clock
 
     # Power
-    signal vcc       # +3.3V for TLC5947 digital logic
+    signal vcc       # +3.3V for IS31FL3236A logic and LED drive
     signal v5v       # +5V for LED anodes
     signal gnd
 
-    # LED anode supply (+5V, separate from TLC5947 VCC)
+    # LED anode supply (+5V, separate from IC VCC)
     signal led_vcc
-
-    # --- 2 TLC5947 chips ---
-    tlc1 = new TLC5947DAP
-    tlc2 = new TLC5947DAP
-
-    # Power
-    tlc1.VCC ~ vcc
-    tlc1.GND ~ gnd
-    tlc1.PAD ~ gnd
-    tlc2.VCC ~ vcc
-    tlc2.GND ~ gnd
-    tlc2.PAD ~ gnd
-
-    # LED anode power (connect to 5V, NOT 3.3V VCC)
     led_vcc ~ v5v
 
-    # Bypass caps
+    # --- 2× IS31FL3236A chips ---
+    led1 = new IS31FL3236A    # Step buttons 1-16
+    led2 = new IS31FL3236A    # Function buttons (t1-t4, play, clr)
+
+    # Power — both chips
+    led1.VCC ~ vcc
+    led1.GND ~ gnd
+    led1.GND2 ~ gnd
+    led1.PAD ~ gnd
+    led2.VCC ~ vcc
+    led2.GND ~ gnd
+    led2.GND2 ~ gnd
+    led2.PAD ~ gnd
+
+    # I2C bus — shared, with pull-ups
+    led1.SDA ~ sda
+    led1.SCL ~ scl
+    led2.SDA ~ sda
+    led2.SCL ~ scl
+
+    # I2C pull-ups (required — open-drain bus needs external pull to VCC)
+    r_sda_pu = new Resistor
+    r_sda_pu.resistance = 4.7kohm +/- 5%
+    r_sda_pu.unnamed[0] ~ vcc
+    r_sda_pu.unnamed[1] ~ sda
+
+    r_scl_pu = new Resistor
+    r_scl_pu.resistance = 4.7kohm +/- 5%
+    r_scl_pu.unnamed[0] ~ vcc
+    r_scl_pu.unnamed[1] ~ scl
+
+    # Address selection — different addresses on same bus
+    led1.AD ~ gnd      # AD=00 → address 0x3C
+    led2.AD ~ vcc      # AD=11 → address 0x3F
+
+    # Shutdown pins — pull high via VCC to enable (active low shutdown)
+    led1.SDB ~ vcc
+    led2.SDB ~ vcc
+
+    # Bypass caps — one per chip
     c1 = new Capacitor
     c1.capacitance = 100nF +/- 20%
     c1.unnamed[0] ~ vcc
@@ -57,13 +78,13 @@ module LEDDriverChain:
     c2.unnamed[0] ~ vcc
     c2.unnamed[1] ~ gnd
 
-    # Bulk cap on TLC5947 VCC (3.3V) — per datasheet recommendation
+    # Bulk cap on VCC
     c_bulk = new Capacitor
     c_bulk.capacitance = 10uF +/- 20%
     c_bulk.unnamed[0] ~ vcc
     c_bulk.unnamed[1] ~ gnd
 
-    # Local decoupling on 5V LED anode supply — absorbs switching transients
+    # Local decoupling on 5V LED anode supply
     c_led_bulk = new Capacitor
     c_led_bulk.capacitance = 10uF +/- 20%
     c_led_bulk.unnamed[0] ~ v5v
@@ -74,42 +95,18 @@ module LEDDriverChain:
     c_led_hf.unnamed[0] ~ v5v
     c_led_hf.unnamed[1] ~ gnd
 
-    # Shared control lines
-    tlc1.XLAT ~ xlat
-    tlc2.XLAT ~ xlat
+    # R_EXT resistors — set maximum output current per chip
+    # 3.3kΩ → ~23mA max per channel (datasheet formula)
+    r_ext1 = new Resistor
+    r_ext1.resistance = 3.3kohm +/- 1%
+    r_ext1.unnamed[0] ~ led1.R_EXT
+    r_ext1.unnamed[1] ~ gnd
 
-    tlc1.BLANK ~ blank
-    tlc2.BLANK ~ blank
+    r_ext2 = new Resistor
+    r_ext2.resistance = 3.3kohm +/- 1%
+    r_ext2.unnamed[0] ~ led2.R_EXT
+    r_ext2.unnamed[1] ~ gnd
 
-    # Pull-up on BLANK ensures LEDs are OFF at power-on before firmware runs.
-    # Without this, GPIO floats and BLANK=LOW enables all outputs (624mA inrush).
-    r_blank_pu = new Resistor
-    r_blank_pu.resistance = 10kohm +/- 5%
-    r_blank_pu.unnamed[0] ~ vcc
-    r_blank_pu.unnamed[1] ~ blank
-
-    tlc1.SCLK ~ sclk
-    tlc2.SCLK ~ sclk
-
-    # Daisy chain: MCU → TLC1.SIN → TLC1.SOUT → TLC2.SIN → TLC2.SOUT (unused)
-    sin ~ tlc1.SIN
-    tlc1.SOUT ~ tlc2.SIN
-
-    # IREF resistors — set maximum output current
-    # IREF = 39.06 / R_iref (from datasheet)
-    # For 20mA: R_iref = 39.06 / 0.020 = 1953Ω ≈ 2kΩ (standard value → ~19.5mA)
-    r_iref1 = new Resistor
-    r_iref1.resistance = 2kohm +/- 1%
-    r_iref1.unnamed[0] ~ tlc1.IREF
-    r_iref1.unnamed[1] ~ gnd
-
-    r_iref2 = new Resistor
-    r_iref2.resistance = 2kohm +/- 1%
-    r_iref2.unnamed[0] ~ tlc2.IREF
-    r_iref2.unnamed[1] ~ gnd
-
-    # Note: LED cathode connections (TLC output pins → button LED cathodes)
+    # Note: LED cathode connections (IS31FL3236A output pins → button LED cathodes)
     # are wired in control.ato since they cross between
-    # the button-scan module (which owns the TC002_RGB instances) and this module.
-    # The TLC output pins (OUT0-OUT23 on each chip) are exposed for external wiring.
-    # OUT16-OUT23 on each chip are spare — available for future indicator LEDs.
+    # the button-scan module (which owns the PB6149L instances) and this module.

@@ -1,0 +1,22 @@
+# PB6149L — 6x6mm Illuminated Tactile Switch with Single-Color LED
+# Through-hole, SPST momentary switch + integrated LED (common anode)
+# Cap: translucent round, Ø5.6mm, 10.3mm tall
+# Source: AliExpress (GJW store), not JLCPCB-assembled (THT hand-solder)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component PB6149L:
+    trait is_atomic_part<manufacturer="Generic", partnumber="PB6149L", footprint="PB6149L.kicad_mod", symbol="PB6149L.kicad_sym">
+    trait has_designator_prefix<prefix="SW">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C0001", manufacturer="Generic", partno="PB6149L">
+
+    # Switch contacts (dual bridged pairs — pins 1+2 are internally connected, pins 3+4 are internally connected)
+    signal SW1 ~ pin 1   # Switch contact A (also pin 2, bridged)
+    signal SW2 ~ pin 3   # Switch contact B (also pin 4, bridged)
+
+    # LED (single color)
+    signal LED_A ~ pin 5  # LED anode (+)
+    signal LED_K ~ pin 6  # LED cathode (-)

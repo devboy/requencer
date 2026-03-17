@@ -11,7 +11,7 @@ from "midi.ato" import MIDIInterface
 
 from "../../parts/EC11E/EC11E.ato" import EC11E
 from "../../parts/B5819W/B5819W.ato" import B5819W
-from "../../parts/FPC_18P_05MM/FPC_18P_05MM.ato" import FPC_18P_05MM
+from "../../parts/FPC_32P_05MM/FPC_32P_05MM.ato" import FPC_32P_05MM
 from "../../parts/PJS008U/PJS008U.ato" import PJS008U
 from "../../parts/2N7002/2N7002.ato" import _2N7002
 
@@ -44,13 +44,12 @@ module Control:
 
     # +3.3V rail (from main board regulator via connector)
     connector.v3v3 ~ buttons.vcc       # Shift registers
-    connector.v3v3 ~ midi.vcc          # MIDI interface (opto, logic)
+    connector.v3v3 ~ midi.vcc          # MIDI interface (opto, logic, MIDI OUT per CA-033)
     # +5V rail
-    connector.v5v ~ midi.v5v           # MIDI OUT current source (+5V)
     connector.v5v ~ leds.v5v           # LED anodes (+5V)
 
-    # TLC5947 digital logic from 3.3V (ensures SPI level compatibility)
-    connector.v3v3 ~ leds.vcc          # TLC5947 VCC = 3.3V
+    # IS31FL3236A logic from 3.3V (supports 2.7-5.5V)
+    connector.v3v3 ~ leds.vcc          # LED driver VCC = 3.3V
 
     # 5V bulk decoupling (near LED drivers — absorbs switching transients
     # from 32 LED channels, prevents noise coupling into DAC analog supply)
@@ -72,12 +71,10 @@ module Control:
     connector.sr_data ~ buttons.data_out
 
     # ==========================================================================
-    # LED DRIVERS (TLC5947 chain)
+    # LED DRIVERS (2× IS31FL3236A via I2C)
     # ==========================================================================
-    connector.led_sin ~ leds.sin
-    connector.led_sclk ~ leds.sclk
-    connector.led_xlat ~ leds.xlat
-    connector.led_blank ~ leds.blank
+    connector.i2c_sda ~ leds.sda
+    connector.i2c_scl ~ leds.scl
 
     # ==========================================================================
     # MIDI
@@ -165,93 +162,143 @@ module Control:
     # (closer to MCU, frees control board space)
 
     # ==========================================================================
-    # LED ↔ STEP BUTTON WIRING (Option E: bi-color steps only)
-    # Only step buttons (16) have LEDs — bi-color red/green, 2 channels each
-    # All other buttons (track, subtrack, function, transport) are unlit
-    # LED pins on unlit TC002_RGB buttons are left unconnected
+    # LED ↔ BUTTON WIRING (PB6149L single white LED)
+    # 2× IS31FL3236A (36ch each), 22 used across both chips
+    # Grouped by PHYSICAL LOCATION for short routing:
+    # led1 (left side): Step 1-16, T1-T4, Clr (21 LEDs)
+    # led2 (right side): Play (1 LED, 35 spare for future right-side buttons)
     # ==========================================================================
 
-    # Step button LED anodes to LED VCC (+5V)
-    buttons.btn_step1.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step2.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step3.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step4.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step5.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step6.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step7.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step8.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step9.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step10.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step11.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step12.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step13.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step14.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step15.LED_ANODE ~ leds.led_vcc
-    buttons.btn_step16.LED_ANODE ~ leds.led_vcc
+    # LEFT SIDE — LED anodes to LED VCC (+5V)
+    buttons.btn_step1.LED_A ~ leds.led_vcc
+    buttons.btn_step2.LED_A ~ leds.led_vcc
+    buttons.btn_step3.LED_A ~ leds.led_vcc
+    buttons.btn_step4.LED_A ~ leds.led_vcc
+    buttons.btn_step5.LED_A ~ leds.led_vcc
+    buttons.btn_step6.LED_A ~ leds.led_vcc
+    buttons.btn_step7.LED_A ~ leds.led_vcc
+    buttons.btn_step8.LED_A ~ leds.led_vcc
+    buttons.btn_step9.LED_A ~ leds.led_vcc
+    buttons.btn_step10.LED_A ~ leds.led_vcc
+    buttons.btn_step11.LED_A ~ leds.led_vcc
+    buttons.btn_step12.LED_A ~ leds.led_vcc
+    buttons.btn_step13.LED_A ~ leds.led_vcc
+    buttons.btn_step14.LED_A ~ leds.led_vcc
+    buttons.btn_step15.LED_A ~ leds.led_vcc
+    buttons.btn_step16.LED_A ~ leds.led_vcc
+    buttons.btn_t1.LED_A ~ leds.led_vcc
+    buttons.btn_t2.LED_A ~ leds.led_vcc
+    buttons.btn_t3.LED_A ~ leds.led_vcc
+    buttons.btn_t4.LED_A ~ leds.led_vcc
+    buttons.btn_clr.LED_A ~ leds.led_vcc
 
-    # TLC1 (ch 0-15): Step buttons 1-8 (RED + GREEN per button, 2ch each)
-    # ch 16-23 spare for future indicator LEDs
-    buttons.btn_step1.LED_RED ~ leds.tlc1.OUT0
-    buttons.btn_step1.LED_GREEN ~ leds.tlc1.OUT1
-    buttons.btn_step2.LED_RED ~ leds.tlc1.OUT2
-    buttons.btn_step2.LED_GREEN ~ leds.tlc1.OUT3
-    buttons.btn_step3.LED_RED ~ leds.tlc1.OUT4
-    buttons.btn_step3.LED_GREEN ~ leds.tlc1.OUT5
-    buttons.btn_step4.LED_RED ~ leds.tlc1.OUT6
-    buttons.btn_step4.LED_GREEN ~ leds.tlc1.OUT7
-    buttons.btn_step5.LED_RED ~ leds.tlc1.OUT8
-    buttons.btn_step5.LED_GREEN ~ leds.tlc1.OUT9
-    buttons.btn_step6.LED_RED ~ leds.tlc1.OUT10
-    buttons.btn_step6.LED_GREEN ~ leds.tlc1.OUT11
-    buttons.btn_step7.LED_RED ~ leds.tlc1.OUT12
-    buttons.btn_step7.LED_GREEN ~ leds.tlc1.OUT13
-    buttons.btn_step8.LED_RED ~ leds.tlc1.OUT14
-    buttons.btn_step8.LED_GREEN ~ leds.tlc1.OUT15
+    # RIGHT SIDE — LED anode
+    buttons.btn_play.LED_A ~ leds.led_vcc
 
-    # TLC2 (ch 0-15): Step buttons 9-16 (RED + GREEN per button, 2ch each)
-    # ch 16-23 spare for future indicator LEDs
-    buttons.btn_step9.LED_RED ~ leds.tlc2.OUT0
-    buttons.btn_step9.LED_GREEN ~ leds.tlc2.OUT1
-    buttons.btn_step10.LED_RED ~ leds.tlc2.OUT2
-    buttons.btn_step10.LED_GREEN ~ leds.tlc2.OUT3
-    buttons.btn_step11.LED_RED ~ leds.tlc2.OUT4
-    buttons.btn_step11.LED_GREEN ~ leds.tlc2.OUT5
-    buttons.btn_step12.LED_RED ~ leds.tlc2.OUT6
-    buttons.btn_step12.LED_GREEN ~ leds.tlc2.OUT7
-    buttons.btn_step13.LED_RED ~ leds.tlc2.OUT8
-    buttons.btn_step13.LED_GREEN ~ leds.tlc2.OUT9
-    buttons.btn_step14.LED_RED ~ leds.tlc2.OUT10
-    buttons.btn_step14.LED_GREEN ~ leds.tlc2.OUT11
-    buttons.btn_step15.LED_RED ~ leds.tlc2.OUT12
-    buttons.btn_step15.LED_GREEN ~ leds.tlc2.OUT13
-    buttons.btn_step16.LED_RED ~ leds.tlc2.OUT14
-    buttons.btn_step16.LED_GREEN ~ leds.tlc2.OUT15
+    # led1 (addr 0x3C, left side): Step 1-16, T1-T4, Clr
+    buttons.btn_step1.LED_K ~ leds.led1.OUT1
+    buttons.btn_step2.LED_K ~ leds.led1.OUT2
+    buttons.btn_step3.LED_K ~ leds.led1.OUT3
+    buttons.btn_step4.LED_K ~ leds.led1.OUT4
+    buttons.btn_step5.LED_K ~ leds.led1.OUT5
+    buttons.btn_step6.LED_K ~ leds.led1.OUT6
+    buttons.btn_step7.LED_K ~ leds.led1.OUT7
+    buttons.btn_step8.LED_K ~ leds.led2.OUT2
+    buttons.btn_step9.LED_K ~ leds.led1.OUT9
+    buttons.btn_step10.LED_K ~ leds.led1.OUT10
+    buttons.btn_step11.LED_K ~ leds.led1.OUT11
+    buttons.btn_step12.LED_K ~ leds.led1.OUT12
+    buttons.btn_step13.LED_K ~ leds.led1.OUT13
+    buttons.btn_step14.LED_K ~ leds.led1.OUT14
+    buttons.btn_step15.LED_K ~ leds.led1.OUT15
+    buttons.btn_step16.LED_K ~ leds.led2.OUT3
+    buttons.btn_t1.LED_K ~ leds.led1.OUT17
+    buttons.btn_t2.LED_K ~ leds.led1.OUT18
+    buttons.btn_t3.LED_K ~ leds.led1.OUT19
+    buttons.btn_t4.LED_K ~ leds.led1.OUT20
+    buttons.btn_clr.LED_K ~ leds.led1.OUT21
+
+    # led2 (addr 0x3F, right side): Play, Step8, Step16 (+ future right-side buttons)
+    buttons.btn_play.LED_K ~ leds.led2.OUT1
+    # Step8/16 at x=92 — physically right side, shorter traces from led2
+    # (was on led1 at x=26, causing 64mm cross-board traces)
+    # btn_step8.LED_K moved from led1.OUT8
+    # btn_step16.LED_K moved from led1.OUT16
+
 
     # ==========================================================================
-    # DISPLAY — JC3248A035N-1 bare panel, 18-pin FPC
+    # DISPLAY — ST7796 3.5" bare panel, 32-pin FPC
     # Glass sits in faceplate cutout, FPC ribbon connects here
-    # Backlight MOSFET + RC reset on this board (near FPC connector)
+    # Backlight MOSFET + GPIO/RC reset + IM pull-ups on this board
     # ==========================================================================
-    lcd_fpc = new FPC_18P_05MM
+    lcd_fpc = new FPC_32P_05MM
 
-    # FPC pinout: 1=GND, 2=RST, 3=SCK, 4=DC, 5=CS, 6=MOSI,
-    #             7=MISO, 8=GND, 9=VCC, 10=LEDA, 11-14=K1-K4, 15-18=NC
+    # 32-pin FPC pinout:
+    #  1=GND, 2=VDDA, 3=VDDI, 4=TE, 5=CS, 6=DC, 7=SCK, 8=RDX,
+    #  9=MOSI, 10=MISO, 11-26=DB0-DB15, 27=RESET,
+    #  28=IM2, 29=IM1, 30=IM0, 31=LED-A, 32=LED-K
+
+    # Ground
     lcd_fpc.PIN1 ~ gnd
-    lcd_fpc.PIN3 ~ connector.spi0_sck
-    lcd_fpc.PIN4 ~ connector.lcd_dc
-    lcd_fpc.PIN5 ~ connector.lcd_cs
-    lcd_fpc.PIN6 ~ connector.spi0_mosi
-    lcd_fpc.PIN7 ~ connector.spi0_miso
-    lcd_fpc.PIN8 ~ gnd
-    lcd_fpc.PIN9 ~ connector.v3v3
 
-    # Backlight: LEDA to 3.3V via current-limiting resistor, K1-K4 switched to GND via MOSFET
+    # Power — separate analog and digital I/O supplies, both from 3.3V
+    lcd_fpc.PIN2 ~ connector.v3v3  # VDDA (analog)
+    lcd_fpc.PIN3 ~ connector.v3v3  # VDDI (I/O)
+
+    # TE (tearing effect) — not used, left floating
+    # lcd_fpc.PIN4 ~ NC
+
+    # SPI signals
+    lcd_fpc.PIN5 ~ connector.lcd_cs      # CSX
+    lcd_fpc.PIN6 ~ connector.lcd_dc      # DCX
+    lcd_fpc.PIN7 ~ connector.spi0_sck    # WRX/SPI_SCLK
+    lcd_fpc.PIN8 ~ connector.v3v3        # RDX — tie high (deassert read strobe)
+    lcd_fpc.PIN9 ~ connector.spi0_mosi   # SPI_MOSI
+    lcd_fpc.PIN10 ~ connector.spi0_miso  # SPI_MISO
+
+    # DB0-DB15 (pins 11-26) — unused in SPI mode, left floating
+
+    # LCD reset: GPIO-controlled + RC power-on timing
+    # RC ensures reset is asserted at power-on before MCU boots.
+    # GPIO (open-drain) can pull reset LOW anytime for runtime recovery.
+    # Time constant: 10kΩ × 100nF = 1ms (ST7796 needs >10μs reset pulse)
+    r_lcd_rst = new Resistor
+    r_lcd_rst.resistance = 10kohm +/- 5%
+    c_lcd_rst = new Capacitor
+    c_lcd_rst.capacitance = 100nF +/- 20%
+    signal lcd_rst_internal
+    r_lcd_rst.unnamed[0] ~ connector.v3v3
+    r_lcd_rst.unnamed[1] ~ lcd_rst_internal
+    c_lcd_rst.unnamed[0] ~ lcd_rst_internal
+    c_lcd_rst.unnamed[1] ~ gnd
+    lcd_fpc.PIN27 ~ lcd_rst_internal
+    connector.lcd_rst ~ lcd_rst_internal  # GPIO can pull LOW to reset display
+
+    # IM mode select — all high for 4-wire SPI (IM2=1, IM1=1, IM0=1)
+    r_im2 = new Resistor
+    r_im2.resistance = 10kohm +/- 5%
+    r_im2.unnamed[0] ~ connector.v3v3
+    r_im2.unnamed[1] ~ lcd_fpc.PIN28
+
+    r_im1 = new Resistor
+    r_im1.resistance = 10kohm +/- 5%
+    r_im1.unnamed[0] ~ connector.v3v3
+    r_im1.unnamed[1] ~ lcd_fpc.PIN29
+
+    r_im0 = new Resistor
+    r_im0.resistance = 10kohm +/- 5%
+    r_im0.unnamed[0] ~ connector.v3v3
+    r_im0.unnamed[1] ~ lcd_fpc.PIN30
+
+    # Backlight: LED-A to 5V via current-limiting resistor, LED-K switched via MOSFET
+    # Panel specs 90-95mA at full brightness, 82Ω from 5V gives ~18mA —
+    # good compromise for eurorack (not blinding). PWM via lcd_bl dims further.
     r_lcd_leda = new Resistor
-    r_lcd_leda.resistance = 33ohm +/- 5%
-    r_lcd_leda.unnamed[0] ~ connector.v3v3
-    r_lcd_leda.unnamed[1] ~ lcd_fpc.PIN10
+    r_lcd_leda.resistance = 82ohm +/- 5%
+    r_lcd_leda.unnamed[0] ~ connector.v5v
+    r_lcd_leda.unnamed[1] ~ lcd_fpc.PIN31
 
-    # Backlight MOSFET — N-channel switches cathodes to GND
+    # Backlight MOSFET — N-channel switches cathode to GND
     q_lcd_bl = new _2N7002
     r_lcd_gate = new Resistor
     r_lcd_gate.resistance = 100ohm +/- 5%
@@ -263,32 +310,18 @@ module Control:
     r_lcd_pulldown.unnamed[0] ~ q_lcd_bl.gate
     r_lcd_pulldown.unnamed[1] ~ gnd
     q_lcd_bl.source ~ gnd
+    lcd_fpc.PIN32 ~ q_lcd_bl.drain  # Single LED cathode
 
-    # All 4 cathodes switched together
-    lcd_fpc.PIN11 ~ q_lcd_bl.drain
-    lcd_fpc.PIN12 ~ q_lcd_bl.drain
-    lcd_fpc.PIN13 ~ q_lcd_bl.drain
-    lcd_fpc.PIN14 ~ q_lcd_bl.drain
+    # Bypass caps — one per supply domain
+    c_lcd_vdda = new Capacitor
+    c_lcd_vdda.capacitance = 100nF +/- 20%
+    c_lcd_vdda.unnamed[0] ~ connector.v3v3
+    c_lcd_vdda.unnamed[1] ~ gnd
 
-    # RC power-on reset for LCD controller
-    # At power-on, cap is discharged (RST=LOW), charges through pull-up (RST=HIGH)
-    # Time constant: 10kΩ × 100nF = 1ms (ST7796 needs >10μs reset pulse)
-    r_lcd_rst = new Resistor
-    r_lcd_rst.resistance = 10kohm +/- 5%
-    c_lcd_rst = new Capacitor
-    c_lcd_rst.capacitance = 100nF +/- 20%
-    signal lcd_rst_internal
-    r_lcd_rst.unnamed[0] ~ connector.v3v3
-    r_lcd_rst.unnamed[1] ~ lcd_rst_internal
-    c_lcd_rst.unnamed[0] ~ lcd_rst_internal
-    c_lcd_rst.unnamed[1] ~ gnd
-    lcd_fpc.PIN2 ~ lcd_rst_internal
-
-    # LCD bypass cap
-    c_lcd = new Capacitor
-    c_lcd.capacitance = 100nF +/- 20%
-    c_lcd.unnamed[0] ~ connector.v3v3
-    c_lcd.unnamed[1] ~ gnd
+    c_lcd_vddi = new Capacitor
+    c_lcd_vddi.capacitance = 100nF +/- 20%
+    c_lcd_vddi.unnamed[0] ~ connector.v3v3
+    c_lcd_vddi.unnamed[1] ~ gnd
 
     # ==========================================================================
     # SD CARD — Yamaichi PJS008U-3000-0 vertical MicroSD

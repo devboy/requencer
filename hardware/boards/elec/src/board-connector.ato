@@ -31,11 +31,9 @@ module BoardConnectorInterface:
     signal sr_latch   # GP9
     signal sr_data    # GP10
 
-    # === LED Drivers ===
-    signal led_sin    # GP11
-    signal led_sclk   # GP12
-    signal led_xlat   # GP13
-    signal led_blank  # GP14
+    # === LED Drivers (I2C) ===
+    signal i2c_sda    # GP11 — I2C0 SDA (LED drivers on control board)
+    signal i2c_scl    # GP12 — I2C0 SCL
 
     # === Encoder A ===
     signal enc_a_a    # GP15
@@ -54,6 +52,7 @@ module BoardConnectorInterface:
     signal lcd_cs       # GP1 — display chip select
     signal lcd_dc       # GP7 — display data/command
     signal lcd_bl       # GP5 — display backlight PWM
+    signal lcd_rst      # GP22 — display hardware reset (active low)
 
     # === SD Card (physical slot on control board) ===
     signal sd_cs        # GP24 — SD chip select
@@ -126,11 +125,11 @@ module BoardConnectorInterface:
     header_a.PIN23 ~ sr_latch
     header_a.PIN24 ~ sr_data
     # Pins 25-26: LED_SIN / LED_SCLK
-    header_a.PIN25 ~ led_sin
-    header_a.PIN26 ~ led_sclk
-    # Pins 27-28: LED_XLAT / LED_BLANK
-    header_a.PIN27 ~ led_xlat
-    header_a.PIN28 ~ led_blank
+    header_a.PIN25 ~ i2c_sda
+    header_a.PIN26 ~ i2c_scl
+    # Pins 27-28: spare (GND for shielding)
+    header_a.PIN27 ~ gnd
+    header_a.PIN28 ~ gnd
     # Pins 29-30: ENC_A_A / ENC_A_B
     header_a.PIN29 ~ enc_a_a
     header_a.PIN30 ~ enc_a_b
@@ -138,14 +137,14 @@ module BoardConnectorInterface:
     header_a.PIN31 ~ enc_a_sw
     header_a.PIN32 ~ gnd
 
-    # === HEADER C PINOUT: Analog bridge (near jacks) ===
+    # === HEADER C PINOUT: Analog bridge (near jacks) + LCD reset ===
     header_c.PIN1  ~ gnd
     header_c.PIN2  ~ gnd
     header_c.PIN3  ~ clk_in
     header_c.PIN4  ~ clk_out
     header_c.PIN5  ~ rst_in
     header_c.PIN6  ~ rst_out
-    header_c.PIN7  ~ gnd
+    header_c.PIN7  ~ lcd_rst    # Was GND — repurposed for display reset
     header_c.PIN8  ~ cv_a
     header_c.PIN9  ~ cv_b
     header_c.PIN10 ~ cv_c
@@ -197,11 +196,9 @@ module BoardConnectorSocket:
     signal sr_latch
     signal sr_data
 
-    # === LED Drivers ===
-    signal led_sin
-    signal led_sclk
-    signal led_xlat
-    signal led_blank
+    # === LED Drivers (I2C) ===
+    signal i2c_sda
+    signal i2c_scl
 
     # === Encoder A ===
     signal enc_a_a
@@ -220,6 +217,7 @@ module BoardConnectorSocket:
     signal lcd_cs
     signal lcd_dc
     signal lcd_bl
+    signal lcd_rst      # Display hardware reset (active low)
 
     # === SD Card ===
     signal sd_cs
@@ -286,23 +284,24 @@ module BoardConnectorSocket:
     header_a.PIN22 ~ sr_clk
     header_a.PIN23 ~ sr_latch
     header_a.PIN24 ~ sr_data
-    header_a.PIN25 ~ led_sin
-    header_a.PIN26 ~ led_sclk
-    header_a.PIN27 ~ led_xlat
-    header_a.PIN28 ~ led_blank
+    header_a.PIN25 ~ i2c_sda
+    header_a.PIN26 ~ i2c_scl
+    # Pins 27-28: spare (GND for shielding)
+    header_a.PIN27 ~ gnd
+    header_a.PIN28 ~ gnd
     header_a.PIN29 ~ enc_a_a
     header_a.PIN30 ~ enc_a_b
     header_a.PIN31 ~ enc_a_sw
     header_a.PIN32 ~ gnd
 
-    # === HEADER C PINOUT: Analog bridge (near jacks) ===
+    # === HEADER C PINOUT: Analog bridge (near jacks) + LCD reset ===
     header_c.PIN1  ~ gnd
     header_c.PIN2  ~ gnd
     header_c.PIN3  ~ clk_in
     header_c.PIN4  ~ clk_out
     header_c.PIN5  ~ rst_in
     header_c.PIN6  ~ rst_out
-    header_c.PIN7  ~ gnd
+    header_c.PIN7  ~ lcd_rst    # Was GND — repurposed for display reset
     header_c.PIN8  ~ cv_a
     header_c.PIN9  ~ cv_b
     header_c.PIN10 ~ cv_c
