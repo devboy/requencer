@@ -1,8 +1,8 @@
 """Parse .ato part files and count instantiations to build a full BOM.
 
 Extracts part metadata (LCSC, MPN, manufacturer) from trait declarations
-in hardware/boards/parts/*/*.ato, then counts `= new ComponentName`
-instantiations across hardware/boards/elec/src/*.ato to determine quantities.
+in hardware/boards/elec/src/components/*/*.ato, then counts `= new ComponentName`
+instantiations across hardware/boards/elec/src/**/*.ato to determine quantities.
 """
 
 import re
@@ -24,9 +24,9 @@ _ATOMIC_MFR_RE = re.compile(
 )
 _COMPONENT_NAME_RE = re.compile(r'^component\s+(\w+)\s*:', re.MULTILINE)
 
-# Import pattern: from "../../parts/X/X.ato" import Y
+# Import pattern: from "../../components/X/X.ato" import Y
 _IMPORT_RE = re.compile(
-    r'from\s+"[^"]*parts/[^"]+"\s+import\s+(\w+)'
+    r'from\s+"[^"]*components/[^"]+"\s+import\s+(\w+)'
 )
 # Instantiation: name = new ComponentName
 _NEW_RE = re.compile(r'=\s*new\s+(\w+)')
@@ -71,7 +71,7 @@ class Part:
 
 
 def parse_part_file(path: Path) -> dict | None:
-    """Extract part metadata from a single .ato file in parts/.
+    """Extract part metadata from a single .ato file in components/.
 
     Prefers has_part_picked::by_supplier for LCSC/manufacturer/MPN.
     Falls back to is_atomic_part for parts without a supplier trait
@@ -107,7 +107,7 @@ def parse_part_file(path: Path) -> dict | None:
 
 
 def parse_all_parts(parts_dir: Path) -> dict[str, dict]:
-    """Parse all .ato files under parts/*/. Returns dict keyed by component name."""
+    """Parse all .ato files under components/*/. Returns dict keyed by component name."""
     parts = {}
     for ato_file in sorted(parts_dir.glob("*/*.ato")):
         info = parse_part_file(ato_file)
@@ -123,7 +123,7 @@ def count_instantiations(src_dir: Path) -> dict[str, int]:
     Scans all .ato files recursively under src_dir.
     """
     counts: dict[str, int] = {}
-    for ato_file in sorted(src_dir.glob("*.ato")):
+    for ato_file in sorted(src_dir.glob("**/*.ato")):
         text = ato_file.read_text()
         for match in _NEW_RE.finditer(text):
             comp_name = match.group(1)
@@ -138,7 +138,7 @@ def _resolve_import_name(parts: dict[str, dict]) -> dict[str, str]:
     """Build mapping from import alias to canonical part name.
 
     In .ato files, parts starting with digits get underscore-prefixed imports:
-    `from "../../parts/74HC165D/74HC165D.ato" import _74HC165D`
+    `from "../../components/74HC165D/74HC165D.ato" import _74HC165D`
     but the part definition is `component _74HC165D`.
     """
     # The part name in the file IS the import name, so this is identity.

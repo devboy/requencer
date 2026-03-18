@@ -49,8 +49,8 @@ SAMPLE_THT_ATO = textwrap.dedent("""\
 """)
 
 SAMPLE_SRC_ATO = textwrap.dedent("""\
-    from "../../parts/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
-    from "../../parts/WQP518MA/WQP518MA.ato" import WQP518MA
+    from "../../components/DAC8568SPMR/DAC8568SPMR.ato" import DAC8568SPMR
+    from "../../components/WQP518MA/WQP518MA.ato" import WQP518MA
     import Resistor
     import Capacitor
 

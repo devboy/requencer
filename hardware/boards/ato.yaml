@@ -4,9 +4,9 @@ paths:
   layout: elec/layout
 builds:
   control:
-    entry: elec/src/control.ato:Control
+    entry: elec/src/boards/control/control.ato:Control
   main:
-    entry: elec/src/main.ato:Main
+    entry: elec/src/boards/main/main.ato:Main
   system:
     entry: elec/src/system.ato:System
 dependencies: []

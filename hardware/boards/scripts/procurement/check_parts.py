@@ -19,7 +19,7 @@ from pathlib import Path
 # Resolve paths relative to this script
 SCRIPT_DIR = Path(__file__).resolve().parent
 BOARDS_DIR = SCRIPT_DIR.parent.parent  # hardware/boards/
-PARTS_DIR = BOARDS_DIR / "parts"
+PARTS_DIR = BOARDS_DIR / "elec" / "src" / "components"
 SRC_DIR = BOARDS_DIR / "elec" / "src"
 BUILD_DIR = BOARDS_DIR / "build"
 DB_CACHE = BUILD_DIR / "jlcpcb-parts.sqlite3"

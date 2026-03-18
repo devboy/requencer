@@ -1,0 +1,103 @@
+# Power Supply Block
+# Eurorack ±12V → +5V (from bus) and +3.3V (LDO from 5V)
+# Reverse polarity protection, bypass capacitors
+#
+# PGA2350 has its own 3.3V regulator (300mA) fed from +5V via Schottky in mcu.ato
+# The board +3.3V rail powers: shift registers, LCD, MIDI, input protection
+# The board +5V rail powers: LED drivers, DAC analog, clock output buffers, PGA2350 VB
+
+import Capacitor
+from "../../components/AMS1117-3.3/AMS1117-3.3.ato" import AMS1117_3V3
+from "../../components/B5819W/B5819W.ato" import B5819W
+from "../../components/EurorackPowerHeader16/EurorackPowerHeader16.ato" import EurorackPowerHeader16
+
+module PowerSupply:
+    # External interfaces
+    signal v12p        # +12V protected rail
+    signal v12n        # -12V protected rail
+    signal v5v         # +5V from bus
+    signal v3v3        # +3.3V regulated rail
+    signal gnd         # Common ground
+
+    # Eurorack 16-pin power connector (+5V from bus)
+    header = new EurorackPowerHeader16
+
+    # Ground bus — all header GND pins
+    header.GND1 ~ gnd
+    header.GND2 ~ gnd
+    header.GND3 ~ gnd
+    header.GND4 ~ gnd
+    header.GND5 ~ gnd
+    header.GND6 ~ gnd
+
+    # CV/Gate pins — unused, leave floating
+
+    # --- Reverse polarity protection ---
+    # Schottky diodes on +12V and -12V rails
+    d_pos = new B5819W
+    d_neg = new B5819W
+
+    # +12V: header → diode anode → cathode = protected +12V
+    header.POS12V_1 ~ d_pos.anode
+    header.POS12V_2 ~ d_pos.anode
+    d_pos.cathode ~ v12p
+
+    # -12V: protected -12V = diode cathode ← anode ← header
+    header.NEG12V_1 ~ d_neg.cathode
+    header.NEG12V_2 ~ d_neg.cathode
+    d_neg.anode ~ v12n
+
+    # +5V: directly from bus via Schottky for reverse protection
+    d_5v = new B5819W
+    header.POS5V_1 ~ d_5v.anode
+    header.POS5V_2 ~ d_5v.anode
+    d_5v.cathode ~ v5v
+
+    # --- Bulk decoupling on raw rails ---
+    c_bulk_12p = new Capacitor
+    c_bulk_12p.capacitance = 10uF +/- 20%
+    c_bulk_12p.unnamed[0] ~ v12p
+    c_bulk_12p.unnamed[1] ~ gnd
+
+    c_bulk_12n = new Capacitor
+    c_bulk_12n.capacitance = 10uF +/- 20%
+    c_bulk_12n.unnamed[0] ~ gnd
+    c_bulk_12n.unnamed[1] ~ v12n
+
+    # --- +5V rail decoupling ---
+    c_5v_bulk = new Capacitor
+    c_5v_bulk.capacitance = 10uF +/- 20%
+    c_5v_bulk.unnamed[0] ~ v5v
+    c_5v_bulk.unnamed[1] ~ gnd
+
+    c_5v_hf = new Capacitor
+    c_5v_hf.capacitance = 100nF +/- 20%
+    c_5v_hf.unnamed[0] ~ v5v
+    c_5v_hf.unnamed[1] ~ gnd
+
+    # --- +3.3V Regulator (AMS1117-3.3) ---
+    # Fed from +5V rail (not 12V) to reduce power dissipation:
+    #   From 12V: (12-3.3)×0.1A = 0.87W. From 5V: (5-3.3)×0.1A = 0.17W. 5× less heat.
+    # Powers board peripherals: shift registers, LCD, MIDI, input protection
+    # PGA2350 has its own internal 3.3V regulator for MCU core
+    reg_3v3 = new AMS1117_3V3
+    reg_3v3.VIN ~ v5v
+    reg_3v3.GND ~ gnd
+    reg_3v3.TAB ~ reg_3v3.VOUT
+    reg_3v3.VOUT ~ v3v3
+
+    # AMS1117 requires ≥10µF on input for stability
+    c_3v3_in = new Capacitor
+    c_3v3_in.capacitance = 10uF +/- 20%
+    c_3v3_in.unnamed[0] ~ v5v
+    c_3v3_in.unnamed[1] ~ gnd
+
+    c_3v3_out = new Capacitor
+    c_3v3_out.capacitance = 10uF +/- 20%
+    c_3v3_out.unnamed[0] ~ v3v3
+    c_3v3_out.unnamed[1] ~ gnd
+
+    c_3v3_out_hf = new Capacitor
+    c_3v3_out_hf.capacitance = 100nF +/- 20%
+    c_3v3_out_hf.unnamed[0] ~ v3v3
+    c_3v3_out_hf.unnamed[1] ~ gnd

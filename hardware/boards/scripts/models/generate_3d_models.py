@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 BOARDS_DIR = Path(__file__).resolve().parent.parent.parent
-PARTS_DIR = BOARDS_DIR / "parts"
+PARTS_DIR = BOARDS_DIR / "elec" / "src" / "components"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

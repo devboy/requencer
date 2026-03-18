@@ -2,7 +2,7 @@
 """Generate KiCad footprints (.kicad_mod) for through-hole components.
 
 Writes KiCad S-expression format directly — no external dependencies.
-Output: hardware/boards/parts/<PartName>/<footprint>.kicad_mod
+Output: hardware/boards/elec/src/components/<PartName>/<footprint>.kicad_mod
 
 Components:
   - WQP518MA (Thonkiconn 3.5mm mono jack)
@@ -17,7 +17,7 @@ import os
 import sys
 
 
-PARTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "parts")
+PARTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "elec", "src", "components")
 
 
 def mm(v):

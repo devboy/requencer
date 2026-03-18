@@ -2,7 +2,7 @@
 """Add KiCad built-in 3D model references to footprint files and PCBs.
 
 Two modes:
-  1. Library footprints: Updates .kicad_mod files in hardware/boards/parts/
+  1. Library footprints: Updates .kicad_mod files in hardware/boards/elec/src/components/
   2. PCB files: Adds model refs to inline footprints, writing a new output file
 
 Uses ${KICAD9_3DMODEL_DIR} for portability — KiCad resolves this at runtime.
@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 
 BOARDS_DIR = Path(__file__).resolve().parent.parent.parent
-PARTS_DIR = BOARDS_DIR / "parts"
+PARTS_DIR = BOARDS_DIR / "elec" / "src" / "components"
 BUILD_DIR = BOARDS_DIR / "build"
 
 # KiCad footprint library path — resolved from env or default macOS location
@@ -219,7 +219,7 @@ def make_model_block(
     if local:
         # Local STEP files relative to build dir (hardware/boards/build/)
         # KIPRJMOD resolves to the .kicad_pro location = build dir
-        path = f"${{KIPRJMOD}}/../parts/{model_path}"
+        path = f"${{KIPRJMOD}}/../elec/src/components/{model_path}"
     else:
         path = f"${{KICAD9_3DMODEL_DIR}}/{model_path}"
     ox, oy, oz = offset or (0, 0, 0)

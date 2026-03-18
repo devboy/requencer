@@ -1,0 +1,137 @@
+# I/O Jacks — All 26 WQP518MA jacks
+# 16 analog outputs, 2 clock/reset inputs, 2 clock/reset outputs,
+# 4 CV inputs, 2 MIDI (handled in midi.ato)
+#
+# This is a pure breakout board — jacks connect directly to connector signals.
+# Signal conditioning (input protection, output buffers) lives on main board.
+
+from "../../components/WQP518MA/WQP518MA.ato" import WQP518MA
+
+module IOJacks:
+    # Power
+    signal gnd
+
+    # Analog outputs (from DAC output stage, after protection resistors)
+    signal gate1
+    signal gate2
+    signal gate3
+    signal gate4
+    signal pitch1
+    signal pitch2
+    signal pitch3
+    signal pitch4
+    signal vel1
+    signal vel2
+    signal vel3
+    signal vel4
+    signal mod1
+    signal mod2
+    signal mod3
+    signal mod4
+
+    # Digital I/O (raw signals via connector — conditioned on main board)
+    signal clk_in_gpio    # Raw 0-10V → connector → protection on main → GP26
+    signal rst_in_gpio    # Raw 0-10V → connector → protection on main → GP27
+    signal clk_out_gpio   # GP28 → buffer on main → connector → 5V gate
+    signal rst_out_gpio   # GP4 → buffer on main → connector → 5V gate
+
+    # CV inputs (raw signals via connector — conditioned on main board)
+    signal cv_a_gpio      # Raw 0-10V → connector → protection on main → GP40
+    signal cv_b_gpio      # Raw 0-10V → connector → protection on main → GP41
+    signal cv_c_gpio      # Raw 0-10V → connector → protection on main → GP42
+    signal cv_d_gpio      # Raw 0-10V → connector → protection on main → GP43
+
+    # --- 16 Analog Output Jacks ---
+    j_gate1 = new WQP518MA
+    j_gate2 = new WQP518MA
+    j_gate3 = new WQP518MA
+    j_gate4 = new WQP518MA
+    j_pitch1 = new WQP518MA
+    j_pitch2 = new WQP518MA
+    j_pitch3 = new WQP518MA
+    j_pitch4 = new WQP518MA
+    j_vel1 = new WQP518MA
+    j_vel2 = new WQP518MA
+    j_vel3 = new WQP518MA
+    j_vel4 = new WQP518MA
+    j_mod1 = new WQP518MA
+    j_mod2 = new WQP518MA
+    j_mod3 = new WQP518MA
+    j_mod4 = new WQP518MA
+
+    # Wire analog outputs to jack tips
+    gate1 ~ j_gate1.TIP
+    gate2 ~ j_gate2.TIP
+    gate3 ~ j_gate3.TIP
+    gate4 ~ j_gate4.TIP
+    pitch1 ~ j_pitch1.TIP
+    pitch2 ~ j_pitch2.TIP
+    pitch3 ~ j_pitch3.TIP
+    pitch4 ~ j_pitch4.TIP
+    vel1 ~ j_vel1.TIP
+    vel2 ~ j_vel2.TIP
+    vel3 ~ j_vel3.TIP
+    vel4 ~ j_vel4.TIP
+    mod1 ~ j_mod1.TIP
+    mod2 ~ j_mod2.TIP
+    mod3 ~ j_mod3.TIP
+    mod4 ~ j_mod4.TIP
+
+    # All sleeves to GND
+    j_gate1.SLEEVE ~ gnd
+    j_gate2.SLEEVE ~ gnd
+    j_gate3.SLEEVE ~ gnd
+    j_gate4.SLEEVE ~ gnd
+    j_pitch1.SLEEVE ~ gnd
+    j_pitch2.SLEEVE ~ gnd
+    j_pitch3.SLEEVE ~ gnd
+    j_pitch4.SLEEVE ~ gnd
+    j_vel1.SLEEVE ~ gnd
+    j_vel2.SLEEVE ~ gnd
+    j_vel3.SLEEVE ~ gnd
+    j_vel4.SLEEVE ~ gnd
+    j_mod1.SLEEVE ~ gnd
+    j_mod2.SLEEVE ~ gnd
+    j_mod3.SLEEVE ~ gnd
+    j_mod4.SLEEVE ~ gnd
+
+    # --- Clock/Reset Input Jacks ---
+    # Raw eurorack signals (0-10V) pass through connector to main board
+    # where input protection conditions them for MCU ADC
+    j_clk_in = new WQP518MA
+    j_clk_in.TIP ~ clk_in_gpio
+    j_clk_in.SLEEVE ~ gnd
+
+    j_rst_in = new WQP518MA
+    j_rst_in.TIP ~ rst_in_gpio
+    j_rst_in.SLEEVE ~ gnd
+
+    # --- Clock/Reset Output Jacks ---
+    # Buffered 5V gate signals come from main board through connector
+    j_clk_out = new WQP518MA
+    j_clk_out.TIP ~ clk_out_gpio
+    j_clk_out.SLEEVE ~ gnd
+
+    j_rst_out = new WQP518MA
+    j_rst_out.TIP ~ rst_out_gpio
+    j_rst_out.SLEEVE ~ gnd
+
+    # --- CV Input Jacks ---
+    # Raw eurorack signals (0-10V) pass through connector to main board
+    # where input protection conditions them for MCU ADC
+    j_cv_a = new WQP518MA
+    j_cv_b = new WQP518MA
+    j_cv_c = new WQP518MA
+    j_cv_d = new WQP518MA
+
+    j_cv_a.TIP ~ cv_a_gpio
+    j_cv_a.SLEEVE ~ gnd
+
+    j_cv_b.TIP ~ cv_b_gpio
+    j_cv_b.SLEEVE ~ gnd
+
+    j_cv_c.TIP ~ cv_c_gpio
+    j_cv_c.SLEEVE ~ gnd
+
+    j_cv_d.TIP ~ cv_d_gpio
+    j_cv_d.SLEEVE ~ gnd

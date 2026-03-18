@@ -3,8 +3,8 @@
 # Wires control and main boards together through connector interface
 # for full end-to-end constraint checking by atopile
 
-from "control.ato" import Control
-from "main.ato" import Main
+from "boards/control/control.ato" import Control
+from "boards/main/main.ato" import Main
 
 module System:
     control = new Control
