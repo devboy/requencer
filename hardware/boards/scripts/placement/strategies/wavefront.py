@@ -23,7 +23,7 @@ from ..helpers import (
 from . import BoardState, ComponentInfo, Placement, register
 
 
-def _build_multi_region_grid(board, n_free, margin=1.0):
+def _build_multi_region_grid(board, n_free, margin=1.0, exclusions=None):
     """Build grid points across all free rectangular regions.
 
     Uses CollisionTracker.find_largest_free_rects to discover available
@@ -81,9 +81,17 @@ def _build_multi_region_grid(board, n_free, margin=1.0):
         while x < rx + rw:
             y = ry + step / 2
             while y < ry + rh:
-                # Verify point is actually within board and not blocked
+                # Verify point is within board and not in an exclusion zone
                 if 0 < x < board.width and 0 < y < board.height:
-                    points.append((x, y))
+                    in_exclusion = False
+                    if exclusions:
+                        for ex in exclusions:
+                            if (ex["x_min"] <= x <= ex["x_max"] and
+                                    ex["y_min"] <= y <= ex["y_max"]):
+                                in_exclusion = True
+                                break
+                    if not in_exclusion:
+                        points.append((x, y))
                 y += step
             x += step
 
@@ -91,18 +99,72 @@ def _build_multi_region_grid(board, n_free, margin=1.0):
 
 
 def _claim_grid_point(grid_points, tx, ty, comp, grid_step,
-                      per_pin_margin=0.3):
+                      per_pin_margin=0.3, exclusions=None, addr=""):
     """Pick nearest available grid point to target, claim surrounding area.
+
+    exclusions: list of dicts with x_min/y_min/x_max/y_max/allowed_prefixes.
+    Points inside an exclusion zone are skipped unless the component's
+    address starts with one of the allowed prefixes.
 
     Returns (gx, gy, remaining_points).
     """
+    def _is_excluded(x, y, addr, exclusions):
+        """Check if position is in an exclusion zone for this component."""
+        if not exclusions:
+            return False
+        for ex in exclusions:
+            if (ex["x_min"] <= x <= ex["x_max"] and
+                    ex["y_min"] <= y <= ex["y_max"]):
+                prefixes = ex.get("allowed_prefixes", [])
+                if not any(addr.startswith(p) for p in prefixes):
+                    return True
+        return False
+
     if not grid_points:
+        # Grid exhausted — push target outside exclusion zone if needed
+        if _is_excluded(tx, ty, addr, exclusions):
+            # Move to nearest edge of exclusion zone
+            for ex in exclusions:
+                if (ex["x_min"] <= tx <= ex["x_max"] and
+                        ex["y_min"] <= ty <= ex["y_max"]):
+                    # Push to nearest boundary
+                    distances = [
+                        (abs(tx - ex["x_min"]), ex["x_min"] - 2, ty),
+                        (abs(tx - ex["x_max"]), ex["x_max"] + 2, ty),
+                        (abs(ty - ex["y_min"]), tx, ex["y_min"] - 2),
+                        (abs(ty - ex["y_max"]), tx, ex["y_max"] + 2),
+                    ]
+                    distances.sort(key=lambda d: d[0])
+                    _, tx, ty = distances[0]
+                    break
         return tx, ty, []
 
-    # Find nearest available point to connectivity target
-    best_idx = 0
+    # Filter out excluded grid points for this component
+    if exclusions:
+        allowed_points = []
+        for i, (gx, gy) in enumerate(grid_points):
+            blocked = False
+            for ex in exclusions:
+                if (ex["x_min"] <= gx <= ex["x_max"] and
+                        ex["y_min"] <= gy <= ex["y_max"]):
+                    # Point is in exclusion zone — check if component is allowed
+                    prefixes = ex.get("allowed_prefixes", [])
+                    if not any(addr.startswith(p) for p in prefixes):
+                        blocked = True
+                        break
+            if not blocked:
+                allowed_points.append(i)
+    else:
+        allowed_points = list(range(len(grid_points)))
+
+    if not allowed_points:
+        return tx, ty, grid_points  # No valid points, return target
+
+    # Find nearest allowed point to connectivity target
+    best_idx = allowed_points[0]
     best_dist = float('inf')
-    for i, (gx, gy) in enumerate(grid_points):
+    for i in allowed_points:
+        gx, gy = grid_points[i]
         dist = abs(gx - tx) + abs(gy - ty)
         if dist < best_dist:
             best_dist = dist
@@ -232,8 +294,9 @@ class WavefrontStrategy:
 
         # 4. Build multi-region grid from free rectangles
         n_free = len(comp_map)
+        exclusions = params.get("placement_exclusions", [])
         grid_points, grid_step = _build_multi_region_grid(
-            board, n_free, margin=1.0)
+            board, n_free, margin=1.0, exclusions=exclusions)
 
         # 5. Build wavefront order
         ordered_addrs = []
@@ -257,6 +320,7 @@ class WavefrontStrategy:
 
         # 6. Assign grid positions and place
         auto_rotate = params.get("auto_rotate", False)
+        exclusions = params.get("placement_exclusions", [])
         placements = {}
 
         for addr in ordered_addrs:
@@ -276,7 +340,8 @@ class WavefrontStrategy:
                     ty = pa_y * 0.7 + ty * 0.3
 
             gx, gy, grid_points = _claim_grid_point(
-                grid_points, tx, ty, info, grid_step)
+                grid_points, tx, ty, info, grid_step,
+                exclusions=exclusions, addr=addr)
 
             rotation = 0.0
             if (auto_rotate and info.pad_sides
@@ -289,6 +354,133 @@ class WavefrontStrategy:
             p = board.place_component(
                 addr, gx, gy, info, side=None,
                 rotation=rotation, placed=placements)
+            placements[addr] = p
+
+        return placements
+
+
+@register("wavefront_circuit")
+class WavefrontCircuitStrategy:
+    """Circuit-first variant: place all components of one circuit before
+    moving to the next. Circuits sorted by total connection count (most
+    connected first). Within each circuit, wavefront order applies.
+
+    This keeps each circuit physically grouped — the DAC circuit lands
+    as a unit, the power circuit as a unit, etc.
+    """
+
+    def place(self, components: list[ComponentInfo],
+              board: BoardState, params: dict) -> dict[str, Placement]:
+        if not components:
+            return {}
+
+        comp_map = {c.address: c for c in components}
+        free_addrs = set(comp_map.keys())
+        fixed_addrs = set(board.fixed.keys())
+
+        # 1. Build circuits
+        all_addrs = free_addrs | fixed_addrs
+        circuits = build_circuits(board.net_graph, all_addrs)
+
+        addr_to_circuit = {}
+        for circuit in circuits:
+            for addr in circuit:
+                addr_to_circuit[addr] = circuit
+
+        # 2. Wave distances
+        wave_map, orphans = compute_wave_distances(
+            board.net_graph, fixed_addrs, free_addrs)
+
+        # 3. Group by module prefix (first dotted segment of atopile address)
+        # This splits the giant net-connected blob into logical subcircuits:
+        # dac.*, mcu.*, buttons.*, leds.*, power.*, etc.
+        module_groups = defaultdict(list)
+        for addr in comp_map:
+            prefix = addr.split(".")[0] if "." in addr else "_root"
+            module_groups[prefix].append(addr)
+
+        # Sort modules by total connections (most connected first)
+        module_conns = {}
+        for prefix, addrs in module_groups.items():
+            total = sum(len(comp_map[a].nets) for a in addrs)
+            module_conns[prefix] = total
+
+        sorted_modules = sorted(
+            module_groups.keys(),
+            key=lambda p: -module_conns.get(p, 0))
+
+        def _comp_priority_key(addr):
+            c = comp_map[addr]
+            # Within a circuit: wave distance first, then connections
+            wave = wave_map.get(addr, 999)
+            connections = len(c.nets)
+            area = c.width * c.height
+            return (wave, -(connections * 10 + area))
+
+        # 4. Build grid
+        n_free = len(comp_map)
+        exclusions = params.get("placement_exclusions", [])
+        grid_points, grid_step = _build_multi_region_grid(
+            board, n_free, margin=1.0, exclusions=exclusions)
+
+        # 5. Place module by module (most connected modules first)
+        auto_rotate = params.get("auto_rotate", False)
+        exclusions = params.get("placement_exclusions", [])
+        placements = {}
+
+        for prefix in sorted_modules:
+            module_addrs = [a for a in module_groups[prefix]
+                            if a in comp_map]
+            if not module_addrs:
+                continue
+
+            # Sort: wave 0 first, then by connections
+            module_addrs.sort(key=_comp_priority_key)
+
+            for addr in module_addrs:
+                info = comp_map[addr]
+
+                tx, ty = board.connectivity_target(
+                    addr, placements, group=info.group)
+
+                if info.pin_count <= 6 and placements:
+                    pa_x, pa_y = _pin_aware_offset(
+                        info, set(), placements, comp_map)
+                    if pa_x != 0 or pa_y != 0:
+                        tx = pa_x * 0.7 + tx * 0.3
+                        ty = pa_y * 0.7 + ty * 0.3
+
+                gx, gy, grid_points = _claim_grid_point(
+                    grid_points, tx, ty, info, grid_step,
+                    exclusions=exclusions, addr=addr)
+
+                rotation = 0.0
+                if (auto_rotate and info.pad_sides
+                        and info.pin_count > 4):
+                    all_positions = {**placements, **board.fixed}
+                    rotation = best_rotation_at_position(
+                        info, gx, gy, board.net_graph,
+                        all_positions, addr)
+
+                p = board.place_component(
+                    addr, gx, gy, info, side=None,
+                    rotation=rotation, placed=placements)
+                placements[addr] = p
+
+        # Orphans last
+        orphan_addrs = sorted(orphans,
+                              key=lambda a: -(len(comp_map[a].nets) * 10 +
+                                              comp_map[a].width * comp_map[a].height))
+        for addr in orphan_addrs:
+            info = comp_map[addr]
+            tx, ty = board.connectivity_target(
+                addr, placements, group=info.group)
+            gx, gy, grid_points = _claim_grid_point(
+                grid_points, tx, ty, info, grid_step,
+                exclusions=exclusions, addr=addr)
+            p = board.place_component(
+                addr, gx, gy, info, side=None,
+                rotation=0.0, placed=placements)
             placements[addr] = p
 
         return placements

@@ -89,7 +89,7 @@ module Main:
     mcu.btn_latch ~ connector.sr_latch
     mcu.btn_data ~ connector.sr_data
 
-    # LED drivers (2× IS31FL3236A via I2C on control board)
+    # LED drivers (3× IS31FL3216A via I2C on control board)
     mcu.i2c_sda ~ connector.i2c_sda
     mcu.i2c_scl ~ connector.i2c_scl
 

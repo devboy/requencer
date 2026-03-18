@@ -5,7 +5,7 @@
       "dimensions_from": "component-map",
       "placement": {
         "strategy": "panel-layout",
-        "tht_extra_clearance_mm": 1.5,
+        "tht_extra_clearance_mm": 0.25,
         "per_pin_padding_mm": 0,
         "smd_side": "B",
         "padding_sequence": [
@@ -493,21 +493,35 @@
             "rotation": 0,
             "coords": "pcb"
           },
-          "leds.led1": {
-            "x": 26,
-            "y": 76,
-            "side": "B",
-            "rotation": 0,
-            "coords": "pcb"
-          },
           "midi.opto": {
             "x": 123,
             "y": 70,
             "side": "B",
             "rotation": 0,
             "coords": "pcb"
+          },
+          "leds.led_a": {
+            "x": 5,
+            "y": 95,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
+          },
+          "leds.led_b": {
+            "x": 100,
+            "y": 95,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
           }
         },
+        "placement_exclusions": [
+          {
+            "x_min": 0, "y_min": 73, "x_max": 100, "y_max": 108,
+            "allowed_prefixes": ["buttons", "leds"],
+            "_comment": "Reserve step button area for button/LED routing channels"
+          }
+        ],
         "component_padding": {
           "lcd_fpc": {
             "left": 0, "right": 10.0, "top": 0, "bottom": 0,
@@ -542,7 +556,7 @@
       },
       "placement": {
         "strategy": "compact-grid",
-        "tht_extra_clearance_mm": 1.5,
+        "tht_extra_clearance_mm": 0.5,
         "smd_side": "F",
         "padding_sequence": [
           4.0,
@@ -653,13 +667,13 @@
         },
         {
           "description": "Clearance violation",
-          "footprint": "QFN-44-5x5",
-          "comment": "IS31FL3236A: exposed pad to signal pad gap 0.15mm — within JLCPCB QFN capability"
+          "footprint": "QFN-28-4x4",
+          "comment": "IS31FL3216A: exposed pad to signal pad gap 0.15mm — within JLCPCB QFN capability"
         },
         {
           "description": "solder mask aperture bridges",
-          "footprint": "QFN-44-5x5",
-          "comment": "IS31FL3236A: exposed pad to signal pad solder mask — standard QFN manufacturing"
+          "footprint": "QFN-28-4x4",
+          "comment": "IS31FL3216A: exposed pad to signal pad solder mask — standard QFN manufacturing"
         },
         {
           "description": "Board edge clearance violation",
@@ -668,6 +682,11 @@
         {
           "description": "Hole clearance violation",
           "comment": "THT component holes close to copper \u2014 within JLCPCB 0.2mm standard"
+        },
+        {
+          "description": "Hole size out of range",
+          "footprint": "QFN-28-4x4",
+          "comment": "IS31FL3216A: thermal vias use 0.2mm drill — within JLCPCB 0.2mm min"
         }
       ],
       "expected_warnings": [
@@ -785,6 +804,11 @@
         "name": "wavefront-a",
         "algorithm": "wavefront",
         "params": {}
+      },
+      {
+        "name": "wavefront-b",
+        "algorithm": "wavefront_circuit",
+        "params": {}
       }
     ],
     "score_weights": {
@@ -794,7 +818,7 @@
     }
   },
   "routing": {
-    "max_passes": 60,
+    "max_passes": 120,
     "threads": 1,
     "optimization_improvement_threshold": 1,
     "timeout": 3600,

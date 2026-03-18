@@ -56,7 +56,7 @@ module PGA2350_MCU:
     signal btn_latch   # GP9
     signal btn_data    # GP10
 
-    # LED driver (2× IS31FL3236A via I2C0)
+    # LED driver (3× IS31FL3216A via I2C0)
     signal i2c_sda     # GP11 — I2C0 SDA
     signal i2c_scl     # GP12 — I2C0 SCL
 

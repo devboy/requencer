@@ -533,6 +533,12 @@ def place_board(board_name, strategy_name, params, input_pcb, output_pcb,
               f"({', '.join(c.anchor for c in clusters)})")
         params = dict(params, clusters=clusters)
 
+    # Load placement exclusion zones from config
+    exclusions = placement_cfg.get("placement_exclusions", [])
+    if exclusions:
+        params = dict(params, placement_exclusions=exclusions)
+        print(f"  Placement exclusions: {len(exclusions)} zones")
+
     strategy = get_strategy(strategy_name)
     components_list = list(free_components.values())
     placements = strategy.place(components_list, board_state, params)

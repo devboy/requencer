@@ -597,6 +597,52 @@ def build_result(status="pass", via_count=0, trace_length_mm=0.0,
     return result
 
 
+def _add_ground_pours(pcb_path):
+    """Add GND copper pours to all layers before DRC.
+
+    Delegates to add_ground_pours.py which handles GND net detection,
+    zone creation, and filling. Modifies PCB in-place.
+    """
+    print("Step 5.5: Adding ground pours...")
+    pour_script = os.path.join(SCRIPT_DIR, "add_ground_pours.py")
+
+    from common.kicad_env import setup_kicad_env
+    setup_kicad_env()
+
+    import pcbnew
+    # Import and run the pour logic directly (same process, avoids subprocess)
+    sys.path.insert(0, SCRIPT_DIR)
+    import add_ground_pours
+    # Reload to avoid stale imports
+    import importlib
+    importlib.reload(add_ground_pours)
+
+    board = pcbnew.LoadBoard(pcb_path)
+
+    # Remove existing zones
+    zones_to_remove = []
+    for i in range(board.GetAreaCount()):
+        zones_to_remove.append(board.GetArea(i))
+    for zone in zones_to_remove:
+        board.Remove(zone)
+
+    # Find GND net and add pours
+    gnd_name, gnd_code, gnd_count = add_ground_pours.find_gnd_net(board)
+    if gnd_name:
+        clearance_mm, min_thickness_mm = add_ground_pours.load_design_rules()
+        print(f"  GND net: \"{gnd_name}\" ({gnd_count} pads)")
+        for layer_name in ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]:
+            layer_id = board.GetLayerID(layer_name)
+            add_ground_pours.add_pour_zone(board, layer_id, gnd_code, gnd_name,
+                                            clearance_mm, min_thickness_mm)
+        filler = pcbnew.ZONE_FILLER(board)
+        filler.Fill(board.Zones())
+        print(f"  Filled {len(board.Zones())} zone(s)")
+        board.Save(pcb_path)
+    else:
+        print("  WARNING: No GND net found, skipping ground pours")
+
+
 def _freerouting_settings_path(work_dir):
     """Return the path for freerouting.json inside the work directory.
 
@@ -690,10 +736,16 @@ def autoroute(input_pcb, output_pcb=None, result_json_path=None):
             # Step 4: Check unrouted nets
             step4_check_unrouted(work_dir)
 
-            # Step 5: Cleanup dangling tracks
+            # Step 5: Add ground pours before cleanup and DRC
+            # GND copper fill connects QFN thermal pads, isolated GND
+            # segments, and provides return paths.
+            _add_ground_pours(output_pcb)
+
+            # Step 5.5: Cleanup dangling tracks (after pour — pour may
+            # connect partial traces that would otherwise look dangling)
             step5_cleanup_dangling(output_pcb)
 
-            # Step 6: DRC — in variant mode, don't exit on failure
+            # Step 6: DRC
             drc_report = _run_drc_report(output_pcb, work_dir, board_type)
 
             # Extract metrics

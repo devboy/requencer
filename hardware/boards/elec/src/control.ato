@@ -48,7 +48,7 @@ module Control:
     # +5V rail
     connector.v5v ~ leds.v5v           # LED anodes (+5V)
 
-    # IS31FL3236A logic from 3.3V (supports 2.7-5.5V)
+    # IS31FL3216A logic from 3.3V (supports 2.7-5.5V)
     connector.v3v3 ~ leds.vcc          # LED driver VCC = 3.3V
 
     # 5V bulk decoupling (near LED drivers — absorbs switching transients
@@ -71,7 +71,7 @@ module Control:
     connector.sr_data ~ buttons.data_out
 
     # ==========================================================================
-    # LED DRIVERS (2× IS31FL3236A via I2C)
+    # LED DRIVERS (3× IS31FL3216A via I2C)
     # ==========================================================================
     connector.i2c_sda ~ leds.sda
     connector.i2c_scl ~ leds.scl
@@ -163,13 +163,14 @@ module Control:
 
     # ==========================================================================
     # LED ↔ BUTTON WIRING (PB6149L single white LED)
-    # 2× IS31FL3236A (36ch each), 22 used across both chips
-    # Grouped by PHYSICAL LOCATION for short routing:
-    # led1 (left side): Step 1-16, T1-T4, Clr (21 LEDs)
-    # led2 (right side): Play (1 LED, 35 spare for future right-side buttons)
+    # 3× IS31FL3216A (16ch each), 22 used across 3 chips
+    # Grouped by PHYSICAL LOCATION for shortest cathode traces:
+    #   led_a (left):   step1-4, step9-12, t1-t4 (12 LEDs)
+    #   led_b (center): step5-8, step13-16, clr (9 LEDs)
+    #   led_c (right):  play (1 LED, 15 spare for future)
     # ==========================================================================
 
-    # LEFT SIDE — LED anodes to LED VCC (+5V)
+    # All LED anodes to LED VCC (+5V)
     buttons.btn_step1.LED_A ~ leds.led_vcc
     buttons.btn_step2.LED_A ~ leds.led_vcc
     buttons.btn_step3.LED_A ~ leds.led_vcc
@@ -191,39 +192,39 @@ module Control:
     buttons.btn_t3.LED_A ~ leds.led_vcc
     buttons.btn_t4.LED_A ~ leds.led_vcc
     buttons.btn_clr.LED_A ~ leds.led_vcc
-
-    # RIGHT SIDE — LED anode
     buttons.btn_play.LED_A ~ leds.led_vcc
 
-    # led1 (addr 0x3C, left side): Step 1-16, T1-T4, Clr
-    buttons.btn_step1.LED_K ~ leds.led1.OUT1
-    buttons.btn_step2.LED_K ~ leds.led1.OUT2
-    buttons.btn_step3.LED_K ~ leds.led1.OUT3
-    buttons.btn_step4.LED_K ~ leds.led1.OUT4
-    buttons.btn_step5.LED_K ~ leds.led1.OUT5
-    buttons.btn_step6.LED_K ~ leds.led1.OUT6
-    buttons.btn_step7.LED_K ~ leds.led1.OUT7
-    buttons.btn_step8.LED_K ~ leds.led2.OUT2
-    buttons.btn_step9.LED_K ~ leds.led1.OUT9
-    buttons.btn_step10.LED_K ~ leds.led1.OUT10
-    buttons.btn_step11.LED_K ~ leds.led1.OUT11
-    buttons.btn_step12.LED_K ~ leds.led1.OUT12
-    buttons.btn_step13.LED_K ~ leds.led1.OUT13
-    buttons.btn_step14.LED_K ~ leds.led1.OUT14
-    buttons.btn_step15.LED_K ~ leds.led1.OUT15
-    buttons.btn_step16.LED_K ~ leds.led2.OUT3
-    buttons.btn_t1.LED_K ~ leds.led1.OUT17
-    buttons.btn_t2.LED_K ~ leds.led1.OUT18
-    buttons.btn_t3.LED_K ~ leds.led1.OUT19
-    buttons.btn_t4.LED_K ~ leds.led1.OUT20
-    buttons.btn_clr.LED_K ~ leds.led1.OUT21
+    # led_a (left side): step1-4, step9-12 (x=17-49), t1-t4 (x=7)
+    buttons.btn_step1.LED_K ~ leds.led_a.OUT1
+    buttons.btn_step2.LED_K ~ leds.led_a.OUT2
+    buttons.btn_step3.LED_K ~ leds.led_a.OUT3
+    buttons.btn_step4.LED_K ~ leds.led_a.OUT4
+    buttons.btn_step9.LED_K ~ leds.led_a.OUT5
+    buttons.btn_step10.LED_K ~ leds.led_a.OUT6
+    buttons.btn_step11.LED_K ~ leds.led_a.OUT7
+    buttons.btn_step12.LED_K ~ leds.led_a.OUT8
+    buttons.btn_t1.LED_K ~ leds.led_a.OUT9
+    buttons.btn_t2.LED_K ~ leds.led_a.OUT10
+    buttons.btn_t3.LED_K ~ leds.led_a.OUT11
+    buttons.btn_t4.LED_K ~ leds.led_a.OUT12
 
-    # led2 (addr 0x3F, right side): Play, Step8, Step16 (+ future right-side buttons)
-    buttons.btn_play.LED_K ~ leds.led2.OUT1
-    # Step8/16 at x=92 — physically right side, shorter traces from led2
-    # (was on led1 at x=26, causing 64mm cross-board traces)
-    # btn_step8.LED_K moved from led1.OUT8
-    # btn_step16.LED_K moved from led1.OUT16
+    # led_b (center-right at 100,95): all buttons are LEFT of chip
+    # B-side mirrored: physical LEFT = OUT9-16, BOTTOM = OUT5-8
+    # step5-8 (left, row 1): use OUT13-16 (physical left upper)
+    buttons.btn_step5.LED_K ~ leds.led_b.OUT13
+    buttons.btn_step6.LED_K ~ leds.led_b.OUT14
+    buttons.btn_step7.LED_K ~ leds.led_b.OUT15
+    buttons.btn_step8.LED_K ~ leds.led_b.OUT16
+    # step13-16 (left, row 2): use OUT9-12 (physical left lower)
+    buttons.btn_step13.LED_K ~ leds.led_b.OUT9
+    buttons.btn_step14.LED_K ~ leds.led_b.OUT10
+    buttons.btn_step15.LED_K ~ leds.led_b.OUT11
+    buttons.btn_step16.LED_K ~ leds.led_b.OUT12
+    # clr (below-left): use OUT5 (physical bottom)
+    buttons.btn_clr.LED_K ~ leds.led_b.OUT5
+
+    # led_c (far right): play (x=131) + future right-side buttons
+    buttons.btn_play.LED_K ~ leds.led_c.OUT1
 
 
     # ==========================================================================
