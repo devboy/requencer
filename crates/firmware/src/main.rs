@@ -54,6 +54,7 @@ use embassy_rp::adc;
 #[cfg(target_os = "none")]
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 #[cfg(target_os = "none")]
+use embassy_rp::i2c;
 use embassy_rp::spi::{self, Spi};
 #[cfg(target_os = "none")]
 use embassy_rp::uart;
@@ -111,8 +112,9 @@ async fn main(_spawner: Spawner) {
     let lcd_cs = Output::new(p.PIN_1, Level::High);
     let lcd_dc = Output::new(p.PIN_7, Level::Low);
     let lcd_backlight = Output::new(p.PIN_5, Level::Low);
+    let lcd_rst = Output::new(p.PIN_22, Level::High);
 
-    let mut display_hw = display::Display::new(lcd_cs, lcd_dc, lcd_backlight);
+    let mut display_hw = display::Display::new(lcd_cs, lcd_dc, lcd_backlight, lcd_rst);
     display_hw.init(&mut spi0).await;
 
     // SD card pins
@@ -147,15 +149,20 @@ async fn main(_spawner: Spawner) {
     let btn_data = Input::new(p.PIN_10, Pull::Down);
     let mut button_scanner = buttons::ButtonScanner::new(btn_clk, btn_latch, btn_data);
 
-    // ── LED drivers ────────────────────────────────────────────────
+    // ── LED drivers (IS31FL3216A × 3, I2C0) ────────────────────────
 
-    let led_sin = Output::new(p.PIN_11, Level::Low);
-    let led_sclk = Output::new(p.PIN_12, Level::Low);
-    let led_xlat = Output::new(p.PIN_13, Level::Low);
-    let led_blank = Output::new(p.PIN_14, Level::High); // Start with outputs disabled
-    let mut led_driver = leds::LedDriver::new(led_sin, led_sclk, led_xlat, led_blank);
+    let mut i2c0_config = i2c::Config::default();
+    i2c0_config.frequency = 400_000; // 400kHz (IS31FL3216A max)
+
+    let i2c0 = i2c::I2c::new_blocking(
+        p.I2C0,
+        p.PIN_13, // SCL (GP13 = I2C0 SCL, F3)
+        p.PIN_12, // SDA (GP12 = I2C0 SDA, F3)
+        i2c0_config,
+    );
+    let mut led_driver = leds::LedDriver::new(i2c0);
     led_driver.init();
-    info!("LED drivers initialized");
+    info!("LED drivers initialized (3× IS31FL3216A, I2C0 @ 400kHz)");
 
     // ── Encoders ───────────────────────────────────────────────────
 

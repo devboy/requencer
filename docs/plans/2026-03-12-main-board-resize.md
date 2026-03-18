@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status (2026-03-18):** Partially implemented. Board height reduced to 84mm (matches plan). Board width is 140mm (plan target was 103mm). SMD placement is front-side only (`smd_side: "F"`) — dual-side not yet enabled. Fixed component positions configured in board-config.json. Strategy: `compact-grid`.
+
 **Goal:** Shrink the main board from 177.88×107.5mm to 103×84mm with symmetric connector overhang, dual-side SMD placement, and relocated USB-C + power header.
 
 **Architecture:** The main board plugs into the control board via 2×ShroudedHeader2x16 connectors at PCB (15, 42) and (88, 42). The new board dimensions are derived by adding equal overhang (15mm H, 42mm V) around the connector centers. MCU placed centrally between connectors. All SMDs use both board sides. USB-C edge-mounts on the right edge. Power header moves inboard. Top-left corners of control and main boards remain aligned (shared PCB origin).
