@@ -1,0 +1,49 @@
+# TLC5947DAP — TI 24-Channel Constant-Current LED Driver, HTSSOP-32 (PowerPAD)
+# LCSC: C2873022 (tape-and-reel variant TLC5947DAPR)
+# 12-bit PWM per channel, daisy-chainable SPI-like interface
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component TLC5947DAP:
+    trait is_atomic_part<manufacturer="TI", partnumber="TLC5947DAP", footprint="HTSSOP-32.kicad_mod", symbol="TLC5947DAP.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2873022", manufacturer="TI", partno="TLC5947DAPR">
+
+    signal OUT0 ~ pin 1
+    signal OUT1 ~ pin 2
+    signal OUT2 ~ pin 3
+    signal OUT3 ~ pin 4
+    signal OUT4 ~ pin 5
+    signal OUT5 ~ pin 6
+    signal OUT6 ~ pin 7
+    signal OUT7 ~ pin 8
+    signal OUT8 ~ pin 9
+    signal OUT9 ~ pin 10
+    signal OUT10 ~ pin 11
+    signal OUT11 ~ pin 12
+    signal GND ~ pin 13
+    signal IREF ~ pin 14
+    signal VCC ~ pin 15
+    signal SIN ~ pin 16
+    signal SCLK ~ pin 17
+    signal XLAT ~ pin 18
+    signal BLANK ~ pin 19
+    signal SOUT ~ pin 20
+    signal OUT12 ~ pin 21
+    signal OUT13 ~ pin 22
+    signal OUT14 ~ pin 23
+    signal OUT15 ~ pin 24
+    signal OUT16 ~ pin 25
+    signal OUT17 ~ pin 26
+    signal OUT18 ~ pin 27
+    signal OUT19 ~ pin 28
+    signal OUT20 ~ pin 29
+    signal OUT21 ~ pin 30
+    signal OUT22 ~ pin 31
+    signal OUT23 ~ pin 32
+
+    # Exposed thermal pad (PowerPAD) — must connect to GND
+    signal PAD ~ pin 33

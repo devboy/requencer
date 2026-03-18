@@ -1,0 +1,14 @@
+(kicad_symbol_lib (version 20220914) (generator "custom")
+  (symbol "WQP518MA" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "J" (at 0 3.81 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "WQP518MA" (at 0 -3.81 0) (effects (font (size 1.27 1.27))))
+    (symbol "WQP518MA_0_1"
+      (rectangle (start -2.54 2.54) (end 2.54 -2.54) (stroke (width 0) (type default)) (fill (type background)))
+    )
+    (symbol "WQP518MA_1_1"
+      (pin passive line (at -5.08 1.27 0) (length 2.54) (name "TIP" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -5.08 0 0) (length 2.54) (name "SLEEVE" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -5.08 -1.27 0) (length 2.54) (name "SWITCH" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27)))))
+    )
+  )
+)

@@ -120,7 +120,7 @@ export function createFootprintOverlay(): void {
   // Jacks — asymmetric courtyard rect (green)
   function addJackFootprints(jacks: Array<{ x_mm: number; y_mm: number }>): void {
     for (const j of jacks) {
-      parts.push(offsetRect(j.x_mm, j.y_mm, FP.pj398sm.body, '#44ff44'))
+      parts.push(offsetRect(j.x_mm, j.y_mm, FP.wqp518ma.body, '#44ff44'))
     }
   }
 

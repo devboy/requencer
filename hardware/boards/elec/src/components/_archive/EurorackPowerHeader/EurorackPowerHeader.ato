@@ -1,0 +1,24 @@
+# Eurorack Power Header — Shrouded 2×5 Pin Header, 2.54mm, Through-Hole
+# Standard eurorack power connector, keyed to prevent reverse insertion
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component EurorackPowerHeader:
+    trait is_atomic_part<manufacturer="Wurth Elektronik", partnumber="61201021621", footprint="EurorackPowerHeader_2x5.kicad_mod", symbol="EurorackPowerHeader.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2685177", manufacturer="Wurth Elektronik", partno="61201021621">
+    # Standard eurorack pinout
+    signal NEG12V_1 ~ pin 1
+    signal NEG12V_2 ~ pin 2
+    signal GND1 ~ pin 3
+    signal GND2 ~ pin 4
+    signal GND3 ~ pin 5
+    signal GND4 ~ pin 6
+    signal GND5 ~ pin 7
+    signal GND6 ~ pin 8
+    signal POS12V_1 ~ pin 9
+    signal POS12V_2 ~ pin 10
+

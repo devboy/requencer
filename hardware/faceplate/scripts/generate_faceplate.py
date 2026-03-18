@@ -227,8 +227,8 @@ def generate_faceplate(layout, output_path):
     )
     print("  LCD cutout added")
 
-    # 5. Jack holes (6mm drill for PJ398SM / PJ366ST)
-    # PJ398SM mono jacks: footprint origin at pad 2, bushing 6.5mm below in PCB Y
+    # 5. Jack holes (6mm drill for WQP518MA / PJ366ST)
+    # WQP518MA mono jacks: footprint origin at pad 2, bushing 6.5mm below in PCB Y
     # PJ366ST stereo (MIDI) jacks: bushing centered on origin, no offset needed
     jack_drill = 6.0
     jack_bushing_offset_y = 6.5

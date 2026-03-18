@@ -2,14 +2,12 @@
 """Generate KiCad footprints (.kicad_mod) for through-hole components.
 
 Writes KiCad S-expression format directly — no external dependencies.
-Output: hardware/boards/parts/<PartName>/<footprint>.kicad_mod
+Output: hardware/boards/elec/src/components/<PartName>/<footprint>.kicad_mod
 
 Components:
-  - PJ398SM (Thonkiconn 3.5mm mono jack)
   - TC002-N11AS1XT-RGB (Well Buying RGB tactile switch)
   - EC11E (Alps rotary encoder with push switch)
-  - RPi Pico (castellated pad module)
-  - 2x5 shrouded header (eurorack power)
+  - 2x5 shrouded header (eurorack power, archived)
   - PGA2350 (Pimoroni PGA2350, 64-pin perimeter PGA module)
 """
 
@@ -17,7 +15,7 @@ import os
 import sys
 
 
-PARTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "parts")
+PARTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "elec", "src", "components")
 
 
 def mm(v):
@@ -92,39 +90,6 @@ def write_footprint(name, description, tags, items):
     return header + "\n".join(items) + "\n)\n"
 
 
-def make_pj398sm():
-    """Thonkiconn PJ398SM 3.5mm mono jack.
-
-    3 pins: tip, sleeve (GND), switch (NC)
-    Mounting: 6mm panel drill hole
-    """
-    items = [
-        fp_text("reference", "REF**", 0, -7, "F.SilkS"),
-        fp_text("value", "PJ398SM", 0, 7, "F.Fab"),
-        # Pin 1: Tip (signal)
-        tht_pad(1, 0, 0, 2.0, 1.0),
-        # Pin 2: Sleeve (GND)
-        tht_pad(2, 0, -4.7, 2.0, 1.0),
-        # Pin 3: Switch (NC when plugged)
-        tht_pad(3, 4.7, -2.35, 2.0, 1.0),
-        # Mounting pin (NPTH)
-        npth_pad(-2.35, -4.7, 1.5),
-        # Courtyard (top trimmed from -7 to -5.8 to avoid courtyard overlap
-        # with PJ366ST MIDI jacks above; pad 2 copper extends to y=-5.7)
-        fp_rect(-4, -5.8, 7, 3, "F.CrtYd", 0.05),
-        # Panel drill hole outline (6mm)
-        fp_circle(0, 0, 3.0, "F.SilkS"),
-        # Hex nut outline (10mm)
-        fp_circle(0, 0, 5.0, "F.Fab", 0.1),
-    ]
-    return write_footprint(
-        "PJ398SM",
-        "Thonkiconn PJ398SM 3.5mm mono jack, through-hole",
-        "jack audio 3.5mm thonkiconn eurorack",
-        items,
-    )
-
-
 def make_tc002_rgb():
     """Well Buying TC002-N11AS1XT-RGB tactile switch with RGB LED.
 
@@ -188,51 +153,6 @@ def make_ec11e():
         "EC11E",
         "Alps EC11E rotary encoder with push switch, through-hole",
         "encoder rotary alps EC11 push switch",
-        items,
-    )
-
-
-def make_rpi_pico():
-    """Raspberry Pi Pico castellated pad module.
-
-    40 pins in 2x20 grid, 2.54mm pitch. Module: ~51mm x 21mm
-    """
-    pitch = 2.54
-    rows = 20
-    col_offset = 7.62  # half of 15.24mm pin column distance
-
-    items = [
-        fp_text("reference", "REF**", 0, -13, "F.SilkS"),
-        fp_text("value", "RPi_Pico", 0, 13, "F.Fab"),
-    ]
-
-    # Left column (pins 1-20, top to bottom)
-    for i in range(rows):
-        pin_num = i + 1
-        y = (i - (rows - 1) / 2) * pitch
-        items.append(smt_pad(pin_num, -col_offset, y, 2.0, 1.5))
-
-    # Right column (pins 21-40, bottom to top)
-    for i in range(rows):
-        pin_num = 21 + i
-        y = ((rows - 1) / 2 - i) * pitch
-        items.append(smt_pad(pin_num, col_offset, y, 2.0, 1.5))
-
-    items.extend([
-        # Module body outline
-        fp_rect(-10.5, -25.5, 10.5, 25.5, "F.SilkS"),
-        # USB connector end marker
-        fp_rect(-4, -25.5, 4, -23, "F.SilkS"),
-        # Pin 1 marker
-        fp_circle(-col_offset, -(rows - 1) / 2 * pitch - 1.5, 0.3, "F.SilkS"),
-        # Courtyard
-        fp_rect(-11.5, -26.5, 11.5, 26.5, "F.CrtYd", 0.05),
-    ])
-
-    return write_footprint(
-        "RaspberryPiPico",
-        "Raspberry Pi Pico RP2040 module, castellated pads",
-        "RPi Pico RP2040 castellated module",
         items,
     )
 
@@ -382,11 +302,9 @@ def make_pga2350():
 def main():
     # Map: (footprint_filename, part_directory, factory_function)
     footprints = [
-        # PJ398SM: uses KiCad standard footprint (manually adapted), not auto-generated
         ("TC002-N11AS1XT-RGB.kicad_mod", "TC002-RGB", make_tc002_rgb),
         ("EC11E.kicad_mod", "EC11E", make_ec11e),
-        ("RaspberryPiPico.kicad_mod", "RaspberryPiPico", make_rpi_pico),
-        ("EurorackPowerHeader_2x5.kicad_mod", "EurorackPowerHeader", make_eurorack_header),
+        ("EurorackPowerHeader_2x5.kicad_mod", "_archive/EurorackPowerHeader", make_eurorack_header),
         ("PGA2350.kicad_mod", "PGA2350", make_pga2350),
     ]
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Check parts availability and pricing for Requencer BOM.
 
 Parses .ato schematic files to build BOM, checks JLCPCB stock for SMD parts,
-and queries Nexar/Octopart for multi-supplier pricing on THT/manual parts.
+and queries TME/DigiKey/Nexar for multi-supplier pricing on THT/manual parts.
 
 Usage:
-    python check_parts.py [--boards N] [--skip-jlcpcb] [--skip-nexar] [--json FILE]
+    python check_parts.py [--boards N] [--skip-jlcpcb] [--suppliers tme,digikey] [--json FILE]
 
 Requires: requests (pip install requests)
 """
@@ -18,15 +19,16 @@ from pathlib import Path
 # Resolve paths relative to this script
 SCRIPT_DIR = Path(__file__).resolve().parent
 BOARDS_DIR = SCRIPT_DIR.parent.parent  # hardware/boards/
-PARTS_DIR = BOARDS_DIR / "parts"
+PARTS_DIR = BOARDS_DIR / "elec" / "src" / "components"
 SRC_DIR = BOARDS_DIR / "elec" / "src"
 BUILD_DIR = BOARDS_DIR / "build"
 DB_CACHE = BUILD_DIR / "jlcpcb-parts.sqlite3"
+ORDERS_DIR = BOARDS_DIR / "procurement" / "orders"
 
 sys.path.insert(0, str(SCRIPT_DIR.parent))
 from procurement.bom_parser import Part, build_bom
 from procurement.jlcpcb_stock import StockInfo, check_stock, ensure_db
-from procurement.nexar_client import NexarClient, SupplierResult
+from procurement.types import Offer, SupplierResult
 
 # ANSI colors
 GREEN = "\033[32m"
@@ -35,6 +37,83 @@ RED = "\033[31m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
+
+VALID_SUPPLIERS = {"tme", "digikey", "nexar"}
+
+# Hardcoded pricing for parts not on mainstream distributors.
+# These get merged into supplier results so they show up with pricing
+# instead of "No supplier data".
+MANUAL_PRICING = {
+    "PJ398SM": {
+        "seller": "Thonk",
+        "url": "https://www.thonk.co.uk/shop/thonkiconn/",
+        "unit_price": 0.43,  # £0.37 excl VAT
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "WQP-PJ366ST": {
+        "seller": "Thonk",
+        "url": "https://www.thonk.co.uk/shop/thonkiconn/",
+        "unit_price": 0.55,  # £0.47 excl VAT
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "PB6149L": {
+        "seller": "AliExpress (GJW)",
+        "url": "https://www.aliexpress.com/item/PB6149L",
+        "unit_price": 0.61,  # 20-pack for €12.29
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "WQP518MA": {
+        "seller": "AliExpress (Jingteng)",
+        "url": "https://www.aliexpress.com/item/4000105739424.html",
+        "unit_price": 0.32,  # 100pcs for €31.59
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "PJS008U-3000-0": {
+        "seller": "LCSC",
+        "url": "https://www.lcsc.com/product-detail/C3177022.html",
+        "unit_price": 1.13,  # $1.23 USD
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "PIM722": {
+        "seller": "Pimoroni",
+        "url": "https://shop.pimoroni.com/products/pga2350",
+        "unit_price": 10.50,  # £9.00
+        "currency": "EUR",
+        "stock": -1,
+    },
+    "ST7796-32pin-panel": {
+        "seller": "AliExpress (maithoga)",
+        "url": "https://de.aliexpress.com/item/32286288684.html",
+        "unit_price": 7.59,  # ST7796 no-touch variant
+        "currency": "EUR",
+        "stock": -1,
+    },
+}
+
+
+def _build_manual_results() -> dict[str, SupplierResult]:
+    """Convert MANUAL_PRICING into SupplierResult objects."""
+    results = {}
+    for mpn, info in MANUAL_PRICING.items():
+        results[mpn] = SupplierResult(
+            mpn=mpn,
+            manufacturer="",
+            offers=[Offer(
+                seller=info["seller"],
+                seller_url=info["url"],
+                stock=info["stock"],
+                moq=1,
+                unit_price=info["unit_price"],
+                currency=info["currency"],
+                buy_url=info["url"],
+            )],
+        )
+    return results
 
 
 def _status_icon(ok: bool, warn: bool = False) -> str:
@@ -48,7 +127,7 @@ def _status_icon(ok: bool, warn: bool = False) -> str:
 def _fmt_price(price: float | None, currency: str = "USD") -> str:
     if price is None:
         return "  N/A"
-    sym = "$" if currency == "USD" else currency + " "
+    sym = {"USD": "$", "EUR": "€"}.get(currency, currency + " ")
     return f"{sym}{price:.2f}"
 
 
@@ -56,6 +135,109 @@ def _fmt_stock(stock: int) -> str:
     if stock < 0:
         return "In stock"
     return f"{stock:,}"
+
+
+def _create_client(name: str):
+    """Create a supplier client by name. Returns (client, display_name)."""
+    if name == "tme":
+        from procurement.tme_client import TmeClient
+        return TmeClient(), "TME"
+    elif name == "digikey":
+        from procurement.digikey_client import DigikeyClient
+        return DigikeyClient(), "DigiKey"
+    elif name == "nexar":
+        from procurement.nexar_client import NexarClient
+        return NexarClient(), "Nexar"
+    else:
+        raise ValueError(f"Unknown supplier: {name}")
+
+
+def _merge_results(
+    all_results: list[dict[str, SupplierResult]],
+) -> dict[str, SupplierResult]:
+    """Merge results from multiple suppliers into a single dict.
+
+    For each MPN, combines all offers from all suppliers, sorted by price.
+    """
+    merged: dict[str, SupplierResult] = {}
+
+    for results in all_results:
+        for mpn, result in results.items():
+            if mpn not in merged:
+                merged[mpn] = SupplierResult(
+                    mpn=mpn,
+                    manufacturer=result.manufacturer,
+                    offers=list(result.offers),
+                    found=result.found,
+                )
+            else:
+                existing = merged[mpn]
+                existing.offers.extend(result.offers)
+                if not existing.manufacturer and result.manufacturer:
+                    existing.manufacturer = result.manufacturer
+                if result.found:
+                    existing.found = True
+
+    # Sort each MPN's offers by price (cheapest first, None last)
+    for result in merged.values():
+        result.offers.sort(
+            key=lambda o: (o.unit_price is None, o.unit_price or 999999)
+        )
+
+    return merged
+
+
+def query_suppliers(
+    supplier_names: list[str],
+    parts: list[tuple[str, int]],
+) -> dict[str, SupplierResult]:
+    """Query multiple suppliers and merge results."""
+    all_results: list[dict[str, SupplierResult]] = []
+
+    for name in supplier_names:
+        client, display = _create_client(name)
+
+        if not client.available:
+            _print_setup_hint(name)
+            continue
+
+        print(f"  Querying {display}...")
+        try:
+            results = client.search_batch(parts)
+            found_count = sum(1 for r in results.values() if r.found)
+            print(f"    Got pricing for {found_count}/{len(parts)} parts")
+            all_results.append(results)
+        except Exception as e:
+            print(f"    {RED}{display} query failed: {e}{RESET}")
+
+    return _merge_results(all_results)
+
+
+def _print_setup_hint(name: str):
+    """Print setup instructions for a supplier that's not configured."""
+    hints = {
+        "tme": (
+            "TME API not configured — skipping.",
+            "Set TME_TOKEN + TME_SECRET env vars,",
+            "or create ~/.config/requencer/tme.json",
+            "Register at https://developers.tme.eu/en",
+        ),
+        "digikey": (
+            "DigiKey API not configured — skipping.",
+            "Set DIGIKEY_CLIENT_ID + DIGIKEY_CLIENT_SECRET env vars,",
+            "or create ~/.config/requencer/digikey.json",
+            "Register at https://developer.digikey.com/",
+        ),
+        "nexar": (
+            "Nexar API not configured — skipping.",
+            "Set NEXAR_CLIENT_ID + NEXAR_CLIENT_SECRET env vars,",
+            "or create ~/.config/requencer/nexar.json",
+            "Register at https://nexar.com/api (free tier: 1000 parts/month)",
+        ),
+    }
+    lines = hints.get(name, (f"{name} not configured — skipping.",))
+    for line in lines:
+        print(f"  {DIM}{line}{RESET}")
 
 
 def print_smd_report(
@@ -88,6 +270,10 @@ def print_smd_report(
         status = _status_icon(ok, warn)
         if not info.found:
             status = f"{RED}NOT FOUND{RESET}"
+            issues.append(
+                f"{part.name} ({part.lcsc}): Not found in JLCPCB DB "
+                f"(out of stock or delisted)"
+            )
         elif info.stock < part.quantity:
             status = f"{YELLOW}LOW ({_fmt_stock(info.stock)}){RESET}"
             issues.append(
@@ -106,20 +292,20 @@ def print_smd_report(
 
 def print_tht_report(
     tht_parts: list[Part],
-    nexar_results: dict[str, SupplierResult],
+    supplier_results: dict[str, SupplierResult],
     issues: list[str],
 ) -> float:
     """Print THT/manual parts table. Returns estimated total cost."""
     print(f"\n{BOLD}THT / MANUAL ORDER PARTS{RESET}")
 
-    if not nexar_results:
-        # No Nexar data — just list parts with search URLs
+    if not supplier_results:
+        # No supplier data — just list parts with search URLs
         print(
             f"  {'Part':<20} {'MPN':<18} {'Qty':>5}  Note"
         )
         print("  " + "-" * 80)
         for part in sorted(tht_parts, key=lambda p: p.name):
-            note = part.note or f"Search: mouser.com, digikey.com"
+            note = part.note or f"Search: tme.eu, digikey.de, mouser.com"
             print(f"  {part.name:<20} {part.mpn:<18} {part.quantity:>5}  {DIM}{note}{RESET}")
         return 0.0
 
@@ -131,7 +317,7 @@ def print_tht_report(
 
     total = 0.0
     for part in sorted(tht_parts, key=lambda p: p.name):
-        result = nexar_results.get(part.mpn)
+        result = supplier_results.get(part.mpn)
         if not result or not result.offers:
             note = part.note or "No supplier data"
             print(
@@ -139,7 +325,7 @@ def print_tht_report(
                 f"{DIM}{note}{RESET}"
             )
             if not part.note:
-                issues.append(f"{part.name} ({part.mpn}): No supplier found via Nexar")
+                issues.append(f"{part.name} ({part.mpn}): No supplier found")
             continue
 
         best = result.offers[0]
@@ -163,16 +349,34 @@ def print_tht_report(
     return total
 
 
-def print_manual_report(manual_parts: list[Part], issues: list[str]):
-    """Print parts that need manual sourcing."""
+def print_manual_report(
+    manual_parts: list[Part],
+    supplier_results: dict[str, SupplierResult],
+) -> float:
+    """Print parts that need manual sourcing. Returns estimated total cost."""
     if not manual_parts:
-        return
+        return 0.0
 
     print(f"\n{BOLD}MANUAL SOURCE PARTS{RESET}")
+    total = 0.0
     for part in manual_parts:
-        note = part.note or "No standard distributor"
-        print(f"  {YELLOW}!{RESET} {part.name} ({part.mpn}) x{part.quantity}: {note}")
-        issues.append(f"{part.name} ({part.mpn}): {note}")
+        result = supplier_results.get(part.mpn)
+        if result and result.offers and result.offers[0].unit_price is not None:
+            best = result.offers[0]
+            price_str = _fmt_price(best.unit_price, best.currency)
+            total += best.unit_price * part.quantity
+            stock_str = _fmt_stock(best.stock) if best.stock else ""
+            print(
+                f"  {part.name:<20} {part.mpn:<18} {part.quantity:>5}  "
+                f"{best.seller:<18} {price_str:>8}  {stock_str:>10}"
+            )
+        elif result and result.offers:
+            best = result.offers[0]
+            print(f"  {part.name:<20} {part.mpn:<18} {part.quantity:>5}  {best.seller:<18} {'TBD':>8}")
+        else:
+            note = part.note or "No standard distributor"
+            print(f"  {YELLOW}!{RESET} {part.name} ({part.mpn}) x{part.quantity}: {note}")
+    return total
 
 
 def print_issues(issues: list[str]):
@@ -189,7 +393,7 @@ def print_issues(issues: list[str]):
 def write_json_report(
     bom: list[Part],
     stock_info: dict[str, StockInfo],
-    nexar_results: dict[str, SupplierResult],
+    supplier_results: dict[str, SupplierResult],
     output_path: Path,
 ):
     """Write machine-readable JSON report."""
@@ -217,8 +421,8 @@ def write_json_report(
                 "found": s.found,
             }
 
-        if part.mpn in nexar_results:
-            r = nexar_results[part.mpn]
+        if part.mpn in supplier_results:
+            r = supplier_results[part.mpn]
             entry["suppliers"] = [
                 {
                     "seller": o.seller,
@@ -238,37 +442,173 @@ def write_json_report(
     print(f"\n  JSON report: {output_path}")
 
 
+def load_order(order_id: str) -> dict | None:
+    """Load an order file by ID. Returns parsed JSON or None."""
+    path = ORDERS_DIR / f"{order_id}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def get_order_index() -> dict[str, dict]:
+    """Build index of ordered parts from the active order: mpn → order entry."""
+    # Find the latest order file
+    if not ORDERS_DIR.exists():
+        return {}
+    order_files = sorted(ORDERS_DIR.glob("order-*.json"))
+    if not order_files:
+        return {}
+    order = json.loads(order_files[-1].read_text())
+    index = {}
+    for entry in order.get("parts", []):
+        if entry.get("status") == "ordered":
+            index[entry["mpn"]] = entry
+    return index, order
+
+
+def print_order_checklist(
+    bom: list[Part],
+    order: dict,
+    order_index: dict[str, dict],
+    supplier_results: dict[str, SupplierResult] | None = None,
+):
+    """Print order checklist: what's ordered vs still needed."""
+    print(f"\n{BOLD}ORDER CHECKLIST — {order['id']}: {order.get('description', '')}{RESET}")
+    print(f"  Created: {order.get('created', '?')}  |  Kits: {order.get('kits', '?')}")
+    print()
+
+    # Build BOM needs: mpn → total quantity needed
+    bom_needs: dict[str, tuple[str, int]] = {}
+    for part in bom:
+        bom_needs[part.mpn] = (part.name, part.quantity)
+
+    print(f"  {'Status':<10} {'Part':<22} {'MPN':<22} {'Need':>5} {'Ordered':>8} {'Cost':>10} {'Supplier'}")
+    print("  " + "-" * 105)
+
+    total_cost = 0.0
+    ordered_count = 0
+    pending_parts = []
+
+    # First show ordered parts
+    for entry in order.get("parts", []):
+        mpn = entry["mpn"]
+        name = entry.get("name", bom_needs.get(mpn, (mpn, 0))[0])
+        need = bom_needs.get(mpn, (name, 0))[1]
+        qty_ordered = entry.get("quantity_ordered", 0)
+        cost = entry.get("cost", 0)
+        currency = entry.get("currency", "EUR")
+        supplier = entry.get("supplier", "")
+        status = entry.get("status", "pending")
+
+        sym = {"USD": "$", "EUR": "€", "GBP": "£"}.get(currency, currency + " ")
+        cost_str = f"{sym}{cost:.2f}" if cost else ""
+
+        if status == "ordered":
+            icon = f"{GREEN}✓ ordered{RESET}"
+            ordered_count += 1
+            total_cost += cost
+        else:
+            icon = f"{YELLOW}○ pending{RESET}"
+
+        print(
+            f"  {icon:<22} {name:<22} {mpn:<22} {need:>5} {qty_ordered:>8} "
+            f"{cost_str:>10}  {DIM}{supplier}{RESET}"
+        )
+
+    # Now find BOM parts NOT in the order at all
+    ordered_mpns = {e["mpn"] for e in order.get("parts", [])}
+    missing_cost = 0.0
+    for part in sorted(bom, key=lambda p: p.name):
+        if part.mpn not in ordered_mpns and part.category in ("tht", "manual"):
+            pending_parts.append(part)
+
+            # Look up estimated unit price from supplier results
+            est_str = ""
+            result = (supplier_results or {}).get(part.mpn)
+            if result and result.offers and result.offers[0].unit_price is not None:
+                best = result.offers[0]
+                line_cost = best.unit_price * part.quantity
+                missing_cost += line_cost
+                sym = {"USD": "$", "EUR": "€", "GBP": "£"}.get(best.currency, best.currency + " ")
+                est_str = f"~{sym}{line_cost:.2f}"
+
+            print(
+                f"  {RED}✗ missing{RESET}  {part.name:<22} {part.mpn:<22} "
+                f"{part.quantity:>5} {'—':>8} {est_str:>10}  Not in order"
+            )
+
+    # Summary
+    total_tht_manual = len([p for p in bom if p.category in ("tht", "manual")])
+    missing_str = f"{len(pending_parts)} parts"
+    if missing_cost > 0:
+        missing_str += f" (~€{missing_cost:.2f} est.)"
+    print(f"\n  {BOLD}Ordered:{RESET} {ordered_count}/{total_tht_manual} parts  |  "
+          f"{BOLD}Spent:{RESET} ~€{total_cost:.2f}  |  "
+          f"{BOLD}Missing:{RESET} {missing_str}")
+
+
+def parse_suppliers(value: str) -> list[str]:
+    """Parse --suppliers flag value into a list of supplier names."""
+    if value == "all":
+        return sorted(VALID_SUPPLIERS)
+    names = [s.strip().lower() for s in value.split(",")]
+    invalid = set(names) - VALID_SUPPLIERS
+    if invalid:
+        raise argparse.ArgumentTypeError(
+            f"Unknown supplier(s): {', '.join(invalid)}. "
+            f"Valid: {', '.join(sorted(VALID_SUPPLIERS))}, all"
+        )
+    return names
+
+
 def main():
     parser = argparse.ArgumentParser(description="Check Requencer parts availability")
     parser.add_argument(
         "--boards", type=int, default=5,
-        help="Number of boards to order (default: 5)",
+        help="Number of PCBs to order with SMD assembly (default: 5)",
+    )
+    parser.add_argument(
+        "--kits", type=int, default=None,
+        help="Number of complete kits to build (THT + manual parts). Defaults to --boards.",
     )
     parser.add_argument(
         "--skip-jlcpcb", action="store_true",
         help="Skip JLCPCB stock check (offline mode)",
     )
     parser.add_argument(
-        "--skip-nexar", action="store_true",
-        help="Skip Nexar multi-supplier pricing",
+        "--suppliers", type=str, default="tme,digikey",
+        help="Comma-separated supplier list: tme, digikey, nexar, all (default: tme,digikey)",
     )
     parser.add_argument(
         "--json", type=str, default=None,
         help="Write JSON report to this path",
     )
+    parser.add_argument(
+        "--order", type=str, default=None,
+        help="Order ID to show checklist for (e.g. order-001). Defaults to latest.",
+    )
     args = parser.parse_args()
+    kits = args.kits if args.kits is not None else args.boards
 
-    print(f"{BOLD}=== REQUENCER BOM — Parts Check ({args.boards} boards) ==={RESET}")
+    supplier_names = parse_suppliers(args.suppliers)
+
+    print(f"{BOLD}=== REQUENCER BOM — Parts Check ({args.boards} boards, {kits} kits) ==={RESET}")
 
     # Step 1: Parse BOM
+    # SMD parts use board_count (assembled by JLCPCB on every PCB)
+    # THT/manual parts use kit count (only fully assemble some boards)
     print(f"\n{BOLD}Parsing .ato files...{RESET}")
-    bom = build_bom(PARTS_DIR, SRC_DIR, board_count=args.boards)
-    smd_parts = [p for p in bom if p.category == "smd"]
-    tht_parts = [p for p in bom if p.category == "tht"]
-    manual_parts = [p for p in bom if p.category == "manual"]
+    smd_bom = build_bom(PARTS_DIR, SRC_DIR, board_count=args.boards)
+    kit_bom = build_bom(PARTS_DIR, SRC_DIR, board_count=kits)
+    smd_parts = [p for p in smd_bom if p.category == "smd"]
+    tht_parts = [p for p in kit_bom if p.category == "tht"]
+    manual_parts = [p for p in kit_bom if p.category == "manual"]
+    bom = smd_parts + tht_parts + manual_parts
 
     print(f"  Found {len(bom)} unique parts: "
-          f"{len(smd_parts)} SMD, {len(tht_parts)} THT, {len(manual_parts)} manual")
+          f"{len(smd_parts)} SMD (×{args.boards}), "
+          f"{len(tht_parts)} THT (×{kits}), "
+          f"{len(manual_parts)} manual (×{kits})")
 
     issues: list[str] = []
 
@@ -287,22 +627,24 @@ def main():
             print(f"  {RED}JLCPCB stock check failed: {e}{RESET}")
             print("  Use --skip-jlcpcb to skip this step")
 
-    # Step 3: Nexar multi-supplier pricing
-    nexar_results: dict[str, SupplierResult] = {}
-    nexar = NexarClient()
-    if not args.skip_nexar and nexar.available:
-        print(f"\n{BOLD}Querying Nexar/Octopart for supplier pricing...{RESET}")
-        try:
-            search_parts = [(p.mpn, p.quantity) for p in tht_parts]
-            nexar_results = nexar.search_batch(search_parts)
-            print(f"  Got pricing for {len(nexar_results)} parts")
-        except Exception as e:
-            print(f"  {RED}Nexar query failed: {e}{RESET}")
-    elif not args.skip_nexar and not nexar.available:
-        print(f"\n{DIM}Nexar API not configured — skipping multi-supplier pricing.{RESET}")
-        print(f"{DIM}  Set NEXAR_CLIENT_ID + NEXAR_CLIENT_SECRET env vars,{RESET}")
-        print(f"{DIM}  or create ~/.config/requencer/nexar.json{RESET}")
-        print(f"{DIM}  Register at https://nexar.com/api (free tier: 1000 parts/month){RESET}")
+    # Step 3: Multi-supplier pricing
+    supplier_results: dict[str, SupplierResult] = {}
+    all_mpns = {p.mpn for p in tht_parts + manual_parts}
+
+    # Inject hardcoded pricing for parts not on mainstream distributors
+    manual_results = _build_manual_results()
+    for mpn, result in manual_results.items():
+        if mpn in all_mpns:
+            supplier_results[mpn] = result
+
+    if supplier_names and tht_parts:
+        # Only query API for parts that don't have manual pricing
+        search_parts = [(p.mpn, p.quantity) for p in tht_parts if p.mpn not in manual_results]
+        if search_parts:
+            suppliers_str = ", ".join(s.upper() for s in supplier_names)
+            print(f"\n{BOLD}Querying suppliers ({suppliers_str}) for THT pricing...{RESET}")
+            api_results = query_suppliers(supplier_names, search_parts)
+            supplier_results.update(api_results)
 
     # Step 4: Print reports
     smd_total = 0.0
@@ -310,28 +652,46 @@ def main():
     if smd_parts:
         smd_total = print_smd_report(smd_parts, stock_info, issues)
     if tht_parts:
-        tht_total = print_tht_report(tht_parts, nexar_results, issues)
+        tht_total = print_tht_report(tht_parts, supplier_results, issues)
+    manual_total = 0.0
     if manual_parts:
-        print_manual_report(manual_parts, issues)
+        manual_total = print_manual_report(manual_parts, supplier_results)
 
     print_issues(issues)
 
     # Cost summary
-    print(f"\n{BOLD}ESTIMATED COST ({args.boards} boards){RESET}")
+    print(f"\n{BOLD}ESTIMATED COST ({args.boards} PCBs + {kits} complete kits){RESET}")
     if smd_total:
-        print(f"  JLCPCB SMD parts:     ${smd_total:>8.2f}")
+        print(f"  JLCPCB SMD (×{args.boards}):     ${smd_total:>8.2f}")
     if tht_total:
-        print(f"  THT manual-order:     ${tht_total:>8.2f}")
-    grand = smd_total + tht_total
+        print(f"  THT parts (×{kits}):       ${tht_total:>8.2f}")
+    if manual_total:
+        print(f"  Manual parts (×{kits}):    ${manual_total:>8.2f}")
+    grand = smd_total + tht_total + manual_total
     if grand:
         print(f"  {'─' * 30}")
         print(f"  Total parts cost:     ${grand:>8.2f}")
     print(f"\n{DIM}  Note: Excludes PCB fabrication, assembly fees, shipping, and passives "
           f"(auto-picked by Atopile).{RESET}")
 
-    # Step 5: JSON report
+    # Step 5: Order checklist
+    if args.order:
+        order_data = load_order(args.order)
+        if order_data:
+            order_idx = {e["mpn"]: e for e in order_data.get("parts", []) if e.get("status") == "ordered"}
+            print_order_checklist(bom, order_data, order_idx, supplier_results)
+        else:
+            print(f"\n{YELLOW}Order '{args.order}' not found in {ORDERS_DIR}{RESET}")
+    elif ORDERS_DIR.exists():
+        order_files = sorted(ORDERS_DIR.glob("order-*.json"))
+        if order_files:
+            order_data = json.loads(order_files[-1].read_text())
+            order_idx = {e["mpn"]: e for e in order_data.get("parts", []) if e.get("status") == "ordered"}
+            print_order_checklist(bom, order_data, order_idx, supplier_results)
+
+    # Step 6: JSON report
     json_path = Path(args.json) if args.json else BUILD_DIR / "parts-report.json"
-    write_json_report(bom, stock_info, nexar_results, json_path)
+    write_json_report(bom, stock_info, supplier_results, json_path)
 
     # Exit code: 1 if any issues
     sys.exit(1 if issues else 0)

@@ -1,0 +1,17 @@
+# BAT54S — Dual Series Schottky Diode, SOT-23
+# LCSC: C7420333 (preferred library — saves $3 extended setup fee)
+# Used for input protection clamping
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component BAT54S:
+    trait is_atomic_part<manufacturer="Nexperia", partnumber="BAT54S,215", footprint="SOT-23.kicad_mod", symbol="BAT54S.kicad_sym">
+    trait has_designator_prefix<prefix="D">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C7420333", manufacturer="hongjiacheng", partno="BAT54S">
+
+    signal ANODE ~ pin 1     # Anode of D1
+    signal CATHODE ~ pin 2   # Cathode of D2
+    signal COMMON ~ pin 3    # Junction (cathode D1 / anode D2)

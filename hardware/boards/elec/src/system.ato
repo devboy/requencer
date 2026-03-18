@@ -3,8 +3,8 @@
 # Wires control and main boards together through connector interface
 # for full end-to-end constraint checking by atopile
 
-from "control.ato" import Control
-from "main.ato" import Main
+from "boards/control/control.ato" import Control
+from "boards/main/main.ato" import Main
 
 module System:
     control = new Control
@@ -21,10 +21,8 @@ module System:
     control.connector.sr_clk ~ main.connector.sr_clk
     control.connector.sr_latch ~ main.connector.sr_latch
     control.connector.sr_data ~ main.connector.sr_data
-    control.connector.led_sin ~ main.connector.led_sin
-    control.connector.led_sclk ~ main.connector.led_sclk
-    control.connector.led_xlat ~ main.connector.led_xlat
-    control.connector.led_blank ~ main.connector.led_blank
+    control.connector.i2c_sda ~ main.connector.i2c_sda
+    control.connector.i2c_scl ~ main.connector.i2c_scl
     control.connector.enc_a_a ~ main.connector.enc_a_a
     control.connector.enc_a_b ~ main.connector.enc_a_b
     control.connector.enc_a_sw ~ main.connector.enc_a_sw
@@ -37,6 +35,7 @@ module System:
     control.connector.lcd_cs ~ main.connector.lcd_cs
     control.connector.lcd_dc ~ main.connector.lcd_dc
     control.connector.lcd_bl ~ main.connector.lcd_bl
+    control.connector.lcd_rst ~ main.connector.lcd_rst
     control.connector.sd_cs ~ main.connector.sd_cs
     control.connector.sd_cd ~ main.connector.sd_cd
     control.connector.clk_in ~ main.connector.clk_in

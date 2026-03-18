@@ -106,22 +106,77 @@ Research compiled from community experience, manufacturer guidelines, and profes
 
 ## 6. Trace Width & Routing
 
-### Best Practices
+### ~~Old Recommendations (overly conservative)~~
 
-- **Signal traces: 0.5mm (20mil) minimum.** Default 0.25mm (10mil) is too thin — harder to manufacture, more prone to etching defects.
-- **Power traces: 0.9mm (35mil) minimum.** ±12V rails carry all module current. A thin power trace can burn under short conditions.
+The original version of this section recommended 0.5mm signal traces and 0.9mm power traces, based on general eurorack community advice from DIY forums (ModWiggler, North Coast Synthesis). Those recommendations were designed for **2-layer boards with large through-hole components** and assume older PCB manufacturing with wider tolerances. They are not appropriate for dense SMD designs manufactured at modern fabs like JLCPCB.
+
+### Updated Best Practices (fact-checked, 2026-03-14)
+
+**The key insight: trace width matters for current capacity and manufacturing yield — not for EMI or signal integrity at eurorack frequencies.** All eurorack signals (CV, gate, audio, SPI) are low-frequency relative to PCB trace effects:
+
+| Signal type | Frequency range | Impedance/EMI concerns? |
+|-------------|----------------|------------------------|
+| Pitch CV | DC (static voltage) | No — trace is just a wire |
+| Gate CV | DC (0V or 5V) | No |
+| Audio/mod CV | DC–20kHz | No — wavelength is km, trace is mm |
+| SPI clock | 1–10 MHz | Minimal — edge rates ~10ns, trace lengths <50mm |
+| LED PWM | ~4 kHz | No |
+
+**Trace width only matters for:**
+
+1. **Current carrying capacity.** A 0.15mm trace on 1oz copper carries ~0.5A safely. Eurorack signal currents are <20mA. Even power traces rarely exceed 400mA total per rail for a single module.
+
+2. **Manufacturing yield.** JLCPCB standard capability for 4-layer boards is 0.1mm (4 mil) trace/space. Their recommended minimum is 0.15mm (6 mil) for best yield. Going wider than needed wastes routing capacity without improving yield.
+
+3. **IR drop on power distribution.** Wider power traces reduce voltage drop across long shared rails. This is the one place where 0.3mm+ traces have a real benefit — not for signal integrity, but for keeping the voltage at the IC pin close to the regulator output.
+
+**What actually prevents interference:**
+
+- **Ground planes** (4-layer board with continuous ground on layer 2) — provides low-impedance return paths and shielding between signal layers. This is the single biggest factor for noise rejection.
+- **Trace spacing** — crosstalk drops with the square of distance. The "3× rule" (3× trace width center-to-center spacing) eliminates ~70% of capacitive coupling. At 0.15mm traces, that's 0.45mm — easily achieved by any autorouter.
+- **Component placement** — keeping fast digital (SPI) physically separated from precision analog (pitch CV). This is a layout topology concern, not a trace width concern.
+
+**What does NOT matter at eurorack frequencies:**
+
+- **Trace width for EMI** — only relevant above ~50 MHz. Our fastest signal (SPI clock) is 1–10 MHz.
+- **Impedance matching** — matters for signals with rise times <1ns and trace lengths approaching λ/10. Our traces are <50mm; at 10 MHz, λ/10 = 3 meters.
+- **Via inductance in analog paths** — each via adds ~0.5nH. At DC (pitch CV), inductance = 0Ω. At 20kHz (audio), 0.5nH = 0.00006Ω. Negligible.
+- **Wider traces = less inductance** — true, but inductance only matters at high frequency. At DC, it's zero.
+
+### Recommended Netclasses (Requencer)
+
+Based on actual signal requirements and JLCPCB 4-layer capabilities:
+
+| Netclass | Track width | Clearance | Via dia/drill | Rationale |
+|----------|------------|-----------|---------------|-----------|
+| Default (digital) | 0.15mm | 0.127mm | 0.6/0.3mm | SPI, GPIO, shift register — all <5mA, low frequency |
+| Power | 0.3mm | 0.15mm | 0.8/0.4mm | Shared rails (±12V, 5V, 3.3V) — IR drop matters here |
+| Analog | 0.15mm | 0.15mm | 0.6/0.3mm | DAC outputs, op-amp I/O, CV paths — DC signals, µA-level currents. Wider clearance for routing separation from digital, not for the trace width itself |
+| LED | 0.15mm | 0.127mm | 0.45/0.2mm | TLC5947 outputs, <20mA constant current sinks. Minimum size to ease routing from dense VQFN-32 package |
+
+Previous values (0.2mm default, 0.3mm analog, 0.3mm power) were ~2× what's needed, wasting routing capacity on dense boards with VQFN/WQFN packages. The revised values stay well above JLCPCB minimums (0.1mm) while maximizing routing flexibility.
+
+### Routing Guidelines (unchanged)
+
 - **45° routing angles only.** Avoid arbitrary angles — they make spacing harder and complicate DRC.
-- **Never route between DIP IC pads** unless absolutely necessary.
-- **Use wider gaps than minimum** where space permits. JLCPCB minimum is 0.1mm (4mil), but 0.2mm+ is safer.
-- **Avoid vias in analog signal paths.** Each via adds ~0.5nH inductance and a discontinuity.
+- **Avoid running analog traces parallel to SPI clock or LED data lines.** Use ground plane shielding between layers, or route on different layers with orthogonal orientation.
+- **Ground pour on both copper layers**, stitched with vias every ~5mm. Check for isolated copper islands after routing.
 
-### Our Design
-- Autorouter (Freerouting) handles trace routing — will need to verify trace widths meet these minimums.
-- **Action item:** Set design rules in KiCad before autorouting:
-  - Default trace: 0.3mm (12mil)
-  - Power nets (+12V, -12V, +5V, +3.3V, GND): 0.5mm minimum
-  - Signal nets: 0.25mm minimum
-- **Status: Needs verification after routing.**
+### Our Design (design-rules.json)
+- Netclasses defined in `design-rules.json`, applied automatically by `common/design_rules.py` before DSN export.
+- Net-to-netclass assignments use regex patterns for automatic matching.
+- **Status: Updated.** Netclasses revised to match actual signal requirements.
+
+### Sources
+
+- [JLCPCB Manufacturing Capabilities (2025)](https://jlcpcb.com/capabilities/pcb-capabilities) — 4-layer: 0.1mm min trace/space standard
+- [JLCPCB Design Rules Specification Guide (2025)](https://www.schemalyzer.com/en/blog/manufacturing/jlcpcb/jlcpcb-design-rules) — recommended 0.15mm for yield
+- [Cadence: How to Reduce Crosstalk in PCB Layout](https://resources.pcb.cadence.com/blog/2019-how-to-reduce-crosstalk-in-your-pcb-layout) — spacing > width for crosstalk
+- [Altium: Crosstalk in Mixed-Signal PCB Traces and Ground Planes](https://resources.altium.com/p/crosstalk-in-mixed-signal-pcb-traces-and-ground-planes) — ground planes are the primary defense
+- [TI Precision Labs: Crosstalk on PCB Layouts (ADC application)](https://www.ti.com/content/dam/videos/external-videos/ja-jp/9/3816841626001/6307563213112.mp4/subassets/crosstalk-on-pcb-layouts-presentation-quiz.pdf) — spacing and ground planes, not trace width
+- [Proto-Electronics: Best Crosstalk Reduction Techniques](https://www.proto-electronics.com/blog/best-crosstalk-reduction-techniques) — 3× rule for spacing
+- [Sierra Circuits: 7 PCB Design Tips for EMI/EMC](https://www.protoexpress.com/blog/7-pcb-design-tips-solve-emi-emc-issues/) — ground planes and return paths
+- [ModWiggler: Eurorack Trace Widths Discussion](https://modwiggler.com/forum/viewtopic.php?t=193128) — community consensus: 15 thou signal, 30 thou power (conservative, aimed at 2-layer DIY boards)
 
 ---
 
@@ -198,7 +253,7 @@ Before powering up the first board:
 | Medium | 2-layer vs 4-layer decision | Consider 4-layer given mixed-signal density |
 | Low | Input divider tolerance (5%) | Upgrade to 1% resistors (10k/22k) |
 | Low | Clock output inverts GPIO | Document in firmware; or swap to emitter-follower |
-| Verify | Autorouter trace widths | Set design rules before routing |
+| Done | Trace widths revised | Netclasses in design-rules.json updated 2026-03-14 |
 | Verify | Ground plane continuity after routing | Manual review of ground pour |
 | Verify | Footprint dimensions vs datasheets | Print 1:1 and check physical fit |
 

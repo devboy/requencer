@@ -1,0 +1,25 @@
+# Display — ST7796 3.5" bare SPI TFT (480×320), 32-pin FPC
+#
+# The physical display (bare glass + FPC) and all supporting circuits
+# (backlight MOSFET, GPIO+RC reset, IM pull-ups, bypass caps) are on the CONTROL BOARD.
+# The FPC connector on the control board connects to the display glass
+# sitting in the faceplate cutout.
+#
+# Display signals route: MCU (main board) → board connector → control board → FPC
+#
+# This file is kept as documentation only. No physical parts remain on the
+# main board for the display — all wiring is done directly in main.ato
+# (MCU signals → connector) and control.ato (connector → FPC + circuits).
+#
+# Display specs:
+#   Part: Generic ST7796 3.5" bare panel (maithoga, AliExpress)
+#   Glass: 55.26 × 84.52mm (portrait), landscape in module: 84.52 × 55.26mm
+#   Thickness: 4.13mm max
+#   Active area: 73.44 × 48.96mm (480×320)
+#   Interface: 4-wire SPI (IM pins tied high via 10kΩ pull-ups)
+#   FPC: 32-pin, 0.5mm pitch, exits right edge (landscape)
+#   Connector: JUSHUO AFC01-S32FCA-00 (LCSC C262672)
+#   Backlight: Single LED cathode, anode to 5V via 82Ω (~18mA), PWM dimming via MOSFET
+#   FPC pinout: 1=GND, 2=VDDA, 3=VDDI, 4=TE, 5=CS, 6=DC, 7=SCK,
+#               8=RDX, 9=MOSI, 10=MISO, 11-26=DB0-DB15, 27=RESET,
+#               28=IM2, 29=IM1, 30=IM0, 31=LED-A, 32=LED-K

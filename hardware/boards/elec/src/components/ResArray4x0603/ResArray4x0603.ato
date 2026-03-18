@@ -1,0 +1,24 @@
+# ResArray4x0603 — 4× Isolated Resistor Array, 0603×4 (3.2×1.6mm)
+# UNI-ROYAL 4D03WGJ0103T5E (4×10kΩ ±5%)
+# LCSC: C29718 — JLCPCB Basic part, 1.5M+ stock
+# Convex pinout: R1=pin1-pin8, R2=pin2-pin7, R3=pin3-pin6, R4=pin4-pin5
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component ResArray4x0603:
+    trait is_atomic_part<manufacturer="UNI-ROYAL", partnumber="4D03WGJ0103T5E", footprint="R_Array_Convex_4x0603.kicad_mod", symbol="ResArray4x0603.kicad_sym">
+    trait has_designator_prefix<prefix="RN">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C29718", manufacturer="UNI-ROYAL", partno="4D03WGJ0103T5E">
+
+    # Convex pinout: resistors bridge top-bottom pin pairs
+    signal R1A ~ pin 1    # R1 bottom
+    signal R2A ~ pin 2    # R2 bottom
+    signal R3A ~ pin 3    # R3 bottom
+    signal R4A ~ pin 4    # R4 bottom
+    signal R4B ~ pin 5    # R4 top
+    signal R3B ~ pin 6    # R3 top
+    signal R2B ~ pin 7    # R2 top
+    signal R1B ~ pin 8    # R1 top

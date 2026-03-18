@@ -6,6 +6,7 @@ Creates parametric STEP files for components that don't have manufacturer-provid
 
 Components generated:
   - TC002-RGB: Illuminated tactile switch with long actuator for panel mount
+  - PB6149L: 6x6mm illuminated tactile switch with translucent cap
   - PGA2350: Pimoroni PGA2350 RP2350B module (25.4mm square PCB + pins)
 
 Usage:
@@ -17,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 BOARDS_DIR = Path(__file__).resolve().parent.parent.parent
-PARTS_DIR = BOARDS_DIR / "parts"
+PARTS_DIR = BOARDS_DIR / "elec" / "src" / "components"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -391,31 +392,31 @@ class StepWriter:
 
 
 def generate_tc002_rgb():
-    """Generate TC002-N11AS1XT-RGB illuminated tactile switch with long actuator.
+    """Generate TC002-N11AS1XT-RGB illuminated tactile switch with S1 cap.
 
-    Dimensions (from datasheet + measurement):
-      Body: 7.0 × 7.0 × 3.5mm (centered at origin XY, base at Z=0)
-      Actuator: 3.2mm diameter cylinder, centered, extending from body top
-      Total height above PCB: ~12mm (long actuator for panel-mount)
-      LED window: small recess in body top (simplified)
-      Pins extend 3.5mm below PCB (Z < 0)
+    Dimensions (from Well Buying TC002 datasheet):
+      Body: 6.0 × 6.0 × 8.2mm above PCB (centered at origin XY, base at Z=0)
+      S1 cap: 4.0mm diameter lens, 9.6mm tall, 2.3mm overlap with body
+      Cap adds 7.3mm above body top (9.6 - 2.3 overlap)
+      Total height above PCB: 8.2 + 7.3 = 15.5mm
+      Pins extend 1.8mm below PCB (Z < 0)
 
-    The long actuator version is needed for the buttons to protrude through
-    the faceplate in the sandwich assembly.
+    The S1 cap protrudes through the faceplate in the sandwich assembly
+    (~1.9mm above faceplate front surface).
     """
-    sw = StepWriter("TC002-RGB", "TC002-N11AS1XT-RGB illuminated tactile switch, long actuator")
+    sw = StepWriter("TC002-RGB", "TC002-N11AS1XT-RGB illuminated tactile switch with S1 cap")
 
-    body_half = 3.5  # 7mm body
-    body_h = 3.5     # body height
-    act_r = 1.6      # actuator radius (3.2mm diameter)
-    act_h = 12.0     # total height from PCB to actuator tip
-    pin_depth = 3.5   # pin length below PCB
+    body_half = 3.0  # 6mm body
+    body_h = 8.2     # body height above PCB
+    cap_r = 2.0      # S1 cap radius (4.0mm diameter lens)
+    cap_h = 15.5     # total height from PCB to cap tip (8.2 + 9.6 - 2.3)
+    pin_depth = 1.8  # pin length below PCB
 
     # Body (centered at origin, base at z=0)
     sw.add_box(-body_half, -body_half, 0, body_half, body_half, body_h, "Body")
 
-    # Actuator (cylinder from body top to full height)
-    sw.add_prism(0, 0, body_h, act_h, act_r, sides=16, label="Actuator")
+    # S1 cap (cylinder from overlap point to full height)
+    sw.add_prism(0, 0, body_h, cap_h, cap_r, sides=16, label="S1 Cap")
 
     # Pin representation (simplified: 4 small boxes for corner pins)
     pin_w = 0.5
@@ -428,6 +429,55 @@ def generate_tc002_rgb():
         )
 
     out = PARTS_DIR / "TC002-RGB" / "TC002-N11AS1XT-RGB.step"
+    sw.write(out)
+
+
+def generate_pb6149l():
+    """Generate PB6149L illuminated tactile switch with translucent cap.
+
+    Dimensions (from AliExpress listing / datasheet drawing):
+      Body: 6.2 × 5.4mm, ~4.3mm above PCB (typical 6x6 tact body)
+      Translucent cap: Ø5.6mm, 10.3mm tall, press-fit onto actuator
+      Total height above PCB: ~18mm (body + cap)
+      Pin spacing: 5.08 × 5.08mm (2.54mm grid)
+      6 THT pins: 4 switch + 2 LED (extend ~3.5mm below PCB)
+    """
+    sw = StepWriter("PB6149L", "PB6149L illuminated tactile switch with translucent cap")
+
+    body_hx = 3.1   # 6.2mm body width / 2
+    body_hy = 2.7    # 5.4mm body depth / 2
+    body_h = 4.3     # body height above PCB
+    cap_r = 2.8      # Ø5.6mm cap radius
+    cap_base_h = 4.3 # cap starts at top of body
+    cap_top_h = 18.0 # total height from PCB
+    pin_depth = 3.5  # pin length below PCB
+
+    # Body (centered at origin, base at z=0)
+    sw.add_box(-body_hx, -body_hy, 0, body_hx, body_hy, body_h, "Body")
+
+    # Translucent cap (cylinder from body top to full height)
+    sw.add_prism(0, 0, cap_base_h, cap_top_h, cap_r, sides=20, label="Cap")
+
+    # 6 THT pins at footprint pad positions
+    pin_w = 0.4
+    # Pins 1-4: switch contacts at ±2.54mm grid
+    switch_pins = [(-2.54, -2.54), (2.54, -2.54), (-2.54, 2.54), (2.54, 2.54)]
+    for i, (px, py) in enumerate(switch_pins):
+        sw.add_box(
+            px - pin_w / 2, py - pin_w / 2, -pin_depth,
+            px + pin_w / 2, py + pin_w / 2, 0,
+            f"SWPin{i + 1}",
+        )
+    # Pins 5-6: LED anode/cathode (below body, offset from center)
+    led_pins = [(-1.0, 4.04), (1.0, 4.04)]
+    for i, (px, py) in enumerate(led_pins):
+        sw.add_box(
+            px - pin_w / 2, py - pin_w / 2, -pin_depth,
+            px + pin_w / 2, py + pin_w / 2, 0,
+            f"LEDPin{i + 1}",
+        )
+
+    out = PARTS_DIR / "PB6149L" / "PB6149L.step"
     sw.write(out)
 
 
@@ -513,6 +563,31 @@ def generate_fpc_18p_05mm():
     sw.add_box(-body_hw, -body_hd, body_h, body_hw, -body_hd + 2.0, body_h + 1.0, "Latch")
 
     out = PARTS_DIR / "FPC_18P_05MM" / "FPC_18P_05MM.step"
+    sw.write(out)
+
+
+def generate_fpc_32p_05mm():
+    """Generate FPC 32-pin 0.5mm pitch ZIF connector.
+
+    Dimensions (typical for JUSHUO AFC01-S32FCA-00):
+      Body: 19.0 × 4.0 × 2.5mm (centered at origin XY, base at Z=0)
+      32 pins at 0.5mm pitch = 15.5mm span, centered in body
+      Latch: hinged flap on top, ~19.0 × 2.0 × 1.0mm
+      No pins below PCB (SMD pads only)
+    """
+    sw = StepWriter("FPC_32P_05MM", "32-pin 0.5mm FPC ZIF connector")
+
+    body_hw = 9.5    # half-width (19.0mm total)
+    body_hd = 2.0    # half-depth (4.0mm total)
+    body_h = 2.5     # body height
+
+    # Main body
+    sw.add_box(-body_hw, -body_hd, 0, body_hw, body_hd, body_h, "Body")
+
+    # Latch (hinged flap on top)
+    sw.add_box(-body_hw, -body_hd, body_h, body_hw, -body_hd + 2.0, body_h + 1.0, "Latch")
+
+    out = PARTS_DIR / "FPC_32P_05MM" / "FPC_32P_05MM.step"
     sw.write(out)
 
 
@@ -617,11 +692,17 @@ def main():
     print("TC002-RGB (illuminated button, long actuator):")
     generate_tc002_rgb()
 
+    print("\nPB6149L (illuminated button with translucent cap):")
+    generate_pb6149l()
+
     print("\nPGA2350 (RP2350B module):")
     generate_pga2350()
 
     print("\nFPC_18P_05MM (18-pin FPC ZIF connector):")
     generate_fpc_18p_05mm()
+
+    print("\nFPC_32P_05MM (32-pin FPC ZIF connector):")
+    generate_fpc_32p_05mm()
 
     print("\nPJS008U (vertical MicroSD connector):")
     generate_pjs008u()

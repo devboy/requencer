@@ -3,44 +3,77 @@
 Models nets as springs pulling connected components together. Iterates
 force equilibrium, then legalizes by snapping to collision-free positions.
 
+When clusters are provided, adds additional forces:
+  - Satellites are pulled toward their anchor's correct edge
+  - Passives are pulled toward their satellite
+  - These forces are stronger than generic connectivity pull
+
 Parameterized by:
   - attraction: spring constant for net connectivity pull
   - repulsion: push strength for overlap prevention
   - iterations: simulation steps
+  - clusters: list[Cluster] (optional, injected by orchestrator)
 """
 
 import random
 
 from ..helpers import (
-    CollisionTracker,
-    connectivity_sort_by_net_graph,
-    find_best_side,
+    cluster_edge_affinity,
+    satellite_target_position,
+    best_rotation_at_position,
 )
-from . import BoardContext, Placement, register
+from . import BoardState, ComponentInfo, Placement, register, rotated_info
+
+
+_PASSIVE_PREFIXES = ("r_", "c_", "l_", "r.", "c.", "l.")
+
+
+def _is_passive_addr(addr):
+    parts = addr.rsplit(".", 1)
+    leaf = parts[-1] if len(parts) > 1 else addr
+    return any(leaf.lower().startswith(p) for p in _PASSIVE_PREFIXES)
 
 
 @register("force_directed")
 class ForceDirectedStrategy:
     """Spring-based simultaneous optimization + legalization."""
 
-    def place(self, ctx: BoardContext, params: dict) -> dict[str, Placement]:
+    def place(self, components: list[ComponentInfo],
+              board: BoardState, params: dict) -> dict[str, Placement]:
         attraction = params.get("attraction", 1.0)
         repulsion_strength = params.get("repulsion", 0.5)
         iterations = params.get("iterations", 200)
         seed = params.get("seed", 42)
+        clusters = params.get("clusters", [])
 
         rng = random.Random(seed)
-        free_addrs = list(ctx.free.keys())
+        comp_map = {c.address: c for c in components}
+        free_addrs = list(comp_map.keys())
         if not free_addrs:
             return {}
 
-        # Build adjacency from net_graph for force computation
+        # Build cluster lookup
+        anchor_of = {}
+        cluster_of = {}
+        for cl in clusters:
+            cluster_of[cl.anchor] = cl
+            for sat_addr in cl.satellites:
+                anchor_of[sat_addr] = cl.anchor
+                cluster_of[sat_addr] = cl
+                for passive_addr in cl.satellites[sat_addr]:
+                    anchor_of[passive_addr] = cl.anchor
+                    cluster_of[passive_addr] = cl
+            for bypass_addr in cl.bypass:
+                anchor_of[bypass_addr] = cl.anchor
+                cluster_of[bypass_addr] = cl
+
+        # Build adjacency from net_graph
         adjacency: dict[str, dict[str, int]] = {}
         for addr in free_addrs:
             adjacency[addr] = {}
-        for addr in ctx.fixed:
+        for addr in board.fixed:
             adjacency[addr] = {}
-        for net, net_addrs in ctx.net_graph.items():
+        for net, net_addrs in board.net_graph.items():
             for i in range(len(net_addrs)):
                 for j in range(i + 1, len(net_addrs)):
                     a, b = net_addrs[i], net_addrs[j]
@@ -49,32 +82,21 @@ class ForceDirectedStrategy:
                     if b in adjacency:
                         adjacency[b][a] = adjacency[b].get(a, 0) + 1
 
-        # Initialize: place free components at centroid of fixed neighbors
-        # with small random jitter to prevent clustering
+        # Initialize positions
         positions: dict[str, tuple[float, float]] = {}
+        placed_so_far: dict[str, Placement] = {}
         for addr in free_addrs:
-            neighbors = adjacency.get(addr, {})
-            fixed_positions = []
-            for n in neighbors:
-                if n in ctx.fixed:
-                    p = ctx.fixed[n]
-                    fixed_positions.append((p.x, p.y))
-            if fixed_positions:
-                cx = sum(p[0] for p in fixed_positions) / len(fixed_positions)
-                cy = sum(p[1] for p in fixed_positions) / len(fixed_positions)
-            else:
-                cx, cy = ctx.width / 2, ctx.height / 2
-            # Add jitter to prevent identical starting positions
+            cx, cy = board.connectivity_target(addr, placed_so_far,
+                                                  group=comp_map[addr].group)
             jx = rng.uniform(-2.0, 2.0)
             jy = rng.uniform(-2.0, 2.0)
             positions[addr] = (
-                max(0, min(ctx.width, cx + jx)),
-                max(0, min(ctx.height, cy + jy)),
+                max(0, min(board.width, cx + jx)),
+                max(0, min(board.height, cy + jy)),
             )
 
         # Force simulation
         for iteration in range(iterations):
-            # Temperature decreases over time (large moves early, small late)
             temp = 1.0 - iteration / iterations
             max_displacement = max(0.5, 10.0 * temp)
 
@@ -90,8 +112,8 @@ class ForceDirectedStrategy:
                 for neighbor, weight in adjacency.get(addr, {}).items():
                     if neighbor in positions:
                         nx, ny = positions[neighbor]
-                    elif neighbor in ctx.fixed:
-                        p = ctx.fixed[neighbor]
+                    elif neighbor in board.fixed:
+                        p = board.fixed[neighbor]
                         nx, ny = p.x, p.y
                     else:
                         continue
@@ -100,10 +122,65 @@ class ForceDirectedStrategy:
                     dy = ny - ay
                     dist = (dx * dx + dy * dy) ** 0.5
                     if dist > 0.1:
-                        # Spring force proportional to distance and weight
                         f = attraction * weight * dist * 0.01
                         fx += (dx / dist) * f
                         fy += (dy / dist) * f
+
+                # Group cohesion
+                group = comp_map[addr].group
+                if group:
+                    group_prefix = group + "."
+                    for other_addr, (ox, oy) in positions.items():
+                        if other_addr == addr:
+                            continue
+                        if not other_addr.startswith(group_prefix):
+                            continue
+                        dx = ox - ax
+                        dy = oy - ay
+                        dist = (dx * dx + dy * dy) ** 0.5
+                        if dist > 0.1:
+                            f = attraction * 0.5 * dist * 0.01
+                            fx += (dx / dist) * f
+                            fy += (dy / dist) * f
+
+                # Cluster edge affinity: pull satellites toward anchor edge
+                if addr in anchor_of and anchor_of[addr] in positions:
+                    anchor_addr = anchor_of[addr]
+                    anchor_comp = comp_map.get(anchor_addr)
+                    anch_x, anch_y = positions[anchor_addr]
+
+                    if anchor_comp and not _is_passive_addr(addr):
+                        # Satellite IC: pull toward correct edge
+                        best_edge, _ = cluster_edge_affinity(
+                            anchor_comp, comp_map[addr])
+                        if best_edge:
+                            anchor_p = Placement(x=anch_x, y=anch_y, side="F")
+                            ex, ey, _ = satellite_target_position(
+                                anchor_p, anchor_comp, comp_map[addr],
+                                best_edge)
+                            dx = ex - ax
+                            dy = ey - ay
+                            dist = (dx * dx + dy * dy) ** 0.5
+                            if dist > 0.1:
+                                # Strong pull (3x connectivity)
+                                f = attraction * 3.0 * dist * 0.01
+                                fx += (dx / dist) * f
+                                fy += (dy / dist) * f
+                    elif anchor_comp:
+                        # Passive: pull toward satellite
+                        cl = cluster_of.get(addr)
+                        if cl:
+                            for sat_addr, passives in cl.satellites.items():
+                                if addr in passives and sat_addr in positions:
+                                    sx, sy = positions[sat_addr]
+                                    dx = sx - ax
+                                    dy = sy - ay
+                                    dist = (dx * dx + dy * dy) ** 0.5
+                                    if dist > 0.1:
+                                        f = attraction * 2.0 * dist * 0.01
+                                        fx += (dx / dist) * f
+                                        fy += (dy / dist) * f
+                                    break
 
                 forces[addr] = (fx, fy)
 
@@ -111,17 +188,16 @@ class ForceDirectedStrategy:
             addr_list = free_addrs
             for i in range(len(addr_list)):
                 ax, ay = positions[addr_list[i]]
-                info_a = ctx.free[addr_list[i]]
+                info_a = comp_map[addr_list[i]]
 
                 for j in range(i + 1, len(addr_list)):
                     bx, by = positions[addr_list[j]]
-                    info_b = ctx.free[addr_list[j]]
+                    info_b = comp_map[addr_list[j]]
 
                     dx = ax - bx
                     dy = ay - by
                     dist = (dx * dx + dy * dy) ** 0.5
 
-                    # Overlap radius: sum of half-diagonals
                     min_dist = ((info_a.width + info_b.width) / 2 +
                                 (info_a.height + info_b.height) / 2) * 0.5
 
@@ -134,8 +210,7 @@ class ForceDirectedStrategy:
                         forces[addr_list[j]] = (fb[0] - nx * f, fb[1] - ny * f)
 
             # Anti-affinity: strong repulsion between constrained pairs
-            for rule in ctx.anti_affinity:
-                # Check free-free pairs
+            for rule in board.anti_affinity:
                 for i in range(len(addr_list)):
                     for j in range(i + 1, len(addr_list)):
                         a, b = addr_list[i], addr_list[j]
@@ -153,9 +228,8 @@ class ForceDirectedStrategy:
                             fb = forces[b]
                             forces[a] = (fa[0] + nx * f, fa[1] + ny * f)
                             forces[b] = (fb[0] - nx * f, fb[1] - ny * f)
-                # Check free-fixed pairs (only push the free component)
                 for addr in free_addrs:
-                    for faddr, fp in ctx.fixed.items():
+                    for faddr, fp in board.fixed.items():
                         if not rule.matches(addr, faddr):
                             continue
                         ax, ay = positions[addr]
@@ -177,53 +251,24 @@ class ForceDirectedStrategy:
                     fy = fy / mag * max_displacement
 
                 ox, oy = positions[addr]
-                nx = max(0, min(ctx.width, ox + fx))
-                ny = max(0, min(ctx.height, oy + fy))
+                nx = max(0, min(board.width, ox + fx))
+                ny = max(0, min(board.height, oy + fy))
                 positions[addr] = (nx, ny)
 
-        # Legalization: snap to collision-free positions
-        tht_extra = ctx.config.get("tht_extra_clearance_mm", 0.0)
-        tracker = CollisionTracker(ctx.width, ctx.height, clearance=0.5,
-                                   tht_extra_clearance=tht_extra)
+        # Choose rotations, then batch legalize
+        rotations = {}
+        all_positions = {a: Placement(x=x, y=y, side="F")
+                         for a, (x, y) in positions.items()}
+        all_positions.update(board.fixed)
 
-        # Register fixed components at bbox center
-        for addr, p in ctx.fixed.items():
-            if addr not in ctx.fixed_info:
-                raise ValueError(
-                    f"Fixed component '{addr}' missing from fixed_info"
-                )
-            info = ctx.fixed_info[addr]
-            tracker.register(p.x + info.cx_offset, p.y + info.cy_offset,
-                             info.width, info.height, p.side,
-                             info.is_tht, label=addr)
+        if params.get("auto_rotate", False):
+            for addr in free_addrs:
+                info = comp_map[addr]
+                if info.pad_sides and info.pin_count > 4 and not _is_passive_addr(addr):
+                    x, y = positions[addr]
+                    rot = best_rotation_at_position(
+                        info, x, y, board.net_graph, all_positions, addr)
+                    if rot:
+                        rotations[addr] = rot
 
-        # Legalize in connectivity order (most connected first)
-        legal_order = connectivity_sort_by_net_graph(free_addrs,
-                                                      ctx.net_graph)
-
-        placements = {}
-        for addr in legal_order:
-            info = ctx.free[addr]
-            ox, oy = positions[addr]
-
-            # Search at bbox center
-            search_cx = ox + info.cx_offset
-            search_cy = oy + info.cy_offset
-
-            result = find_best_side(
-                tracker, search_cx, search_cy,
-                info.width, info.height, info.is_tht,
-                smd_side=ctx.smd_side,
-            )
-            if result is None:
-                continue  # can't place — validation will catch it
-
-            # Convert back to footprint origin
-            bx, by, side = result
-            fp_x = bx - info.cx_offset
-            fp_y = by - info.cy_offset
-            placements[addr] = Placement(x=fp_x, y=fp_y, side=side)
-            tracker.register(bx, by, info.width, info.height, side,
-                             info.is_tht, label=addr)
-
-        return placements
+        return board.legalize(positions, comp_map, rotations=rotations)

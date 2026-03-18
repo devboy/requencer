@@ -1,0 +1,54 @@
+# IS31FL3216A — ISSI 16-Channel LED Driver, QFN-28 (4×4mm)
+# LCSC: C2678726 (IS31FL3216A-QFLS3-TR)
+# 8-bit PWM per channel, I2C interface, configurable address via AD pin
+# R_EXT sets global output current, 8 channels can also be GPIO
+# Smaller than IS31FL3236A (QFN-28 vs QFN-44) — ideal for distributed placement
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component IS31FL3216A:
+    trait is_atomic_part<manufacturer="ISSI", partnumber="IS31FL3216A-QFLS3-TR", footprint="QFN-28-4x4.kicad_mod", symbol="IS31FL3216A.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C2678726", manufacturer="ISSI", partno="IS31FL3216A-QFLS3-TR">
+
+    # Left side (pins 1-7)
+    signal CLK ~ pin 1       # Clock for chip cascade (unused, tie to GND)
+    signal IN ~ pin 2        # Audio signal input (unused, leave floating)
+    signal OUT1 ~ pin 3
+    signal OUT2 ~ pin 4
+    signal OUT3 ~ pin 5
+    signal OUT4 ~ pin 6
+    signal GND ~ pin 7
+
+    # Bottom (pins 8-11)
+    signal OUT5 ~ pin 8
+    signal OUT6 ~ pin 9
+    signal OUT7 ~ pin 10
+    signal OUT8 ~ pin 11
+
+    # Right side (pins 12-21)
+    signal OUT9 ~ pin 12
+    signal OUT10 ~ pin 13
+    signal OUT11 ~ pin 14
+    signal OUT12 ~ pin 15
+    signal GND2 ~ pin 16
+    signal OUT13 ~ pin 17
+    signal OUT14 ~ pin 18
+    signal OUT15 ~ pin 19
+    signal OUT16 ~ pin 20
+    signal INTB ~ pin 21     # Interrupt output (unused, leave floating)
+
+    # Top (pins 22-28)
+    signal SDB ~ pin 22      # Shutdown (active low, pull high to enable)
+    signal SCL ~ pin 23
+    signal SDA ~ pin 24
+    signal AD ~ pin 25        # I2C address select
+    signal VCC ~ pin 26
+    signal C_FILT ~ pin 27   # Audio filter cap (unused, leave floating or cap to GND)
+    signal R_EXT ~ pin 28
+
+    # Exposed thermal pad
+    signal PAD ~ pin 29

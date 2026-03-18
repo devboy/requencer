@@ -17,7 +17,7 @@ pub type LcdDc = PIN_7;
 pub type SdCs = PIN_24;
 pub type SdDetect = PIN_25;
 
-// ── SPI1 — DACs (dedicated bus, via 74HCT125 level shifter) ────────
+// ── SPI1 — DACs (dedicated bus, direct 3.3V via DAC80508 VIO) ──────
 // GP30 = SPI1_SCK, GP31 = SPI1_TX (MOSI) — RP2350 hardware constraint
 
 pub type Spi1Sck = PIN_30;

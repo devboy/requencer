@@ -1,0 +1,31 @@
+# Eurorack Power Header 16-pin — Shrouded 2×8 Pin Header, 2.54mm, Through-Hole
+# Standard Doepfer 16-pin eurorack power connector, keyed to prevent reverse insertion
+# Bottom 10 pins match standard 10-pin header, pins 11-12 carry +5V from bus
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component EurorackPowerHeader16:
+    trait is_atomic_part<manufacturer="Wurth Elektronik", partnumber="61201621621", footprint="EurorackPowerHeader_2x8.kicad_mod", symbol="EurorackPowerHeader16.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C917645", manufacturer="Wurth Elektronik", partno="61201621621">
+
+    # Standard Doepfer 16-pin eurorack pinout
+    signal NEG12V_1 ~ pin 1
+    signal NEG12V_2 ~ pin 2
+    signal GND1 ~ pin 3
+    signal GND2 ~ pin 4
+    signal GND3 ~ pin 5
+    signal GND4 ~ pin 6
+    signal GND5 ~ pin 7
+    signal GND6 ~ pin 8
+    signal POS12V_1 ~ pin 9
+    signal POS12V_2 ~ pin 10
+    signal POS5V_1 ~ pin 11
+    signal POS5V_2 ~ pin 12
+    signal CV1 ~ pin 13
+    signal CV2 ~ pin 14
+    signal GATE1 ~ pin 15
+    signal GATE2 ~ pin 16

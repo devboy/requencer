@@ -116,7 +116,7 @@ const MATERIALS = {
 /** PCB origin offset fallback (overridden by stack-up.json) */
 
 /** Approximate board dimensions for fallback boxes (mm) */
-const FACEPLATE_SIZE = { w: 181.88, h: 127.5, d: 1.6 }
+const FACEPLATE_SIZE = { w: 181.88, h: 128.0, d: 1.6 }
 const PCB_SIZE = { w: 177.88, h: 107.5, d: 1.6 }
 
 const OVERLAY_CSS = `

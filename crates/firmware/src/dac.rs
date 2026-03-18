@@ -1,48 +1,32 @@
-//! DAC8568 dual 8-channel 16-bit DAC driver over SPI1.
+//! DAC80508 dual 8-channel 16-bit DAC driver over SPI1.
 //!
-//! Two DAC8568 chips on a dedicated SPI1 bus (via 74HCT125 level shifter):
-//! - DAC1 (GP32 CS): CH A-D = Gate 1-4, CH E-H = Pitch 1-4
-//! - DAC2 (GP33 CS): CH A-D = Velocity 1-4, CH E-H = Mod 1-4
+//! Two DAC80508 chips on a dedicated SPI1 bus (direct 3.3V via VIO pin):
+//! - DAC1 (GP32 CS): CH 0-3 = Gate 1-4, CH 4-7 = Pitch 1-4
+//! - DAC2 (GP33 CS): CH 0-3 = Velocity 1-4, CH 4-7 = Mod 1-4
 //!
-//! DAC8568 protocol: 32-bit SPI word = [prefix(4)][command(4)][address(4)][data(16)][feature(4)]
+//! DAC80508 protocol: 24-bit SPI frame = [R/W(1) + register(7)][data_MSB(8)][data_LSB(8)]
 
 #[cfg(target_os = "none")]
 use embassy_rp::gpio::Output;
 #[cfg(target_os = "none")]
 use embassy_rp::spi::Spi;
 
-/// DAC8568 command codes (4-bit, bits 27:24 of the 32-bit word).
-pub mod dac_cmd {
-    pub const WRITE_REG: u8 = 0x0;
-    pub const UPDATE_REG: u8 = 0x1;
-    pub const WRITE_UPDATE_ALL: u8 = 0x2;
-    pub const WRITE_UPDATE: u8 = 0x3;
-    pub const POWER: u8 = 0x4;
-    pub const RESET: u8 = 0x7;
-    pub const SETUP_REF: u8 = 0x8;
+/// DAC80508 register addresses (7-bit).
+pub mod dac_reg {
+    pub const CONFIG: u8 = 0x03;
+    pub const GAIN: u8 = 0x04;
+    pub const TRIGGER: u8 = 0x05;
+    #[allow(dead_code)]
+    pub const BROADCAST: u8 = 0x06;
+    /// Channel N data register = DAC_BASE + N (0x08..0x0F)
+    pub const DAC_BASE: u8 = 0x08;
 }
 
-/// DAC8568 channel addresses (4-bit, bits 23:20).
-#[allow(dead_code)]
-pub mod dac_ch {
-    pub const A: u8 = 0;
-    pub const B: u8 = 1;
-    pub const C: u8 = 2;
-    pub const D: u8 = 3;
-    pub const E: u8 = 4;
-    pub const F: u8 = 5;
-    pub const G: u8 = 6;
-    pub const H: u8 = 7;
-}
-
-/// Build a 32-bit DAC8568 SPI word.
-/// Format: [0000][command(4)][address(4)][data(16)][feature(4)]
-pub fn build_word(command: u8, address: u8, data: u16, feature: u8) -> [u8; 4] {
-    let word: u32 = ((command as u32 & 0xF) << 24)
-        | ((address as u32 & 0xF) << 20)
-        | ((data as u32) << 4)
-        | (feature as u32 & 0xF);
-    word.to_be_bytes()
+/// Build a 24-bit DAC80508 SPI write frame.
+/// Format: [0 + register(7)][data_MSB(8)][data_LSB(8)]
+/// Bit 23 (R/W) = 0 for write.
+pub fn build_frame(register: u8, data: u16) -> [u8; 3] {
+    [register & 0x7F, (data >> 8) as u8, data as u8]
 }
 
 /// Convert MIDI note (0-127) to DAC value for 1V/octave pitch output.
@@ -93,40 +77,48 @@ impl<'a> DacOutput<'a> {
         Self { spi, cs1, cs2 }
     }
 
-    fn write_dac1(&mut self, word: &[u8; 4]) {
+    fn write_dac1(&mut self, frame: &[u8; 3]) {
         self.cs1.set_low();
-        if self.spi.blocking_write(word).is_err() {
+        if self.spi.blocking_write(frame).is_err() {
             defmt::warn!("DAC1 SPI write failed");
         }
         self.cs1.set_high();
     }
 
-    fn write_dac2(&mut self, word: &[u8; 4]) {
+    fn write_dac2(&mut self, frame: &[u8; 3]) {
         self.cs2.set_low();
-        if self.spi.blocking_write(word).is_err() {
+        if self.spi.blocking_write(frame).is_err() {
             defmt::warn!("DAC2 SPI write failed");
         }
         self.cs2.set_high();
     }
 
     pub fn init(&mut self) {
-        let reset = build_word(dac_cmd::RESET, 0, 0, 0);
+        // Soft reset via TRIGGER register (bit 4 = SOFT_RESET)
+        let reset = build_frame(dac_reg::TRIGGER, 0x000A);
         self.write_dac1(&reset);
         self.write_dac2(&reset);
 
-        let ref_on = build_word(dac_cmd::SETUP_REF, 0, 0, 0x1);
-        self.write_dac1(&ref_on);
-        self.write_dac2(&ref_on);
+        // DAC80508 internal 2.5V reference is ON by default (unlike DAC8568).
+        // CONFIG register: keep defaults (internal ref enabled, no CRC, no power-down).
+        // No write needed — default CONFIG = 0x0000 is correct.
+
+        // GAIN register: all channels gain=2 for 0-5V output with 2.5V internal ref.
+        // Bits 15:8 = per-channel gain select (1 = gain of 2), bit 0 = ref divider (0 = no divider).
+        // 0xFF00 = all 8 channels at 2× gain, ref divider disabled → 2.5V × 2 = 5V full scale.
+        let gain = build_frame(dac_reg::GAIN, 0xFF00);
+        self.write_dac1(&gain);
+        self.write_dac2(&gain);
     }
 
     pub fn set_dac1_channel(&mut self, channel: u8, value: u16) {
-        let word = build_word(dac_cmd::WRITE_UPDATE, channel, value, 0);
-        self.write_dac1(&word);
+        let frame = build_frame(dac_reg::DAC_BASE + channel, value);
+        self.write_dac1(&frame);
     }
 
     pub fn set_dac2_channel(&mut self, channel: u8, value: u16) {
-        let word = build_word(dac_cmd::WRITE_UPDATE, channel, value, 0);
-        self.write_dac2(&word);
+        let frame = build_frame(dac_reg::DAC_BASE + channel, value);
+        self.write_dac2(&frame);
     }
 
     pub fn update_from_events(
@@ -151,81 +143,90 @@ impl<'a> DacOutput<'a> {
 mod tests {
     use super::*;
 
-    // ── build_word tests ──────────────────────────────────────────────
+    // ── build_frame tests ─────────────────────────────────────────────
 
     #[test]
-    fn build_word_zeros() {
-        let w = build_word(0, 0, 0, 0);
-        assert_eq!(w, [0, 0, 0, 0]);
+    fn build_frame_zeros() {
+        let f = build_frame(0, 0);
+        assert_eq!(f, [0, 0, 0]);
     }
 
     #[test]
-    fn build_word_command_field() {
-        // Command 0x3 in bits 27:24 → byte 0 = 0x03
-        let w = build_word(0x3, 0, 0, 0);
-        assert_eq!(w[0], 0x03);
-        assert_eq!(w[1], 0x00);
+    fn build_frame_register_field() {
+        // Register 0x08 (DAC channel 0) should appear in byte 0
+        let f = build_frame(0x08, 0);
+        assert_eq!(f[0], 0x08);
+        assert_eq!(f[1], 0x00);
+        assert_eq!(f[2], 0x00);
     }
 
     #[test]
-    fn build_word_address_field() {
-        // Address 0x7 in bits 23:20 → byte 0 upper nibble of byte 1 = 0x70
-        let w = build_word(0, 0x7, 0, 0);
-        assert_eq!(w[0], 0x00);
-        assert_eq!(w[1], 0x70);
+    fn build_frame_data_field() {
+        // Data 0xFFFF should fill bytes 1-2
+        let f = build_frame(0, 0xFFFF);
+        assert_eq!(f[0], 0x00);
+        assert_eq!(f[1], 0xFF);
+        assert_eq!(f[2], 0xFF);
     }
 
     #[test]
-    fn build_word_data_field() {
-        // Data 0xFFFF in bits 19:4
-        let w = build_word(0, 0, 0xFFFF, 0);
-        // bits 19:16 in byte 1 lower nibble, bits 15:8 in byte 2, bits 7:4 in byte 3 upper nibble
-        assert_eq!(w[1], 0x0F);
-        assert_eq!(w[2], 0xFF);
-        assert_eq!(w[3], 0xF0);
+    fn build_frame_data_split() {
+        // Data 0x1234 → MSB = 0x12, LSB = 0x34
+        let f = build_frame(0, 0x1234);
+        assert_eq!(f[1], 0x12);
+        assert_eq!(f[2], 0x34);
     }
 
     #[test]
-    fn build_word_feature_field() {
-        // Feature 0xF in bits 3:0
-        let w = build_word(0, 0, 0, 0xF);
-        assert_eq!(w[3], 0x0F);
+    fn build_frame_register_masks_high_bit() {
+        // Bit 7 should be masked off (R/W bit = 0 for write)
+        let f = build_frame(0xFF, 0);
+        assert_eq!(f[0], 0x7F); // masked to 7 bits
     }
 
     #[test]
-    fn build_word_full_example() {
-        // WRITE_UPDATE (0x3), channel 5, data 0x8000, feature 0
-        let w = build_word(0x3, 5, 0x8000, 0);
-        let word = u32::from_be_bytes(w);
-        assert_eq!((word >> 24) & 0xF, 0x3); // command
-        assert_eq!((word >> 20) & 0xF, 5);   // address
-        assert_eq!((word >> 4) & 0xFFFF, 0x8000); // data
-        assert_eq!(word & 0xF, 0);            // feature
+    fn build_frame_full_example() {
+        // Write 0x8000 to DAC channel 5 (register 0x0D)
+        let f = build_frame(dac_reg::DAC_BASE + 5, 0x8000);
+        assert_eq!(f[0], 0x0D);
+        assert_eq!(f[1], 0x80);
+        assert_eq!(f[2], 0x00);
     }
 
     #[test]
-    fn build_word_truncates_oversized_fields() {
-        // Command > 4 bits should be masked
-        let w = build_word(0xFF, 0xFF, 0xFFFF, 0xFF);
-        let word = u32::from_be_bytes(w);
-        assert_eq!((word >> 24) & 0xF, 0xF); // masked to 4 bits
-        assert_eq!((word >> 20) & 0xF, 0xF); // masked to 4 bits
-        assert_eq!(word & 0xF, 0xF);         // masked to 4 bits
+    fn build_frame_gain_register() {
+        // GAIN register (0x04), all channels gain=2, no ref divider
+        let f = build_frame(dac_reg::GAIN, 0xFF00);
+        assert_eq!(f[0], 0x04);
+        assert_eq!(f[1], 0xFF);
+        assert_eq!(f[2], 0x00);
     }
 
     #[test]
-    fn build_word_reset_command() {
-        let w = build_word(dac_cmd::RESET, 0, 0, 0);
-        let word = u32::from_be_bytes(w);
-        assert_eq!((word >> 24) & 0xF, 7);
+    fn build_frame_trigger_soft_reset() {
+        // TRIGGER register (0x05), soft reset value
+        let f = build_frame(dac_reg::TRIGGER, 0x000A);
+        assert_eq!(f[0], 0x05);
+        assert_eq!(f[1], 0x00);
+        assert_eq!(f[2], 0x0A);
     }
 
     #[test]
-    fn build_word_setup_ref_with_feature() {
-        let w = build_word(dac_cmd::SETUP_REF, 0, 0, 0x1);
-        let word = u32::from_be_bytes(w);
-        assert_eq!((word >> 24) & 0xF, 8);
-        assert_eq!(word & 0xF, 1);
+    fn build_frame_config_register() {
+        // CONFIG register (0x03), default = 0x0000
+        let f = build_frame(dac_reg::CONFIG, 0x0000);
+        assert_eq!(f[0], 0x03);
+        assert_eq!(f[1], 0x00);
+        assert_eq!(f[2], 0x00);
+    }
+
+    #[test]
+    fn build_frame_channel_addresses() {
+        // Verify channel 0-7 map to registers 0x08-0x0F
+        for ch in 0u8..8 {
+            let f = build_frame(dac_reg::DAC_BASE + ch, 0);
+            assert_eq!(f[0], 0x08 + ch);
+        }
     }
 
     // ── note_to_dac tests ─────────────────────────────────────────────

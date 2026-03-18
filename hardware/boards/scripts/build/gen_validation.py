@@ -17,7 +17,7 @@ import os
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BOARDS_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
-CONNECTOR_FILE = os.path.join(BOARDS_DIR, "elec", "src", "board-connector.ato")
+CONNECTOR_FILE = os.path.join(BOARDS_DIR, "elec", "src", "circuits", "board-connector", "board-connector.ato")
 OUTPUT_FILE = os.path.join(BOARDS_DIR, "elec", "src", "system.ato")
 
 
@@ -51,8 +51,8 @@ def generate_system_ato(signals):
         "# Wires control and main boards together through connector interface",
         "# for full end-to-end constraint checking by atopile",
         "",
-        'from "control.ato" import Control',
-        'from "main.ato" import Main',
+        'from "boards/control/control.ato" import Control',
+        'from "boards/main/main.ato" import Main',
         "",
         "module System:",
         "    control = new Control",

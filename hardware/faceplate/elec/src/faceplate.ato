@@ -8,25 +8,25 @@
 # - White silkscreen labels on black soldermask
 #
 # Material: FR4, 1.6mm, matte black soldermask both sides
-# Dimensions: 128.5mm × ~303mm (60HP × 5.08mm/HP)
+# Dimensions: 128.0mm × 181.88mm (36HP × 5.08mm/HP)
 #
 # This file defines the panel outline and hole positions.
 # Actual drill holes and cutouts are placed in the KiCad PCB layout
 # using mechanical footprints (mounting holes, cutouts).
 #
 # Hole specifications (from china-pcb-ordering.md):
-#   Jack holes:     6.0mm drill (PJ398SM)
-#   Button holes:   per TC002 datasheet
+#   Jack holes:     6.0mm drill (WQP518MA)
+#   Button holes:   6.0mm drill (PB6149L Ø5.6mm cap, 0.2mm clearance/side)
 #   Encoder holes:  7.0mm drill (EC11E shaft)
-#   LCD cutout:     82.5 × 52.0mm at center (54.78, 39.89) — glass seating with 1.5mm lip
+#   LCD cutout:     81.5 × 52.3mm at center (54.78, 39.89) — glass seating with 1.5mm lip
 #   SD card cutout: 13.0 × 3.0mm at (105.0, 103.0) — right of step buttons
 #   Mounting slots: 7.0 × 3.5mm oval (Intellijel M3)
 #
-# Display: JC3248A035N-1 bare ST7796 3.5" SPI TFT panel
-#   Glass: 85.5 × 54.94 × 2.5mm — sits in faceplate cutout from behind
+# Display: ST7796 3.5" bare TFT panel (32-pin FPC)
+#   Glass: 84.52 × 55.26 × 4.13mm — sits in faceplate cutout from behind
 #   Active area: 73.44 × 48.96mm (480×320)
-#   FPC ribbon (18-pin, 0.5mm pitch) exits bottom edge, connects to
-#   ZIF connector on control board. No carrier PCB needed.
+#   FPC ribbon (32-pin, 0.5mm pitch) exits right edge (landscape),
+#   connects to ZIF connector on control board. No carrier PCB needed.
 #
 # Spacing (from faceplate.ts at 4.5 px/mm):
 #   Jack c-c:       14.0mm horizontal, 12.4mm vertical (output grid)

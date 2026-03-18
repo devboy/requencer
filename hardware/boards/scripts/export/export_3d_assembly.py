@@ -35,7 +35,7 @@ FACEPLATE_Z = 0.0
 FACEPLATE_THICKNESS = 1.6
 
 # Control board sits behind faceplate, spaced by jack plastic housing height.
-# PJ398SM: plastic housing top ~8.9mm above footprint origin.
+# WQP518MA: plastic housing top ~8.9mm above footprint origin.
 # STEP export: board bottom at Z=0, F.Cu at Z=1.6.
 # Housing top in export coords = 1.6 + 8.9 = 10.5mm.
 # Faceplate back at Z=0 → control at Z=-10.5.
@@ -72,7 +72,6 @@ def export_step(pcb_path: Path, output_path: Path) -> bool:
     cmd = [
         KICAD_CLI, "pcb", "export", "step",
         "--subst-models",
-        "--include-tracks",
         "--include-pads",
         "--include-zones",
         "--include-silkscreen",

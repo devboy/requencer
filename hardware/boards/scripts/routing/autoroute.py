@@ -40,12 +40,18 @@ def _load_routing_config():
     with open(BOARD_CONFIG_PATH) as f:
         config = json.load(f)
     rc = config.get("routing", {})
+
+    def _env_int(key, default):
+        """Get env var as int, falling back to default if unset or empty."""
+        val = os.environ.get(key, "")
+        return int(val) if val else default
+
     return {
-        "max_passes": int(os.environ.get("FREEROUTING_MP", rc.get("max_passes", 20))),
-        "threads": int(os.environ.get("FREEROUTING_MT", rc.get("threads", 1))),
-        "oit": int(os.environ.get("FREEROUTING_OIT", rc.get("optimization_improvement_threshold", 1))),
-        "timeout": int(os.environ.get("FREEROUTING_TIMEOUT", rc.get("timeout", 3600))),
-        "java_opts": os.environ.get("FREEROUTING_JAVA_OPTS", rc.get("java_opts", "-Xmx512m")),
+        "max_passes": _env_int("FREEROUTING_MP", rc.get("max_passes", 20)),
+        "threads": _env_int("FREEROUTING_MT", rc.get("threads", 1)),
+        "oit": _env_int("FREEROUTING_OIT", rc.get("optimization_improvement_threshold", 1)),
+        "timeout": _env_int("FREEROUTING_TIMEOUT", rc.get("timeout", 3600)),
+        "java_opts": os.environ.get("FREEROUTING_JAVA_OPTS", "") or rc.get("java_opts", "-Xmx512m"),
         "headless": os.environ.get("FREEROUTING_HEADLESS", str(rc.get("headless", True))).lower() == "true",
         "ses_min_size": rc.get("ses_min_size_bytes", 50000),
     }
@@ -363,6 +369,16 @@ def _load_expected_drc_errors(board_type):
         return []
 
 
+def _load_expected_drc_warnings(board_type):
+    """Load expected DRC warnings for a board from board-config.json."""
+    try:
+        with open(BOARD_CONFIG_PATH) as f:
+            cfg = json.load(f)
+        return cfg.get("drc", {}).get(board_type, {}).get("expected_warnings", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
 def _build_footprint_map(pcb_path):
     """Build a designator → footprint name map from a .kicad_pcb file.
 
@@ -399,8 +415,8 @@ def _is_expected_error(violation, expected_errors, footprint_map=None):
     component_refs = set()
     for item in items:
         item_desc = item.get("description", "")
-        # Extract component reference: "PTH pad 2 [cs] of X54" -> "X54"
-        match = re.search(r'\bof\s+(\S+)\s*$', item_desc)
+        # Extract component reference: "PTH pad 2 [cs] of X54 on B.Cu" -> "X54"
+        match = re.search(r'\bof\s+(\w+)', item_desc)
         if match:
             component_refs.add(match.group(1))
 
@@ -457,14 +473,18 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
     errors = [v for v in violations if v.get("severity", "") == "error"]
     warnings = [v for v in violations if v.get("severity", "") == "warning"]
 
-    # Split errors into expected vs unexpected
-    expected_patterns = _load_expected_drc_errors(board_type)
+    # Split errors and warnings into expected vs unexpected
+    expected_error_patterns = _load_expected_drc_errors(board_type)
+    expected_warning_patterns = _load_expected_drc_warnings(board_type)
     footprint_map = _build_footprint_map(output_pcb)
-    expected_errors = [e for e in errors if _is_expected_error(e, expected_patterns, footprint_map)]
-    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_patterns, footprint_map)]
+    expected_errors = [e for e in errors if _is_expected_error(e, expected_error_patterns, footprint_map)]
+    unexpected_errors = [e for e in errors if not _is_expected_error(e, expected_error_patterns, footprint_map)]
+    expected_warnings = [w for w in warnings if _is_expected_error(w, expected_warning_patterns, footprint_map)]
+    unexpected_warnings = [w for w in warnings if not _is_expected_error(w, expected_warning_patterns, footprint_map)]
 
     print(f"  {len(errors)} errors ({len(expected_errors)} expected, {len(unexpected_errors)} unexpected), "
-          f"{len(warnings)} warnings, {len(unconnected)} unconnected")
+          f"{len(warnings)} warnings ({len(expected_warnings)} expected, {len(unexpected_warnings)} unexpected), "
+          f"{len(unconnected)} unconnected")
 
     if expected_errors:
         seen = {}
@@ -472,7 +492,7 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
             desc = v.get("description", v.get("type", "unknown"))
             seen[desc] = seen.get(desc, 0) + 1
         for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
-            print(f"  - [expected] {desc} (x{count})")
+            print(f"  - [expected error] {desc} (x{count})")
 
     if unexpected_errors:
         seen = {}
@@ -480,7 +500,15 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
             desc = v.get("description", v.get("type", "unknown"))
             seen[desc] = seen.get(desc, 0) + 1
         for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
-            print(f"  - [UNEXPECTED] {desc} (x{count})")
+            print(f"  - [UNEXPECTED ERROR] {desc} (x{count})")
+
+    if unexpected_warnings:
+        seen = {}
+        for v in unexpected_warnings:
+            desc = v.get("description", v.get("type", "unknown"))
+            seen[desc] = seen.get(desc, 0) + 1
+        for desc, count in sorted(seen.items(), key=lambda x: -x[1]):
+            print(f"  - [UNEXPECTED WARNING] {desc} (x{count})")
 
     if unconnected:
         nets = {}
@@ -498,9 +526,16 @@ def step6_run_drc(output_pcb, work_dir, board_type="control"):
         if len(nets) > 10:
             print(f"    ... and {len(nets) - 10} more nets")
 
-    # STRICT: fail on unexpected errors or any unconnected items
-    if unexpected_errors or unconnected:
-        raise RoutingError(f"DRC check failed: {len(unexpected_errors)} unexpected errors, {len(unconnected)} unconnected. Review: {drc_dest}")
+    # STRICT: fail on unexpected errors, unexpected warnings, or any unconnected items
+    failures = []
+    if unexpected_errors:
+        failures.append(f"{len(unexpected_errors)} unexpected errors")
+    if unexpected_warnings:
+        failures.append(f"{len(unexpected_warnings)} unexpected warnings")
+    if unconnected:
+        failures.append(f"{len(unconnected)} unconnected")
+    if failures:
+        raise RoutingError(f"DRC check failed: {', '.join(failures)}. Review: {drc_dest}")
 
     print("  PASS: DRC clean" if not expected_errors else "  PASS: DRC clean (expected errors only)")
 
@@ -560,6 +595,52 @@ def build_result(status="pass", via_count=0, trace_length_mm=0.0,
             result["drc_warnings"] = 0
             result["unconnected_count"] = 0
     return result
+
+
+def _add_ground_pours(pcb_path):
+    """Add GND copper pours to all layers before DRC.
+
+    Delegates to add_ground_pours.py which handles GND net detection,
+    zone creation, and filling. Modifies PCB in-place.
+    """
+    print("Step 5.5: Adding ground pours...")
+    pour_script = os.path.join(SCRIPT_DIR, "add_ground_pours.py")
+
+    from common.kicad_env import setup_kicad_env
+    setup_kicad_env()
+
+    import pcbnew
+    # Import and run the pour logic directly (same process, avoids subprocess)
+    sys.path.insert(0, SCRIPT_DIR)
+    import add_ground_pours
+    # Reload to avoid stale imports
+    import importlib
+    importlib.reload(add_ground_pours)
+
+    board = pcbnew.LoadBoard(pcb_path)
+
+    # Remove existing zones
+    zones_to_remove = []
+    for i in range(board.GetAreaCount()):
+        zones_to_remove.append(board.GetArea(i))
+    for zone in zones_to_remove:
+        board.Remove(zone)
+
+    # Find GND net and add pours
+    gnd_name, gnd_code, gnd_count = add_ground_pours.find_gnd_net(board)
+    if gnd_name:
+        clearance_mm, min_thickness_mm = add_ground_pours.load_design_rules()
+        print(f"  GND net: \"{gnd_name}\" ({gnd_count} pads)")
+        for layer_name in ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]:
+            layer_id = board.GetLayerID(layer_name)
+            add_ground_pours.add_pour_zone(board, layer_id, gnd_code, gnd_name,
+                                            clearance_mm, min_thickness_mm)
+        filler = pcbnew.ZONE_FILLER(board)
+        filler.Fill(board.Zones())
+        print(f"  Filled {len(board.Zones())} zone(s)")
+        board.Save(pcb_path)
+    else:
+        print("  WARNING: No GND net found, skipping ground pours")
 
 
 def _freerouting_settings_path(work_dir):
@@ -655,10 +736,16 @@ def autoroute(input_pcb, output_pcb=None, result_json_path=None):
             # Step 4: Check unrouted nets
             step4_check_unrouted(work_dir)
 
-            # Step 5: Cleanup dangling tracks
+            # Step 5: Add ground pours before cleanup and DRC
+            # GND copper fill connects QFN thermal pads, isolated GND
+            # segments, and provides return paths.
+            _add_ground_pours(output_pcb)
+
+            # Step 5.5: Cleanup dangling tracks (after pour — pour may
+            # connect partial traces that would otherwise look dangling)
             step5_cleanup_dangling(output_pcb)
 
-            # Step 6: DRC — in variant mode, don't exit on failure
+            # Step 6: DRC
             drc_report = _run_drc_report(output_pcb, work_dir, board_type)
 
             # Extract metrics
@@ -670,20 +757,38 @@ def autoroute(input_pcb, output_pcb=None, result_json_path=None):
                   f"{drc_metrics['unconnected_count']} unconnected")
 
             if result_json_path:
-                # Variant mode: check for unexpected DRC errors
-                expected_patterns = _load_expected_drc_errors(board_type)
+                # Variant mode: check for unexpected DRC errors AND warnings
+                expected_error_patterns = _load_expected_drc_errors(board_type)
+                expected_warning_patterns = _load_expected_drc_warnings(board_type)
                 footprint_map = _build_footprint_map(output_pcb)
                 violations = drc_report.get("violations", [])
                 errors = [v for v in violations if v.get("severity") == "error"]
+                warnings = [v for v in violations if v.get("severity") == "warning"]
                 unconnected = drc_report.get("unconnected_items", [])
-                unexpected = [e for e in errors
-                              if not _is_expected_error(e, expected_patterns,
-                                                        footprint_map)]
+                unexpected_errors = [e for e in errors
+                                     if not _is_expected_error(e, expected_error_patterns,
+                                                               footprint_map)]
+                unexpected_warnings = [w for w in warnings
+                                       if not _is_expected_error(w, expected_warning_patterns,
+                                                                  footprint_map)]
 
-                if unexpected or unconnected:
-                    reason = (f"{len(unexpected)} unexpected DRC errors, "
-                              f"{len(unconnected)} unconnected")
+                if unexpected_errors or unexpected_warnings or unconnected:
+                    parts = []
+                    if unexpected_errors:
+                        parts.append(f"{len(unexpected_errors)} unexpected DRC errors")
+                    if unexpected_warnings:
+                        parts.append(f"{len(unexpected_warnings)} unexpected DRC warnings")
+                    if unconnected:
+                        parts.append(f"{len(unconnected)} unconnected")
+                    reason = ", ".join(parts)
                     print(f"  FAIL: {reason}")
+                    if unexpected_warnings:
+                        seen = {}
+                        for w in unexpected_warnings:
+                            d = w.get("description", "unknown")[:80]
+                            seen[d] = seen.get(d, 0) + 1
+                        for d, c in sorted(seen.items(), key=lambda x: -x[1]):
+                            print(f"  - [UNEXPECTED WARNING] {d} (x{c})")
                     result = build_result(status="fail", reason=reason)
                     write_result_json(result_json_path, result)
                     print(f"  Result written to {result_json_path}")

@@ -1,0 +1,69 @@
+# IS31FL3236A — ISSI 36-Channel Constant-Current LED Driver, QFN-44 (5×5mm)
+# LCSC: C246443 (IS31FL3236A-QFLS2-TR)
+# 8-bit PWM per channel, I2C interface, 4 selectable addresses via AD pin
+# R_EXT sets global output current (3.3kΩ → ~23mA max per channel)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component IS31FL3236A:
+    trait is_atomic_part<manufacturer="ISSI", partnumber="IS31FL3236A-QFLS2-TR", footprint="QFN-44-5x5.kicad_mod", symbol="IS31FL3236A.kicad_sym">
+    trait has_designator_prefix<prefix="U">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C246443", manufacturer="ISSI", partno="IS31FL3236A-QFLS2-TR">
+
+    # Left side (pins 1-11)
+    signal OUT3 ~ pin 1
+    signal OUT4 ~ pin 2
+    signal OUT5 ~ pin 3
+    signal OUT6 ~ pin 4
+    signal OUT7 ~ pin 5
+    signal OUT8 ~ pin 6
+    signal OUT9 ~ pin 7
+    signal OUT10 ~ pin 8
+    signal OUT11 ~ pin 9
+    signal OUT12 ~ pin 10
+    signal OUT13 ~ pin 11
+
+    # Bottom (pins 12-22)
+    signal OUT14 ~ pin 12
+    signal OUT15 ~ pin 13
+    signal OUT16 ~ pin 14
+    signal OUT17 ~ pin 15
+    signal OUT18 ~ pin 16
+    signal GND ~ pin 17
+    signal OUT19 ~ pin 18
+    signal OUT20 ~ pin 19
+    signal OUT21 ~ pin 20
+    signal OUT22 ~ pin 21
+    signal OUT23 ~ pin 22
+
+    # Right side (pins 23-33)
+    signal OUT24 ~ pin 23
+    signal OUT25 ~ pin 24
+    signal OUT26 ~ pin 25
+    signal OUT27 ~ pin 26
+    signal OUT28 ~ pin 27
+    signal OUT29 ~ pin 28
+    signal OUT30 ~ pin 29
+    signal OUT31 ~ pin 30
+    signal OUT32 ~ pin 31
+    signal OUT33 ~ pin 32
+    signal OUT34 ~ pin 33
+
+    # Top (pins 34-44)
+    signal OUT35 ~ pin 34
+    signal OUT36 ~ pin 35
+    signal SDB ~ pin 36
+    signal AD ~ pin 37
+    signal VCC ~ pin 38
+    signal GND2 ~ pin 39
+    signal R_EXT ~ pin 40
+    signal SDA ~ pin 41
+    signal SCL ~ pin 42
+    signal OUT1 ~ pin 43
+    signal OUT2 ~ pin 44
+
+    # Exposed thermal pad — connect to GND
+    signal PAD ~ pin 45

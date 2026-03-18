@@ -1,8 +1,8 @@
 """Parse .ato part files and count instantiations to build a full BOM.
 
 Extracts part metadata (LCSC, MPN, manufacturer) from trait declarations
-in hardware/boards/parts/*/*.ato, then counts `= new ComponentName`
-instantiations across hardware/boards/elec/src/*.ato to determine quantities.
+in hardware/boards/elec/src/components/*/*.ato, then counts `= new ComponentName`
+instantiations across hardware/boards/elec/src/**/*.ato to determine quantities.
 """
 
 import re
@@ -19,21 +19,24 @@ _PART_PICKED_RE = re.compile(
 _ATOMIC_PART_RE = re.compile(
     r'is_atomic_part<[^>]*footprint="([^"]+)"'
 )
+_ATOMIC_MFR_RE = re.compile(
+    r'is_atomic_part<[^>]*manufacturer="([^"]+)"[^>]*partnumber="([^"]+)"'
+)
 _COMPONENT_NAME_RE = re.compile(r'^component\s+(\w+)\s*:', re.MULTILINE)
 
-# Import pattern: from "../../parts/X/X.ato" import Y
+# Import pattern: from "../../components/X/X.ato" import Y
 _IMPORT_RE = re.compile(
-    r'from\s+"[^"]*parts/[^"]+"\s+import\s+(\w+)'
+    r'from\s+"[^"]*components/[^"]+"\s+import\s+(\w+)'
 )
 # Instantiation: name = new ComponentName
 _NEW_RE = re.compile(r'=\s*new\s+(\w+)')
 
 # Parts that are through-hole / manual-order (not JLCPCB SMD assembly)
 THT_PARTS = {
-    "PGA2350", "PJ398SM", "PJ366ST", "PJ301M12", "EC11E",
-    "TC002_RGB", "_6N138", "_2N3904", "ResistorNetwork9",
+    "PGA2350", "WQP518MA", "PJ366ST", "PJ301M12", "PJS008U", "EC11E",
+    "PB6149L",
     "EurorackPowerHeader", "ShroudedHeader2x16", "ShroudedSocket2x16",
-    "PinHeader1x9", "TactileSwitch",
+    "PinHeader1x9",
 }
 
 # Parts with placeholder or missing LCSC (must order separately regardless)
@@ -44,13 +47,13 @@ MANUAL_SOURCE_PARTS = {
 # Special parts not in .ato (hardcoded into report)
 EXTRA_MANUAL_PARTS = [
     {
-        "name": "JC3248A035N-1",
-        "mpn": "JC3248A035N-1",
-        "manufacturer": "Buydisplay/AliExpress",
+        "name": "ST7796-32pin-panel",
+        "mpn": "ST7796-32pin-panel",
+        "manufacturer": "maithoga (AliExpress)",
         "lcsc": "",
         "footprint": "bare-panel",
         "quantity": 1,
-        "note": "3.5\" SPI TFT display (bare glass). Source from AliExpress/Buydisplay.",
+        "note": "3.5\" ST7796 bare TFT display (32-pin FPC, no touch). AliExpress item 32286288684.",
     },
 ]
 
@@ -68,27 +71,43 @@ class Part:
 
 
 def parse_part_file(path: Path) -> dict | None:
-    """Extract part metadata from a single .ato file in parts/."""
-    text = path.read_text()
+    """Extract part metadata from a single .ato file in components/.
 
-    picked = _PART_PICKED_RE.search(text)
-    if not picked:
-        return None
+    Prefers has_part_picked::by_supplier for LCSC/manufacturer/MPN.
+    Falls back to is_atomic_part for parts without a supplier trait
+    (e.g. AliExpress-only THT parts like PB6149L).
+    """
+    text = path.read_text()
 
     atomic = _ATOMIC_PART_RE.search(text)
     comp = _COMPONENT_NAME_RE.search(text)
 
-    return {
-        "name": comp.group(1) if comp else path.parent.name,
-        "lcsc": picked.group(1),
-        "manufacturer": picked.group(2),
-        "mpn": picked.group(3),
-        "footprint": atomic.group(1) if atomic else "",
-    }
+    picked = _PART_PICKED_RE.search(text)
+    if picked:
+        return {
+            "name": comp.group(1) if comp else path.parent.name,
+            "lcsc": picked.group(1),
+            "manufacturer": picked.group(2),
+            "mpn": picked.group(3),
+            "footprint": atomic.group(1) if atomic else "",
+        }
+
+    # Fallback: extract from is_atomic_part (no LCSC)
+    atomic_mfr = _ATOMIC_MFR_RE.search(text)
+    if atomic_mfr:
+        return {
+            "name": comp.group(1) if comp else path.parent.name,
+            "lcsc": "",
+            "manufacturer": atomic_mfr.group(1),
+            "mpn": atomic_mfr.group(2),
+            "footprint": atomic.group(1) if atomic else "",
+        }
+
+    return None
 
 
 def parse_all_parts(parts_dir: Path) -> dict[str, dict]:
-    """Parse all .ato files under parts/*/. Returns dict keyed by component name."""
+    """Parse all .ato files under components/*/. Returns dict keyed by component name."""
     parts = {}
     for ato_file in sorted(parts_dir.glob("*/*.ato")):
         info = parse_part_file(ato_file)
@@ -104,7 +123,7 @@ def count_instantiations(src_dir: Path) -> dict[str, int]:
     Scans all .ato files recursively under src_dir.
     """
     counts: dict[str, int] = {}
-    for ato_file in sorted(src_dir.glob("*.ato")):
+    for ato_file in sorted(src_dir.glob("**/*.ato")):
         text = ato_file.read_text()
         for match in _NEW_RE.finditer(text):
             comp_name = match.group(1)
@@ -119,7 +138,7 @@ def _resolve_import_name(parts: dict[str, dict]) -> dict[str, str]:
     """Build mapping from import alias to canonical part name.
 
     In .ato files, parts starting with digits get underscore-prefixed imports:
-    `from "../../parts/74HC165D/74HC165D.ato" import _74HC165D`
+    `from "../../components/74HC165D/74HC165D.ato" import _74HC165D`
     but the part definition is `component _74HC165D`.
     """
     # The part name in the file IS the import name, so this is identity.
@@ -130,7 +149,7 @@ def _resolve_import_name(parts: dict[str, dict]) -> dict[str, str]:
 
 def classify_part(name: str, lcsc: str) -> str:
     """Classify a part as smd, tht, or manual."""
-    if lcsc in ("", "C0000", "TBD"):
+    if name in MANUAL_SOURCE_PARTS or lcsc in ("", "C0000", "TBD"):
         return "manual"
     if name in THT_PARTS:
         return "tht"
