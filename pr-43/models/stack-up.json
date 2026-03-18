@@ -1,0 +1,25 @@
+{
+  "stack_up": {
+    "faceplate": {
+      "z": 0.0,
+      "thickness": 1.6
+    },
+    "control": {
+      "z": -10.5,
+      "thickness": 1.6
+    },
+    "main": {
+      "z": -25.6,
+      "thickness": 1.6
+    }
+  },
+  "pcb_origin": {
+    "x": 2.0,
+    "y": 9.5
+  },
+  "boards": [
+    "control",
+    "main",
+    "faceplate"
+  ]
+}
