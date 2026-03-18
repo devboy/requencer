@@ -55,6 +55,7 @@ use embassy_rp::adc;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
 #[cfg(target_os = "none")]
 use embassy_rp::i2c;
+#[cfg(target_os = "none")]
 use embassy_rp::spi::{self, Spi};
 #[cfg(target_os = "none")]
 use embassy_rp::uart;
