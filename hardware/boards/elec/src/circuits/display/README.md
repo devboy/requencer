@@ -7,6 +7,12 @@
 
 This file documents the display specifications and FPC pinout. It contains no physical parts or circuit definitions. All display-related circuits (FPC connector, backlight MOSFET, reset RC, IM pull-ups, bypass caps) are instantiated directly in `control.ato` on the control board.
 
+## Photos
+
+![ST7796 32-pin bare panel](images/st7796-32pin-photo.webp)
+
+![Dimensions — front view](images/st7796-32pin-dimensions.webp)
+
 ## Display Specifications
 
 | Parameter | Value |
@@ -24,6 +30,8 @@ This file documents the display specifications and FPC pinout. It contains no ph
 | Source | Generic ST7796 bare panel (maithoga, AliExpress) |
 
 ## FPC Pinout
+
+![32-pin FPC pinout](images/st7796-32pin-pinout.webp)
 
 | Pin | Signal | Connection |
 |-----|--------|------------|
@@ -67,3 +75,18 @@ The following display support circuits are defined in `control.ato`:
 - **IM pull-ups** (3x 10k to 3.3V): Configure IM2/IM1/IM0 all high for 4-wire SPI mode
 - **Backlight driver** (2N7002 N-MOSFET + 100 ohm gate + 100k gate pull-down): PWM dimming via LCD_BL signal; 82 ohm current limit gives ~18mA (conservative for eurorack viewing distance)
 - **Bypass caps** (2x 100nF): One each for VDDA and VDDI supply domains
+
+## Interface Mode Selection
+
+![IM pin mode table](images/st7796-32pin-im-modes.webp)
+
+IM2=IM1=IM0=1 (all high via 10k pull-ups) selects 4-wire SPI mode.
+
+## Additional Reference Images
+
+| Image | Description |
+|-------|-------------|
+| ![Back view](images/st7796-32pin-back.webp) | Back of panel showing FPC |
+| ![Dimensions with touch](images/st7796-32pin-dimensions-touch.webp) | Dimensions including touch overlay variant |
+| ![Touch FPC pinout](images/st7796-32pin-touch-pinout.webp) | 8-pin touch FPC (GT911 I2C, not used) |
+| ![40-pin reference](images/st7796-40pin-pinout-reference.webp) | 40-pin variant pinout for reference |

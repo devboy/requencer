@@ -1,5 +1,7 @@
 # PB6149L — 6x6mm Illuminated Tactile Switch with LED
 
+![PB6149L white LED with transparent cap](images/pb6149l-white-led.jpg)
+
 ## Overview
 Through-hole SPST momentary pushbutton with an integrated single-color LED (common anode). Translucent round cap, 5.6mm diameter, 10.3mm tall. Dual bridged switch contacts (pins 1+2 and 3+4 internally connected).
 
