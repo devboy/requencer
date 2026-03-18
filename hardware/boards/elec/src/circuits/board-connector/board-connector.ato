@@ -32,8 +32,8 @@ module BoardConnectorInterface:
     signal sr_data    # GP10
 
     # === LED Drivers (I2C) ===
-    signal i2c_sda    # GP11 — I2C0 SDA (LED drivers on control board)
-    signal i2c_scl    # GP12 — I2C0 SCL
+    signal i2c_sda    # GP12 — I2C0 SDA (LED drivers on control board)
+    signal i2c_scl    # GP13 — I2C0 SCL
 
     # === Encoder A ===
     signal enc_a_a    # GP15

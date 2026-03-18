@@ -57,8 +57,8 @@ module PGA2350_MCU:
     signal btn_data    # GP10
 
     # LED driver (3× IS31FL3216A via I2C0)
-    signal i2c_sda     # GP11 — I2C0 SDA
-    signal i2c_scl     # GP12 — I2C0 SCL
+    signal i2c_sda     # GP12 — I2C0 SDA (F3)
+    signal i2c_scl     # GP13 — I2C0 SCL (F3)
 
     # Encoder A
     signal enc_a_a     # GP15
@@ -181,10 +181,10 @@ module PGA2350_MCU:
     pga.GP9 ~ btn_latch
     pga.GP10 ~ btn_data
 
-    # LED drivers
-    pga.GP11 ~ i2c_sda
-    pga.GP12 ~ i2c_scl
-    # GP13, GP14 freed (were LED_XLAT, LED_BLANK — no longer needed with I2C)
+    # LED drivers (I2C0: GP12=SDA, GP13=SCL per RP2350 datasheet Table 3, F3)
+    pga.GP12 ~ i2c_sda
+    pga.GP13 ~ i2c_scl
+    # GP11, GP14 freed (were LED_XLAT, LED_BLANK — no longer needed with I2C)
 
     # Encoders
     pga.GP15 ~ enc_a_a

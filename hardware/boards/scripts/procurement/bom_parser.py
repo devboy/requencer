@@ -34,9 +34,9 @@ _NEW_RE = re.compile(r'=\s*new\s+(\w+)')
 # Parts that are through-hole / manual-order (not JLCPCB SMD assembly)
 THT_PARTS = {
     "PGA2350", "WQP518MA", "PJ366ST", "PJ301M12", "PJS008U", "EC11E",
-    "PB6149L", "_2N3904",
+    "PB6149L",
     "EurorackPowerHeader", "ShroudedHeader2x16", "ShroudedSocket2x16",
-    "PinHeader1x9", "TactileSwitch",
+    "PinHeader1x9",
 }
 
 # Parts with placeholder or missing LCSC (must order separately regardless)

@@ -13,5 +13,5 @@ component BAT54S:
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C7420333", manufacturer="hongjiacheng", partno="BAT54S">
 
     signal ANODE ~ pin 1     # Anode of D1
-    signal COMMON ~ pin 2    # Junction (cathode D1 / anode D2)
-    signal CATHODE ~ pin 3   # Cathode of D2
+    signal CATHODE ~ pin 2   # Cathode of D2
+    signal COMMON ~ pin 3    # Junction (cathode D1 / anode D2)

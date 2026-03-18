@@ -11,7 +11,7 @@ import has_part_picked
 component H11L1S:
     trait is_atomic_part<manufacturer="Lite-On", partnumber="H11L1S(TA)", footprint="SOP-6-2.54mm.kicad_mod", symbol="H11L1S.kicad_sym">
     trait has_designator_prefix<prefix="U">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C78589", manufacturer="Lite-On", partno="H11L1S(TA)">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C78589", manufacturer="Everlight", partno="H11L1S(TA)">
 
     signal ANODE ~ pin 1     # LED anode (+)
     signal CATHODE ~ pin 2   # LED cathode (-)

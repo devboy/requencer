@@ -1,5 +1,6 @@
 # 2N3904 — NPN Transistor, SOT-23
-# LCSC: C18536
+# LCSC: C18536 (KEC 2N3904S-RTK/PS — note: KEC pinout, not Changjiang)
+# Pinout per KEC datasheet: 1=EMITTER, 2=BASE, 3=COLLECTOR
 # Used for clock output buffer (3.3V → 5V gate level)
 
 #pragma experiment("TRAITS")
@@ -8,10 +9,10 @@ import has_designator_prefix
 import has_part_picked
 
 component _2N3904:
-    trait is_atomic_part<manufacturer="Changjiang Electronics", partnumber="2N3904", footprint="SOT-23.kicad_mod", symbol="2N3904.kicad_sym">
+    trait is_atomic_part<manufacturer="KEC", partnumber="2N3904S", footprint="SOT-23.kicad_mod", symbol="2N3904.kicad_sym">
     trait has_designator_prefix<prefix="Q">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C18536", manufacturer="Changjiang Electronics", partno="2N3904">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C18536", manufacturer="KEC", partno="2N3904S">
 
-    signal BASE ~ pin 1
-    signal EMITTER ~ pin 2
+    signal EMITTER ~ pin 1
+    signal BASE ~ pin 2
     signal COLLECTOR ~ pin 3

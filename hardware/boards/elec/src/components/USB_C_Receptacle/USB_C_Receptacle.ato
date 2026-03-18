@@ -1,6 +1,13 @@
-# USB Type-C Receptacle — 16-pin mid-mount or through-hole
+# USB Type-C Receptacle — HRO TYPE-C-31-M-12
+# LCSC: C165948
+# Footprint: KiCad standard library (USB_C_Receptacle_HRO_TYPE-C-31-M-12)
 # Used for firmware programming/debug only (USB 2.0 device mode)
-# Only D+/D-, VBUS, GND, and CC pins are used (no USB 3.0 lanes)
+# Only D+/D-, VBUS, GND, CC, and SHIELD are used (no USB 3.0 / SBU)
+#
+# Pad numbering (numeric, mapped from USB-C standard):
+#   1-8 = A-row (A1, A4-A9, A12)
+#   9-16 = B-row (B1, B4-B9, B12)
+#   17 = Shield (4 through-hole mounting tabs, all pad "17")
 
 #pragma experiment("TRAITS")
 import is_atomic_part
@@ -12,10 +19,25 @@ component USB_C_Receptacle:
     trait has_designator_prefix<prefix="J">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C165948", manufacturer="Korean Hroparts Elec", partno="TYPE-C-31-M-12">
 
-    signal VBUS ~ pin 1       # USB 5V power
-    signal GND ~ pin 2        # Ground
-    signal DP ~ pin 3         # D+ (combined A6/B6)
-    signal DM ~ pin 4         # D- (combined A7/B7)
-    signal CC1 ~ pin 5        # Configuration channel 1
-    signal CC2 ~ pin 6        # Configuration channel 2
-    signal SHIELD ~ pin 7     # Connector shield/chassis
+    # A-row
+    signal GND ~ pin 1       # A1  — GND
+    signal VBUS ~ pin 2      # A4  — VBUS
+    signal CC1 ~ pin 3       # A5  — CC1
+    signal DP ~ pin 4        # A6  — D+
+    signal DM ~ pin 5        # A7  — D-
+    signal SBU1 ~ pin 6      # A8  — SBU1 (unused in USB 2.0)
+    VBUS ~ pin 7             # A9  — VBUS
+    GND ~ pin 8              # A12 — GND
+
+    # B-row (mirrored for reversible plug)
+    GND ~ pin 9              # B1  — GND
+    VBUS ~ pin 10            # B4  — VBUS
+    signal CC2 ~ pin 11      # B5  — CC2
+    DP ~ pin 12              # B6  — D+
+    DM ~ pin 13              # B7  — D-
+    signal SBU2 ~ pin 14     # B8  — SBU2 (unused in USB 2.0)
+    VBUS ~ pin 15            # B9  — VBUS
+    GND ~ pin 16             # B12 — GND
+
+    # Shield/mounting (4 through-hole pads, all pad "17")
+    signal SHIELD ~ pin 17

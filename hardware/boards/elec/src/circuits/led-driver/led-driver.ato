@@ -4,8 +4,8 @@
 #
 # Three chips distributed near their button groups for short cathode traces:
 #   led_a (AD→GND, addr 0x68): left step buttons (step1-4, step9-12, t1-t4)
-#   led_b (AD→SCL, addr 0x69): right step buttons + clr (step5-8, step13-16, clr)
-#   led_c (AD→VCC, addr 0x6B): right function buttons (play + future)
+#   led_b (AD→VCC, addr 0x6B): right step buttons + clr (step5-8, step13-16, clr)
+#   led_c (AD→SDA, addr 0x6A): right function buttons (play + future)
 #
 # R_EXT = 3.3kΩ → ~23mA max per channel
 
@@ -69,6 +69,11 @@ module LEDDriverChain:
     led_a.CLK ~ gnd
     led_b.CLK ~ gnd
     led_c.CLK ~ gnd
+
+    # IN unused (no audio mode) — tie to GND to prevent noise pickup
+    led_a.IN ~ gnd
+    led_b.IN ~ gnd
+    led_c.IN ~ gnd
 
     # C_FILT — audio filter, unused, cap to GND for noise filtering
     c_filt_a = new Capacitor

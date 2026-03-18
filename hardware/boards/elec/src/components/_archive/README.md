@@ -23,3 +23,5 @@ Parts that were replaced during the design process. Kept for reference in case w
 | **TPS54331DR** | — | Switching regulator removed; linear regulation (AMS1117) is simpler and adequate for current draw |
 | **SWPA4030S220MT** | — | Inductor for TPS54331; removed with the switching regulator |
 | **TLC5947DAP** | [IS31FL3216A](../IS31FL3216A/) | DAP package variant also replaced by I2C LED drivers |
+| **FPC_18P_05MM** | [FPC_32P_05MM](../FPC_32P_05MM/) | 18-pin connector was for JC3248A035N-1 round display option; project uses 32-pin ST7796 panel instead |
+| **ResistorNetwork9** | [ResArray4x0603](../ResArray4x0603/) | SIP-9 bussed network was planned for pull-ups but 0603x4 convex arrays used instead |

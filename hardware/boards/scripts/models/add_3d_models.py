@@ -88,6 +88,7 @@ SUFFIX_MODEL_MAP: dict[str, tuple[str, tuple[float, float, float]]] = {
     "R0603": ("Resistor_SMD.3dshapes/R_0603_1608Metric.step", (0.075, 0, 0)),
     "C0402": ("Capacitor_SMD.3dshapes/C_0402_1005Metric.step", (0.06, 0, 0)),
     "C0603": ("Capacitor_SMD.3dshapes/C_0603_1608Metric.step", (0.075, 0, 0)),
+    "R1206": ("Resistor_SMD.3dshapes/R_1206_3216Metric.step", (0.075, 0, 0)),
 }
 
 # Local STEP files (relative to PARTS_DIR) — these use ${KIPRJMOD} relative paths
@@ -100,7 +101,6 @@ LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
     "WQP518MA/WQP518MA.kicad_mod": ("WQP518MA/WQP518MA.step", (0, -6.5, 0), (0, 0, 180)),
     "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, (0, 0, 180)),
     "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
-    "FPC_18P_05MM/FPC_18P_05MM.kicad_mod": ("FPC_18P_05MM/FPC_18P_05MM.step", None, None),
     "FPC_32P_05MM/FPC_32P_05MM.kicad_mod": ("FPC_32P_05MM/FPC_32P_05MM.step", None, None),
     "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", None, None),
     "PB6149L/PB6149L.kicad_mod": ("PB6149L/PB6149L.step", None, (0, 0, 180)),
