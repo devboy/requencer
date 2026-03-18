@@ -17,7 +17,8 @@ component _74HC165D:
     signal D5 ~ pin 4
     signal D6 ~ pin 5
     signal D7 ~ pin 6
-    signal QH_N ~ pin 7
+    # Pin 7: QH_N (inverted output) — unused, daisy chain uses QH only
+    # signal QH_N ~ pin 7
     signal GND ~ pin 8
     signal QH ~ pin 9
     signal SER ~ pin 10

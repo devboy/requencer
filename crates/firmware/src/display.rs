@@ -97,6 +97,7 @@ pub struct Display<'a> {
     cs: Output<'a>,
     dc: Output<'a>,
     backlight: Output<'a>,
+    rst: Output<'a>,
 }
 
 #[cfg(target_os = "none")]
@@ -105,8 +106,9 @@ impl<'a> Display<'a> {
         cs: Output<'a>,
         dc: Output<'a>,
         backlight: Output<'a>,
+        rst: Output<'a>,
     ) -> Self {
-        Self { cs, dc, backlight }
+        Self { cs, dc, backlight, rst }
     }
 
     /// Send a command byte (DC low).
@@ -139,8 +141,13 @@ impl<'a> Display<'a> {
     pub async fn init(&mut self, spi: &mut Spi0) {
         info!("ST7796: initializing display");
 
-        // Hardware reset would go here if we had a RST pin
-        // Software reset
+        // Hardware reset (GP22, active low)
+        self.rst.set_low();
+        Timer::after_millis(10).await;
+        self.rst.set_high();
+        Timer::after_millis(120).await;
+
+        // Software reset (belt and suspenders)
         self.write_cmd(spi, cmd::SWRESET);
         Timer::after_millis(150).await;
 

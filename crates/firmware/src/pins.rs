@@ -31,12 +31,15 @@ pub type BtnSrClk = PIN_8;
 pub type BtnSrLatch = PIN_9;
 pub type BtnSrData = PIN_10;
 
-// ── LED Drivers (TLC5947 × 5) ──────────────────────────────────────
+// ── LED Drivers (IS31FL3216A × 3, I2C0) ─────────────────────────────
+// GP12 = I2C0 SDA (F3), GP13 = I2C0 SCL (F3)
 
-pub type LedSin = PIN_11;
-pub type LedSclk = PIN_12;
-pub type LedXlat = PIN_13;
-pub type LedBlank = PIN_14;
+pub type I2c0Sda = PIN_12;
+pub type I2c0Scl = PIN_13;
+
+// ── LCD Reset ────────────────────────────────────────────────────────
+
+pub type LcdRst = PIN_22;
 
 // ── Encoders (EC11E × 2) ───────────────────────────────────────────
 

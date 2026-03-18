@@ -92,6 +92,11 @@ hardware/
     design-rules.json    # Netclasses, clearances, net assignments
     elec/
       src/               # Atopile source (.ato files)
+        components/      # Custom part definitions (symbols, footprints, 3D, docs)
+        circuits/        # Reusable circuit modules (board-connector, dac-output, etc.)
+        boards/          # Top-level board modules (control, main)
+        parts/           # Auto-generated passives (atopile stdlib)
+        system.ato       # Auto-generated cross-board validation
       layout/
         control/         # KiCad output for control board
         main/            # KiCad output for main board

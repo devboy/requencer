@@ -93,6 +93,12 @@ function createCircleBtn(
   return btn
 }
 
+// WQP518MA mono jack: KiCad footprint origin is at pad 2 (switched contact),
+// but the physical bushing (barrel through faceplate) is 6.5mm below.
+// MIDI/stereo jacks (PJ366ST) have bushing centered on origin — no offset.
+// TODO: verify this offset matches the 3D model assembly (export_3d_assembly.py)
+const JACK_BUSHING_OFFSET_Y_MM = 6.5
+
 /** Create a jack element and place it at JSON coordinates */
 function createJack(
   panel: HTMLElement,
@@ -100,6 +106,7 @@ function createJack(
   y_mm: number,
   label?: string,
   labelPos: 'above' | 'below' = 'above',
+  isStereo = false,
 ): HTMLDivElement {
   const cell = document.createElement('div')
   cell.className = 'jack-cell'
@@ -107,7 +114,8 @@ function createJack(
     ${label ? `<span class="btn-label label-${labelPos}">${label}</span>` : ''}
     <div class="jack"><div class="jack-hole"></div></div>
   `
-  placeAt(cell, x_mm, y_mm)
+  const offsetY = isStereo ? 0 : JACK_BUSHING_OFFSET_Y_MM
+  placeAt(cell, x_mm, y_mm + offsetY)
   panel.appendChild(cell)
   return cell
 }
@@ -266,22 +274,24 @@ export function createFaceplate(): FaceplateElements {
   )
   const settingsBtn = createCircleBtn(modulePanel, 'transport-btn', transportData[2].x_mm, transportData[2].y_mm, 'SET')
 
-  // --- Utility jacks (MIDI stereo) ---
+  // --- Utility jacks (MIDI stereo — no bushing offset) ---
   for (const jack of panelLayout.jacks.utility) {
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label, 'above', true)
+  }
+
+  // --- Clock jacks (CLK IN/OUT, RST IN/OUT) ---
+  for (const jack of panelLayout.jacks.clock) {
     createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
   // --- Output jacks (4×4 grid: GATE/PITCH/VEL/MOD per track) ---
-  const outColLabels = ['GATE', 'PITCH', 'VEL', 'MOD']
   for (const jack of panelLayout.jacks.output) {
-    // Only show column label on first track
-    const label = jack.track === 1 ? outColLabels[['gate', 'pitch', 'vel', 'mod'].indexOf(jack.row)] : undefined
-    createJack(modulePanel, jack.x_mm, jack.y_mm, label)
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
   // --- CV input jacks ---
   for (const jack of panelLayout.jacks.cv_input) {
-    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label, 'below')
+    createJack(modulePanel, jack.x_mm, jack.y_mm, jack.label)
   }
 
   // --- Connectors (USB-C, SD) ---
@@ -539,12 +549,17 @@ const PANEL_CSS = `
      BUTTON STYLES
      ══════════════════════════════════════════ */
 
-  /* ── Circle buttons (shared base) — plastic tactile cap ── */
+  /* ── Circle buttons (shared base) — PB6149L milky white plastic cap ── */
+  /* Solid white like the 3D render. LED states: dim, mid, full. */
   .circle-btn {
+    -webkit-appearance: none;
+    appearance: none;
     width: ${BTN_D}px;
     height: ${BTN_D}px;
     border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,0,0,0.25);
+    background: linear-gradient(160deg, #e8e8ec 0%, #d0d0d5 40%, #c4c4ca 100%);
+    background-color: #d0d0d5;
     cursor: pointer;
     position: absolute;
     display: flex;
@@ -553,45 +568,63 @@ const PANEL_CSS = `
     font-size: 0;
     flex-shrink: 0;
     box-shadow:
-      0 1px 2px rgba(0,0,0,0.5),
-      0 0.5px 0 rgba(255,255,255,0.06) inset;
+      0 1px 3px rgba(0,0,0,0.5),
+      inset 0 1px 1px rgba(255,255,255,0.6);
     transition: background 0.1s, box-shadow 0.1s, transform 0.05s;
   }
-  .circle-btn:active { transform: translate(-50%, -50%) scale(0.92); box-shadow: 0 0.5px 1px rgba(0,0,0,0.3); }
+  .circle-btn:active { transform: translate(-50%, -50%) scale(0.92); }
   .circle-btn:active > .btn-label { transform: translateX(-50%) scale(${(1 / 0.92).toFixed(4)}); }
   .circle-btn:focus { outline: none; }
 
-  /* ── Transport & control strip buttons — same circle style as others ── */
-  .transport-btn, .back-btn, .rand-btn, .clr-btn { background: #555; }
-  .transport-btn:active, .back-btn:active, .rand-btn:active, .clr-btn:active { background: #777; }
-  .rand-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
+  /* ── LED mid brightness (Play, CLR, Track 1-4, Step 1-16 have LEDs) ── */
+  .step-btn.led-on,
+  .track-btn.led-on,
+  .play-btn.play-on {
+    background: linear-gradient(160deg, #fff 0%, #eee 40%, #e4e4e8 100%);
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.3),
+      inset 0 1px 1px rgba(255,255,255,0.8),
+      0 0 8px rgba(255,255,255,0.5),
+      0 0 16px rgba(255,255,255,0.2);
+  }
 
+  /* ── LED full brightness ── */
+  .step-btn.led-flash {
+    background: #fff;
+    box-shadow:
+      0 0 6px rgba(255,255,255,0.8),
+      0 0 14px rgba(255,255,255,0.5),
+      0 0 24px rgba(255,255,255,0.25);
+  }
+
+  /* ── Play paused — mid brightness pulsing on/off ── */
+  .play-btn.play-pulse {
+    background: linear-gradient(160deg, #fff 0%, #eee 40%, #e4e4e8 100%);
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.3),
+      inset 0 1px 1px rgba(255,255,255,0.8),
+      0 0 8px rgba(255,255,255,0.5),
+      0 0 16px rgba(255,255,255,0.2);
+  }
+
+  /* ── LED dim — faint inner glow ── */
+  .step-btn.led-dim {
+    background: linear-gradient(160deg, #bbbbc0 0%, #a8a8ad 40%, #9e9ea4 100%);
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.5),
+      inset 0 1px 1px rgba(255,255,255,0.4),
+      0 0 3px rgba(255,255,255,0.1);
+  }
+
+  /* ── CLR pending pulse ── */
   @keyframes clr-pulse {
-    0%, 100% { box-shadow: 0 0 6px 1px rgba(233,69,96,0.4); }
-    50% { box-shadow: 0 0 14px 4px rgba(233,69,96,0.8); }
+    0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 6px rgba(255,255,255,0.4); }
+    50% { box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 14px rgba(255,255,255,0.8); }
   }
   .clr-btn.clr-pending {
+    background: linear-gradient(160deg, #fff 0%, #eee 40%, #e4e4e8 100%);
     animation: clr-pulse 0.8s ease-in-out infinite;
-    border-color: rgba(233,69,96,0.5);
   }
-
-  /* Step buttons — LED glow states */
-  .step-btn { background: #444; }
-  .step-btn.led-on { background: #e94560; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(233,69,96,0.5), 0 0 16px rgba(233,69,96,0.2); }
-  .step-btn.led-dim { background: #2a2a4a; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 3px rgba(42,42,74,0.3); }
-  .step-btn.led-flash { background: #44ff66; box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 0 10px rgba(68,255,102,0.6), 0 0 20px rgba(68,255,102,0.25); }
-
-  /* Track buttons */
-  .track-btn { background: #444; }
-  .track-btn.led-on[data-track="0"] { background: #c8566e; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(200,86,110,0.5), 0 0 16px rgba(200,86,110,0.2); }
-  .track-btn.led-on[data-track="1"] { background: #c89040; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(200,144,64,0.5), 0 0 16px rgba(200,144,64,0.2); }
-  .track-btn.led-on[data-track="2"] { background: #5aaa6e; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,170,110,0.5), 0 0 16px rgba(90,170,110,0.2); }
-  .track-btn.led-on[data-track="3"] { background: #5aabb4; box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,171,180,0.5), 0 0 16px rgba(90,171,180,0.2); }
-
-  /* Subtrack/feature/pat/tbd buttons */
-  .subtrack-btn, .feature-btn, .pat-btn { background: #555; }
-  .subtrack-btn:active, .feature-btn:active, .pat-btn:active { background: #777; }
-  .subtrack-btn.active, .feature-btn.active, .pat-btn.active { background: #888; box-shadow: 0 0 4px rgba(255,255,255,0.15); }
 
   /* ══════════════════════════════════════════
      LABELS — purely cosmetic, zero layout impact
@@ -623,14 +656,8 @@ const PANEL_CSS = `
      LED INDICATORS
      ══════════════════════════════════════════ */
 
-  /* Play button states — green LED glow */
-  .play-btn.play-on {
-    background: #44ff66;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.6), 0 0 20px rgba(68,255,102,0.25);
-  }
+  /* Play pulse animation */
   .play-btn.play-pulse {
-    background: #44ff66;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 10px rgba(68,255,102,0.6), 0 0 20px rgba(68,255,102,0.25);
     animation: pulse 0.5s ease-in-out infinite;
   }
 
@@ -641,8 +668,8 @@ const PANEL_CSS = `
 
   /* ── Sticky hold pulsing glow ── */
   @keyframes sticky-pulse {
-    0%, 100% { box-shadow: 0 0 4px 1px rgba(232,160,191,0.4); }
-    50% { box-shadow: 0 0 10px 3px rgba(232,160,191,0.8); }
+    0%, 100% { box-shadow: 0 0 4px 1px rgba(255,255,255,0.4); }
+    50% { box-shadow: 0 0 10px 3px rgba(255,255,255,0.8); }
   }
   .sticky-hold {
     animation: sticky-pulse 1s ease-in-out infinite;

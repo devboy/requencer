@@ -109,6 +109,8 @@ const MATERIALS = {
   via: () => mat({ color: 0xb87333, roughness: 0.35, metalness: 0.85 }),
   // IC packages, connectors — dark plastic
   component: () => mat({ color: 0x333333, roughness: 0.6, metalness: 0.05 }),
+  // Translucent button caps — frosted light-pipe plastic
+  translucentCap: () => mat({ color: 0xd8d8e0, roughness: 0.3, metalness: 0.0, transparent: true, opacity: 0.82 }),
   // Metal pins, pads, leads
   metal: () => mat({ color: 0xbbbbbb, roughness: 0.3, metalness: 0.9 }),
 }
@@ -232,6 +234,11 @@ function applyBoardMaterials(root: THREE.Object3D, boardName: string, pcbColor: 
         child.material = MATERIALS.via()
         break
       case 'component': {
+        // Translucent button caps get frosted light-pipe material
+        if (name.startsWith('PB6149L')) {
+          child.material = MATERIALS.translucentCap()
+          break
+        }
         // Keep original materials from GLB (PBR fixed in post-processing).
         // Just ensure double-sided rendering for STEP tessellation quirks.
         const setSide = (m: THREE.Material) => {
@@ -497,7 +504,6 @@ export async function openViewer(): Promise<void> {
   }
 
   // Explode slider — control board stays anchored, faceplate lifts up, main drops down
-  const controlZ = boards.find((b) => b.name === 'Control')?.baseZ ?? -11.7
   const explodeRange = 25 // mm of travel at full explode
   dom.slider.addEventListener('input', () => {
     const t = parseFloat(dom.slider.value) // 0 = assembled, 1 = exploded

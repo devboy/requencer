@@ -1,82 +1,119 @@
-//! TLC5947 LED driver chain — 5× daisy-chained, 120 channels (34 RGB LEDs × 3).
+//! IS31FL3216A LED driver chain — 3× I2C constant-current drivers, 22 single-color LEDs.
 //!
-//! GP11 = SIN (serial data), GP12 = SCLK (clock), GP13 = XLAT (latch), GP14 = BLANK.
+//! GP12 = I2C0 SDA, GP13 = I2C0 SCL (RP2350 function select F3).
 //!
-//! TLC5947: 24 channels × 12-bit PWM each. 5 chips = 120 channels = 1440 bits.
-//! Clock out data MSB-first, then pulse XLAT to latch. BLANK controls output enable.
+//! IS31FL3216A: 16 channels × 8-bit PWM each. 3 chips on shared I2C0 bus.
+//! Write PWM registers then pulse Update register to latch.
 //!
-//! Channel mapping:
-//!   TLC1 (ch 0-23):  Step LEDs 1-8 (RGB) = ch 0-23
-//!   TLC2 (ch 24-47): Step LEDs 9-16 (RGB) = ch 24-47
-//!   TLC3 (ch 48-71): Track T1-T4 + Subtrack GATE/PITCH/VEL/MOD (RGB)
-//!   TLC4 (ch 72-95): Function buttons PAT/MUTE/ROUTE/DRIFT/XPOSE/VAR/PLAY/RESET (RGB)
-//!   TLC5 (ch 96-119): SETTINGS + TBD + spare
+//! Channel mapping (from control.ato):
+//!   led_a (0x68, AD=GND): step1-4 (OUT1-4), step9-12 (OUT5-8), t1-t4 (OUT9-12)
+//!   led_b (0x6B, AD=VCC): step5-8 (OUT13-16), step13-16 (OUT9-12), clr (OUT5)
+//!   led_c (0x6A, AD=SDA): play (OUT1)
 
-use embassy_rp::gpio::Output;
+use embassy_rp::i2c::{self, I2c};
 use requencer_engine::ui_types::{LedMode, LedState};
 
-const NUM_CHANNELS: usize = 120;
-/// 12-bit max brightness.
-const MAX_BRIGHTNESS: u16 = 4095;
-const DIM_BRIGHTNESS: u16 = 512;
+/// I2C addresses (7-bit) per IS31FL3216A datasheet Table 1.
+const ADDR_A: u8 = 0x68; // AD=GND
+const ADDR_B: u8 = 0x6B; // AD=VCC
+const ADDR_C: u8 = 0x6A; // AD=SDA
 
-/// LED driver handle.
-pub struct LedDriver<'a> {
-    sin: Output<'a>,
-    sclk: Output<'a>,
-    xlat: Output<'a>,
-    blank: Output<'a>,
-    /// 12-bit PWM values for all 120 channels.
-    channels: [u16; NUM_CHANNELS],
+// Register addresses (IS31FL3216A datasheet Table 2)
+const REG_CONFIG: u8 = 0x00;
+const REG_LED_CTRL_HI: u8 = 0x01; // OUT9-OUT16 enable
+const REG_LED_CTRL_LO: u8 = 0x02; // OUT1-OUT8 enable
+const REG_LIGHTING: u8 = 0x03;
+const REG_PWM_BASE: u8 = 0x10; // OUT1=0x10 .. OUT16=0x1F
+const REG_UPDATE: u8 = 0xB0;
+
+// Config register: SSD=1 (normal operation), MODE=00 (PWM), AE=0
+const CONFIG_NORMAL: u8 = 0x80;
+// Config register: SSD=0 (software shutdown)
+const CONFIG_SHUTDOWN: u8 = 0x00;
+
+// Brightness levels (8-bit PWM)
+const BRIGHT_ON: u8 = 0xFF;
+const BRIGHT_DIM: u8 = 0x20;
+const BRIGHT_OFF: u8 = 0x00;
+
+type I2c0 = I2c<'static, embassy_rp::peripherals::I2C0, i2c::Blocking>;
+
+/// LED driver handle for 3× IS31FL3216A over I2C0.
+pub struct LedDriver {
+    i2c: I2c0,
     /// Flash toggle state (toggled at ~4Hz for flashing LEDs).
     flash_on: bool,
     flash_counter: u8,
 }
 
-/// RGB color for an LED.
-struct Rgb {
-    r: u16,
-    g: u16,
-    b: u16,
-}
-
-/// Track colors (matching the web UI).
-const TRACK_COLORS: [Rgb; 4] = [
-    Rgb { r: 4095, g: 0, b: 800 },     // Track 1: red-ish
-    Rgb { r: 0, g: 4095, b: 400 },     // Track 2: green
-    Rgb { r: 0, g: 800, b: 4095 },     // Track 3: blue
-    Rgb { r: 4095, g: 2048, b: 0 },    // Track 4: orange
-];
-
-const OFF: Rgb = Rgb { r: 0, g: 0, b: 0 };
-
-impl<'a> LedDriver<'a> {
-    pub fn new(
-        sin: Output<'a>,
-        sclk: Output<'a>,
-        xlat: Output<'a>,
-        blank: Output<'a>,
-    ) -> Self {
+impl LedDriver {
+    pub fn new(i2c: I2c0) -> Self {
         Self {
-            sin,
-            sclk,
-            xlat,
-            blank,
-            channels: [0; NUM_CHANNELS],
+            i2c,
             flash_on: false,
             flash_counter: 0,
         }
     }
 
-    /// Initialize: enable outputs (BLANK low).
+    /// Write a single register on one chip.
+    fn write_reg(&mut self, addr: u8, reg: u8, value: u8) {
+        let _ = self.i2c.blocking_write(addr, &[reg, value]);
+    }
+
+    /// Write PWM values for all 16 channels on one chip using auto-increment.
+    fn write_pwm_burst(&mut self, addr: u8, values: &[u8; 16]) {
+        let mut buf = [0u8; 17]; // register address + 16 data bytes
+        buf[0] = REG_PWM_BASE;
+        buf[1..17].copy_from_slice(values);
+        let _ = self.i2c.blocking_write(addr, &buf);
+    }
+
+    /// Initialize one IS31FL3216A chip.
+    fn init_chip(&mut self, addr: u8) {
+        // Software shutdown first (clean state)
+        self.write_reg(addr, REG_CONFIG, CONFIG_SHUTDOWN);
+
+        // Enable all 16 LED outputs
+        self.write_reg(addr, REG_LED_CTRL_HI, 0xFF); // OUT9-OUT16
+        self.write_reg(addr, REG_LED_CTRL_LO, 0xFF); // OUT1-OUT8
+
+        // Lighting effect: CS=000 (I_LED × 1.0), no audio
+        self.write_reg(addr, REG_LIGHTING, 0x00);
+
+        // All PWM to 0
+        let zeros = [0u8; 16];
+        self.write_pwm_burst(addr, &zeros);
+        self.write_reg(addr, REG_UPDATE, 0x00);
+
+        // Normal operation
+        self.write_reg(addr, REG_CONFIG, CONFIG_NORMAL);
+    }
+
+    /// Initialize all 3 chips.
     pub fn init(&mut self) {
-        self.blank.set_low(); // Output enable
-        self.update_hardware();
+        self.init_chip(ADDR_A);
+        self.init_chip(ADDR_B);
+        self.init_chip(ADDR_C);
+    }
+
+    /// Map LedMode to 8-bit PWM brightness.
+    fn mode_to_pwm(&self, mode: LedMode) -> u8 {
+        match mode {
+            LedMode::On => BRIGHT_ON,
+            LedMode::Dim => BRIGHT_DIM,
+            LedMode::Flash => {
+                if self.flash_on {
+                    BRIGHT_ON
+                } else {
+                    BRIGHT_OFF
+                }
+            }
+            LedMode::Off => BRIGHT_OFF,
+        }
     }
 
     /// Update LED state from the engine's LedState.
-    /// selected_track: 0-3, used for step LED color.
-    pub fn update(&mut self, led_state: &LedState, selected_track: u8) {
+    pub fn update(&mut self, led_state: &LedState, _selected_track: u8) {
         // Toggle flash at ~4Hz (called at ~30Hz, so toggle every 8 calls)
         self.flash_counter = self.flash_counter.wrapping_add(1);
         if self.flash_counter >= 8 {
@@ -84,120 +121,42 @@ impl<'a> LedDriver<'a> {
             self.flash_on = !self.flash_on;
         }
 
-        // Clear all channels
-        self.channels = [0; NUM_CHANNELS];
-
-        let track_color = &TRACK_COLORS[selected_track.min(3) as usize];
-
-        // Step LEDs (16 steps × RGB, channels 0-47)
-        for i in 0..16usize {
-            let rgb_base = i * 3; // channels 0-47
-            let color = match led_state.steps[i] {
-                LedMode::On => Rgb {
-                    r: track_color.r,
-                    g: track_color.g,
-                    b: track_color.b,
-                },
-                LedMode::Dim => Rgb {
-                    r: track_color.r / 8,
-                    g: track_color.g / 8,
-                    b: track_color.b / 8,
-                },
-                LedMode::Flash => {
-                    if self.flash_on {
-                        Rgb {
-                            r: track_color.r,
-                            g: track_color.g,
-                            b: track_color.b,
-                        }
-                    } else {
-                        OFF
-                    }
-                }
-                LedMode::Off => OFF,
-            };
-            self.channels[rgb_base] = color.r;
-            self.channels[rgb_base + 1] = color.g;
-            self.channels[rgb_base + 2] = color.b;
+        // --- Chip A (0x68): step1-4, step9-12, t1-t4 ---
+        let mut pwm_a = [0u8; 16];
+        // OUT1-4 = step1-4
+        for i in 0..4 {
+            pwm_a[i] = self.mode_to_pwm(led_state.steps[i]);
         }
-
-        // Track LEDs (4 tracks × RGB, channels 48-59)
-        for (i, color) in TRACK_COLORS.iter().enumerate() {
-            let rgb_base = 48 + i * 3;
-            if led_state.tracks[i] {
-                self.channels[rgb_base] = color.r;
-                self.channels[rgb_base + 1] = color.g;
-                self.channels[rgb_base + 2] = color.b;
-            }
+        // OUT5-8 = step9-12
+        for i in 0..4 {
+            pwm_a[4 + i] = self.mode_to_pwm(led_state.steps[8 + i]);
         }
-
-        // Subtrack LEDs (4 subtracks × RGB, channels 60-71)
-        for i in 0..4usize {
-            let rgb_base = 60 + i * 3;
-            let color = match led_state.subtracks[i] {
-                LedMode::On => Rgb { r: MAX_BRIGHTNESS, g: MAX_BRIGHTNESS, b: MAX_BRIGHTNESS },
-                LedMode::Dim => Rgb { r: DIM_BRIGHTNESS, g: DIM_BRIGHTNESS, b: DIM_BRIGHTNESS },
-                LedMode::Flash => {
-                    if self.flash_on {
-                        Rgb { r: MAX_BRIGHTNESS, g: MAX_BRIGHTNESS, b: MAX_BRIGHTNESS }
-                    } else {
-                        OFF
-                    }
-                }
-                LedMode::Off => OFF,
-            };
-            self.channels[rgb_base] = color.r;
-            self.channels[rgb_base + 1] = color.g;
-            self.channels[rgb_base + 2] = color.b;
+        // OUT9-12 = track buttons t1-t4
+        for i in 0..4 {
+            pwm_a[8 + i] = if led_state.tracks[i] { BRIGHT_ON } else { BRIGHT_OFF };
         }
+        self.write_pwm_burst(ADDR_A, &pwm_a);
+        self.write_reg(ADDR_A, REG_UPDATE, 0x00);
 
-        // Play LED (channel 90-92 in TLC4: position 6 of 8 function buttons)
-        let play_base = 72 + 6 * 3; // PLAY is bit 30, 7th button in TLC4
-        match led_state.play {
-            LedMode::On => {
-                self.channels[play_base] = 0;
-                self.channels[play_base + 1] = MAX_BRIGHTNESS;
-                self.channels[play_base + 2] = 0;
-            }
-            LedMode::Flash => {
-                if self.flash_on {
-                    self.channels[play_base] = 0;
-                    self.channels[play_base + 1] = MAX_BRIGHTNESS;
-                    self.channels[play_base + 2] = 0;
-                }
-            }
-            LedMode::Dim => {
-                self.channels[play_base + 1] = DIM_BRIGHTNESS;
-            }
-            LedMode::Off => {}
+        // --- Chip B (0x6B): step5-8, step13-16, clr ---
+        let mut pwm_b = [0u8; 16];
+        // OUT5 = clr button
+        pwm_b[4] = self.mode_to_pwm(led_state.subtracks[0]); // clr maps to subtrack[0]
+        // OUT9-12 = step13-16
+        for i in 0..4 {
+            pwm_b[8 + i] = self.mode_to_pwm(led_state.steps[12 + i]);
         }
-
-        self.update_hardware();
-    }
-
-    /// Clock out all 1440 bits to the TLC5947 chain and latch.
-    fn update_hardware(&mut self) {
-        // TLC5947 expects data for the LAST channel of the LAST chip first (MSB first).
-        // So we send channel 119 first, channel 0 last.
-        for ch_idx in (0..NUM_CHANNELS).rev() {
-            let value = self.channels[ch_idx];
-            // Clock out 12 bits MSB first
-            for bit in (0..12).rev() {
-                if value & (1 << bit) != 0 {
-                    self.sin.set_high();
-                } else {
-                    self.sin.set_low();
-                }
-                self.sclk.set_high();
-                cortex_m::asm::delay(4); // ~27ns at 150MHz
-                self.sclk.set_low();
-                cortex_m::asm::delay(4);
-            }
+        // OUT13-16 = step5-8
+        for i in 0..4 {
+            pwm_b[12 + i] = self.mode_to_pwm(led_state.steps[4 + i]);
         }
+        self.write_pwm_burst(ADDR_B, &pwm_b);
+        self.write_reg(ADDR_B, REG_UPDATE, 0x00);
 
-        // Latch: pulse XLAT high
-        self.xlat.set_high();
-        cortex_m::asm::delay(4);
-        self.xlat.set_low();
+        // --- Chip C (0x6A): play ---
+        let mut pwm_c = [0u8; 16];
+        pwm_c[0] = self.mode_to_pwm(led_state.play); // OUT1 = play
+        self.write_pwm_burst(ADDR_C, &pwm_c);
+        self.write_reg(ADDR_C, REG_UPDATE, 0x00);
     }
 }

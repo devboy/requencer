@@ -39,7 +39,8 @@ component IS31FL3216A:
     signal OUT14 ~ pin 18
     signal OUT15 ~ pin 19
     signal OUT16 ~ pin 20
-    signal INTB ~ pin 21     # Interrupt output (unused, leave floating)
+    # Pin 21: INTB (interrupt output) — unused, left unassigned to avoid auto-net
+    # signal INTB ~ pin 21
 
     # Top (pins 22-28)
     signal SDB ~ pin 22      # Shutdown (active low, pull high to enable)

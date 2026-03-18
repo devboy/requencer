@@ -30,7 +30,7 @@ module PowerSupply:
     header.GND5 ~ gnd
     header.GND6 ~ gnd
 
-    # CV/Gate pins — unused, leave floating
+    # CV/Gate pins (13-16) — signals removed from component to avoid auto-net DRC errors
 
     # --- Reverse polarity protection ---
     # Schottky diodes on +12V and -12V rails

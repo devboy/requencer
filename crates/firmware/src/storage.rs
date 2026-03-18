@@ -18,6 +18,7 @@
 use embassy_rp::gpio::{Input, Output};
 
 /// Re-export from engine for convenience.
+#[cfg(target_os = "none")]
 pub use requencer_engine::storage::STATE_BUF_SIZE;
 
 #[cfg(target_os = "none")]
