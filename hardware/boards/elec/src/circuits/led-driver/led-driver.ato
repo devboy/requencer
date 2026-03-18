@@ -70,7 +70,9 @@ module LEDDriverChain:
     led_b.CLK ~ gnd
     led_c.CLK ~ gnd
 
-    # IN unused (no audio mode) — tie to GND to prevent noise pickup
+    # IN unused (no audio mode) — tie to GND to prevent noise pickup.
+    # Safe to leave floating if routing congestion becomes an issue (audio mode
+    # is disabled by default, MODE=00 in config register, firmware never enables it).
     led_a.IN ~ gnd
     led_b.IN ~ gnd
     led_c.IN ~ gnd

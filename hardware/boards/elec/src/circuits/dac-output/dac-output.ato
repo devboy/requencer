@@ -84,6 +84,12 @@ module DACOutputStage:
     dac1.AVDD ~ avdd_filtered
     dac1.VIO ~ v3v3
 
+    # SDO/ALARM pull-up (open-drain output, unused — pull to VIO per datasheet)
+    r_sdo1 = new Resistor
+    r_sdo1.resistance = 10kohm +/- 5%
+    r_sdo1.unnamed[0] ~ v3v3
+    r_sdo1.unnamed[1] ~ dac1.SDO
+
     # DAC2 SPI (direct 3.3V signals from MCU)
     dac2.DIN ~ spi_mosi
     dac2.SCLK ~ spi_sck
@@ -92,6 +98,12 @@ module DACOutputStage:
     dac2.PAD ~ gnd
     dac2.AVDD ~ avdd_filtered
     dac2.VIO ~ v3v3
+
+    # SDO/ALARM pull-up (open-drain output, unused — pull to VIO per datasheet)
+    r_sdo2 = new Resistor
+    r_sdo2.resistance = 10kohm +/- 5%
+    r_sdo2.unnamed[0] ~ v3v3
+    r_sdo2.unnamed[1] ~ dac2.SDO
 
     # DAC bypass caps (100nF HF + 10µF bulk per chip, on filtered rail)
     c_dac1_1 = new Capacitor
