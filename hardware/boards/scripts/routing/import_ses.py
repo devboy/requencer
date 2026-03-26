@@ -91,6 +91,11 @@ def import_ses(board_path, ses_path, output_path=None):
         print("pcbnew not available. Run with KiCad's Python.")
         sys.exit(1)
 
+    # KiCad 10 removed VIATYPE_* constants from the pcbnew module.
+    if not hasattr(pcbnew, 'VIATYPE_THROUGH'):
+        pcbnew.VIATYPE_THROUGH = 4
+        pcbnew.VIATYPE_BLIND_BURIED = 2
+
     if output_path is None:
         output_path = board_path
 

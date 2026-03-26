@@ -435,10 +435,10 @@ def generate_tc002_rgb():
 def generate_pb6149l():
     """Generate PB6149L illuminated tactile switch with translucent cap.
 
-    Dimensions (from AliExpress listing / datasheet drawing):
-      Body: 6.2 × 5.4mm, ~4.3mm above PCB (typical 6x6 tact body)
-      Translucent cap: Ø5.6mm, 10.3mm tall, press-fit onto actuator
-      Total height above PCB: ~18mm (body + cap)
+    Dimensions (from mechanical drawing):
+      Body: 6.2 × 5.4mm, 7.7mm above PCB (switch + actuator)
+      Translucent cap: Ø5.6mm, 10.3mm tall, sits on top of switch body
+      Total height above PCB: 7.7 + 10.3 = 18.0mm
       Pin spacing: 5.08 × 5.08mm (2.54mm grid)
       6 THT pins: 4 switch + 2 LED (extend ~3.5mm below PCB)
     """
@@ -446,10 +446,10 @@ def generate_pb6149l():
 
     body_hx = 3.1   # 6.2mm body width / 2
     body_hy = 2.7    # 5.4mm body depth / 2
-    body_h = 4.3     # body height above PCB
+    body_h = 7.7     # switch body height above PCB
     cap_r = 2.8      # Ø5.6mm cap radius
-    cap_base_h = 4.3 # cap starts at top of body
-    cap_top_h = 18.0 # total height from PCB
+    cap_base_h = 7.7  # cap sits on top of switch body
+    cap_top_h = 18.0  # 7.7 (switch) + 10.3 (cap) = 18.0mm total
     pin_depth = 3.5  # pin length below PCB
 
     # Body (centered at origin, base at z=0)
@@ -626,6 +626,7 @@ def generate_pjs008u():
                body_hw, body_hd, 1.5, "Base")
 
     # 2. Thin card cage walls (open at top for card insertion)
+    # Card slot faces +Y (toward faceplate) so user can insert from front
     cage_bot = 1.5
 
     # Left wall
@@ -634,17 +635,17 @@ def generate_pjs008u():
     # Right wall
     sw.add_box(body_hw - wall, -body_hd, cage_bot,
                body_hw, body_hd, h_total, "WallRight")
-    # Back wall (thin panel)
-    sw.add_box(-body_hw + wall, body_hd - wall, cage_bot,
-               body_hw - wall, body_hd, h_total, "WallBack")
-    # Front wall — split around card slot opening
+    # Back wall (away from faceplate, -Y side)
     sw.add_box(-body_hw + wall, -body_hd, cage_bot,
-               -slot_hw, -body_hd + wall, h_total, "FrontL")
-    sw.add_box(slot_hw, -body_hd, cage_bot,
-               body_hw - wall, -body_hd + wall, h_total, "FrontR")
+               body_hw - wall, -body_hd + wall, h_total, "WallBack")
+    # Front wall — split around card slot opening (+Y side, toward faceplate)
+    sw.add_box(-body_hw + wall, body_hd - wall, cage_bot,
+               -slot_hw, body_hd, h_total, "FrontL")
+    sw.add_box(slot_hw, body_hd - wall, cage_bot,
+               body_hw - wall, body_hd, h_total, "FrontR")
     # Top bar (closes the top above the card slot)
-    sw.add_box(-slot_hw, -body_hd, h_total - 1.5,
-               slot_hw, -body_hd + wall, h_total, "FrontTop")
+    sw.add_box(-slot_hw, body_hd - wall, h_total - 1.5,
+               slot_hw, body_hd, h_total, "FrontTop")
 
     # 3. Card guide rails inside (two thin internal ridges)
     rail_w = 0.2
@@ -698,8 +699,7 @@ def main():
     print("\nPGA2350 (RP2350B module):")
     generate_pga2350()
 
-    print("\nFPC_18P_05MM (18-pin FPC ZIF connector):")
-    generate_fpc_18p_05mm()
+    # FPC_18P_05MM archived — skipped
 
     print("\nFPC_32P_05MM (32-pin FPC ZIF connector):")
     generate_fpc_32p_05mm()

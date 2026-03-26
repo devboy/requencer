@@ -98,7 +98,7 @@ def _get_components(board):
             continue
 
         fp_name = fp.GetFPID().GetUniStringLibItemName()
-        lcsc = fp.GetFieldText("LCSC") if fp.HasFieldByName("LCSC") else ""
+        lcsc = fp.GetFieldText("LCSC") if fp.HasField("LCSC") else ""
 
         pos = fp.GetPosition()
         layer = fp.GetLayer()

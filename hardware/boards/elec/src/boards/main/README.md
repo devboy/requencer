@@ -73,8 +73,8 @@ All three eurorack rails have B5819W Schottky diodes for reverse polarity protec
 |------|------------|
 | +12V | 10uF bulk + 100nF HF per op-amp (x5) + 10uF shared bulk |
 | -12V | 10uF bulk + 100nF HF per op-amp (x5) + 10uF shared bulk |
-| +5V | 10uF bulk + 100nF HF (power supply) + 10uF + 10uF (AMS1117 in/out) |
-| +3.3V | 10uF + 100nF (AMS1117 output) + 100nF per VIO (x2 DACs) |
+| +5V | 10uF bulk + 100nF HF (power supply) + 10uF + 22uF (AMS1117 in/out) |
+| +3.3V | 22uF + 100nF (AMS1117 output) + 100nF per VIO (x2 DACs) |
 | MCU VB | 10uF + 100nF (in mcu.ato) |
 | MCU 3V3 | 10uF + 100nF (in mcu.ato) |
 | DAC AVDD | 10uF + 100nF per DAC (on filtered rail) |

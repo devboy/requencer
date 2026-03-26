@@ -893,6 +893,18 @@ def extract_pad_sides(fp, pcbnew, power_nets):
     return sides
 
 
+def mirror_x_pad_sides(pad_sides):
+    """Mirror pad-side mapping across X-axis (KiCad B.Cu flip).
+
+    Swaps East ↔ West; North and South unchanged.
+    Works for both dict[str, list[str]] (pad_sides) and dict[str, int]
+    (edge_signal_count).
+    """
+    _MIRROR_X = {"E": "W", "W": "E", "N": "N", "S": "S"}
+    return {_MIRROR_X[edge]: (list(v) if isinstance(v, list) else v)
+            for edge, v in pad_sides.items()}
+
+
 def rotate_pad_sides(pad_sides, degrees):
     """Rotate pad-side mapping by given degrees (KiCad CCW convention).
 
@@ -1290,6 +1302,116 @@ def edge_offset(edge, distance):
     return offsets.get(edge, (0, 0))
 
 
+def pin_edge_position(comp, placement, net):
+    """Return approximate (x, y) world position of a component's pin edge for a net.
+
+    Looks up which edge of the component the net is on (using pad_sides
+    after accounting for rotation and B.Cu mirror), then computes the
+    edge center in world coordinates.
+
+    Returns None if the net isn't found in pad_sides.
+    """
+    from placement.strategies import effective_info
+
+    if not comp.pad_sides:
+        return None
+
+    # Get pad_sides with mirror (B.Cu) + rotation applied
+    r_comp = effective_info(comp, placement.rotation, placement.side)
+
+    # Find which edge this net is on
+    for edge, edge_nets in r_comp.pad_sides.items():
+        if net in edge_nets:
+            # Compute edge center offset from bbox center
+            if edge in ("W", "E"):
+                dist = r_comp.width / 2
+            else:
+                dist = r_comp.height / 2
+            dx, dy = edge_offset(edge, dist)
+            return (placement.x + dx, placement.y + dy)
+
+    return None
+
+
+def _net_edge(comp, placement, net):
+    """Return the edge name a net is on for a placed component, or None."""
+    from placement.strategies import effective_info
+
+    if not comp.pad_sides:
+        return None
+    r_comp = effective_info(comp, placement.rotation, placement.side)
+    for edge, edge_nets in r_comp.pad_sides.items():
+        if net in edge_nets:
+            return edge
+    return None
+
+
+_OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
+
+
+def pin_alignment_padding(comp, placement, net_graph, all_placements,
+                          comp_map, base=0.3, growth=1.8):
+    """Compute per-side extra padding based on pin alignment quality.
+
+    For each net connecting this component to a placed neighbor, checks
+    whether the pins face each other and accumulates a misalignment score
+    per edge:
+      - Facing (E↔W, N↔S): 0 (perfect alignment)
+      - Perpendicular (E↔N, etc.): 1 (trace bends around)
+      - Same direction (E↔E): 2 (trace routes fully around)
+
+    Padding grows exponentially with the total misalignment score per
+    side: base * (growth^score - 1). One misaligned net needs a little
+    room; multiple misaligned nets on the same edge need exponentially
+    more because traces stack up.
+
+    Returns dict {"N": float, "S": float, "E": float, "W": float} of
+    extra mm to add per side.
+    """
+    addr = comp.address
+    scores = {"N": 0, "S": 0, "E": 0, "W": 0}
+
+    for net, net_addrs in net_graph.items():
+        if addr not in net_addrs:
+            continue
+        my_edge = _net_edge(comp, placement, net)
+        if my_edge is None:
+            continue
+
+        for other_addr in net_addrs:
+            if other_addr == addr:
+                continue
+            other_p = all_placements.get(other_addr)
+            if other_p is None:
+                continue
+            other_comp = comp_map.get(other_addr)
+            if other_comp is None:
+                continue
+            other_edge = _net_edge(other_comp, other_p, net)
+            if other_edge is None:
+                continue
+
+            # Score alignment
+            if other_edge == _OPPOSITE.get(my_edge):
+                # Facing — perfect, no penalty
+                continue
+            elif other_edge == my_edge:
+                # Same direction — worst case
+                scores[my_edge] += 2
+            else:
+                # Perpendicular — moderate
+                scores[my_edge] += 1
+
+    # Convert scores to exponential padding
+    padding = {}
+    for edge, score in scores.items():
+        if score == 0:
+            padding[edge] = 0.0
+        else:
+            padding[edge] = base * (growth ** score - 1)
+    return padding
+
+
 def cluster_edge_affinity(anchor_comp, satellite_comp):
     """Determine which anchor edge a satellite connects to most strongly.
 
@@ -1332,11 +1454,13 @@ def satellite_target_position(anchor_pos, anchor_comp, satellite_comp, edge):
 
 
 def best_rotation_at_position(comp, position_x, position_y, net_graph,
-                               all_positions, addr):
+                               all_positions, addr, side="F",
+                               comp_map=None):
     """Score all 4 rotations at a position, return best rotation in degrees.
 
     Scores by Manhattan wirelength from the component's pad edges to
-    the positions of connected components.
+    the pin edges of connected components (or their centers if comp_map
+    is not provided).
 
     Args:
         comp: ComponentInfo (unrotated)
@@ -1344,23 +1468,28 @@ def best_rotation_at_position(comp, position_x, position_y, net_graph,
         net_graph: dict[str, list[str]]
         all_positions: dict[str, Placement] — positions of all other components
         addr: this component's address
+        side: "F" or "B" — which side the candidate will be placed on
+        comp_map: dict[str, ComponentInfo] — for pin-edge targeting on neighbors
 
     Returns:
         Best rotation in degrees (0, 90, 180, or 270).
     """
-    from placement.strategies import rotated_info
+    from placement.strategies import effective_info
 
     best_rot = 0.0
     best_cost = float("inf")
 
     for rot in (0.0, 90.0, 180.0, 270.0):
-        rotated = rotated_info(comp, rot)
+        rotated = effective_info(comp, rot, side)
         cost = 0.0
         for edge, nets in rotated.pad_sides.items():
             if not nets:
                 continue
-            edx, edy = edge_offset(edge,
-                                    max(rotated.width, rotated.height) / 2)
+            if edge in ("W", "E"):
+                dist = rotated.width / 2
+            else:
+                dist = rotated.height / 2
+            edx, edy = edge_offset(edge, dist)
             pad_x = position_x + edx
             pad_y = position_y + edy
             for net in nets:
@@ -1368,7 +1497,16 @@ def best_rotation_at_position(comp, position_x, position_y, net_graph,
                     if other_addr == addr:
                         continue
                     other_p = all_positions.get(other_addr)
-                    if other_p:
+                    if not other_p:
+                        continue
+                    # Use pin-edge position of neighbor if available
+                    target = None
+                    if comp_map and other_addr in comp_map:
+                        target = pin_edge_position(
+                            comp_map[other_addr], other_p, net)
+                    if target:
+                        cost += abs(pad_x - target[0]) + abs(pad_y - target[1])
+                    else:
                         cost += abs(pad_x - other_p.x) + abs(pad_y - other_p.y)
         if cost < best_cost:
             best_cost = cost

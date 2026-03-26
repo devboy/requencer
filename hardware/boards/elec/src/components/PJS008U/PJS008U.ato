@@ -1,6 +1,20 @@
 # PJS008U — Yamaichi PJS008U-3000-0 Vertical MicroSD Connector
-# Through-hole, 14.18mm above PCB, push-in / pull-out
+# 8-pin THT, 14.18mm above PCB, push-in / pull-out
 # Standard vertical SD slot for eurorack faceplate mounting
+#
+# Pin numbering per SnapEDA footprint (1-10):
+#   1 = DAT2 (unused in SPI mode)
+#   2 = CD/DAT3/CS (chip select in SPI mode)
+#   3 = CMD/DI (MOSI in SPI mode)
+#   4 = VDD (3.3V)
+#   5 = CLK (SCK in SPI mode)
+#   6 = VSS (GND)
+#   7 = DAT0/DO (MISO in SPI mode)
+#   8 = DAT1 (unused in SPI mode)
+#   9, 10 = Housing/shield (GND)
+#
+# Note: PJS008U-3000-0 has NO card detect switch.
+# The "0" suffix means "without pick & place cap".
 
 #pragma experiment("TRAITS")
 import is_atomic_part
@@ -12,14 +26,14 @@ component PJS008U:
     trait has_designator_prefix<prefix="J">
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C3177022", manufacturer="Yamaichi", partno="PJS008U-3000-0">
 
-    # MicroSD SPI mode signals (pin numbers per Yamaichi datasheet)
-    signal nc1 ~ pin 1      # DAT3 - unused in SPI mode
-    signal cs ~ pin 2       # CD/CS - chip select
-    signal mosi ~ pin 3     # CMD/MOSI - data in
-    signal vcc ~ pin 4      # VDD - 3.3V
-    signal sck ~ pin 5      # CLK/SCK
-    signal gnd ~ pin 6      # VSS - ground
-    signal miso ~ pin 7     # DAT0/MISO - data out
-    signal nc8 ~ pin 8      # DAT1 - unused in SPI mode
-    signal cd ~ pin 9       # Card detect (mechanical switch)
-    signal shield ~ pin 10  # Connector shell/shield
+    # MicroSD SPI mode signals
+    signal nc1 ~ pin 1      # DAT2 — unused in SPI mode
+    signal cs ~ pin 2       # CD/DAT3/CS — chip select
+    signal mosi ~ pin 3     # CMD/DI — MOSI
+    signal vcc ~ pin 4      # VDD — 3.3V
+    signal sck ~ pin 5      # CLK — SCK
+    signal gnd ~ pin 6      # VSS — GND
+    signal miso ~ pin 7     # DAT0/DO — MISO
+    signal nc8 ~ pin 8      # DAT1 — unused in SPI mode
+    signal shield ~ pin 9   # Housing pin 1 (GND)
+    shield ~ pin 10         # Housing pin 2 (GND)

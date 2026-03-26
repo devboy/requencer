@@ -190,12 +190,14 @@ faceplate: $(FACEPLATE_PCB)
 # --- Routing (winners already selected by variant pipeline) ---
 route: $(CONTROL_ROUTED) $(MAIN_ROUTED)
 
-# --- Ground pours ---
+# --- Ground pours + board ID ---
 $(CONTROL_POURED): $(CONTROL_ROUTED)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/add_ground_pours.py $< $@
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/build/add_board_id.py $@
 
 $(MAIN_POURED): $(MAIN_ROUTED)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/routing/add_ground_pours.py $< $@
+	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/build/add_board_id.py $@
 
 gnd-pours: $(CONTROL_POURED) $(MAIN_POURED)
 
@@ -249,7 +251,7 @@ check-parts: $(VENV)/.deps-installed
 
 # --- Tests ---
 test-hw: $(VENV)/.deps-installed
-	cd $(BOARDS)/scripts && PYTHONPATH=. $(abspath $(VENV_PYTHON)) -m pytest tests/ -v
+	cd $(BOARDS)/scripts && PYTHONPATH=. $(abspath $(VENV_PYTHON)) -m pytest tests/ placer/tests/ -v
 
 # --- Clean ---
 clean:

@@ -17,7 +17,8 @@ module MIDIInterface:
     signal uart_rx    # GP21 — UART1 RX
 
     # Power
-    signal vcc        # +3.3V (opto, logic, MIDI OUT per CA-033)
+    signal vcc        # +3.3V (MIDI OUT per CA-033, output pull-up for MCU logic level)
+    signal v5v        # +5V (H11L1S detector — datasheet min VCC = 4.5V)
     signal gnd
 
     # --- MIDI OUT (CA-033 3.3V spec) ---
@@ -57,8 +58,9 @@ module MIDIInterface:
     r_in.resistance = 220ohm +/- 5%
 
     # Optocoupler output pull-up (H11L1S is open collector)
+    # 4.7k is sufficient — H11L1S Schmitt output only needs ~100µA to switch
     r_pullup = new Resistor
-    r_pullup.resistance = 1kohm +/- 5%
+    r_pullup.resistance = 4.7kohm +/- 5%
 
     # Input circuit: Ring (source/VCC) → opto LED anode
     jack_in.RING ~ opto.ANODE
@@ -70,12 +72,12 @@ module MIDIInterface:
     # Sleeve to GND (shield)
     jack_in.SLEEVE ~ gnd
 
-    # Protection diode across opto LED (reverse biased in normal operation)
-    d_protect.cathode ~ opto.CATHODE
-    d_protect.anode ~ opto.ANODE
+    # Protection diode across opto LED (anti-parallel, reverse biased in normal operation)
+    d_protect.anode ~ opto.CATHODE
+    d_protect.cathode ~ opto.ANODE
 
-    # Optocoupler power
-    opto.VCC ~ vcc
+    # Optocoupler power — H11L1S needs 4.5V min on VCC for Schmitt trigger
+    opto.VCC ~ v5v
     opto.GND ~ gnd
 
     # Schmitt trigger output → UART RX (open collector, pulled up to VCC)
@@ -83,8 +85,8 @@ module MIDIInterface:
     r_pullup.unnamed[1] ~ opto.OUTPUT
     opto.OUTPUT ~ uart_rx
 
-    # Bypass cap on opto power
+    # Bypass cap on opto power (5V rail)
     c_opto = new Capacitor
     c_opto.capacitance = 100nF +/- 20%
-    c_opto.unnamed[0] ~ vcc
+    c_opto.unnamed[0] ~ v5v
     c_opto.unnamed[1] ~ gnd

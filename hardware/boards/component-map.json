@@ -3,24 +3,24 @@
 
   "panel": {
     "width_hp": 36,
-    "width_mm": 181.88,
-    "height_mm": 128.0
+    "width_mm": 182.60,
+    "height_mm": 128.5
   },
 
   "pcb": {
     "_note": "Main PCB is smaller than faceplate — sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
     "height_mm": 107.5,
-    "origin_x_mm": 2.0,
-    "origin_y_mm": 9.5
+    "origin_x_mm": 2.36,
+    "origin_y_mm": 10.5
   },
 
   "constants": {
     "rail_zone_mm": 10.0,
     "component_gap_mm": 5.33,
-    "btn_diameter_mm": 6.0,
+    "btn_diameter_mm": 5.6,
     "btn_cc_mm": 10.7,
-    "step_btn_diameter_mm": 6.0,
+    "step_btn_diameter_mm": 5.6,
     "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
@@ -57,7 +57,7 @@
     "fpc_pins": 32,
     "fpc_pitch_mm": 0.5,
     "fpc_edge": "right (landscape orientation)",
-    "backlight": "Single LED cathode, anode to 3.3V via 33R, cathode switched via N-FET",
+    "backlight": "Single LED anode to 5V via 82R (~22mA), cathode switched via 2N7002 N-FET (PWM via GP5)",
     "bezel_landscape_mm": {
       "_note": "Approximate from dimension drawing. Verify with physical panel.",
       "left": 3.15,
@@ -79,14 +79,14 @@
 
   "mounting_slots": [
     { "id": "tl", "x_mm": 7.5, "y_mm": 3.0 },
-    { "id": "tr", "x_mm": 174.38, "y_mm": 3.0 },
-    { "id": "bl", "x_mm": 7.5, "y_mm": 124.5 },
-    { "id": "br", "x_mm": 174.38, "y_mm": 124.5 }
+    { "id": "tr", "x_mm": 175.10, "y_mm": 3.0 },
+    { "id": "bl", "x_mm": 7.5, "y_mm": 125.0 },
+    { "id": "br", "x_mm": 175.10, "y_mm": 125.0 }
   ],
 
   "standoffs": [
-    { "id": "so_tl", "x_mm": 5.5, "y_mm": 12.5, "_note": "Top-left M3 standoff, aligned with track button column" },
-    { "id": "so_bl", "x_mm": 5.5, "y_mm": 114.0, "_note": "Bottom-left M3 standoff, aligned with track button column" }
+    { "id": "so_tl", "x_mm": 7.96, "y_mm": 16.1, "_note": "Top-left M3 standoff, 4mm clearance from PCB edges" },
+    { "id": "so_bl", "x_mm": 7.96, "y_mm": 114.0, "_note": "Bottom-left M3 standoff, 4mm clearance from left PCB edge" }
   ],
 
   "footprints": {
@@ -105,7 +105,7 @@
     },
     "pb6149l": {
       "description": "PB6149L 6x6mm illuminated tactile switch with translucent cap",
-      "drill_mm": 6.0,
+      "drill_mm": 6.5,
       "cap_diameter_mm": 5.6,
       "body":      { "x1": -3.1, "y1": -2.7, "x2": 3.1, "y2": 2.7 },
       "courtyard": { "x1": -4.0, "y1": -4.0, "x2": 4.0, "y2": 5.0 }

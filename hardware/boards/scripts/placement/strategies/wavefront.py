@@ -19,6 +19,7 @@ from ..helpers import (
     best_rotation_at_position,
     build_circuits,
     compute_wave_distances,
+    pin_alignment_padding,
 )
 from . import BoardState, ComponentInfo, Placement, register
 
@@ -184,73 +185,6 @@ def _claim_grid_point(grid_points, tx, ty, comp, grid_step,
     return gx, gy, remaining
 
 
-def _pin_aware_offset(comp, placed_comps, placements, comp_map):
-    """Compute a target offset based on which IC pin the component connects to.
-
-    For a passive (2-4 pins) connected to an already-placed IC, finds the
-    shared net, looks up which edge of the IC that net's pad is on, and
-    returns an offset vector pointing away from that edge. This places the
-    passive on the correct side of its parent IC for shortest trace.
-
-    Returns (dx, dy) offset from the IC's position, or (0, 0) if no
-    pin-aware placement applies.
-    """
-    if comp.pin_count > 6:
-        return 0.0, 0.0  # Only for passives
-
-    comp_nets = set(comp.nets)
-    if not comp_nets:
-        return 0.0, 0.0
-
-    # Find the most-connected already-placed IC
-    best_ic_addr = None
-    best_shared = 0
-    best_ic_pos = None
-
-    for other_addr, other_p in placements.items():
-        other = comp_map.get(other_addr)
-        if not other or other.pin_count <= 6:
-            continue  # Only match against ICs
-        shared = len(comp_nets & set(other.nets))
-        if shared > best_shared:
-            best_shared = shared
-            best_ic_addr = other_addr
-            best_ic_pos = other_p
-
-    if not best_ic_addr or not best_ic_pos:
-        return 0.0, 0.0
-
-    ic = comp_map[best_ic_addr]
-    if not ic.pad_sides:
-        return 0.0, 0.0
-
-    # Find which edge the shared net is on
-    shared_nets = comp_nets & set(ic.nets)
-    edge_scores = {"N": 0, "S": 0, "E": 0, "W": 0}
-    for edge, edge_nets in ic.pad_sides.items():
-        for net in edge_nets:
-            if net in shared_nets:
-                edge_scores[edge] += 1
-
-    if not any(edge_scores.values()):
-        return 0.0, 0.0
-
-    # Pick the dominant edge
-    best_edge = max(edge_scores, key=edge_scores.get)
-
-    # Offset: place passive on that side of the IC
-    # Use IC dimensions + margin for offset distance
-    offset_dist = max(ic.width, ic.height) / 2 + 5.0
-    offsets = {
-        "N": (0, -offset_dist),
-        "S": (0, offset_dist),
-        "E": (offset_dist, 0),
-        "W": (-offset_dist, 0),
-    }
-    dx, dy = offsets[best_edge]
-    return best_ic_pos.x + dx, best_ic_pos.y + dy
-
-
 @register("wavefront")
 class WavefrontStrategy:
     """BFS wavefront expansion from fixed anchors with multi-region grid."""
@@ -327,17 +261,8 @@ class WavefrontStrategy:
             info = comp_map[addr]
 
             tx, ty = board.connectivity_target(
-                addr, placements, group=info.group)
-
-            # For passives: use pin-aware targeting to place on the
-            # correct side of the parent IC (near the connecting pin)
-            if info.pin_count <= 6 and placements:
-                pa_x, pa_y = _pin_aware_offset(
-                    info, set(), placements, comp_map)
-                if pa_x != 0 or pa_y != 0:
-                    # Blend: 70% pin-aware, 30% connectivity
-                    tx = pa_x * 0.7 + tx * 0.3
-                    ty = pa_y * 0.7 + ty * 0.3
+                addr, placements, group=info.group,
+                comp_map=comp_map)
 
             gx, gy, grid_points = _claim_grid_point(
                 grid_points, tx, ty, info, grid_step,
@@ -345,7 +270,7 @@ class WavefrontStrategy:
 
             rotation = 0.0
             if (auto_rotate and info.pad_sides
-                    and info.pin_count > 4):
+                    and info.pin_count >= 2):
                 all_positions = {**placements, **board.fixed}
                 rotation = best_rotation_at_position(
                     info, gx, gy, board.net_graph,
@@ -441,14 +366,8 @@ class WavefrontCircuitStrategy:
                 info = comp_map[addr]
 
                 tx, ty = board.connectivity_target(
-                    addr, placements, group=info.group)
-
-                if info.pin_count <= 6 and placements:
-                    pa_x, pa_y = _pin_aware_offset(
-                        info, set(), placements, comp_map)
-                    if pa_x != 0 or pa_y != 0:
-                        tx = pa_x * 0.7 + tx * 0.3
-                        ty = pa_y * 0.7 + ty * 0.3
+                    addr, placements, group=info.group,
+                    comp_map=comp_map)
 
                 gx, gy, grid_points = _claim_grid_point(
                     grid_points, tx, ty, info, grid_step,
@@ -456,7 +375,7 @@ class WavefrontCircuitStrategy:
 
                 rotation = 0.0
                 if (auto_rotate and info.pad_sides
-                        and info.pin_count > 4):
+                        and info.pin_count >= 2):
                     all_positions = {**placements, **board.fixed}
                     rotation = best_rotation_at_position(
                         info, gx, gy, board.net_graph,
@@ -484,3 +403,142 @@ class WavefrontCircuitStrategy:
             placements[addr] = p
 
         return placements
+
+
+@register("wavefront_direct")
+class WavefrontDirectStrategy:
+    """Two-pass BFS wavefront with direct pin-aware placement (no grid).
+
+    Pass 1: Place each component directly at its pin-edge connectivity
+    target. No grid quantization — collision resolution handled by
+    board.place_component()'s ring-search.
+
+    Pass 2: Evaluate pin alignment quality for each placed component.
+    Components with well-aligned pins (facing each other) keep tight
+    spacing. Components with misaligned pins get extra padding so traces
+    can route around them. Reset the collision tracker and re-place
+    everything with alignment-aware padding.
+    """
+
+    def place(self, components: list[ComponentInfo],
+              board: BoardState, params: dict) -> dict[str, Placement]:
+        if not components:
+            return {}
+
+        comp_map = {c.address: c for c in components}
+        free_addrs = set(comp_map.keys())
+        fixed_addrs = set(board.fixed.keys())
+
+        # 1. Build circuits
+        all_addrs = free_addrs | fixed_addrs
+        circuits = build_circuits(board.net_graph, all_addrs)
+
+        addr_to_circuit = {}
+        for circuit in circuits:
+            for addr in circuit:
+                addr_to_circuit[addr] = circuit
+
+        # 2. Compute wave distances from fixed components
+        wave_map, orphans = compute_wave_distances(
+            board.net_graph, fixed_addrs, free_addrs)
+
+        max_wave = max(wave_map.values()) if wave_map else -1
+
+        # 3. Compute circuit areas for ordering
+        circuit_area = {}
+        for circuit in circuits:
+            area = sum(comp_map[a].width * comp_map[a].height
+                       for a in circuit if a in comp_map)
+            circuit_area[id(circuit)] = area
+
+        def _comp_priority_key(addr):
+            c = comp_map[addr]
+            connections = len(c.nets)
+            area = c.width * c.height
+            return -(connections * 10 + area)
+
+        # 4. Build wavefront order (same as WavefrontStrategy)
+        ordered_addrs = []
+        for wave in range(max_wave + 1):
+            wave_by_circuit = defaultdict(list)
+            for addr, w in wave_map.items():
+                if w == wave:
+                    circuit = addr_to_circuit.get(addr)
+                    if circuit is not None:
+                        wave_by_circuit[id(circuit)].append(addr)
+
+            sorted_circuit_ids = sorted(
+                wave_by_circuit.keys(),
+                key=lambda cid: -circuit_area.get(cid, 0))
+
+            for cid in sorted_circuit_ids:
+                addrs = sorted(wave_by_circuit[cid], key=_comp_priority_key)
+                ordered_addrs.extend(addrs)
+
+        ordered_addrs.extend(sorted(orphans, key=_comp_priority_key))
+
+        auto_rotate = params.get("auto_rotate", False)
+        full_comp_map = {**comp_map, **board.fixed_info}
+
+        # --- Pass 1: Place at pin-edge targets, minimal padding ---
+        placements = {}
+        for addr in ordered_addrs:
+            info = comp_map[addr]
+            tx, ty = board.connectivity_target(
+                addr, placements, group=info.group,
+                comp_map=comp_map)
+
+            rotation = 0.0
+            if (auto_rotate and info.pad_sides
+                    and info.pin_count >= 2):
+                all_positions = {**placements, **board.fixed}
+                rotation = best_rotation_at_position(
+                    info, tx, ty, board.net_graph,
+                    all_positions, addr, side=board.smd_side,
+                    comp_map=full_comp_map)
+
+            p = board.place_component(
+                addr, tx, ty, info, side=None,
+                rotation=rotation, placed=placements)
+            placements[addr] = p
+
+        # --- Pass 2: Compute alignment padding, re-place with spacing ---
+        all_positions = {**placements, **board.fixed}
+        padding_map = {}
+        for addr in ordered_addrs:
+            info = comp_map[addr]
+            p = placements[addr]
+            pad = pin_alignment_padding(
+                info, p, board.net_graph, all_positions,
+                full_comp_map)
+            if any(v > 0 for v in pad.values()):
+                padding_map[addr] = pad
+
+        if not padding_map:
+            return placements
+
+        # Reset tracker and re-place everything with padding
+        board.reset_tracker()
+        placements2 = {}
+        for addr in ordered_addrs:
+            info = comp_map[addr]
+            tx, ty = board.connectivity_target(
+                addr, placements2, group=info.group,
+                comp_map=comp_map)
+
+            rotation = 0.0
+            if (auto_rotate and info.pad_sides
+                    and info.pin_count >= 2):
+                all_positions2 = {**placements2, **board.fixed}
+                rotation = best_rotation_at_position(
+                    info, tx, ty, board.net_graph,
+                    all_positions2, addr, side=board.smd_side,
+                    comp_map=full_comp_map)
+
+            p = board.place_component(
+                addr, tx, ty, info, side=None,
+                rotation=rotation, placed=placements2,
+                side_padding=padding_map.get(addr))
+            placements2[addr] = p
+
+        return placements2

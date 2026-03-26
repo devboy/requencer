@@ -1,4 +1,6 @@
 # Tactile Switch — Small momentary pushbutton
+# LCSC: C318884 (XKB TS-1187A-B-A-B — JLCPCB basic part)
+# 5.1x5.1mm body, 1.5mm height, SMD 4-pin
 # Used for BOOTSEL (BS pin pull-to-GND)
 
 #pragma experiment("TRAITS")
@@ -7,9 +9,9 @@ import has_designator_prefix
 import has_part_picked
 
 component TactileSwitch:
-    trait is_atomic_part<manufacturer="C&K", partnumber="PTS645SM43SMTR92", footprint="SW_SPST_PTS645.kicad_mod", symbol="SW_Push.kicad_sym">
+    trait is_atomic_part<manufacturer="XKB Connectivity", partnumber="TS-1187A-B-A-B", footprint="SW_SPST_TS1187A.kicad_mod", symbol="SW_Push.kicad_sym">
     trait has_designator_prefix<prefix="SW">
-    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C221880", manufacturer="C&K", partno="PTS645SM43SMTR92">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C318884", manufacturer="XKB Connectivity", partno="TS-1187A-B-A-B">
 
     signal PIN1 ~ pin 1
     signal PIN2 ~ pin 2

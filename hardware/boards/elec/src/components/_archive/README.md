@@ -25,3 +25,7 @@ Parts that were replaced during the design process. Kept for reference in case w
 | **TLC5947DAP** | [IS31FL3216A](../IS31FL3216A/) | DAP package variant also replaced by I2C LED drivers |
 | **FPC_18P_05MM** | [FPC_32P_05MM](../FPC_32P_05MM/) | 18-pin connector was for JC3248A035N-1 round display option; project uses 32-pin ST7796 panel instead |
 | **ResistorNetwork9** | [ResArray4x0603](../ResArray4x0603/) | SIP-9 bussed network was planned for pull-ups but 0603x4 convex arrays used instead |
+| **KEC 2N3904S** | [_2N3904](../2N3904/) (MMBT3904) | C18536 was JLCPCB extended; MMBT3904 (C20526) is basic with 1.4M stock. Pin mapping updated from KEC non-standard to JEDEC SOT-23 |
+| **IS31FL3236A** | [IS31FL3216A](../IS31FL3216A/) | IS31FL3216A (16-ch QFN-28) is sufficient for 22 LEDs across 3 chips; IS31FL3236A (36-ch QFN-44) wastes channels and board space |
+| **TC002-RGB** | [PB6149L](../PB6149L/) | PB6149L is a simpler single-color illuminated pushbutton; RGB not needed for step/function indicators |
+| **PTS645SM43SMTR92** | [TactileSwitch](../TactileSwitch/) (TS-1187A-B-A-B) | C221880 was JLCPCB extended with only 9 stock; TS-1187A (C318884) is basic with 1M+ stock, 5.1x5.1mm vs 6x6mm |

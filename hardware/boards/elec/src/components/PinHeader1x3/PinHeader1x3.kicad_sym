@@ -1,0 +1,14 @@
+(kicad_symbol_lib (version 20220914) (generator "custom")
+  (symbol "PinHeader1x3" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (property "Reference" "J" (at 0 5.08 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "PinHeader1x3" (at 0 -5.08 0) (effects (font (size 1.27 1.27))))
+    (symbol "PinHeader1x3_0_1"
+      (rectangle (start -2.54 3.81) (end 2.54 -3.81) (stroke (width 0) (type default)) (fill (type background)))
+    )
+    (symbol "PinHeader1x3_1_1"
+      (pin passive line (at -5.08 2.54 0) (length 2.54) (name "PIN1" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -5.08 0 0) (length 2.54) (name "PIN2" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
+      (pin passive line (at -5.08 -2.54 0) (length 2.54) (name "PIN3" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27)))))
+    )
+  )
+)

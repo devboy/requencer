@@ -15,7 +15,8 @@ component H11L1S:
 
     signal ANODE ~ pin 1     # LED anode (+)
     signal CATHODE ~ pin 2   # LED cathode (-)
-    signal NC ~ pin 3        # Not connected
-    signal GND ~ pin 4       # Detector ground
-    signal OUTPUT ~ pin 5    # Schmitt trigger output (open collector)
+    # Pin 3: NC per datasheet — left unassigned to avoid auto-net generation
+    # signal NC ~ pin 3
+    signal OUTPUT ~ pin 4    # Schmitt trigger output (open collector, V_O)
+    signal GND ~ pin 5       # Detector ground
     signal VCC ~ pin 6       # Detector supply (4.5-20V)

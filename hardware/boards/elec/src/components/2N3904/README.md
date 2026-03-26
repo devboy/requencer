@@ -7,10 +7,11 @@ General-purpose NPN transistor in SOT-23 package. Used for clock output buffer (
 | Parameter | Value |
 |-----------|-------|
 | Package   | SOT-23 |
-| LCSC      | C18536 |
+| LCSC      | C20526 (JLCPCB basic) |
+| MPN       | MMBT3904 (Changjiang/CJ) |
 
 ## Datasheet
-- [LCSC page](https://www.lcsc.com/product-detail/C18536.html)
+- [LCSC page](https://www.lcsc.com/product-detail/C20526.html)
 
 ## Used In
 - [`main.ato`](../boards/main/main.ato) — clock output level shifter

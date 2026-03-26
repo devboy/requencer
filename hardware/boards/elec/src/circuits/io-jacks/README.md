@@ -23,9 +23,9 @@ No series resistors, filter caps, or protection components are on the control bo
 
 ### Signal Flow
 
-**Outputs (16 jacks):** DAC output stage on main board produces buffered analog signals with 470 ohm protection resistors. These signals cross the board connector (Header C) and arrive at the jack tips on the control board.
+**Outputs (16 jacks):** DAC output stage on main board produces buffered analog signals with 470 ohm protection resistors. These signals cross the board connector (Header B) and arrive at the jack tips on the control board.
 
-**CV Inputs (4 jacks):** Raw eurorack signals (0-10V) from jack tips pass through the board connector (Header C) to the main board, where `InputProtection` circuits scale and clamp them for the RP2350 ADC.
+**CV Inputs (4 jacks):** Raw eurorack signals (0-10V) from jack tips pass through the board connector (Header B) to the main board, where `InputProtection` circuits scale and clamp them for the RP2350 ADC.
 
 **Clock/Reset Inputs (2 jacks):** Same path as CV inputs, but with 10nF filter caps instead of 100nF for faster edge response.
 

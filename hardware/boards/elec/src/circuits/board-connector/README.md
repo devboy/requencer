@@ -5,11 +5,11 @@
 
 ## Purpose
 
-Defines the physical and logical interface between the main board and control board via two 2x16 shrouded headers (64 pins total). All signals crossing between boards are explicitly pinned here. The two modules (`BoardConnectorInterface` and `BoardConnectorSocket`) have identical signal-to-pin mappings but use different physical connectors (male headers vs female sockets) so they mate when the boards are stacked.
+Defines the physical and logical interface between the main board and control board via two 2x16 shrouded headers (64 pins total). All signals crossing between boards are explicitly pinned here. The two modules (`BoardConnectorInterface` and `BoardConnectorSocket`) use different physical connectors (male headers vs female sockets). The socket's pin assignments have odd/even pairs swapped to compensate for KiCad's X-axis mirror when placing components on the B (back) side — this ensures signals connect correctly when the boards mate face-to-face in the sandwich stack.
 
 ## Design Decisions
 
-### Signal Grouping: Header A (Digital + Power) vs Header C (Analog)
+### Signal Grouping: Header A (Digital + Power) vs Header B (Analog)
 
 The two headers are separated by function to minimize crosstalk between digital and analog signals:
 
@@ -23,7 +23,7 @@ The two headers are separated by function to minimize crosstalk between digital 
 - I2C: SDA/SCL (pins 25-26)
 - Encoder A: A/B/SW (pins 29-31)
 
-**Header C — Analog + Clock/Reset (32 pins):**
+**Header B — Analog + Clock/Reset (32 pins):**
 - Clock/Reset I/O: CLK_IN/OUT, RST_IN/OUT (pins 3-6)
 - LCD reset: pin 7 (repurposed from spare GND)
 - CV inputs: A/B/C/D (pins 8-11)
@@ -49,7 +49,7 @@ The two headers are separated by function to minimize crosstalk between digital 
 
 GND pins are strategically placed as shields:
 - Header A: pins 1-2 (entry), 27-28 (spare/shield), 32 (termination)
-- Header C: pins 1-2, 12, 17, 22, 27, 32 — one GND between each group of 4 analog outputs, providing return current paths and reducing crosstalk between DAC output groups
+- Header B: pins 1-2, 12, 17, 22, 27, 32 — one GND between each group of 4 analog outputs, providing return current paths and reducing crosstalk between DAC output groups
 
 ## Key Parts
 

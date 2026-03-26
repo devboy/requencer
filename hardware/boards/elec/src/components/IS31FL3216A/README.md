@@ -13,11 +13,14 @@ Smaller than the IS31FL3236A (QFN-28 vs QFN-44) while providing enough channels 
 | Channels  | 16 (constant-current sink) |
 | PWM       | 8-bit per channel |
 | Interface | I2C, configurable address (AD pin) |
+| I2C fSCL max | 400 kHz (datasheet p.6) |
 | Supply    | 2.7-5.5V |
 | LCSC      | C2678726 |
 
 ## Datasheet
+- [Lumissil IS31FL3216A datasheet (PDF)](https://www.lumissil.com/assets/pdf/core/IS31FL3216A_DS.pdf) — Rev. B, 02/24/2025
 - [LCSC page](https://www.lcsc.com/product-detail/C2678726.html)
+- Local copy: `IS31FL3216A_DS.pdf`
 
 ## Sourcing
 - **JLCPCB/LCSC:** C2678726

@@ -8,7 +8,7 @@
 # - White silkscreen labels on black soldermask
 #
 # Material: FR4, 1.6mm, matte black soldermask both sides
-# Dimensions: 128.0mm × 181.88mm (36HP × 5.08mm/HP)
+# Dimensions: 128.5mm × 182.60mm (36HP: 36×5.08 - 0.3 = 182.58, rounded to 182.60)
 #
 # This file defines the panel outline and hole positions.
 # Actual drill holes and cutouts are placed in the KiCad PCB layout
@@ -16,7 +16,7 @@
 #
 # Hole specifications (from china-pcb-ordering.md):
 #   Jack holes:     6.0mm drill (WQP518MA)
-#   Button holes:   6.0mm drill (PB6149L Ø5.6mm cap, 0.2mm clearance/side)
+#   Button holes:   6.5mm drill (PB6149L Ø5.6mm cap, 0.45mm clearance/side)
 #   Encoder holes:  7.0mm drill (EC11E shaft)
 #   LCD cutout:     81.5 × 52.3mm at center (54.78, 39.89) — glass seating with 1.5mm lip
 #   SD card cutout: 13.0 × 3.0mm at (105.0, 103.0) — right of step buttons

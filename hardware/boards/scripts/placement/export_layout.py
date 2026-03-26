@@ -30,7 +30,7 @@ def export_layout(pcb_path, map_path, output_path):
     # Build lookup from atopile_address to (x_mm, y_mm)
     positions = {}
     for fp in board.GetFootprints():
-        if fp.HasFieldByName("atopile_address"):
+        if fp.HasField("atopile_address"):
             addr = fp.GetFieldText("atopile_address")
             pos = fp.GetPosition()
             positions[addr] = (

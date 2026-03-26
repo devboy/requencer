@@ -54,8 +54,12 @@ MODEL_MAP: dict[str, str] = {
     "ShroudedHeader2x16/ShroudedHeader2x16.kicad_mod": "Connector_PinHeader_2.54mm.3dshapes/PinHeader_2x16_P2.54mm_Vertical.step",
     "ShroudedSocket2x16/ShroudedSocket2x16.kicad_mod": "Connector_PinSocket_2.54mm.3dshapes/PinSocket_2x16_P2.54mm_Vertical.step",
     "TactileSwitch/SW_SPST_PTS645.kicad_mod": "Button_Switch_THT.3dshapes/SW_PUSH_6mm_H5mm.step",
+    # TS-1187A: removed wrong PTS645 model (see LOCAL_MODEL_MAP for correct SnapEDA model)
+    "PinHeader1x3/PinHeader1x3.kicad_mod": "Connector_PinHeader_2.54mm.3dshapes/PinHeader_1x03_P2.54mm_Vertical.step",
+    "H11L1S/SOP-6-2.54mm.kicad_mod": "Package_DIP.3dshapes/SMDIP-6_W7.62mm.step",
+    "ResArray4x0603/R_Array_Convex_4x0603.kicad_mod": "Resistor_SMD.3dshapes/R_Array_Convex_4x0603.step",
+    "IS31FL3236A/QFN-44-5x5.kicad_mod": "Package_DFN_QFN.3dshapes/QFN-28-1EP_5x5mm_P0.5mm_EP3.35x3.35mm.step",
     "RaspberryPiPico/RaspberryPiPico.kicad_mod": "Module.3dshapes/RaspberryPi_Pico.step",
-    "USB_C_Receptacle/USB_C_Receptacle.kicad_mod": "Connector_USB.3dshapes/USB_C_Receptacle_GCT_USB4085.step",
     "MicroSD_Slot/MicroSD_Slot.kicad_mod": "Connector_Card.3dshapes/microSD_HC_Hirose_DM3AT-SF-PEJM5.step",
 }
 
@@ -70,6 +74,8 @@ OFFSET_OVERRIDES: dict[str, tuple[float, float, float]] = {
     "ShroudedSocket2x16/ShroudedSocket2x16.kicad_mod": (1.27, 19.05, 0),
     "AMS1117-3.3/SOT-223.kicad_mod": (0, 0, 0),
     "AZ1117IH-5.0/SOT-223.kicad_mod": (0, 0, 0),
+    "ResArray4x0603/R_Array_Convex_4x0603.kicad_mod": (0, 0, 0),
+    "IS31FL3236A/QFN-44-5x5.kicad_mod": (0, 0, 0),
 }
 
 # Manual rotation overrides for footprints whose orientation differs from the
@@ -77,6 +83,10 @@ OFFSET_OVERRIDES: dict[str, tuple[float, float, float]] = {
 # Values: (rx, ry, rz) in degrees.
 ROTATION_OVERRIDES: dict[str, tuple[float, float, float]] = {
     "ResistorNetwork9/SIP-9.kicad_mod": (0, 0, 90),
+    "ResArray4x0603/R_Array_Convex_4x0603.kicad_mod": (0, 0, 90),
+    "AMS1117-3.3/SOT-223.kicad_mod": (0, 0, 270),
+    "2N7002/SOT-23.kicad_mod": (0, 0, 0),
+    "BAT54S/SOT-23.kicad_mod": (0, 0, 90),
 }
 
 # Suffix-based fallback for EasyEDA-sourced passives (matched by footprint suffix after ":")
@@ -102,8 +112,10 @@ LOCAL_MODEL_MAP: dict[str, tuple[str, tuple | None, tuple | None]] = {
     "PJ366ST/PJ366ST.kicad_mod": ("PJ366ST/PJ366ST.step", None, (0, 0, 180)),
     "PGA2350/PGA2350.kicad_mod": ("PGA2350/PGA2350.step", None, None),
     "FPC_32P_05MM/FPC_32P_05MM.kicad_mod": ("FPC_32P_05MM/FPC_32P_05MM.step", None, None),
-    "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", None, None),
+    "PJS008U/PJS008U.kicad_mod": ("PJS008U/PJS008U.step", (0.4, 0.4, 7.1), (270, 0, 0)),
     "PB6149L/PB6149L.kicad_mod": ("PB6149L/PB6149L.step", None, (0, 0, 180)),
+    "TactileSwitch/SW_SPST_TS1187A.kicad_mod": ("TactileSwitch/SW_SPST_TS1187A.step", None, (-90, 0, 0)),
+    "USB_C_Receptacle/USB_C_Receptacle.kicad_mod": ("USB_C_Receptacle/USB_C_Receptacle.step", (-4.5, -3.5, 0), (270, 0, 0)),
 }
 
 

@@ -59,7 +59,7 @@ The H11L1S output is open-collector with a Schmitt trigger. A 1k pull-up to 3.3V
 
 ### Bypass Capacitor
 
-A 100nF capacitor on the optocoupler VCC pin filters high-frequency noise from the logic supply.
+A 100nF capacitor on the optocoupler VCC pin (5V rail) filters high-frequency noise from the supply.
 
 ## Key Parts
 
@@ -75,7 +75,8 @@ A 100nF capacitor on the optocoupler VCC pin filters high-frequency noise from t
 |--------|-----------|-------------|
 | uart_tx | in | UART1 TX from MCU (GP20) |
 | uart_rx | out | UART1 RX to MCU (GP21), active-low via opto |
-| vcc | in | +3.3V supply |
+| vcc | in | +3.3V supply (MIDI OUT transmitter + output pull-up) |
+| v5v | in | +5V supply (H11L1S optocoupler VCC, min 4.5V per datasheet) |
 | gnd | in | Common ground |
 
 ## References

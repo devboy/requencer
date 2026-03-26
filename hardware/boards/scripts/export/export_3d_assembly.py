@@ -48,9 +48,9 @@ CONTROL_THICKNESS = 1.6
 CONNECTOR_HEIGHT = 13.5
 MAIN_Z = CONTROL_Z - CONTROL_THICKNESS - CONNECTOR_HEIGHT  # ~-28.6mm
 
-# PCB origin offsets in faceplate coordinates (from panel-layout.json)
-PCB_ORIGIN_X = 2.0
-PCB_ORIGIN_Y = 9.5
+# PCB origin offsets in faceplate coordinates (from component-map.json)
+PCB_ORIGIN_X = 2.36
+PCB_ORIGIN_Y = 10.5
 
 STACK_UP = {
     "faceplate": {"z": FACEPLATE_Z, "thickness": FACEPLATE_THICKNESS},

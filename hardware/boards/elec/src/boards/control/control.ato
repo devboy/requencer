@@ -44,9 +44,10 @@ module Control:
 
     # +3.3V rail (from main board regulator via connector)
     connector.v3v3 ~ buttons.vcc       # Shift registers
-    connector.v3v3 ~ midi.vcc          # MIDI interface (opto, logic, MIDI OUT per CA-033)
+    connector.v3v3 ~ midi.vcc          # MIDI OUT (CA-033 3.3V) + output pull-up (MCU logic level)
     # +5V rail
     connector.v5v ~ leds.v5v           # LED anodes (+5V)
+    connector.v5v ~ midi.v5v           # H11L1S opto detector (datasheet min VCC = 4.5V)
 
     # IS31FL3216A logic from 3.3V (supports 2.7-5.5V)
     connector.v3v3 ~ leds.vcc          # LED driver VCC = 3.3V
@@ -62,6 +63,20 @@ module Control:
     c_5v_hf.capacitance = 100nF +/- 20%
     c_5v_hf.unnamed[0] ~ connector.v5v
     c_5v_hf.unnamed[1] ~ gnd
+
+    # 3.3V bulk decoupling at connector entry — the 3.3V rail crosses the
+    # board-to-board connector (inductance) and powers shift registers, LCD,
+    # SD card, and MIDI logic. Without local bulk decoupling, transient
+    # current demands cause voltage droops.
+    c_3v3_bulk = new Capacitor
+    c_3v3_bulk.capacitance = 10uF +/- 20%
+    c_3v3_bulk.unnamed[0] ~ connector.v3v3
+    c_3v3_bulk.unnamed[1] ~ gnd
+
+    c_3v3_hf = new Capacitor
+    c_3v3_hf.capacitance = 100nF +/- 20%
+    c_3v3_hf.unnamed[0] ~ connector.v3v3
+    c_3v3_hf.unnamed[1] ~ gnd
 
     # ==========================================================================
     # BUTTON SCANNING (74HC165 chain)
@@ -334,7 +349,9 @@ module Control:
     sd.miso ~ connector.spi0_miso
     sd.sck ~ connector.spi0_sck
     sd.cs ~ connector.sd_cs
-    sd.cd ~ connector.sd_cd
+    # Note: PJS008U-3000-0 has no card detect switch.
+    # SD detect (connector.sd_cd) is left unconnected on the control board.
+    # Firmware should use SPI probe or pull-up state to detect card presence.
     sd.vcc ~ connector.v3v3
     sd.gnd ~ gnd
     sd.shield ~ gnd
@@ -344,6 +361,14 @@ module Control:
     r_sd_miso.resistance = 47kohm +/- 5%
     r_sd_miso.unnamed[0] ~ connector.v3v3
     r_sd_miso.unnamed[1] ~ sd.miso
+
+    # SD CS pull-up — keeps CS high during MCU boot (GPIO tri-state period)
+    # Prevents SD card from being inadvertently selected and interfering with
+    # display SPI on the shared SPI0 bus
+    r_sd_cs = new Resistor
+    r_sd_cs.resistance = 10kohm +/- 5%
+    r_sd_cs.unnamed[0] ~ connector.v3v3
+    r_sd_cs.unnamed[1] ~ sd.cs
 
     # SD decoupling cap (near connector)
     c_sd = new Capacitor

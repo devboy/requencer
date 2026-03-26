@@ -7,7 +7,7 @@
         "strategy": "panel-layout",
         "tht_extra_clearance_mm": 0.25,
         "per_pin_padding_mm": 0,
-        "smd_side": "B",
+        "smd_side": "F",
         "padding_sequence": [
           2.0,
           1.5,
@@ -201,28 +201,28 @@
           },
           "buttons.btn_t1": {
             "x": 7.0,
-            "y": 19.5,
+            "y": 23.84,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_t2": {
             "x": 7.0,
-            "y": 30.2,
+            "y": 34.54,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_t3": {
             "x": 7.0,
-            "y": 40.9,
+            "y": 45.24,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
           },
           "buttons.btn_t4": {
             "x": 7.0,
-            "y": 51.6,
+            "y": 55.94,
             "side": "F",
             "rotation": 0,
             "coords": "faceplate"
@@ -474,7 +474,7 @@
           },
           "lcd_fpc": {
             "x": 61.33,
-            "y": 30.39,
+            "y": 15.66,
             "side": "F",
             "rotation": 270,
             "coords": "pcb"
@@ -486,7 +486,7 @@
             "rotation": 0,
             "coords": "pcb"
           },
-          "connector.header_c": {
+          "connector.header_b": {
             "x": 123.5,
             "y": 42,
             "side": "B",
@@ -496,56 +496,82 @@
           "midi.opto": {
             "x": 123,
             "y": 70,
-            "side": "B",
+            "side": "F",
             "rotation": 0,
             "coords": "pcb"
           },
           "leds.led_a": {
             "x": 5,
-            "y": 95,
-            "side": "B",
+            "y": 90,
+            "side": "F",
             "rotation": 0,
             "coords": "pcb"
           },
           "leds.led_b": {
             "x": 100,
-            "y": 95,
-            "side": "B",
+            "y": 90,
+            "side": "F",
             "rotation": 0,
             "coords": "pcb"
           }
         },
         "placement_exclusions": [
           {
-            "x_min": 0, "y_min": 73, "x_max": 100, "y_max": 108,
-            "allowed_prefixes": ["buttons", "leds"],
+            "x_min": 0,
+            "y_min": 73,
+            "x_max": 100,
+            "y_max": 108,
+            "allowed_prefixes": [
+              "buttons",
+              "leds"
+            ],
             "_comment": "Reserve step button area for button/LED routing channels"
+          },
+          {
+            "x_min": 65,
+            "y_min": 4,
+            "x_max": 80,
+            "y_max": 28,
+            "_comment": "FPC display cable insertion clearance (right of connector at 61.33,15.66 rot 270, pins face right)"
           }
         ],
         "component_padding": {
           "lcd_fpc": {
-            "left": 0, "right": 10.0, "top": 0, "bottom": 0,
+            "left": 0,
+            "right": 10.0,
+            "top": 0,
+            "bottom": 0,
             "_comment": "10mm clearance on right for ribbon cable insertion"
           }
         },
         "standoffs": [
           {
             "id": "so_tl",
-            "x": 5.5,
-            "y": 12.5,
+            "x": 7.96,
+            "y": 16.1,
             "coords": "faceplate",
             "drill_mm": 3.2,
-            "clearance_mm": 6.0
+            "clearance_mm": 4.0
           },
           {
             "id": "so_bl",
-            "x": 5.5,
+            "x": 7.96,
             "y": 114.0,
             "coords": "faceplate",
             "drill_mm": 3.2,
-            "clearance_mm": 6.0
+            "clearance_mm": 4.0
           }
-        ]
+        ],
+        "bypass_caps": {
+          "_comment": "Bypass/decoupling caps and R_EXT resistors for control board ICs.",
+          "midi.c_opto": "midi.opto",
+          "leds.c_filt_a": "leds.led_a",
+          "leds.c_filt_b": "leds.led_b",
+          "leds.c_filt_c": "leds.led_c",
+          "leds.r_ext_a": "leds.led_a",
+          "leds.r_ext_b": "leds.led_b",
+          "leds.r_ext_c": "leds.led_c"
+        }
       }
     },
     "main": {
@@ -578,7 +604,7 @@
             "rotation": 0,
             "coords": "pcb"
           },
-          "connector.header_c": {
+          "connector.header_b": {
             "x": 123.5,
             "y": 42,
             "side": "F",
@@ -589,14 +615,14 @@
             "x": 70,
             "y": 42,
             "side": "B",
-            "rotation": 0,
+            "rotation": 180,
             "coords": "pcb"
           },
           "power.header": {
-            "x": 7,
-            "y": 13,
+            "x": 20,
+            "y": 75,
             "side": "B",
-            "rotation": 0,
+            "rotation": 270,
             "coords": "pcb"
           },
           "usb": {
@@ -612,6 +638,13 @@
             "side": "F",
             "rotation": 0,
             "coords": "pcb"
+          },
+          "swd_header": {
+            "x": 7,
+            "y": 62,
+            "side": "B",
+            "rotation": 0,
+            "coords": "pcb"
           }
         },
         "ic_spacing": 12.0,
@@ -619,7 +652,10 @@
         "margin": 3.0,
         "component_padding": {
           "usb": {
-            "left": 2.0, "right": 5.0, "top": 3.0, "bottom": 3.0,
+            "left": 2.0,
+            "right": 5.0,
+            "top": 3.0,
+            "bottom": 3.0,
             "_comment": "USB-C connector clearance for routing and plug insertion"
           }
         },
@@ -648,7 +684,44 @@
             "min_mm": 6,
             "reason": "routing: TSSOP ICs need trace clearance between them"
           }
-        ]
+        ],
+        "bypass_caps": {
+          "_comment": "Bypass/decoupling caps mapped to their IC. Placed as composites adjacent to IC supply pins.",
+          "mcu.c_vb": "mcu.pga",
+          "mcu.c_vb_hf": "mcu.pga",
+          "mcu.c_3v3": "mcu.pga",
+          "mcu.c_3v3_bulk": "mcu.pga",
+          "mcu.c_aref": "mcu.pga",
+          "dac.c_dac1_1": "dac.dac1",
+          "dac.c_dac1_2": "dac.dac1",
+          "dac.c_dac2_1": "dac.dac2",
+          "dac.c_dac2_2": "dac.dac2",
+          "dac.c_vio1": "dac.dac1",
+          "dac.c_vio2": "dac.dac2",
+          "dac.c_ref1": "dac.dac1",
+          "dac.c_ref1_hf": "dac.dac1",
+          "dac.c_ref2": "dac.dac2",
+          "dac.c_ref2_hf": "dac.dac2",
+          "dac.c_op1_p": "dac.opamp1",
+          "dac.c_op1_n": "dac.opamp1",
+          "dac.c_op2_p": "dac.opamp2",
+          "dac.c_op2_n": "dac.opamp2",
+          "dac.c_op3_p": "dac.opamp3",
+          "dac.c_op3_n": "dac.opamp3",
+          "dac.c_op4_p": "dac.opamp4",
+          "dac.c_op4_n": "dac.opamp4",
+          "dac.c_op5_p": "dac.opamp5",
+          "dac.c_op5_n": "dac.opamp5",
+          "dac.c_bulk_12p": "dac.opamp5",
+          "dac.c_bulk_12n": "dac.opamp5",
+          "power.c_5v_hf": "power.d_5v",
+          "power.c_5v_bulk": "power.d_5v",
+          "power.c_3v3_in": "power.reg_3v3",
+          "power.c_3v3_out": "power.reg_3v3",
+          "power.c_3v3_out_hf": "power.reg_3v3",
+          "power.c_bulk_12p": "power.header",
+          "power.c_bulk_12n": "power.header"
+        }
       }
     }
   },
@@ -668,12 +741,12 @@
         {
           "description": "Clearance violation",
           "footprint": "QFN-28-4x4",
-          "comment": "IS31FL3216A: exposed pad to signal pad gap 0.15mm — within JLCPCB QFN capability"
+          "comment": "IS31FL3216A: exposed pad to signal pad gap 0.15mm \u2014 within JLCPCB QFN capability"
         },
         {
           "description": "solder mask aperture bridges",
           "footprint": "QFN-28-4x4",
-          "comment": "IS31FL3216A: exposed pad to signal pad solder mask — standard QFN manufacturing"
+          "comment": "IS31FL3216A: exposed pad to signal pad solder mask \u2014 standard QFN manufacturing"
         },
         {
           "description": "Board edge clearance violation",
@@ -686,7 +759,7 @@
         {
           "description": "Hole size out of range",
           "footprint": "QFN-28-4x4",
-          "comment": "IS31FL3216A: thermal vias use 0.2mm drill — within JLCPCB 0.2mm min"
+          "comment": "IS31FL3216A: thermal vias use 0.2mm drill \u2014 within JLCPCB 0.2mm min"
         }
       ],
       "expected_warnings": [
@@ -695,8 +768,8 @@
           "comment": "Missing local KiCad lib references \u2014 footprints are embedded in PCB"
         },
         {
-          "description": "Silkscreen overlap",
-          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact"
+          "description": "Silkscreen clearance",
+          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact (KiCad 10 renamed from 'Silkscreen overlap')"
         },
         {
           "description": "Silkscreen clipped by solder mask",
@@ -733,8 +806,8 @@
           "comment": "Missing local KiCad lib references \u2014 footprints are embedded in PCB"
         },
         {
-          "description": "Silkscreen overlap",
-          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact"
+          "description": "Silkscreen clearance",
+          "comment": "Cosmetic: overlapping silkscreen text, no electrical impact (KiCad 10 renamed from 'Silkscreen overlap')"
         },
         {
           "description": "Silkscreen clipped by solder mask",
@@ -745,8 +818,20 @@
           "comment": "Cosmetic: text near board edge trimmed"
         },
         {
+          "description": "Drilled holes co-located",
+          "comment": "USB-C pre-routed vias \u2014 FreeRouting adds redundant vias at same position"
+        },
+        {
           "description": "Drilled hole too close to other hole",
           "comment": "Via spacing within JLCPCB 0.254mm minimum"
+        },
+        {
+          "description": "Text thickness out of range",
+          "comment": "Cosmetic: atopile-generated text thickness below KiCad minimum"
+        },
+        {
+          "description": "Text height out of range",
+          "comment": "Cosmetic: atopile-generated text height below KiCad minimum"
         }
       ]
     }
@@ -803,12 +888,23 @@
       {
         "name": "wavefront-a",
         "algorithm": "wavefront",
-        "params": {}
+        "params": {
+          "auto_rotate": true
+        }
       },
       {
-        "name": "wavefront-b",
+        "name": "wavefront-circuit-a",
         "algorithm": "wavefront_circuit",
-        "params": {}
+        "params": {
+          "auto_rotate": true
+        }
+      },
+      {
+        "name": "wavefront-c",
+        "algorithm": "wavefront_direct",
+        "params": {
+          "auto_rotate": true
+        }
       }
     ],
     "score_weights": {

@@ -25,15 +25,90 @@ For each section, produce a structured verdict:
 Run these before starting the manual review. Record results for reference.
 
 ```bash
-make hw-build          # Preflight + cross-board wiring (system build)
-make hw-place          # Placement validation (bounds, overlaps, clearances)
-make hw-route          # Routing + DRC (unrouted nets, design rule violations)
-make check-parts BOARD_COUNT=5   # Parts availability + pricing
+make hardware          # Full hardware pipeline (ato build → place → route → 3d → export)
 make test-hw           # Unit tests (BOM parser, placement, collision)
 cargo test             # Firmware tests (DAC driver, button mapping, MIDI)
 ```
 
 If any automated check fails, fix before proceeding. Record the output of each for the report.
+
+---
+
+## Section 0: Component & Footprint Audit
+
+**Verdict: PASS** (all CRITICAL, HIGH, and MEDIUM issues resolved)
+
+**Run date:** 2026-03-18 | **Fixes applied:** 2026-03-18
+
+Datasheet-level verification of every component's pin mapping, footprint, 3D model, and circuit usage. Custom footprints and fine-pitch QFN ICs are highest risk.
+
+### CRITICAL — ~~Must fix before fabrication~~ FIXED 2026-03-18
+
+| # | Component | Issue | Status |
+|---|-----------|-------|--------|
+| C1 | **DAC80508ZRTER** | Entire pin mapping wrong (15/16 pins). Remapped to match TI SLASEL1D §6. | **FIXED** |
+| C2 | **BAT54S** | Pins 2/3 swapped (CATHODE↔COMMON). Corrected to ANODE=1, CATHODE=2, COMMON=3. | **FIXED** |
+| C3 | **2N3904** | LCSC C18536 now KEC (1=E, 2=B, 3=C). Updated pin mapping + manufacturer. | **FIXED** |
+| C4 | **PGA2350 I2C** | GP11/GP12 on different I2C instances. Reassigned to GP12(SDA)+GP13(SCL), both I2C0 F3. | **FIXED** |
+
+### HIGH — ~~Should fix before fabrication~~ FIXED 2026-03-18
+
+| # | Component | Issue | Status |
+|---|-----------|-------|--------|
+| H1 | **IS31FL3216A** | I2C address comments swapped for led_b/led_c. Comments corrected to match wiring. | **FIXED** |
+| H2 | **PB6149L** | LED polarity confirmed from mechanical drawing: L1(+)=anode=pin5, L2(−)=cathode=pin6. Matches design. Drawing saved to `components/PB6149L/images/`. | **VERIFIED** |
+| H3 | **PB6149L** | Switch pin spacing confirmed 5.08mm×5.08mm, pin Ø1.0mm matches footprint drill. Drawing saved to `components/PB6149L/images/`. | **VERIFIED** |
+
+### MEDIUM — ~~Should fix, not blocking~~ FIXED 2026-03-18
+
+| # | Component | Issue | Status |
+|---|-----------|-------|--------|
+| M1 | **PRTR5V0U2X** | SOT-143B pad 1 widened to 1.2mm for polarity ID per SOT-143B spec. | **FIXED** |
+| M2 | **DAC80508ZRTER** | Added WQFN-16 3D model reference to footprint. | **FIXED** |
+| M3 | **DAC80508ZRTER** | EP pad corrected from 1.7x1.7mm to 1.6x1.6mm per datasheet. | **FIXED** |
+| M4 | **R1206** | Added R1206 to SUFFIX_MODEL_MAP in add_3d_models.py. | **FIXED** |
+| M5 | **WQP518MA** | Rect pad moved from pin 2 to pin 1 (Tip) per KiCad convention. | **FIXED** |
+| M6 | **PJ366ST** | Added missing closing paren to keepout zone polygon in PJ366ST-full.kicad_mod. | **FIXED** |
+
+### LOW — Informational
+
+| # | Component | Issue |
+|---|-----------|-------|
+| L1 | IS31FL3216A | IN pin left floating. Tie to GND if audio mode unused to prevent noise. |
+| L2 | OPA4171AIPWR | 3D model has 0.2625mm X offset — visually verify alignment. |
+| L3 | PRTR5V0U2X | LCSC C2827688 manufacturer "TECH PUBLIC" vs design "Nexperia". Functional equivalent. |
+| L4 | H11L1S | LCSC C78589 manufacturer "EVERLIGHT" vs .ato "Lite-On". Both valid H11L1S makers. |
+| L5 | BAT54S | LCSC C7420333 manufacturer "hongjiacheng" vs .ato "Nexperia". Budget clone. |
+| L6 | USB_C_Receptacle | Only 1 shield/mounting pad. Check TYPE-C-31-M-12 datasheet for required mechanical pads. |
+| L7 | USB_C_Receptacle | 3D model uses USB4085 as stand-in. Visual alignment unverified. |
+| L8 | FPC_18P_05MM | Defined but unused. Dead code (alternate display connector). |
+| L9 | ResistorNetwork9 | Defined but unused. Dead code. |
+| L10 | FOJAN parts | C2930086 (29.4kΩ) and C2907540 (82Ω 1206) have high LCSC numbers — check stock. |
+| L11 | 1206 resistor | Only 1206 part in otherwise all-0402/0603 design. Confirm intentional (power handling). |
+| L12 | PGA2350 | LCSC C0000 placeholder — Pimoroni not on LCSC. BOM generation will need manual entry. |
+| L13 | Dead generator code | `generate_footprints.py` has unused `make_wqp518ma()` with different pin positions than actual footprint. |
+
+### Components PASSED (no issues)
+
+| Component | Package | Pin mapping | Footprint | Circuit usage |
+|-----------|---------|-------------|-----------|---------------|
+| IS31FL3216A | QFN-28 (0.45mm) | PASS (all 28+EP) | PASS | PASS |
+| OPA4171AIPWR | TSSOP-14 (0.65mm) | PASS (standard quad op-amp) | PASS | PASS |
+| 2N7002 | SOT-23 | PASS | PASS | PASS |
+| AMS1117-3.3 | SOT-223 | PASS | PASS | PASS |
+| B5819W | SOD-123 | PASS | PASS | PASS |
+| H11L1S | SOP-6 (2.54mm) | PASS | PASS (wide-body valid for optocoupler) | PASS |
+| EurorackPowerHeader16 | 2x8 shrouded | PASS (Doepfer standard) | PASS | PASS |
+| ShroudedHeader2x16 | 2x8x2 | PASS (32-pin mirror) | PASS | PASS |
+| ShroudedSocket2x16 | 2x8x2 | PASS | PASS | PASS |
+| FPC_32P_05MM | 32-pin FPC | PASS (ST7796 match) | PASS | PASS |
+| ResArray4x0603 | 0603x4 convex | PASS | PASS | PASS |
+| PGA2350 (footprint) | 64-pin PGA | PASS (positions) | PASS | — |
+| WQP518MA | THT mono jack | PASS | PASS | PASS |
+| PJ366ST | THT stereo jack | PASS | PASS | PASS |
+| EC11E | THT encoder | PASS | PASS | PASS |
+| PJS008U | MicroSD vertical | PASS (SPI mode) | PASS | PASS |
+| Precision resistors | 0603 0.1% | PASS (pitch-critical paths only) | PASS | PASS |
 
 ---
 
@@ -646,6 +721,311 @@ For every serial bus (SPI, I2C, UART), verify both ends agree:
 
 ---
 
+## Section 12: Manufacturing Output Files
+
+**Why:** A correct schematic means nothing if the manufacturing files sent to JLCPCB are wrong. Component rotation errors are the #1 cause of assembly rework, and missing/misformatted files delay orders.
+
+### Files to review
+- Gerber output from `make hw-route` (or KiCad export)
+- Pick-and-place / CPL files (component position list)
+- BOM file formatted for JLCPCB upload
+- Drill files (Excellon format)
+
+### What to check
+
+#### 12a. Gerber / Drill Integrity
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Layer count | Open Gerbers in viewer (e.g., gerbv, KiCad Gerber viewer) — count layers | Missing layer (e.g., no silkscreen, no mask) |
+| Board outline | F.Cu, B.Cu, Edge.Cuts all present and outline matches expected dimensions | Outline missing or wrong size |
+| Drill file | Drill sizes match schematic (via sizes, mounting holes, THT pad holes) | Missing drill file, or wrong hole sizes |
+| No stale files | Gerber export date matches latest routing run | Stale Gerbers from a previous revision |
+
+#### 12b. Pick-and-Place / CPL File
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| All SMD components present | Count components in CPL vs BOM — should match for SMD parts | Missing components in CPL |
+| Rotation offsets | Cross-reference CPL rotations with JLCPCB's known rotation offsets for each package type. Spot-check: QFN (PGA2350), TSSOP (DAC8568), SOT-23 (transistors, diodes), 0402/0603 passives | Any IC likely rotated 90°/180° (pin 1 misaligned) |
+| Coordinate origin | Verify CPL origin matches the board origin used by JLCPCB (usually bottom-left of board outline) | Components placed at wrong absolute positions |
+| Polarized components | Visually verify orientation of all polarized SMD parts (ICs, diodes, electrolytic caps, LEDs) in CPL preview | Wrong polarity on any component |
+
+#### 12c. BOM Format
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| LCSC part numbers | Every SMD component has a valid LCSC/JLCPCB part number | Missing part number (JLCPCB won't place it) |
+| Quantities match | BOM quantity × board count matches order | Wrong quantity (short or over-ordered) |
+| Designator mapping | BOM designators match CPL designators exactly | Mismatch causes wrong part in wrong location |
+| No THT in SMD BOM | THT parts should NOT be in the JLCPCB assembly BOM (hand-soldered) | THT part listed as SMD assembly (will fail or be skipped) |
+
+#### 12d. Fiducial Marks
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Fiducials present | At least 2 (preferably 3) fiducial marks on each board with SMD assembly | No fiducials (machine can't align placement) |
+| Fiducial placement | Asymmetric placement (not rotationally symmetric) so machine can determine orientation | Symmetric placement (ambiguous board orientation) |
+
+### Pass criteria
+- **PASS:** All files present, rotations verified, BOM/CPL aligned, fiducials correct
+- **WARN:** Minor rotation uncertainty on commodity passives (easily caught in JLCPCB review step)
+- **FAIL:** Missing CPL/BOM, IC rotation errors, missing fiducials, stale Gerbers
+
+---
+
+## Section 13: Silkscreen & Markings
+
+**Why:** Bad silkscreen wastes debugging time during bring-up and makes hand-assembly error-prone.
+
+### Files to read
+- KiCad PCB files for both boards (`control.kicad_pcb`, `main.kicad_pcb`)
+- Faceplate layout (`faceplate.kicad_pcb`)
+
+### What to check
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Board version / date | Silkscreen includes version string (e.g., "v0.1 2026-03") on each board | No version marking (can't distinguish revisions) |
+| Pin 1 markers | All ICs have pin 1 dot/line on silkscreen near the pad | Missing on any IC (assembly error risk) |
+| Connector polarity | Board-to-board headers have clear pin 1 / orientation marking on both boards | No marking (can be plugged in backwards) |
+| Power connector polarity | Eurorack power header has -12V/+12V/GND clearly marked | Unmarked power header (reverse polarity risk) |
+| Reference designators | Component refs readable, not overlapping pads or other refs, not hidden under components | Unreadable refs (debugging becomes guesswork) |
+| Component outlines | Courtyard/silkscreen outlines match actual part footprints | Outlines wrong size (misleading during hand-placement of THT) |
+
+### Pass criteria
+- **PASS:** All boards versioned, all connectors marked for polarity, refs readable
+- **WARN:** Minor ref overlap on dense areas (functional but annoying)
+- **FAIL:** No board version, unmarked board-to-board connectors, unmarked power header
+
+---
+
+## Section 14: EMC & Analog Noise
+
+**Why:** A eurorack module with noisy CV outputs is unusable. Digital switching noise coupling into the 1V/oct pitch path is the most likely source of audible artifacts.
+
+### Files to read
+- KiCad PCB layouts (both boards)
+- `hardware/boards/elec/src/power.ato` — supply filtering
+- `hardware/boards/elec/src/dac-output.ato` — analog output path
+- `hardware/boards/design-rules.json` — netclass assignments
+
+### What to check
+
+#### 14a. Ground Plane Strategy
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Continuous ground pour | Both sides of both boards have unbroken ground copper under analog sections | Ground pour missing or severely fragmented under DAC/op-amp area |
+| No ground splits under analog ICs | Ground plane continuous under DAC and op-amp footprints (no traces cutting through) | Signal trace bisects ground under DAC or op-amp |
+| Ground stitching | Vias connecting top and bottom ground planes, especially around analog sections | No stitching vias near analog path (ground return path too long) |
+| Star ground topology | High-current return paths (LEDs, digital switching) don't share ground trace with precision analog | LED driver ground return runs through DAC/op-amp ground area |
+
+#### 14b. Analog-Digital Coupling
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| SPI clock isolation | SPI1 clock (DAC) routed away from pitch CV analog traces — minimum 1mm gap or ground guard | SPI clock parallel and adjacent to CV output traces |
+| LED driver switching | TLC5947 SCLK/SIN traces not routed near analog output path | LED data lines cross or run parallel to CV path |
+| Decoupling placement | 100nF caps physically within 2mm of each IC power pin (not just in schematic) | Decoupling cap on opposite side of board from IC, connected by long trace |
+| Analog supply filtering | Separate decoupling on op-amp analog supply pins, not shared with digital rail | Op-amp VCC/VEE decoupling shared with digital IC |
+
+#### 14c. Power Supply Noise
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Regulator output filtering | Bulk + ceramic on each regulator output | Missing ceramic on switching regulator output (HF noise on rail) |
+| Cross-board power filtering | Bulk cap on each power rail at board-to-board connector entry point | No filtering at connector (noise couples between boards) |
+| Precision reference isolation | DAC VREF decoupling per datasheet, not shared with other analog loads | VREF cap missing or shared |
+
+### Pass criteria
+- **PASS:** Continuous ground under analog, decoupling physically close to pins, no digital-analog parallel runs
+- **WARN:** Minor: digital trace crosses analog area but at 90° (minimal coupling)
+- **FAIL:** Fragmented ground under DAC/op-amps, SPI clock parallel to CV traces, missing decoupling on precision path
+
+---
+
+## Section 15: Board Bring-Up & Test Plan
+
+**Why:** Even a perfectly validated design needs a structured bring-up to catch manufacturing defects before they cause damage. Without a plan, the instinct is to power everything at once — risking a short on one rail taking out an IC on another.
+
+### What to prepare before boards arrive
+
+| Item | Details |
+|------|---------|
+| Lab power supply | Current-limited bench supply, set to 100mA initially |
+| Multimeter | Continuity, voltage, resistance checks |
+| Oscilloscope | For verifying SPI signals, clock, analog output waveforms |
+| Firmware binary | Pre-built and tested on a dev board if possible |
+| SWD debugger | For initial flash and debugging (Picoprobe or similar for RP2350) |
+
+### Bring-up sequence
+
+#### Phase 1: Visual inspection (before applying power)
+- [ ] Check all SMD components placed and oriented correctly (compare to 3D render)
+- [ ] Check solder joints under magnification — bridges, cold joints, tombstoning
+- [ ] Check board-to-board connectors for bent pins
+- [ ] Continuity check: no short between +12V/GND, -12V/GND, +5V/GND, +3.3V/GND
+
+#### Phase 2: Power supply (main board only, no control board connected)
+- [ ] Apply +12V and -12V through eurorack power header, current-limited to 100mA
+- [ ] Measure +12V, -12V at test points / regulator inputs
+- [ ] Measure +5V regulator output (expected: 5.0V ± 0.1V)
+- [ ] Measure +3.3V regulator output (expected: 3.3V ± 0.1V)
+- [ ] Check current draw (expected idle: < 50mA total — if significantly higher, stop and investigate)
+- [ ] Touch regulators — warm is OK, hot means thermal issue
+
+#### Phase 3: MCU alive
+- [ ] Connect SWD debugger to PGA2350
+- [ ] Flash minimal blinky firmware (toggle a known GPIO)
+- [ ] Verify GPIO toggles with scope/LED
+- [ ] Flash full firmware, verify USB enumeration (if USB connected)
+
+#### Phase 4: Board-to-board connection
+- [ ] Power off, connect control board via board-to-board headers
+- [ ] Power on, re-check all voltage rails (current limit still on)
+- [ ] Check current draw with both boards (expected: < 150mA — adjust based on LED count)
+
+#### Phase 5: Peripheral verification
+- [ ] **SPI display:** Send test pattern, verify display shows pixels
+- [ ] **Button scan:** Press each button, verify firmware reads correct bit position
+- [ ] **LEDs:** Light each LED individually, verify correct position and color
+- [ ] **Encoders:** Turn each encoder, verify firmware reads direction correctly
+- [ ] **DAC outputs:** Set known DAC values, measure with multimeter at jack outputs
+  - Gate: 0V and 5V
+  - Pitch: -2V and +8V (verify full range)
+  - Velocity: 0V and 8V
+  - Mod: -5V and +5V
+- [ ] **MIDI:** Send MIDI note from computer, verify firmware receives it
+- [ ] **Clock I/O:** Send 5V square wave into clock input, verify firmware detects edges; trigger clock output, verify 5V square wave at jack
+- [ ] **CV inputs:** Apply known voltages (0V, 1.65V, 3.3V), verify ADC reads correct values
+- [ ] **SD card:** Insert card, verify firmware can read/write a test file
+
+### Test points
+Verify these test points exist on the PCB (if not, add them before manufacturing):
+
+| Signal | Board | Purpose |
+|--------|-------|---------|
+| +5V | Main | Verify regulator |
+| +3.3V | Main | Verify regulator |
+| +12V | Main | Verify power input |
+| -12V | Main | Verify power input |
+| GND | Both | Probe reference |
+| SPI1 SCK (DAC) | Main | Verify DAC communication |
+| DAC OUT (1 channel) | Main | Verify analog output |
+| SWD CLK/DIO | Main | Firmware debug access |
+
+### Pass criteria
+- **PASS:** All phases complete, all peripherals functional, voltages within spec
+- **WARN:** Minor: one LED position swapped (firmware fix), or one button reads inverted
+- **FAIL:** Power rail out of spec, MCU won't flash, any peripheral completely non-functional
+
+---
+
+## Section 16: Sandwich Stack Assembly
+
+**Why:** Three PCBs stacking (faceplate + control + main) with board-to-board connectors creates mechanical constraints that don't show up in per-board validation.
+
+### Files to read
+- 3D assembly STEP files (`hardware/boards/build/3d/`)
+- Board-to-board connector datasheets (ShroudedHeader2x16 / ShroudedSocket2x16)
+- `hardware/boards/board-config.json` — board dimensions
+- `hardware/faceplate/elec/src/faceplate.ato` — faceplate dimensions
+
+### What to check
+
+#### 16a. Connector Keying & Orientation
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Shroud key alignment | Both header (main) and socket (control) shroud keys face the same direction when boards are stacked | Key orientation prevents mating, or allows 180° insertion |
+| Pin 1 alignment | Pin 1 on header aligns with pin 1 on socket when stacked (not mirrored) | Pin 1 on opposite corners (all signals swapped) |
+| Silkscreen marking | Both boards have clear pin 1 / key direction marking visible after assembly | No visible marking (can only verify by disassembly) |
+
+#### 16b. Mechanical Clearances
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Mated height | Board-to-board connector mated height (from datasheet) matches standoff height | Standoffs too short (boards under stress) or too tall (connectors don't fully mate) |
+| THT pin clearance | THT component pins protruding below control board don't hit components on main board top side | Pin contacts component (short circuit or mechanical damage) |
+| Component height — control bottom | No SMD component on control board bottom exceeds available gap above main board top | Component collision between boards |
+| Component height — main top | Tallest component on main board top fits within gap below control board bottom | Component collision |
+
+#### 16c. Assembly Order
+
+Document the correct assembly sequence:
+1. Solder SMD on both boards (JLCPCB)
+2. Solder THT components on control board (jacks, buttons, encoders, headers)
+3. Mount standoffs to main board
+4. Mate control board onto main board via board-to-board connectors
+5. Attach faceplate with spacers/nuts through jack and encoder mounting hardware
+6. Connect eurorack power cable
+
+Verify:
+- [ ] THT components can be soldered after SMD assembly (no access blocked)
+- [ ] Board-to-board connectors accessible for mating after THT is soldered
+- [ ] Faceplate attachment doesn't require disassembling the stack
+
+### Pass criteria
+- **PASS:** Connectors keyed correctly, clearances verified in 3D model, assembly sequence feasible
+- **WARN:** Tight clearance (<0.5mm) between boards — functional but fragile
+- **FAIL:** Connector keying allows wrong insertion, component collision between boards, assembly impossible without rework
+
+---
+
+## Section 17: Component Documentation & Traceability
+
+**Why:** Missing or stale datasheets, README files, and footprint mismatches create confusion during bring-up and make future revisions error-prone. Every component should have a clear paper trail from datasheet → .ato pin mapping → footprint → 3D model.
+
+### Files to walk
+
+For every component directory under `hardware/boards/elec/src/components/` (skip `_archive/`):
+
+### 17a. Datasheet & Reference Material
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Datasheet present | Each component dir has a PDF or a link in README to manufacturer datasheet | No datasheet reference for any active component |
+| Datasheet matches LCSC part | The datasheet covers the exact MPN in the .ato `has_part_picked` trait | Datasheet is for a different variant (e.g., different package, different voltage rating) |
+| Pin mapping matches datasheet | Walk every `signal X ~ pin N` in the .ato against the datasheet pin table | Any pin assignment contradicts the datasheet |
+
+### 17b. Footprint & Symbol Alignment
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Footprint file exists | `.kicad_mod` referenced in `is_atomic_part` trait exists in the component directory | Missing footprint file |
+| Symbol file exists | `.kicad_sym` referenced in `is_atomic_part` trait exists in the component directory | Missing symbol file |
+| Pad count matches .ato | Number of `signal ~ pin N` declarations (plus commented-out NC pins) equals the footprint pad count | Mismatch suggests missing or extra pins |
+| 3D model present | `.step` file exists for THT and QFN/BGA components (SMD passives may use KiCad defaults) | Missing 3D model for a component that protrudes through faceplate or affects stacking clearance |
+| Footprint dimensions match datasheet | Spot-check pad pitch, pad size, and courtyard against the datasheet recommended land pattern | Pad pitch or size significantly off from datasheet |
+
+### 17c. README Accuracy
+
+For each component and circuit directory that has a README:
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| README exists | Each component dir with custom footprint/symbol has a README explaining the part | Missing README for a non-trivial custom component |
+| Part description current | README describes the actual part used (not a previously-considered alternative) | README describes a different part than what's in the .ato |
+| Pin mapping documented | README pin table (if present) matches the .ato file | Contradictory pin information |
+| Circuit READMEs current | Each circuit dir README describes the current topology, component values, and design rationale | README describes an old topology (e.g., different LED driver, different optocoupler) |
+| No stale references | No mentions of replaced components (e.g., "6N138" when H11L1S is used, "TLC5947" when IS31FL3216A is used, "DAC8568" when DAC80508 is used) | Stale component references that could mislead during debugging |
+
+### 17d. Cross-Reference Consistency
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| component-map.json complete | Every component address referenced in board .ato files has an entry in `component-map.json` with correct group/label/dimensions | Missing entries cause export_layout.py to skip components |
+| LCSC part numbers valid | Spot-check 5-10 LCSC part numbers from .ato files against lcsc.com — verify they resolve to the correct part | LCSC number points to wrong part or is discontinued |
+| No orphan components | Components in `components/` (non-archive) are all instantiated somewhere in `circuits/` or `boards/` | Unused component clutters BOM and may confuse procurement |
+
+### Pass criteria
+- **PASS:** Every active component has datasheet reference, matching footprint/symbol, accurate README, and valid LCSC part number
+- **WARN:** Minor README staleness (e.g., outdated comment, old alternative mentioned in passing) that doesn't affect correctness
+- **FAIL:** Missing datasheet for any IC, pin mapping contradicts datasheet, footprint missing or wrong dimensions, README describes a different circuit topology than what's built
+
+---
+
 ## Final Report Template
 
 ```markdown
@@ -667,6 +1047,12 @@ For every serial bus (SPI, I2C, UART), verify both ends agree:
 | 9. Parts Availability | | |
 | 10. Mechanical Fit | | |
 | 11. Datasheet Compliance | | |
+| 12. Manufacturing Output Files | | |
+| 13. Silkscreen & Markings | | |
+| 14. EMC & Analog Noise | | |
+| 15. Board Bring-Up & Test | | |
+| 16. Sandwich Stack Assembly | | |
+| 17. Component Documentation | | |
 
 ## Automated Check Results
 (paste output of make hw-build, hw-place, hw-route, check-parts, test-hw, cargo test)

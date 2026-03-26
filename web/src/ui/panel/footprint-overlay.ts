@@ -94,8 +94,8 @@ export function createFootprintOverlay(): void {
   // Buttons — body rect (green) + courtyard rect (yellow)
   function addButtonFootprints(buttons: Array<{ x_mm: number; y_mm: number }>): void {
     for (const b of buttons) {
-      parts.push(offsetRect(b.x_mm, b.y_mm, FP.tc002_rgb.body, '#44ff44'))
-      parts.push(offsetRect(b.x_mm, b.y_mm, FP.tc002_rgb.courtyard, '#cccc00', '2,2'))
+      parts.push(offsetRect(b.x_mm, b.y_mm, FP.pb6149l.body, '#44ff44'))
+      parts.push(offsetRect(b.x_mm, b.y_mm, FP.pb6149l.courtyard, '#cccc00', '2,2'))
     }
   }
 

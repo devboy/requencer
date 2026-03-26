@@ -4,34 +4,48 @@ Design documents and research notes for Requencer development.
 
 ## Plans (Active)
 
-- **[requencer-design.md](plans/2026-02-22-requencer-design.md)** — Core architecture & feature spec (V1 + post-V1 complete)
 - **[feature-roadmap.md](plans/2026-03-01-feature-roadmap.md)** — Feature tiers (all complete) + future/unscheduled items
 - **[quality-audit.md](plans/2026-03-03-quality-audit.md)** — Performance baselines, coverage stats, refactoring opportunities
-- **[firmware-implementation.md](plans/2026-03-06-firmware-implementation.md)** — RP2350 firmware roadmap (next major milestone)
-- **[persistence-design.md](plans/2026-03-06-persistence-design.md)** + **[plan](plans/2026-03-06-persistence.md)** — Postcard serialization (web done, firmware pending)
-- **[missing-hardware-components](plans/2026-03-06-missing-hardware-components-design.md)** + **[plan](plans/2026-03-06-missing-hardware-components.md)** — 3 remaining parts + footprint fixes
+- **[firmware-implementation.md](plans/2026-03-06-firmware-implementation.md)** — RP2350 firmware roadmap (active development)
+- **[persistence.md](plans/2026-03-06-persistence.md)** — Postcard serialization plan (web done, firmware SD card pending)
 - **[rp2350-memory-constraints.md](plans/2026-03-06-rp2350-memory-constraints.md)** — Memory budget analysis for RP2350
 - **[hardware-pipeline-remaining-todos.md](plans/2026-03-07-hardware-pipeline-remaining-todos.md)** — Pipeline status & known issues
+- **[main-board-resize.md](plans/2026-03-12-main-board-resize.md)** — Shrink main board (partially implemented)
+- **[parallel-placement-optimization.md](plans/2026-03-13-parallel-placement-optimization.md)** — 5-strategy parallel placement architecture
+- **[pcb-stacking-restructure.md](plans/pcb-stacking-restructure.md)** — Three-board sandwich architecture (implemented)
 - **[rust-engine-remaining-todos.md](plans/rust-engine-remaining-todos.md)** — Storage, cross-validation, firmware integration
+
+## Superpowers Plans & Specs (Active)
+
+- **[placement-strategy-refactor](superpowers/plans/2026-03-15-placement-strategy-refactor.md)** — BoardState toolkit architecture (implemented)
+- **[wavefront-placement-design](superpowers/specs/2026-03-17-wavefront-placement-design.md)** — BFS wave placement strategy (implemented)
+- **[display-replacement-design](superpowers/specs/2026-03-16-display-replacement-design.md)** — ST7796 32-pin FPC migration (implemented)
+- **[placement-strategy-refactor-design](superpowers/specs/2026-03-15-placement-strategy-refactor-design.md)** — Config-driven placement design (implemented)
 
 ## Research (Active)
 
 **Hardware reference:**
-- [eurorack-dimensions](research/eurorack-dimensions.md), [mechanical-standards](research/eurorack-mechanical-standards.md), [pcb-best-practices](research/eurorack-pcb-best-practices.md) — Eurorack specs
-- [qfn-rp2350-research](research/2026-03-06-qfn-rp2350-research.md) — QFN package research for PGA2350
+- [mechanical-standards](research/eurorack-mechanical-standards.md), [pcb-best-practices](research/eurorack-pcb-best-practices.md) — Eurorack specs
 - [continuous-cv-outputs](research/continuous-cv-outputs.md) — CV output design for firmware
+- [pcb-stacking](research/pcb-stacking.md) — Three-board sandwich depth budget & connectors
+- [component-mounting-depths](research/component-mounting-depths.md) — Physical depth specs for panel-mounted parts
+- [faceplate-connectors](research/faceplate-connectors.md) — USB-C & MicroSD front-panel placement
+- [thermal-placement-analysis](research/thermal-placement-analysis.md) — Power dissipation & thermal gradients
 
 **Design reference:**
 - [sequencer-comparison](research/sequencer-comparison.md) — Competitor analysis
 - [feature-ideas](research/feature-ideas.md) — Feature brainstorm with implementation status
-- [storage-options](research/storage-options.md) — Storage strategy (decision: postcard + SD card + flash)
+- [3d-assembly-viewer](research/3d-assembly-viewer.md) — Three.js exploded view (planned)
+- [3d-preview-rendering](research/3d-preview-rendering.md) — Studio-quality 3D rendering (aspirational)
 
-**Infrastructure:**
-- [hardware-strategy](research/hardware-strategy.md) — Prototype timeline & pipeline
-- [rust-wasm-engine-renderer](research/rust-wasm-engine-renderer.md) — Rust/WASM architecture (Phase 1+3 complete)
-- [china-pcb-ordering](research/china-pcb-ordering.md) — PCB fab ordering info
-- [github-actions-autoroute-timeout](research/2026-03-07-github-actions-autoroute-timeout.md) — CI autoroute workaround
+**Audits:**
+- [schematic-review-2026-03-16](research/schematic-review-2026-03-16.md) — Pre-production audit (all fixes applied)
+- [pcb-placement-review](research/pcb-placement-review.md) — Component placement audit
+
+**Sourcing:**
+- [aliexpress-parts-sourcing](research/aliexpress-parts-sourcing.md) — THT parts sourcing (all ordered)
+- [github-actions-autoroute-timeout](research/2026-03-07-github-actions-autoroute-timeout.md) — FreeRouting CI workarounds
 
 ## Archive
 
-Completed feature plans and superseded research. See [`archive/`](archive/) directory.
+Completed feature plans, superseded research, and historical design decisions. See [`archive/`](archive/) directory.

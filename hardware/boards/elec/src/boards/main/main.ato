@@ -18,6 +18,7 @@ from "../../circuits/input-protection/input-protection.ato" import InputProtecti
 from "../../components/2N3904/2N3904.ato" import _2N3904
 from "../../components/PRTR5V0U2X/PRTR5V0U2X.ato" import PRTR5V0U2X
 from "../../components/USB_C_Receptacle/USB_C_Receptacle.ato" import USB_C_Receptacle
+from "../../components/PinHeader1x3/PinHeader1x3.ato" import PinHeader1x3
 
 module Main:
     # --- Sub-module instances ---
@@ -257,13 +258,13 @@ module Main:
     r_rst_collector.unnamed[1] ~ q_rst.COLLECTOR
     q_rst.COLLECTOR ~ connector.rst_out
 
-    # === SWD DEBUG — Test pads on main board for prototype debugging ===
-    # Route to exposed pads/vias on PCB for pogo-pin or header access.
-    # Not needed for production but critical if USB doesn't enumerate on first boot.
-    signal swd_clk
-    signal swd_dio
-    swd_clk ~ mcu.swd_clk
-    swd_dio ~ mcu.swd_dio
+    # === SWD DEBUG — Pin header on back of main board for debug probe ===
+    # 1x3 THT header: SWCLK, SWDIO, GND. Compatible with Picoprobe / Pi Debug Probe.
+    # Critical if USB doesn't enumerate on first boot.
+    swd_header = new PinHeader1x3
+    swd_header.PIN1 ~ mcu.swd_clk
+    swd_header.PIN2 ~ mcu.swd_dio
+    swd_header.PIN3 ~ gnd
 
     # === USB-C — Edge-mounted SMD receptacle for firmware programming ===
     # Data only (no VBUS power), USB 2.0 Full Speed

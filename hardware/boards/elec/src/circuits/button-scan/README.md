@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Reads 34 pushbuttons using only 3 MCU GPIO pins via a daisy-chained shift register topology. Five 74HC165 parallel-in/serial-out shift registers capture the state of all buttons in a single 40-bit serial read (34 buttons + 4 spare + 2 unused).
+Reads 36 pushbuttons using only 3 MCU GPIO pins via a daisy-chained shift register topology. Five 74HC165 parallel-in/serial-out shift registers capture the state of all buttons in a single 40-bit serial read (36 buttons + 4 spare).
 
 ## Design Decisions
 
@@ -56,9 +56,9 @@ Each shift register input has a 10k pull-up to VCC via ResArray4x0603 (4-resisto
 
 10k was chosen as a standard value that balances:
 - **Low enough** to provide a solid logic high against noise pickup on the PCB traces from the buttons
-- **High enough** to limit current draw when buttons are pressed (3.3V / 10k = 0.33mA per pressed button, negligible even with all 34 pressed)
+- **High enough** to limit current draw when buttons are pressed (3.3V / 10k = 0.33mA per pressed button, negligible even with all 36 pressed)
 
-Using 4x resistor arrays instead of discrete resistors reduces component count from 36 individual resistors to 9 array packages (two per SR for D0-D3 and D4-D7, with SR5 needing only one since D4-D7 are tied to VCC directly).
+Using 4x resistor arrays instead of discrete resistors reduces component count from 36 individual resistors to 9 array packages (two per SR for D0-D3 and D4-D7, with SR5 needing only one for D0-D3 since D4-D7 are tied to VCC directly).
 
 The array pinout is "convex": R1 = pin1-pin8, R2 = pin2-pin7, R3 = pin3-pin6, R4 = pin4-pin5. One side of each resistor goes to VCC, the other to the SR input.
 
@@ -72,7 +72,7 @@ At 3.3V, the 74HC165 supports clock frequencies up to ~20MHz. A practical scan r
 
 ### Button Hardware
 
-All 34 buttons are PB6149L illuminated pushbuttons. Each button has two switch pins (SW1, SW2): SW1 connects to the shift register input, SW2 connects to GND. The LED inside each button is driven separately by the LED driver module.
+All 36 buttons are PB6149L illuminated pushbuttons. Each button has two switch pins (SW1, SW2): SW1 connects to the shift register input, SW2 connects to GND. The LED inside each button is driven separately by the LED driver module.
 
 ## Key Parts
 
@@ -80,7 +80,7 @@ All 34 buttons are PB6149L illuminated pushbuttons. Each button has two switch p
 |------|------|-----------|
 | 74HC165D | 8-bit parallel-in/serial-out shift register, SOIC-16 (x5) | [NXP 74HC165](https://www.nexperia.com/products/analog-logic-ics/asynchronous-interface-logic/shift-registers/74HC165D.html) |
 | ResArray4x0603 | 10k x4 resistor array, 0603 SMD (x9) | -- |
-| PB6149L | Illuminated pushbutton with integrated LED (x34) | -- |
+| PB6149L | Illuminated pushbutton with integrated LED (x36) | -- |
 
 ## Signal Interface
 

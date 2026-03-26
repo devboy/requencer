@@ -30,7 +30,7 @@ module PowerSupply:
     header.GND5 ~ gnd
     header.GND6 ~ gnd
 
-    # CV/Gate pins — unused, leave floating
+    # CV/Gate pins (13-16) — signals removed from component to avoid auto-net DRC errors
 
     # --- Reverse polarity protection ---
     # Schottky diodes on +12V and -12V rails
@@ -92,8 +92,10 @@ module PowerSupply:
     c_3v3_in.unnamed[0] ~ v5v
     c_3v3_in.unnamed[1] ~ gnd
 
+    # AMS1117 datasheet requires ≥22µF on output for regulator loop stability
+    # Using 47µF for margin above 22µF minimum
     c_3v3_out = new Capacitor
-    c_3v3_out.capacitance = 10uF +/- 20%
+    c_3v3_out.capacitance = 47uF +/- 20%
     c_3v3_out.unnamed[0] ~ v3v3
     c_3v3_out.unnamed[1] ~ gnd
 

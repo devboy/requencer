@@ -245,8 +245,8 @@ def generate_faceplate(layout, output_path):
             jack_count += 1
     print(f"  {jack_count} jack holes added (6.0mm drill)")
 
-    # 6. Button holes — per TC002 datasheet mounting hole
-    btn_drill = 3.2  # TC002 panel mount shaft
+    # 6. Button holes — PB6149L cap Ø5.6mm + 0.45mm clearance/side
+    btn_drill = 6.5
     btn_count = 0
     for group_name in ("track", "subtrack", "feature", "step", "transport", "control_strip"):
         items = layout["buttons"].get(group_name, [])
@@ -268,7 +268,7 @@ def generate_faceplate(layout, output_path):
             ref_prefix="SW",
         )
         btn_count += 1
-    print(f"  {btn_count} button holes added (3.2mm drill)")
+    print(f"  {btn_count} button holes added (6.5mm drill)")
 
     # 7. Encoder holes (7mm drill for EC11E shaft)
     enc_drill = 7.0

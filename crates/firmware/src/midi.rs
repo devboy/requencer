@@ -1,8 +1,7 @@
 //! MIDI I/O over UART1 at 31250 baud.
 //!
 //! Pin assignment: GP20 = UART1_TX (MIDI OUT), GP21 = UART1_RX (MIDI IN).
-//! Note: The PCB schematic lists GP21/GP22, but RP2350 GPIO function mapping
-//! requires GP20/GP21 for UART1. The schematic should be updated accordingly.
+//! RP2350 hardware function select: GP20/GP21 = UART1 TX/RX (F2).
 
 #[cfg(target_os = "none")]
 use embassy_rp::uart::{UartRx, UartTx};

@@ -32,16 +32,18 @@ The +5V bus rail is available on the eurorack 16-pin header (pins POS5V_1/2). Mo
 
 ### AMS1117-3.3 LDO Regulator
 
-The AMS1117 requires a minimum 10uF capacitor on both input and output for stability (per datasheet). The design provides:
+The AMS1117 requires a minimum 10uF capacitor on the input and a minimum 22uF capacitor on the output for regulator loop stability (per datasheet). The design provides:
 
 - **Input:** 10uF bulk (c_3v3_in), plus the shared 5V rail decoupling
-- **Output:** 10uF bulk (c_3v3_out) + 100nF HF (c_3v3_out_hf)
+- **Output:** 22uF bulk (c_3v3_out) + 100nF HF (c_3v3_out_hf)
 
 The TAB pin is connected to VOUT (not GND), following the AMS1117 datasheet recommendation. This is a common gotcha -- some LDOs have TAB=GND, but the AMS1117 TAB is electrically connected to the output.
 
 ### 3.3V Rail Load Budget
 
 The board 3.3V rail powers shift registers, LCD, MIDI interface, and input protection. The PGA2350 MCU has its own internal 3.3V regulator (300mA) fed from +5V via a separate Schottky in the MCU module. This keeps the MCU's digital noise off the board peripheral rail.
+
+**Note:** A 10uF bulk capacitor should be added on the 3.3V rail at the control board connector entry point. The 3.3V rail travels from the AMS1117 on the main board across the board-to-board connector to the control board, where it powers shift registers, LCD, and MIDI logic. The connector introduces inductance, and transient current demands (e.g., shift register clocking, LCD SPI bursts) can cause voltage droops without local bulk decoupling at the connector landing.
 
 ### 5V Rail Load Budget
 
@@ -56,7 +58,7 @@ The +5V rail powers LED drivers (IS31FL3216A), DAC analog supply (via RC filter)
 | c_5v_bulk | 10uF | +5V bulk decoupling |
 | c_5v_hf | 100nF | +5V high-frequency decoupling |
 | c_3v3_in | 10uF | AMS1117 input stability (required) |
-| c_3v3_out | 10uF | AMS1117 output stability (required) |
+| c_3v3_out | 22uF | AMS1117 output stability (>=22uF required per datasheet) |
 | c_3v3_out_hf | 100nF | 3.3V high-frequency decoupling |
 
 ## Key Parts

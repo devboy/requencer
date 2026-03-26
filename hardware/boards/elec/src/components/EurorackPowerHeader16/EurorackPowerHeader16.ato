@@ -25,7 +25,10 @@ component EurorackPowerHeader16:
     signal POS12V_2 ~ pin 10
     signal POS5V_1 ~ pin 11
     signal POS5V_2 ~ pin 12
-    signal CV1 ~ pin 13
-    signal CV2 ~ pin 14
-    signal GATE1 ~ pin 15
-    signal GATE2 ~ pin 16
+    # Pins 13-16: CV/Gate bus — unused in this design, left unassigned
+    # to avoid auto-net generation that causes DRC zone errors.
+    # Footprint pads still exist; no net = no routing obligation.
+    # signal CV1 ~ pin 13
+    # signal CV2 ~ pin 14
+    # signal GATE1 ~ pin 15
+    # signal GATE2 ~ pin 16

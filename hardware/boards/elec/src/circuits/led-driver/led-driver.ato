@@ -7,7 +7,7 @@
 #   led_b (AD→VCC, addr 0x6B): right step buttons + clr (step5-8, step13-16, clr)
 #   led_c (AD→SDA, addr 0x6A): right function buttons (play + future)
 #
-# R_EXT = 3.3kΩ → ~23mA max per channel
+# R_EXT = 100kΩ → 16.8mA max per channel (datasheet formula (3), recommended minimum)
 
 import Resistor
 import Capacitor
@@ -44,6 +44,9 @@ module LEDDriverChain:
     led_c.SDA ~ sda;  led_c.SCL ~ scl
 
     # I2C pull-ups (required — open-drain bus needs external pull to VCC)
+    # 4.7k pull-ups per IS31FL3216A datasheet typical application circuit.
+    # Bus capacitance ~50pF (3× IS31FL3216A + MCU + traces + connector).
+    # Rise time: 0.85 × 4.7k × 50pF = 199ns (within 300ns Fast Mode spec).
     r_sda_pu = new Resistor
     r_sda_pu.resistance = 4.7kohm +/- 5%
     r_sda_pu.unnamed[0] ~ vcc
@@ -127,19 +130,20 @@ module LEDDriverChain:
     c_led_hf.unnamed[1] ~ gnd
 
     # R_EXT resistors — set maximum output current per chip
-    # 3.3kΩ → ~23mA max per channel (datasheet formula)
+    # IS31FL3216A formula (3): I_LED [mA] = (1.2 / R_EXT [kΩ]) × 1400
+    # 100kΩ → 16.8mA per channel. Use CS bits in reg 03h to scale (×1.25 → 21mA).
     r_ext_a = new Resistor
-    r_ext_a.resistance = 3.3kohm +/- 1%
+    r_ext_a.resistance = 100kohm +/- 1%
     r_ext_a.unnamed[0] ~ led_a.R_EXT
     r_ext_a.unnamed[1] ~ gnd
 
     r_ext_b = new Resistor
-    r_ext_b.resistance = 3.3kohm +/- 1%
+    r_ext_b.resistance = 100kohm +/- 1%
     r_ext_b.unnamed[0] ~ led_b.R_EXT
     r_ext_b.unnamed[1] ~ gnd
 
     r_ext_c = new Resistor
-    r_ext_c.resistance = 3.3kohm +/- 1%
+    r_ext_c.resistance = 100kohm +/- 1%
     r_ext_c.unnamed[0] ~ led_c.R_EXT
     r_ext_c.unnamed[1] ~ gnd
 

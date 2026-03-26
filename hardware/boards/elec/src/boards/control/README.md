@@ -5,21 +5,22 @@
 
 ## Purpose
 
-The control board holds all user-facing components: 22 illuminated buttons, 24 mono jacks, 2 rotary encoders, a 3.5" TFT display, a MicroSD card slot, and MIDI I/O jacks. It has no MCU or analog processing -- all intelligence lives on the main board. Every signal routes through two 2x16 board-to-board connectors (female sockets mating with male headers on the main board).
+The control board holds all user-facing components: 36 illuminated buttons (16 step + 4 track + 4 left-function + 4 subtrack + 4 right-function + 4 transport), 24 mono jacks, 2 rotary encoders, a 3.5" TFT display, a MicroSD card slot, and MIDI I/O jacks. It has no MCU or analog processing -- all intelligence lives on the main board. Every signal routes through two 2x16 board-to-board connectors (female sockets mating with male headers on the main board).
 
 ## Sub-Module Interconnection
 
 ```
-                    Board Connector (2x16 socket, Header A + Header C)
+                    Board Connector (2x16 socket, Header A + Header B)
                          |
          +---------------+------------------+------------------+
          |               |                  |                  |
     ButtonScanner    LEDDriverChain      IOJacks          MIDIInterface
-    (74HC165 x3)    (IS31FL3216A x3)   (WQP518MA x24)    (TRS jacks)
+    (74HC165 x5)    (IS31FL3216A x3)   (WQP518MA x24)    (TRS jacks)
          |               |
-    22x PB6149L     LED cathode wiring
-    (LED buttons)   grouped by physical
-                    location on PCB
+    36x PB6149L     LED cathode wiring
+    (LED buttons)   (22 of 36 buttons have
+                    LEDs, grouped by physical
+                    location on PCB)
 
     Encoder A (EC11E)    Encoder B (EC11E)
          |                    |
@@ -67,7 +68,7 @@ Components are physically grouped for shortest trace routing:
 | Circuit | Instance | Role |
 |---------|----------|------|
 | `BoardConnectorSocket` | `connector` | Female 2x16 sockets (mates with main board headers) |
-| `ButtonScanner` | `buttons` | 3x 74HC165 shift registers + 22x PB6149L illuminated buttons |
+| `ButtonScanner` | `buttons` | 5x 74HC165 shift registers + 36x PB6149L illuminated buttons |
 | `LEDDriverChain` | `leds` | 3x IS31FL3216A I2C LED drivers (16 channels each) |
 | `IOJacks` | `jacks` | 24x WQP518MA mono jacks (pure breakout, no conditioning) |
 | `MIDIInterface` | `midi` | MIDI IN/OUT/THRU TRS jacks with optocoupler |

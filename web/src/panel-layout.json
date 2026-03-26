@@ -1,22 +1,22 @@
 {
   "panel": {
     "width_hp": 36,
-    "width_mm": 181.88,
-    "height_mm": 128.0
+    "width_mm": 182.6,
+    "height_mm": 128.5
   },
   "pcb": {
     "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
     "height_mm": 107.5,
-    "origin_x_mm": 2.0,
-    "origin_y_mm": 9.5
+    "origin_x_mm": 2.36,
+    "origin_y_mm": 10.5
   },
   "constants": {
     "rail_zone_mm": 10.0,
     "component_gap_mm": 5.33,
-    "btn_diameter_mm": 5.0,
+    "btn_diameter_mm": 5.6,
     "btn_cc_mm": 10.7,
-    "step_btn_diameter_mm": 4.5,
+    "step_btn_diameter_mm": 5.6,
     "step_btn_cc_mm": 10.2,
     "jack_diameter_mm": 10.0,
     "jack_hole_mm": 3.5,
@@ -39,13 +39,13 @@
     "sd_slot_h_mm": 2.5
   },
   "lcd_cutout": {
-    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around for the glass to rest on. Full active area visible with margin.",
+    "_note": "Sized for glass seating: slightly smaller than glass outline, leaving ~1.5mm lip all around. Center may need adjustment after measuring bezel asymmetry on physical panel.",
     "center_x_mm": 54.78,
     "center_y_mm": 39.89,
-    "width_mm": 82.5,
-    "height_mm": 52.0,
-    "glass_w_mm": 85.5,
-    "glass_h_mm": 54.94
+    "width_mm": 81.5,
+    "height_mm": 52.3,
+    "glass_w_mm": 84.52,
+    "glass_h_mm": 55.26
   },
   "mounting_slots": [
     {
@@ -55,32 +55,32 @@
     },
     {
       "id": "tr",
-      "x_mm": 174.38,
+      "x_mm": 175.1,
       "y_mm": 3.0
     },
     {
       "id": "bl",
       "x_mm": 7.5,
-      "y_mm": 124.5
+      "y_mm": 125.0
     },
     {
       "id": "br",
-      "x_mm": 174.38,
-      "y_mm": 124.5
+      "x_mm": 175.1,
+      "y_mm": 125.0
     }
   ],
   "standoffs": [
     {
       "id": "so_tl",
-      "x_mm": 5.5,
-      "y_mm": 12.5,
-      "_note": "Top-left M3 standoff, aligned with track button column"
+      "x_mm": 7.96,
+      "y_mm": 16.1,
+      "_note": "Top-left M3 standoff, 4mm clearance from PCB edges"
     },
     {
       "id": "so_bl",
-      "x_mm": 5.5,
+      "x_mm": 7.96,
       "y_mm": 114.0,
-      "_note": "Bottom-left M3 standoff, aligned with track button column"
+      "_note": "Bottom-left M3 standoff, 4mm clearance from left PCB edge"
     }
   ],
   "buttons": {
@@ -88,25 +88,25 @@
       {
         "id": "t1",
         "x_mm": 7.0,
-        "y_mm": 19.5,
+        "y_mm": 23.84,
         "label": "1"
       },
       {
         "id": "t2",
         "x_mm": 7.0,
-        "y_mm": 30.2,
+        "y_mm": 34.54,
         "label": "2"
       },
       {
         "id": "t3",
         "x_mm": 7.0,
-        "y_mm": 40.9,
+        "y_mm": 45.24,
         "label": "3"
       },
       {
         "id": "t4",
         "x_mm": 7.0,
-        "y_mm": 51.6,
+        "y_mm": 55.94,
         "label": "4"
       }
     ],
@@ -178,82 +178,82 @@
       {
         "id": "step1",
         "x_mm": 17.33,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step2",
         "x_mm": 28.03,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step3",
         "x_mm": 38.73,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step4",
         "x_mm": 49.43,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step5",
         "x_mm": 60.13,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step6",
         "x_mm": 70.83,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step7",
         "x_mm": 81.53,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step8",
         "x_mm": 92.23,
-        "y_mm": 101.8
+        "y_mm": 101.05
       },
       {
         "id": "step9",
         "x_mm": 17.33,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step10",
         "x_mm": 28.03,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step11",
         "x_mm": 38.73,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step12",
         "x_mm": 49.43,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step13",
         "x_mm": 60.13,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step14",
         "x_mm": 70.83,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step15",
         "x_mm": 81.53,
-        "y_mm": 112.5
+        "y_mm": 111.75
       },
       {
         "id": "step16",
         "x_mm": 92.23,
-        "y_mm": 112.5
+        "y_mm": 111.75
       }
     ],
     "transport": [
@@ -563,20 +563,21 @@
         "y2": 6.5
       }
     },
-    "tc002_rgb": {
-      "description": "Well Buying TC002 RGB tactile switch",
-      "drill_mm": 3.2,
+    "pb6149l": {
+      "description": "PB6149L 6x6mm illuminated tactile switch with translucent cap",
+      "drill_mm": 6.5,
+      "cap_diameter_mm": 5.6,
       "body": {
-        "x1": -3.5,
-        "y1": -3.5,
-        "x2": 3.5,
-        "y2": 3.5
+        "x1": -3.1,
+        "y1": -2.7,
+        "x2": 3.1,
+        "y2": 2.7
       },
       "courtyard": {
-        "x1": -4.5,
-        "y1": -4.5,
-        "x2": 4.5,
-        "y2": 4.5
+        "x1": -4.0,
+        "y1": -4.0,
+        "x2": 4.0,
+        "y2": 5.0
       }
     },
     "ec11e": {
@@ -595,19 +596,19 @@
         "y2": 9.0
       }
     },
-    "fpc_18p_05mm": {
-      "description": "18-pin 0.5mm FPC ZIF connector for display",
+    "fpc_32p_05mm": {
+      "description": "32-pin 0.5mm FPC ZIF connector for display (JUSHUO AFC01-S32FCA-00)",
       "body": {
-        "x1": -5.75,
-        "y1": -2.5,
-        "x2": 5.75,
-        "y2": 2.5
+        "x1": -8.75,
+        "y1": -3.05,
+        "x2": 8.75,
+        "y2": 3.05
       },
       "courtyard": {
-        "x1": -6.5,
-        "y1": -3.5,
-        "x2": 6.5,
-        "y2": 3.5
+        "x1": -9.85,
+        "y1": -3.55,
+        "x2": 9.85,
+        "y2": 3.55
       }
     },
     "pjs008u": {

@@ -35,18 +35,20 @@ The address assignments were chosen to exploit the QFN-28 pin ordering (SDB-SCL-
 
 ### R_EXT Current Calculation
 
-The R_EXT resistor sets the maximum output sink current per channel. From the IS31FL3216A datasheet:
+The R_EXT resistor sets the maximum output sink current per channel. From the IS31FL3216A datasheet (page 14, Formula 3):
 
 ```
-I_max = 76.5 / R_EXT (kohm)
-I_max = 76.5 / 3.3 = ~23mA per channel
+I_LED [mA] = (1.2 / R_EXT [kΩ]) × 1400
+I_LED = (1.2 / 100) × 1400 = 16.8mA per channel
 ```
 
-R_EXT = 3.3k (1% tolerance) on each chip. The actual LED current is further controlled by the 8-bit PWM register (0-255), so 23mA is the ceiling. Typical LED button operation will use lower duty cycles for dimming.
+R_EXT = 100kΩ (1% tolerance, datasheet recommended minimum) on each chip. The CS bits in the Lighting Effect Register (03h) can scale I_LED by ×0.25 to ×2.0 for higher brightness. The actual LED current is further modulated by the 8-bit PWM register (0-255). Typical LED button operation will use lower duty cycles for dimming.
+
+**Note:** The IS31FL3236A (predecessor, now archived) uses a different formula where R_EXT = 3.3kΩ gives ~23mA. The IS31FL3216A formula is different — do not use IS31FL3236A values.
 
 ### QFN-28 Thermal Pad
 
-All three chips have their exposed thermal pad (PAD) connected to GND. This provides both the required electrical ground connection and thermal dissipation path through the PCB ground plane. The IS31FL3216A dissipates modest power (max ~16 channels x 23mA x ~0.5V_sat = ~184mW per chip), but the thermal pad connection is still required per datasheet for reliable operation.
+All three chips have their exposed thermal pad (PAD) connected to GND. This provides both the required electrical ground connection and thermal dissipation path through the PCB ground plane. The IS31FL3216A dissipates modest power (max ~16 channels × 16.8mA × ~0.5V_sat = ~134mW per chip), but the thermal pad connection is still required per datasheet for reliable operation.
 
 ### Power Architecture
 
@@ -90,5 +92,5 @@ Note: LED cathode connections (IS31FL3216A output pins to button LED cathodes) a
 
 ## References
 
-- IS31FL3216A datasheet: R_EXT formula (section on current setting), I2C address table, QFN-28 pin assignments
+- IS31FL3216A datasheet: R_EXT formula (page 14, Formula 3), I2C address table, QFN-28 pin assignments
 - IS31FL3216A application circuit: recommended decoupling, SDB/CLK/C_FILT pin handling
