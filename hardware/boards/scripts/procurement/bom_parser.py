@@ -34,7 +34,7 @@ _NEW_RE = re.compile(r'=\s*new\s+(\w+)')
 # Parts that are through-hole / manual-order (not JLCPCB SMD assembly)
 THT_PARTS = {
     "PGA2350", "WQP518MA", "PJ366ST", "PJ301M12", "PJS008U", "EC11E",
-    "PB6149L",
+    "PB6149L", "EurorackPowerHeader16", "PinHeader1x3",
     "EurorackPowerHeader", "ShroudedHeader2x16", "ShroudedSocket2x16",
     "PinHeader1x9",
 }

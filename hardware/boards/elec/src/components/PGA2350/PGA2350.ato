@@ -1,10 +1,25 @@
 # Pimoroni PGA2350 — RP2350B Module (Pin Grid Array)
-# 25.4 × 25.4mm, 64-pin PGA, 2.54mm pitch
+# 25.4 x 25.4mm, 64-pin PGA, 2.54mm pitch
 # 48 GPIO, 16MB flash, 8MB PSRAM, onboard 3.3V regulator
 #
-# Pin grid layout (bottom view, 8×8 grid):
-# PGA pins are numbered by row (A-H) and column (1-8)
-# See https://github.com/pimoroni/pga for pinout
+# Physical layout (top view, 10x10 perimeter grid, 2.54mm spacing):
+#
+#   Col:   1       2       3       4       5       6       7       8       9      10
+#   X:  -11.43  -8.89   -6.35   -3.81   -1.27   +1.27   +3.81   +6.35   +8.89  +11.43
+#
+# Row 1  (Y=-11.43): GND1   GP1    VBUS   V3V3EN RUN    USBDP  USBDM  BOOTSEL GP46   GND2
+# Row 2  (Y= -8.89): GP2    GND3   GP0    V3V3   ADCVREF SWCLK SWDIO  GP47    GND4   GP45
+# Row 3  (Y= -6.35): GP4    GP3    --     --     --      --    --     --      GP43   GP44
+# Row 4  (Y= -3.81): GP6    GP5    --     --     --      --    --     --      GP41   GP42
+# Row 5  (Y= -1.27): GP8    GP7    --     --     --      --    --     --      GP39   GP40
+# Row 6  (Y= +1.27): GP10   GP9    --     --     --      --    --     --      GP37   GP38
+# Row 7  (Y= +3.81): GP12   GP11   --     --     --      --    --     --      GP35   GP36
+# Row 8  (Y= +6.35): GP14   GP13   --     --     --      --    --     --      GP33   GP34
+# Row 9  (Y= +8.89): GP16   GP15   GP19   GP21   GP23   GP25   GP27   GP29    GP31   GP32
+# Row 10 (Y=+11.43): GND5   GP17   GP18   GP20   GP22   GP24   GP26   GP28    GP30   GND6
+#
+# Pad names match signal names on the physical module (not sequential numbers).
+# See https://github.com/pimoroni/pga for pinout reference.
 
 #pragma experiment("TRAITS")
 import is_atomic_part
@@ -17,83 +32,79 @@ component PGA2350:
     trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C0000", manufacturer="Pimoroni", partno="PIM722">
 
     # Power pins
-    signal VB ~ pin 1          # Power input: 3V-5.5V
-    signal V3V3 ~ pin 2        # 3.3V regulated output (300mA max)
+    signal VB ~ pin P_VBUS           # Power input: 3V-5.5V
+    signal V3V3 ~ pin P_V3V3      # 3.3V regulated output (300mA max)
 
-    # Ground pins
-    signal GND1 ~ pin 3
-    signal GND2 ~ pin 4
-    signal GND3 ~ pin 5
-    signal GND4 ~ pin 6
-    signal GND5 ~ pin 7
-    signal GND6 ~ pin 8
+    # Ground pins (6 positions: 4 corners + 2 inner-ring corners)
+    signal GND1 ~ pin P_GND1
+    signal GND2 ~ pin P_GND2
+    signal GND3 ~ pin P_GND3
+    signal GND4 ~ pin P_GND4
+    signal GND5 ~ pin P_GND5
+    signal GND6 ~ pin P_GND6
 
     # USB data pins (directly from RP2350B, no connector on module)
-    signal USB_DP ~ pin 9      # USB D+
-    signal USB_DM ~ pin 10     # USB D-
+    signal USB_DP ~ pin P_USBDP      # USB D+
+    signal USB_DM ~ pin P_USBDM      # USB D-
 
     # BOOTSEL pin (active low — pull to GND to enter bootloader)
-    signal BS ~ pin 11
+    signal BS ~ pin P_BOOTSEL
 
-    # GPIO pins (48 total)
-    signal GP0 ~ pin 12
-    signal GP1 ~ pin 13
-    signal GP2 ~ pin 14
-    signal GP3 ~ pin 15
-    signal GP4 ~ pin 16
-    signal GP5 ~ pin 17
-    signal GP6 ~ pin 18
-    signal GP7 ~ pin 19
-    signal GP8 ~ pin 20
-    signal GP9 ~ pin 21
-    signal GP10 ~ pin 22
-    signal GP11 ~ pin 23
-    signal GP12 ~ pin 24
-    signal GP13 ~ pin 25
-    signal GP14 ~ pin 26
-    signal GP15 ~ pin 27
-    signal GP16 ~ pin 28
-    signal GP17 ~ pin 29
-    signal GP18 ~ pin 30
-    signal GP19 ~ pin 31
-    signal GP20 ~ pin 32
-    signal GP21 ~ pin 33
-    signal GP22 ~ pin 34
-    signal GP23 ~ pin 35
-    signal GP24 ~ pin 36
-    signal GP25 ~ pin 37
-    signal GP26_ADC0 ~ pin 38
-    signal GP27_ADC1 ~ pin 39
-    signal GP28_ADC2 ~ pin 40
-    signal GP29_ADC3 ~ pin 41
-    signal GP30 ~ pin 42
-    signal GP31 ~ pin 43
-    signal GP32 ~ pin 44
-    signal GP33 ~ pin 45
-    signal GP34 ~ pin 46
-    signal GP35 ~ pin 47
-    signal GP36 ~ pin 48
-    signal GP37 ~ pin 49
-    signal GP38 ~ pin 50
-    signal GP39 ~ pin 51
-    signal GP40_ADC4 ~ pin 52
-    signal GP41_ADC5 ~ pin 53
-    signal GP42_ADC6 ~ pin 54
-    signal GP43_ADC7 ~ pin 55
-    signal GP44 ~ pin 56
-    signal GP45 ~ pin 57
-    signal GP46 ~ pin 58
-    signal GP47 ~ pin 59       # PSRAM CS (cuttable trace)
+    # GPIO pins (48 total, GP0-GP47)
+    signal GP0 ~ pin P_GP0
+    signal GP1 ~ pin P_GP1
+    signal GP2 ~ pin P_GP2
+    signal GP3 ~ pin P_GP3
+    signal GP4 ~ pin P_GP4
+    signal GP5 ~ pin P_GP5
+    signal GP6 ~ pin P_GP6
+    signal GP7 ~ pin P_GP7
+    signal GP8 ~ pin P_GP8
+    signal GP9 ~ pin P_GP9
+    signal GP10 ~ pin P_GP10
+    signal GP11 ~ pin P_GP11
+    signal GP12 ~ pin P_GP12
+    signal GP13 ~ pin P_GP13
+    signal GP14 ~ pin P_GP14
+    signal GP15 ~ pin P_GP15
+    signal GP16 ~ pin P_GP16
+    signal GP17 ~ pin P_GP17
+    signal GP18 ~ pin P_GP18
+    signal GP19 ~ pin P_GP19
+    signal GP20 ~ pin P_GP20
+    signal GP21 ~ pin P_GP21
+    signal GP22 ~ pin P_GP22
+    signal GP23 ~ pin P_GP23
+    signal GP24 ~ pin P_GP24
+    signal GP25 ~ pin P_GP25
+    signal GP26_ADC0 ~ pin P_GP26    # ADC channel 0
+    signal GP27_ADC1 ~ pin P_GP27    # ADC channel 1
+    signal GP28_ADC2 ~ pin P_GP28    # ADC channel 2
+    signal GP29_ADC3 ~ pin P_GP29    # ADC channel 3
+    signal GP30 ~ pin P_GP30
+    signal GP31 ~ pin P_GP31
+    signal GP32 ~ pin P_GP32
+    signal GP33 ~ pin P_GP33
+    signal GP34 ~ pin P_GP34
+    signal GP35 ~ pin P_GP35
+    signal GP36 ~ pin P_GP36
+    signal GP37 ~ pin P_GP37
+    signal GP38 ~ pin P_GP38
+    signal GP39 ~ pin P_GP39
+    signal GP40_ADC4 ~ pin P_GP40    # ADC channel 4
+    signal GP41_ADC5 ~ pin P_GP41    # ADC channel 5
+    signal GP42_ADC6 ~ pin P_GP42    # ADC channel 6
+    signal GP43_ADC7 ~ pin P_GP43    # ADC channel 7
+    signal GP44 ~ pin P_GP44
+    signal GP45 ~ pin P_GP45
+    signal GP46 ~ pin P_GP46
+    signal GP47 ~ pin P_GP47         # PSRAM CS (cuttable trace)
 
     # SWD debug pins
-    signal SWCLK ~ pin 60
-    signal SWDIO ~ pin 61
+    signal SWCLK ~ pin P_SWCLK
+    signal SWDIO ~ pin P_SWDIO
 
-    # RUN pin (active-low reset)
-    signal RUN ~ pin 62
-
-    # ADC reference
-    signal ADC_VREF ~ pin 63
-
-    # Spare/reserved
-    signal RSVD ~ pin 64
+    # Control pins
+    signal RUN ~ pin P_RUN           # Active-low reset
+    signal ADC_VREF ~ pin P_ADCVREF  # ADC reference voltage
+    signal V3V3EN ~ pin P_V3V3EN   # 3.3V regulator enable

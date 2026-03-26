@@ -126,7 +126,8 @@ async fn main(_spawner: Spawner) {
     // ── SPI1: DACs (dedicated bus, direct 3.3V via VIO) ────────────
 
     let mut spi1_config = spi::Config::default();
-    spi1_config.frequency = 50_000_000; // DAC80508 max
+    spi1_config.frequency = 37_500_000; // 150MHz/4 — below DAC80508 50MHz max with margin
+    spi1_config.phase = embassy_rp::spi::Phase::CaptureOnSecondTransition; // DAC80508 latches on SCLK falling edge → SPI Mode 1
 
     // RP2350 SPI1 function assignments: GP30=CLK, GP31=MOSI
     let spi1 = Spi::new_blocking_txonly(
@@ -187,7 +188,7 @@ async fn main(_spawner: Spawner) {
     let uart = uart::Uart::new_blocking(
         p.UART1,
         p.PIN_20, // TX (MIDI OUT via 220Ω)
-        p.PIN_21, // RX (MIDI IN via 6N138 optocoupler)
+        p.PIN_21, // RX (MIDI IN via H11L1S optocoupler)
         uart_config,
     );
     let (uart_tx, uart_rx) = uart.split();

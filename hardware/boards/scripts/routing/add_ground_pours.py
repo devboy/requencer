@@ -75,13 +75,16 @@ def add_pour_zone(board, layer_id, net_code, net_name, clearance_mm=0.15, min_th
     y2 = bbox.GetBottom() - expand
 
     zone = pcbnew.ZONE(board)
-    zone.SetNetCode(net_code)
+    # KiCad 10: SetNetCode silently fails before zone is added to board.
+    # Use SetNet with the NETINFO_ITEM instead.
+    net_item = board.GetNetInfo().GetNetItem(net_code)
+    zone.SetNet(net_item)
     zone.SetLayer(layer_id)
     zone.SetIsRuleArea(False)
     zone.SetDoNotAllowTracks(False)
     zone.SetDoNotAllowVias(False)
     zone.SetDoNotAllowPads(False)
-    zone.SetDoNotAllowCopperPour(False)
+    zone.SetDoNotAllowZoneFills(False)
 
     # Zone fill settings — solid connection to avoid starved thermal errors
     zone.SetFillMode(pcbnew.ZONE_FILL_MODE_POLYGONS)

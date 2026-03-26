@@ -359,7 +359,7 @@ async function loadBoards(scene: THREE.Scene, statusEl: HTMLElement): Promise<Bo
 
   // Load stack-up from hardware-generated metadata
   let boardDefs: BoardDef[]
-  let pcbOrigin = { x: 2.0, y: 9.5 }
+  let pcbOrigin = { x: 2.36, y: 10.5 }
   try {
     const stackUp = await loadStackUp()
     boardDefs = stackUp.defs

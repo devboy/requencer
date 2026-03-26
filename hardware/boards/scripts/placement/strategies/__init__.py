@@ -81,6 +81,50 @@ def rotated_info(comp: ComponentInfo, degrees: float) -> ComponentInfo:
     )
 
 
+def mirror_x_info(comp: ComponentInfo) -> ComponentInfo:
+    """Return a new ComponentInfo mirrored across the X-axis (B.Cu flip).
+
+    KiCad's Flip() mirrors a footprint across its X-axis:
+    - cx_offset is negated (left/right swap)
+    - cy_offset is unchanged (no vertical shift)
+    - Width/height unchanged
+    - East ↔ West in pad_sides
+    """
+    from placement.helpers import mirror_x_pad_sides
+
+    new_pad_sides = mirror_x_pad_sides(comp.pad_sides) if comp.pad_sides else {}
+    new_edge_count = mirror_x_pad_sides(comp.edge_signal_count) if comp.edge_signal_count else {}
+
+    return ComponentInfo(
+        address=comp.address,
+        width=comp.width, height=comp.height,
+        is_tht=comp.is_tht,
+        pin_count=comp.pin_count,
+        nets=comp.nets,
+        cx_offset=-comp.cx_offset,
+        cy_offset=comp.cy_offset,
+        routing_pressure=comp.routing_pressure,
+        group=comp.group,
+        pad_sides=new_pad_sides,
+        edge_signal_count=new_edge_count,
+    )
+
+
+def effective_info(comp: ComponentInfo, rotation: float,
+                   side: str) -> ComponentInfo:
+    """Return ComponentInfo with effective geometry for a given side and rotation.
+
+    For F.Cu: just rotate by the stored rotation.
+    For B.Cu: mirror X first (the physical flip), then rotate by the
+    stored rotation.  This replaces the old "rotation + 180°" model
+    which was incorrect for components with non-zero cy_offset.
+    """
+    c = comp
+    if side == "B":
+        c = mirror_x_info(c)
+    return rotated_info(c, rotation)
+
+
 @dataclass
 class AntiAffinityRule:
     """Keep two component groups at minimum distance from each other."""
@@ -159,19 +203,40 @@ class BoardState:
             tht_extra_clearance=tht_extra_clearance,
         )
 
-        # Register all fixed components (with rotation-aware dimensions)
+        # Register all fixed components (with effective geometry)
         for addr, p in self.fixed.items():
             if addr not in self.fixed_info:
                 raise ValueError(
                     f"Fixed component '{addr}' missing from fixed_info"
                 )
             info = self.fixed_info[addr]
-            eff_rot = self._effective_rotation(p.rotation, p.side)
-            r = rotated_info(info, eff_rot) if eff_rot else info
+            r = effective_info(info, p.rotation, p.side)
             bcx, bcy = self._to_bbox_center(p.x, p.y, r)
             self._tracker.register(
                 bcx, bcy,
                 r.width, r.height, p.side,
+                r.is_tht, label=addr,
+            )
+
+    def reset_tracker(self):
+        """Re-create the collision tracker and re-register fixed components.
+
+        Used by two-pass strategies that need to re-place components with
+        different padding after an initial placement pass.
+        """
+        from placement.helpers import CollisionTracker
+        self._tracker = CollisionTracker(
+            self.width, self.height,
+            clearance=self._clearance,
+            extra_padding=self._extra_padding,
+            tht_extra_clearance=self._tht_extra_clearance,
+        )
+        for addr, p in self.fixed.items():
+            info = self.fixed_info[addr]
+            r = effective_info(info, p.rotation, p.side)
+            bcx, bcy = self._to_bbox_center(p.x, p.y, r)
+            self._tracker.register(
+                bcx, bcy, r.width, r.height, p.side,
                 r.is_tht, label=addr,
             )
 
@@ -197,10 +262,9 @@ class BoardState:
                         rotation: float = 0.0) -> bool:
         """Check if position collides with anything already placed.
 
-        Applies rotation (and B.Cu mirror correction) before checking.
+        Applies rotation (and B.Cu mirror) before checking.
         """
-        eff_rot = self._effective_rotation(rotation, side)
-        r = rotated_info(comp, eff_rot) if eff_rot else comp
+        r = effective_info(comp, rotation, side)
         cx, cy = self._to_bbox_center(x, y, r)
         return self._tracker.collides(cx, cy, r.width, r.height,
                                       side, r.is_tht)
@@ -293,6 +357,7 @@ class BoardState:
                             placed: dict[str, Placement],
                             group: str | None = None,
                             group_weight: float = 0.5,
+                            comp_map: dict[str, ComponentInfo] | None = None,
                             ) -> tuple[float, float]:
         """Centroid of already-placed neighbors in net_graph + same-group pull.
 
@@ -300,19 +365,31 @@ class BoardState:
         prefix are included as additional pull targets. This keeps components
         from the same atopile module physically close (e.g., DAC + its opamps
         + feedback resistors).
+
+        When comp_map is provided, uses pin_edge_position() to target the
+        neighbor's pin edge for each connecting net instead of its center.
         """
+        from placement.helpers import pin_edge_position
+
         net_positions: list[tuple[float, float]] = []
-        for _net, net_addrs in self.net_graph.items():
+        for net, net_addrs in self.net_graph.items():
             if addr not in net_addrs:
                 continue
             for other in net_addrs:
                 if other == addr:
                     continue
-                if other in placed:
-                    p = placed[other]
-                    net_positions.append((p.x, p.y))
-                elif other in self.fixed:
-                    p = self.fixed[other]
+                p = placed.get(other) or self.fixed.get(other)
+                if p is None:
+                    continue
+                # Try pin-edge targeting when comp_map is available
+                pos = None
+                other_info = (comp_map.get(other) if comp_map else None
+                              ) or self.fixed_info.get(other)
+                if other_info is not None:
+                    pos = pin_edge_position(other_info, p, net)
+                if pos is not None:
+                    net_positions.append(pos)
+                else:
                     net_positions.append((p.x, p.y))
 
         group_positions: list[tuple[float, float]] = []
@@ -359,21 +436,38 @@ class BoardState:
 
     def register_placement(self, addr: str, x: float, y: float,
                            comp: ComponentInfo, side: str,
-                           rotation: float = 0.0) -> None:
+                           rotation: float = 0.0,
+                           side_padding: dict[str, float] | None = None,
+                           ) -> None:
         """Register a placed component in the collision tracker.
 
-        Applies effective rotation (B.Cu adds 180°) before registering.
+        Applies mirror (B.Cu) + rotation before registering.
+        When side_padding is provided (dict of N/S/E/W → mm), inflates
+        the registered bounding box asymmetrically per side.
         """
-        eff_rot = self._effective_rotation(rotation, side)
-        r = rotated_info(comp, eff_rot) if eff_rot else comp
+        r = effective_info(comp, rotation, side)
         cx, cy = self._to_bbox_center(x, y, r)
-        self._tracker.register(cx, cy, r.width, r.height,
-                               side, r.is_tht, label=addr)
+        if side_padding:
+            # Inflate bbox asymmetrically — shift center and expand dims
+            pad_w = side_padding.get("W", 0.0)
+            pad_e = side_padding.get("E", 0.0)
+            pad_n = side_padding.get("N", 0.0)
+            pad_s = side_padding.get("S", 0.0)
+            w = r.width + pad_w + pad_e
+            h = r.height + pad_n + pad_s
+            cx += (pad_e - pad_w) / 2
+            cy += (pad_s - pad_n) / 2
+            self._tracker.register(cx, cy, w, h,
+                                   side, r.is_tht, label=addr)
+        else:
+            self._tracker.register(cx, cy, r.width, r.height,
+                                   side, r.is_tht, label=addr)
 
     def place_component(self, addr: str, x: float, y: float,
                         comp: ComponentInfo, side: str,
                         rotation: float = 0.0,
                         placed: dict[str, "Placement"] | None = None,
+                        side_padding: dict[str, float] | None = None,
                         ) -> Placement:
         """Find legal position, register, and return Placement.
 
@@ -386,11 +480,13 @@ class BoardState:
         avoids a ghost-shift bug where asymmetric THT components (e.g.
         SIP-9 with large cy_offset) get searched at B-side offsets but
         placed on F-side, causing a 2*cy_offset registration error.
+
+        When side_padding is provided, inflates the registered collision
+        box per-side for routing clearance (does not affect search).
         """
         if side is not None:
-            # Side is known — apply rotation for that side during search
-            eff_rot = self._effective_rotation(rotation, side)
-            r = rotated_info(comp, eff_rot) if eff_rot else comp
+            # Side is known — apply mirror+rotation for that side
+            r = effective_info(comp, rotation, side)
             fp_x, fp_y, found_side = self.find_legal_position(
                 x, y, r, side=side, addr=addr, placed=placed)
         else:
@@ -398,16 +494,16 @@ class BoardState:
             # then correct for the actual side returned by find_best_side
             fp_x, fp_y, found_side = self.find_legal_position(
                 x, y, comp, side=None, addr=addr, placed=placed)
-            eff_rot_found = self._effective_rotation(rotation, found_side)
-            if eff_rot_found:
-                r_found = rotated_info(comp, eff_rot_found)
+            r_found = effective_info(comp, rotation, found_side)
+            if r_found is not comp:
                 # Search found bbox center at (fp_x + comp offsets);
                 # re-derive fp origin using found side's offsets
                 bx = fp_x + comp.cx_offset
                 by = fp_y + comp.cy_offset
                 fp_x = bx - r_found.cx_offset
                 fp_y = by - r_found.cy_offset
-        self.register_placement(addr, fp_x, fp_y, comp, found_side, rotation)
+        self.register_placement(addr, fp_x, fp_y, comp, found_side,
+                                rotation, side_padding=side_padding)
         return Placement(x=fp_x, y=fp_y, side=found_side, rotation=rotation)
 
     def legalize(self, positions: dict[str, tuple[float, float]],
@@ -432,11 +528,15 @@ class BoardState:
             comp = components[addr]
             rot = rots.get(addr, 0.0)
             ox, oy = positions[addr]
-            # Use effective rotation for collision (B.Cu adds 180°)
-            eff_rot = self._effective_rotation(rot, self.smd_side)
-            r = rotated_info(comp, eff_rot) if eff_rot else comp
+            # Search with F-side geometry, then correct for actual side
             fp_x, fp_y, side = self.find_legal_position(
-                ox, oy, r, addr=addr, placed=placements)
+                ox, oy, comp, addr=addr, placed=placements)
+            r_found = effective_info(comp, rot, side)
+            if r_found is not comp:
+                bx = fp_x + comp.cx_offset
+                by = fp_y + comp.cy_offset
+                fp_x = bx - r_found.cx_offset
+                fp_y = by - r_found.cy_offset
             placements[addr] = Placement(x=fp_x, y=fp_y, side=side,
                                           rotation=rot)
             self.register_placement(addr, fp_x, fp_y, comp, side, rot)

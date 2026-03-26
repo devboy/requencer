@@ -20,7 +20,7 @@ def _load_footprint(addr):
     """Load a single footprint from the control board by atopile address."""
     board = pcbnew.LoadBoard(CONTROL_PCB)
     for fp in board.GetFootprints():
-        if fp.HasFieldByName("atopile_address"):
+        if fp.HasField("atopile_address"):
             if fp.GetFieldText("atopile_address") == addr:
                 return fp, board
     pytest.fail(f"Footprint {addr} not found")

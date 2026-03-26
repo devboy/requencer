@@ -25,10 +25,7 @@ For each section, produce a structured verdict:
 Run these before starting the manual review. Record results for reference.
 
 ```bash
-make hw-build          # Preflight + cross-board wiring (system build)
-make hw-place          # Placement validation (bounds, overlaps, clearances)
-make hw-route          # Routing + DRC (unrouted nets, design rule violations)
-make check-parts BOARD_COUNT=5   # Parts availability + pricing
+make hardware          # Full hardware pipeline (ato build → place → route → 3d → export)
 make test-hw           # Unit tests (BOM parser, placement, collision)
 cargo test             # Firmware tests (DAC driver, button mapping, MIDI)
 ```
@@ -976,6 +973,59 @@ Verify:
 
 ---
 
+## Section 17: Component Documentation & Traceability
+
+**Why:** Missing or stale datasheets, README files, and footprint mismatches create confusion during bring-up and make future revisions error-prone. Every component should have a clear paper trail from datasheet → .ato pin mapping → footprint → 3D model.
+
+### Files to walk
+
+For every component directory under `hardware/boards/elec/src/components/` (skip `_archive/`):
+
+### 17a. Datasheet & Reference Material
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Datasheet present | Each component dir has a PDF or a link in README to manufacturer datasheet | No datasheet reference for any active component |
+| Datasheet matches LCSC part | The datasheet covers the exact MPN in the .ato `has_part_picked` trait | Datasheet is for a different variant (e.g., different package, different voltage rating) |
+| Pin mapping matches datasheet | Walk every `signal X ~ pin N` in the .ato against the datasheet pin table | Any pin assignment contradicts the datasheet |
+
+### 17b. Footprint & Symbol Alignment
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| Footprint file exists | `.kicad_mod` referenced in `is_atomic_part` trait exists in the component directory | Missing footprint file |
+| Symbol file exists | `.kicad_sym` referenced in `is_atomic_part` trait exists in the component directory | Missing symbol file |
+| Pad count matches .ato | Number of `signal ~ pin N` declarations (plus commented-out NC pins) equals the footprint pad count | Mismatch suggests missing or extra pins |
+| 3D model present | `.step` file exists for THT and QFN/BGA components (SMD passives may use KiCad defaults) | Missing 3D model for a component that protrudes through faceplate or affects stacking clearance |
+| Footprint dimensions match datasheet | Spot-check pad pitch, pad size, and courtyard against the datasheet recommended land pattern | Pad pitch or size significantly off from datasheet |
+
+### 17c. README Accuracy
+
+For each component and circuit directory that has a README:
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| README exists | Each component dir with custom footprint/symbol has a README explaining the part | Missing README for a non-trivial custom component |
+| Part description current | README describes the actual part used (not a previously-considered alternative) | README describes a different part than what's in the .ato |
+| Pin mapping documented | README pin table (if present) matches the .ato file | Contradictory pin information |
+| Circuit READMEs current | Each circuit dir README describes the current topology, component values, and design rationale | README describes an old topology (e.g., different LED driver, different optocoupler) |
+| No stale references | No mentions of replaced components (e.g., "6N138" when H11L1S is used, "TLC5947" when IS31FL3216A is used, "DAC8568" when DAC80508 is used) | Stale component references that could mislead during debugging |
+
+### 17d. Cross-Reference Consistency
+
+| Check | How to verify | FAIL if |
+|-------|---------------|---------|
+| component-map.json complete | Every component address referenced in board .ato files has an entry in `component-map.json` with correct group/label/dimensions | Missing entries cause export_layout.py to skip components |
+| LCSC part numbers valid | Spot-check 5-10 LCSC part numbers from .ato files against lcsc.com — verify they resolve to the correct part | LCSC number points to wrong part or is discontinued |
+| No orphan components | Components in `components/` (non-archive) are all instantiated somewhere in `circuits/` or `boards/` | Unused component clutters BOM and may confuse procurement |
+
+### Pass criteria
+- **PASS:** Every active component has datasheet reference, matching footprint/symbol, accurate README, and valid LCSC part number
+- **WARN:** Minor README staleness (e.g., outdated comment, old alternative mentioned in passing) that doesn't affect correctness
+- **FAIL:** Missing datasheet for any IC, pin mapping contradicts datasheet, footprint missing or wrong dimensions, README describes a different circuit topology than what's built
+
+---
+
 ## Final Report Template
 
 ```markdown
@@ -1002,6 +1052,7 @@ Verify:
 | 14. EMC & Analog Noise | | |
 | 15. Board Bring-Up & Test | | |
 | 16. Sandwich Stack Assembly | | |
+| 17. Component Documentation | | |
 
 ## Automated Check Results
 (paste output of make hw-build, hw-place, hw-route, check-parts, test-hw, cargo test)

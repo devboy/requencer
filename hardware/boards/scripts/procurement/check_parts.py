@@ -72,6 +72,13 @@ MANUAL_PRICING = {
         "currency": "EUR",
         "stock": -1,
     },
+    "PinHeader_1x3_P2.54mm": {
+        "seller": "On hand",
+        "url": "",
+        "unit_price": 0,
+        "currency": "EUR",
+        "stock": -1,
+    },
     "PJS008U-3000-0": {
         "seller": "LCSC",
         "url": "https://www.lcsc.com/product-detail/C3177022.html",

@@ -43,6 +43,36 @@
       "currency": "GBP",
       "supplier": "Pimoroni",
       "notes": ""
+    },
+    {
+      "mpn": "PinHeader_1x3_P2.54mm",
+      "name": "1x3 pin headers (SWD)",
+      "status": "ordered",
+      "quantity_ordered": 2,
+      "cost": 0,
+      "currency": "EUR",
+      "supplier": "On hand",
+      "notes": "Already in stock"
+    },
+    {
+      "mpn": "WQP-PJ366ST",
+      "name": "TRS stereo jacks (MIDI)",
+      "status": "to_order",
+      "quantity_ordered": 10,
+      "cost": 0,
+      "currency": "EUR",
+      "supplier": "",
+      "notes": "Need 2 per kit (MIDI IN/OUT). LCSC C2907129"
+    },
+    {
+      "mpn": "M3x10mm_FF_Standoff",
+      "name": "M3 female-female standoffs 10mm",
+      "status": "to_order",
+      "quantity_ordered": 10,
+      "cost": 0,
+      "currency": "EUR",
+      "supplier": "",
+      "notes": "Need 2 per kit (board-to-board spacing). Generic hardware"
     }
   ]
 }

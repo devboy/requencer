@@ -22,11 +22,13 @@ Two DAC80508 chips provide 8 channels each, split by output type:
 
 ### AVDD Filter (10R + 10uF Low-Pass)
 
-The +5V rail is shared with TLC5947 LED drivers that PWM-switch up to 700mA. A 10R + 10uF RC filter (f_3dB ~ 1.6kHz) isolates the DAC analog supply from high-frequency switching transients. Voltage drop at DAC quiescent current (~12mA) is only 10R x 12mA = 0.12V, negligible for a 5V rail.
+The +5V rail is shared with IS31FL3216A LED drivers (22 channels, ~23mA max each). A 10R + 10uF RC filter (f_3dB ~ 1.6kHz) isolates the DAC analog supply from switching transients. Voltage drop at DAC quiescent current (~12mA) is only 10R x 12mA = 0.12V, negligible for a 5V rail.
 
 ### SPI Bus Assignment
 
-Both DACs share SPI1 (GP30 MOSI, GP31 SCK) with individual chip-select lines. This is a dedicated bus with no contention from the display or SD card. The DAC80508 VIO pin is tied to 3.3V, matching MCU GPIO levels directly -- no level shifter needed.
+Both DACs share SPI1 (GP30 SCK, GP31 MOSI) with individual chip-select lines. This is a dedicated bus with no contention from the display or SD card. The DAC80508 VIO pin is tied to 3.3V, matching MCU GPIO levels directly -- no level shifter needed.
+
+**SPI clock: 37.5 MHz (150 MHz / 4).** The DAC80508 datasheet rates SCLK at 50 MHz absolute maximum. Running at 37.5 MHz gives 25% margin for trace ringing and overshoot, with negligible impact on throughput: a full 16-channel update (2 DACs x 8 channels x 24-bit frames) takes ~10.2 us at 37.5 MHz vs ~7.7 us at 50 MHz, both well within the 250 us CV render period (4 kHz update rate). The extra 2.5 us is <1% of the render budget.
 
 ### Gate Outputs: Unity Buffer
 
@@ -102,8 +104,8 @@ All 16 outputs have a 470R series protection resistor. This limits current if an
 
 | Signal | Direction | Description |
 |--------|-----------|-------------|
-| spi_mosi | in | SPI data (GP30, shared by both DACs) |
-| spi_sck | in | SPI clock (GP31, shared by both DACs) |
+| spi_mosi | in | SPI data (GP31, shared by both DACs) |
+| spi_sck | in | SPI clock (GP30, shared by both DACs) |
 | dac1_cs | in | DAC1 chip select (active low) |
 | dac2_cs | in | DAC2 chip select (active low) |
 | avdd | in | +5V analog supply (pre-filter) |

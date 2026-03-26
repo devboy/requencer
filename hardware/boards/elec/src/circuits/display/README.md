@@ -63,7 +63,7 @@ MCU (main board) --[SPI0 + control]--> Board Connector ---> Control Board ---> F
      GP0 (MISO)                            Header A pin 11
      GP7 (DC)                              Header A pin 13
      GP5 (BL PWM)                          Header A pin 14
-     GP22 (RST)                            Header C pin 7
+     GP22 (RST)                            Header B pin 7
 ```
 
 ## Circuits on Control Board

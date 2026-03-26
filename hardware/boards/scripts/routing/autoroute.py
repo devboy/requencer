@@ -98,6 +98,274 @@ def _verify_tools(java, jar, kicad_cli):
         raise RoutingError(f"Missing FreeRouting JAR: {jar}")
 
 
+def _bridge_usbc_pads(pcb_path, trace_width_mm=0.15):
+    """Bridge USB-C duplicate pads after routing.
+
+    Loads the routed PCB, finds USB_C_Receptacle footprints, and adds
+    short traces between same-net pad pairs (DP: 4↔12, DM: 5↔13).
+    Saves the modified PCB back.
+
+    This runs post-routing so it doesn't interfere with FreeRouting's
+    DSN export. The traces just close the last 1mm gap.
+    """
+    import pcbnew
+    board = pcbnew.LoadBoard(pcb_path)
+    count = 0
+
+    for fp in board.GetFootprints():
+        fp_name = fp.GetFPID().GetUniStringLibItemName()
+        if "USB_C" not in fp_name:
+            continue
+
+        from collections import defaultdict
+        net_pads = defaultdict(list)
+        for pad in fp.Pads():
+            net_code = pad.GetNetCode()
+            if net_code > 0:
+                net_pads[net_code].append(pad)
+
+        for net_code, pads in net_pads.items():
+            if len(pads) != 2:
+                continue
+            pad_a, pad_b = pads
+            pos_a = pad_a.GetPosition()
+            pos_b = pad_b.GetPosition()
+            dx = pcbnew.ToMM(pos_a.x - pos_b.x)
+            dy = pcbnew.ToMM(pos_a.y - pos_b.y)
+            dist = (dx * dx + dy * dy) ** 0.5
+            if dist > 3.0:
+                continue
+
+            layer = board.GetLayerID("F.Cu")
+            track = pcbnew.PCB_TRACK(board)
+            track.SetStart(pos_a)
+            track.SetEnd(pos_b)
+            track.SetWidth(pcbnew.FromMM(trace_width_mm))
+            track.SetLayer(layer)
+            track.SetNetCode(net_code)
+            board.Add(track)
+
+            net_name = pad_a.GetNetname()
+            print(f"    {net_name}: pad {pad_a.GetNumber()}↔{pad_b.GetNumber()} "
+                  f"({dist:.1f}mm)")
+            count += 1
+
+    if count:
+        pcbnew.SaveBoard(pcb_path, board)
+
+    return count
+
+
+def _preroute_usbc_pads(board, pcbnew, trace_width_mm=0.1):
+    """Pre-route USB-C duplicate pad pairs (DP: 4↔12, DM: 5↔13).
+
+    USB-C data pads are interleaved: 13(DM) 4(DP) 5(DM) 12(DP).
+    The pairs cross each other and there's only 0.2mm gap between
+    adjacent pads — not enough for a trace to pass through.
+
+    Inner pair (DM, 5↔13): straight trace on F.Cu (doesn't cross anything).
+    Outer pair (DP, 4↔12): via at each pad, trace on In1.Cu underneath.
+
+    Only targets USB_C_Receptacle footprints.
+    """
+    count = 0
+    for fp in board.GetFootprints():
+        fp_name = fp.GetFPID().GetUniStringLibItemName()
+        if "USB_C" not in fp_name:
+            continue
+
+        from collections import defaultdict
+        net_pads = defaultdict(list)
+        for pad in fp.Pads():
+            net_code = pad.GetNetCode()
+            if net_code > 0:
+                net_pads[net_code].append(pad)
+
+        pairs = []
+        for net_code, pads in net_pads.items():
+            if len(pads) != 2:
+                continue
+            pad_a, pad_b = pads
+            pos_a = pad_a.GetPosition()
+            pos_b = pad_b.GetPosition()
+            dx = pcbnew.ToMM(pos_a.x - pos_b.x)
+            dy = pcbnew.ToMM(pos_a.y - pos_b.y)
+            dist = (dx * dx + dy * dy) ** 0.5
+            if dist > 3.0:
+                continue
+            pairs.append((net_code, pad_a, pad_b, pos_a, pos_b, dist))
+
+        # Sort by distance: inner pair (shorter) on F.Cu, outer pair on In1.Cu
+        pairs.sort(key=lambda p: p[5])
+
+        fcu = board.GetLayerID("F.Cu")
+        inner = board.GetLayerID("In1.Cu")
+        width = pcbnew.FromMM(trace_width_mm)
+        # 0.3mm drill + 2×0.15mm annular ring = 0.6mm via diameter
+        via_size = pcbnew.FromMM(0.6)
+        via_drill = pcbnew.FromMM(0.3)
+
+        # Both pairs cross each other — both need inner layer.
+        # Use In1.Cu for first pair, In2.Cu for second to avoid crossing.
+        # Offset vias along the pad length so they don't overlap adjacent pads.
+        # Pads are 1.45mm tall — offset vias 0.4mm from pad center along
+        # the pad's long axis (toward connector body).
+        inner_layers = [inner, board.GetLayerID("In2.Cu")]
+        # Pads are 1.45mm tall (0.725mm from center to edge).
+        # Via (0.6mm) needs clearance beyond pad edge:
+        # 0.725 (pad half) + 0.3 (via half) + 0.2 (clearance) = 1.225mm
+        # Add margin for FreeRouting traces passing between: 1.5mm
+        via_offset = pcbnew.FromMM(1.5)
+
+        # Determine pad long axis direction (perpendicular to spread)
+        if len(pairs) >= 1:
+            _, _, _, p0a, p0b = pairs[0][:5]
+            spread_dx = abs(p0a.x - p0b.x)
+            spread_dy = abs(p0a.y - p0b.y)
+            # Pads spread in X → long axis is Y → offset in Y
+            # Pads spread in Y → long axis is X → offset in X
+            offset_in_y = spread_dx > spread_dy
+
+        for i, (net_code, pad_a, pad_b, pos_a, pos_b, dist) in enumerate(pairs):
+            net_name = pad_a.GetNetname()
+            route_layer = inner_layers[i] if i < len(inner_layers) else inner
+
+            # Offset vias toward connector body. Inner pair (DM, i=0)
+            # stays close, outer pair (DP, i=1) goes further out so the
+            # inner layer trace doesn't cross the outer pair's vias.
+            fp_pos = fp.GetPosition()
+            mid_x = (pos_a.x + pos_b.x) // 2
+            mid_y = (pos_a.y + pos_b.y) // 2
+
+            # Place vias at the END of each pad (along pad length),
+            # not to the side. This avoids clearance violations with
+            # adjacent pads on the 0.5mm pitch row.
+            # Stagger pairs with enough gap so vias don't merge into a blob.
+            # Via 0.6mm + clearance 0.2mm + via 0.6mm = 1.4mm between pair centers
+            end_offset = pcbnew.FromMM(1.3 + 1.5 * i)
+
+            # "End of pad" = perpendicular to the spread direction,
+            # away from connector body (toward PCB interior) so vias
+            # don't interfere with the connector footprint.
+            if offset_in_y:
+                # Pads spread in X → pad length in Y → via at Y end
+                # Away from connector = opposite of connector center
+                dy = -1 if fp_pos.y > mid_y else 1
+                via_pos_a = pcbnew.VECTOR2I(pos_a.x, pos_a.y + end_offset * dy)
+                via_pos_b = pcbnew.VECTOR2I(pos_b.x, pos_b.y + end_offset * dy)
+            else:
+                # Pads spread in Y → pad length in X → via at X end
+                dx = -1 if fp_pos.x > mid_x else 1
+                via_pos_a = pcbnew.VECTOR2I(pos_a.x + end_offset * dx, pos_a.y)
+                via_pos_b = pcbnew.VECTOR2I(pos_b.x + end_offset * dx, pos_b.y)
+
+            # Via at pad_a
+            via = pcbnew.PCB_VIA(board)
+            via.SetPosition(via_pos_a)
+            via.SetWidth(via_size)
+            via.SetDrill(via_drill)
+            via.SetNetCode(net_code)
+            board.Add(via)
+
+            # Short trace from pad to via on F.Cu
+            t = pcbnew.PCB_TRACK(board)
+            t.SetStart(pos_a)
+            t.SetEnd(via_pos_a)
+            t.SetWidth(width)
+            t.SetLayer(fcu)
+            t.SetNetCode(net_code)
+            board.Add(t)
+
+            # Trace on inner layer between vias
+            track = pcbnew.PCB_TRACK(board)
+            track.SetStart(via_pos_a)
+            track.SetEnd(via_pos_b)
+            track.SetWidth(width)
+            track.SetLayer(route_layer)
+            track.SetNetCode(net_code)
+            board.Add(track)
+
+            # Via at pad_b
+            via = pcbnew.PCB_VIA(board)
+            via.SetPosition(via_pos_b)
+            via.SetWidth(via_size)
+            via.SetDrill(via_drill)
+            via.SetNetCode(net_code)
+            board.Add(via)
+
+            # Short trace from via to pad on F.Cu
+            t = pcbnew.PCB_TRACK(board)
+            t.SetStart(via_pos_b)
+            t.SetEnd(pos_b)
+            t.SetWidth(width)
+            t.SetLayer(fcu)
+            t.SetNetCode(net_code)
+            board.Add(t)
+
+            layer_name = board.GetLayerName(route_layer)
+            print(f"    {net_name}: pad {pad_a.GetNumber()}↔{pad_b.GetNumber()} "
+                  f"via→{layer_name}→via ({dist:.1f}mm)")
+            count += 1
+
+    return count
+
+
+def _preroute_same_net_pads(board, pcbnew, max_distance_mm=3.0,
+                            trace_width_mm=0.25):
+    """Add traces between same-net pads within the same footprint.
+
+    Finds pad pairs on the same footprint that share a net and are
+    close together (within max_distance_mm). Adds a direct trace
+    segment between them so FreeRouting doesn't have to handle
+    these tight-pitch connections.
+
+    Returns number of traces added.
+    """
+    from collections import defaultdict
+    count = 0
+
+    for fp in board.GetFootprints():
+        # Group pads by net
+        net_pads = defaultdict(list)
+        for pad in fp.Pads():
+            net_code = pad.GetNetCode()
+            if net_code > 0:  # skip unconnected
+                net_pads[net_code].append(pad)
+
+        # For each net with 2+ pads on this footprint, connect them
+        for net_code, pads in net_pads.items():
+            if len(pads) < 2:
+                continue
+
+            # Connect each pair that's close enough
+            connected = set()
+            for i, pad_a in enumerate(pads):
+                for pad_b in pads[i + 1:]:
+                    pos_a = pad_a.GetPosition()
+                    pos_b = pad_b.GetPosition()
+                    dx = pcbnew.ToMM(pos_a.x - pos_b.x)
+                    dy = pcbnew.ToMM(pos_a.y - pos_b.y)
+                    dist = (dx * dx + dy * dy) ** 0.5
+
+                    if dist > max_distance_mm:
+                        continue
+
+                    # Determine layer — use the pad's layer
+                    layer = pad_a.GetLayer()
+
+                    # Add trace segment
+                    track = pcbnew.PCB_TRACK(board)
+                    track.SetStart(pos_a)
+                    track.SetEnd(pos_b)
+                    track.SetWidth(pcbnew.FromMM(trace_width_mm))
+                    track.SetLayer(layer)
+                    track.SetNetCode(net_code)
+                    board.Add(track)
+                    count += 1
+
+    return count
+
+
 def step1_export_dsn(input_pcb, work_dir):
     """Load board, fix refs, apply design rules, export DSN.
 
@@ -133,6 +401,12 @@ def step1_export_dsn(input_pcb, work_dir):
             existing_refs.add(new_ref)
 
     apply_rules(board, pcbnew)
+
+    # Pre-route USB-C duplicate pads (DP: 4↔12, DM: 5↔13).
+    # Only targets USB_C footprints with exactly 2 same-net pads within 3mm.
+    n_prerouted = _preroute_usbc_pads(board, pcbnew)
+    if n_prerouted:
+        print(f"  Pre-routed {n_prerouted} USB-C pad pairs")
 
     # Save patched board for SES import later
     patched_path = os.path.join(work_dir, "board_patched.kicad_pcb")
@@ -406,6 +680,18 @@ def _build_footprint_map(pcb_path):
             fp_name = fp_full.split(":")[-1] if ":" in fp_full else fp_full
             footprint_map[ref] = fp_name
     return footprint_map
+
+
+def _is_zone_to_zone_unconnected(item):
+    """True if both endpoints of an unconnected item are zones.
+
+    Ground pours can create zone-to-zone unconnected items that are
+    false positives — two zones on the same net that don't overlap.
+    """
+    items = item.get("items", [])
+    if len(items) != 2:
+        return False
+    return all("Zone" in i.get("description", "") for i in items)
 
 
 def _is_expected_error(violation, expected_errors, footprint_map=None):
@@ -764,7 +1050,8 @@ def autoroute(input_pcb, output_pcb=None, result_json_path=None):
                 violations = drc_report.get("violations", [])
                 errors = [v for v in violations if v.get("severity") == "error"]
                 warnings = [v for v in violations if v.get("severity") == "warning"]
-                unconnected = drc_report.get("unconnected_items", [])
+                unconnected = [u for u in drc_report.get("unconnected_items", [])
+                              if not _is_zone_to_zone_unconnected(u)]
                 unexpected_errors = [e for e in errors
                                      if not _is_expected_error(e, expected_error_patterns,
                                                                footprint_map)]

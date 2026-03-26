@@ -1,7 +1,7 @@
 # PJS008U — Vertical MicroSD Card Socket
 
 ## Overview
-Yamaichi PJS008U-3000-0 vertical MicroSD connector. Through-hole mount, 14.18mm above PCB, push-in/pull-out mechanism. Supports SPI mode with card detect switch.
+Yamaichi PJS008U-3000-0 vertical MicroSD connector. Through-hole mount, 14.18mm above PCB, push-in/pull-out mechanism. Supports SPI mode. Note: PJS008U-3000-0 has no card detect switch — firmware uses SPI probe for detection.
 
 ## Why This Part
 Vertical orientation is essential for eurorack faceplate mounting — the card inserts from the front panel. Yamaichi is a reliable connector manufacturer. THT pins provide mechanical strength for repeated card insertions.
@@ -11,7 +11,7 @@ Vertical orientation is essential for eurorack faceplate mounting — the card i
 |-----------|-------|
 | Package   | THT vertical, 14.18mm height |
 | Interface | SPI (CS, MOSI, MISO, SCK) |
-| Features  | Card detect switch, shield pin |
+| Features  | Shield pin (no card detect switch) |
 | LCSC      | C3177022 |
 
 ## Datasheet

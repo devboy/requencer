@@ -1,5 +1,5 @@
 # Button Scanning — 5× 74HC165 Shift Register Chain
-# 34 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
+# 36 buttons read via 3 GPIO pins (CLK, SH/LD, QH)
 #
 # Grouped by PHYSICAL LOCATION for short routing:
 # LEFT SIDE (SR1-SR3, placed near left buttons):
@@ -100,7 +100,7 @@ module ButtonScanner:
     sr4.QH ~ sr5.SER
     sr5.QH ~ data_out
 
-    # --- 34 buttons ---
+    # --- 36 buttons ---
     # Each button: one side to shift register input, other side to GND
     # Pull-up resistors on each input to VCC
 

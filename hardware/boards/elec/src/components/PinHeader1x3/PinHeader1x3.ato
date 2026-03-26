@@ -1,0 +1,16 @@
+# PinHeader1x3 — Generic 1×3 Male Pin Header, 2.54mm, Through-Hole
+# Used for SWD debug access (SWCLK, SWDIO, GND)
+
+#pragma experiment("TRAITS")
+import is_atomic_part
+import has_designator_prefix
+import has_part_picked
+
+component PinHeader1x3:
+    trait is_atomic_part<manufacturer="Generic", partnumber="PinHeader_1x3_P2.54mm", footprint="PinHeader1x3.kicad_mod", symbol="PinHeader1x3.kicad_sym">
+    trait has_designator_prefix<prefix="J">
+    trait has_part_picked::by_supplier<supplier_id="lcsc", supplier_partno="C49257", manufacturer="BOOMELE", partno="C49257">
+
+    signal PIN1 ~ pin 1
+    signal PIN2 ~ pin 2
+    signal PIN3 ~ pin 3

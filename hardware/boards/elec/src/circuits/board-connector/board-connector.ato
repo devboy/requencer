@@ -3,7 +3,7 @@
 # Defines all signals crossing between the two boards via 2× 2×16 shrouded headers
 #
 # Header A: Digital + Power (pins 1-32)
-# Header C: Analog bridge near jacks (pins 1-32)
+# Header B: Analog bridge near jacks (pins 1-32)
 #
 # See docs/plans/pcb-stacking-restructure.md for full pinout table
 
@@ -13,7 +13,7 @@ from "../../components/ShroudedSocket2x16/ShroudedSocket2x16.ato" import Shroude
 module BoardConnectorInterface:
     # --- Physical headers ---
     header_a = new ShroudedHeader2x16
-    header_c = new ShroudedHeader2x16
+    header_b = new ShroudedHeader2x16
 
     # === POWER SIGNALS ===
     signal gnd
@@ -138,38 +138,38 @@ module BoardConnectorInterface:
     header_a.PIN32 ~ gnd
 
     # === HEADER C PINOUT: Analog bridge (near jacks) + LCD reset ===
-    header_c.PIN1  ~ gnd
-    header_c.PIN2  ~ gnd
-    header_c.PIN3  ~ clk_in
-    header_c.PIN4  ~ clk_out
-    header_c.PIN5  ~ rst_in
-    header_c.PIN6  ~ rst_out
-    header_c.PIN7  ~ lcd_rst    # Was GND — repurposed for display reset
-    header_c.PIN8  ~ cv_a
-    header_c.PIN9  ~ cv_b
-    header_c.PIN10 ~ cv_c
-    header_c.PIN11 ~ cv_d
-    header_c.PIN12 ~ gnd
-    header_c.PIN13 ~ gate1
-    header_c.PIN14 ~ gate2
-    header_c.PIN15 ~ gate3
-    header_c.PIN16 ~ gate4
-    header_c.PIN17 ~ gnd
-    header_c.PIN18 ~ pitch1
-    header_c.PIN19 ~ pitch2
-    header_c.PIN20 ~ pitch3
-    header_c.PIN21 ~ pitch4
-    header_c.PIN22 ~ gnd
-    header_c.PIN23 ~ vel1
-    header_c.PIN24 ~ vel2
-    header_c.PIN25 ~ vel3
-    header_c.PIN26 ~ vel4
-    header_c.PIN27 ~ gnd
-    header_c.PIN28 ~ mod1
-    header_c.PIN29 ~ mod2
-    header_c.PIN30 ~ mod3
-    header_c.PIN31 ~ mod4
-    header_c.PIN32 ~ gnd
+    header_b.PIN1  ~ gnd
+    header_b.PIN2  ~ gnd
+    header_b.PIN3  ~ clk_in
+    header_b.PIN4  ~ clk_out
+    header_b.PIN5  ~ rst_in
+    header_b.PIN6  ~ rst_out
+    header_b.PIN7  ~ lcd_rst    # Was GND — repurposed for display reset
+    header_b.PIN8  ~ cv_a
+    header_b.PIN9  ~ cv_b
+    header_b.PIN10 ~ cv_c
+    header_b.PIN11 ~ cv_d
+    header_b.PIN12 ~ gnd
+    header_b.PIN13 ~ gate1
+    header_b.PIN14 ~ gate2
+    header_b.PIN15 ~ gate3
+    header_b.PIN16 ~ gate4
+    header_b.PIN17 ~ gnd
+    header_b.PIN18 ~ pitch1
+    header_b.PIN19 ~ pitch2
+    header_b.PIN20 ~ pitch3
+    header_b.PIN21 ~ pitch4
+    header_b.PIN22 ~ gnd
+    header_b.PIN23 ~ vel1
+    header_b.PIN24 ~ vel2
+    header_b.PIN25 ~ vel3
+    header_b.PIN26 ~ vel4
+    header_b.PIN27 ~ gnd
+    header_b.PIN28 ~ mod1
+    header_b.PIN29 ~ mod2
+    header_b.PIN30 ~ mod3
+    header_b.PIN31 ~ mod4
+    header_b.PIN32 ~ gnd
 
 # Board-to-Board Connector Socket (Female IDC)
 # Used on control board — mates with male header on main board
@@ -178,7 +178,7 @@ module BoardConnectorInterface:
 module BoardConnectorSocket:
     # --- Physical headers (female sockets) ---
     header_a = new ShroudedSocket2x16
-    header_c = new ShroudedSocket2x16
+    header_b = new ShroudedSocket2x16
 
     # === POWER SIGNALS ===
     signal gnd
@@ -254,76 +254,118 @@ module BoardConnectorSocket:
     signal mod4
 
     # === HEADER A PINOUT: Digital + Power ===
+    #
+    # ROW SWAP: The socket is on the control board B (back) side. KiCad mirrors
+    # the X axis for B-side components, which swaps the two rows of a 2xN
+    # connector. Odd pins (row 1, X=-1.27) swap with even pins (row 2, X=+1.27).
+    #
+    # To compensate: each odd/even pin pair has its signals swapped relative to
+    # the BoardConnectorInterface (header on main board F side). This ensures
+    # the physical copper-to-copper connection carries the correct signal.
+    #
+    # Example: Header PIN7=+12V at X=18.73 physically mates with Socket pad at
+    # X=18.73, which after B-side mirror is Socket PIN8. So Socket PIN8 must
+    # carry +12V. The header has PIN8=-12V, so we swap: Socket PIN7=-12V,
+    # Socket PIN8=+12V.
+    #
+    # Symmetric pairs (both pins carry the same signal) are unaffected by the swap.
+    #
+    # Pins 1-2: GND (symmetric — swap has no effect)
     header_a.PIN1 ~ gnd
     header_a.PIN2 ~ gnd
+    # Pins 3-4: +3.3V (symmetric)
     header_a.PIN3 ~ v3v3
     header_a.PIN4 ~ v3v3
+    # Pins 5-6: +5V (symmetric)
     header_a.PIN5 ~ v5v
     header_a.PIN6 ~ v5v
-    header_a.PIN7 ~ v12p
-    header_a.PIN8 ~ v12n
-    # Pins 9-10: SPI0_MOSI / SPI0_SCK (display + SD shared bus)
-    header_a.PIN9 ~ spi0_mosi
-    header_a.PIN10 ~ spi0_sck
-    # Pins 11-12: SPI0_MISO / LCD_CS
-    header_a.PIN11 ~ spi0_miso
-    header_a.PIN12 ~ lcd_cs
-    # Pins 13-14: LCD_DC / LCD_BL
-    header_a.PIN13 ~ lcd_dc
-    header_a.PIN14 ~ lcd_bl
-    # Pins 15-16: SD_CS / SD_CD
-    header_a.PIN15 ~ sd_cs
-    header_a.PIN16 ~ sd_cd
-    # Pins 17-18: MIDI_TX / MIDI_RX
-    header_a.PIN17 ~ midi_tx
-    header_a.PIN18 ~ midi_rx
-    # Pins 19-21: Encoder B
-    header_a.PIN19 ~ enc_b_a
-    header_a.PIN20 ~ enc_b_b
-    header_a.PIN21 ~ enc_b_sw
-    header_a.PIN22 ~ sr_clk
-    header_a.PIN23 ~ sr_latch
-    header_a.PIN24 ~ sr_data
-    header_a.PIN25 ~ i2c_sda
-    header_a.PIN26 ~ i2c_scl
-    # Pins 27-28: spare (GND for shielding)
+    # Pins 7-8: +12V / -12V (SWAPPED — critical!)
+    header_a.PIN7 ~ v12n
+    header_a.PIN8 ~ v12p
+    # Pins 9-10: SPI0_MOSI / SPI0_SCK (swapped)
+    header_a.PIN9 ~ spi0_sck
+    header_a.PIN10 ~ spi0_mosi
+    # Pins 11-12: SPI0_MISO / LCD_CS (swapped)
+    header_a.PIN11 ~ lcd_cs
+    header_a.PIN12 ~ spi0_miso
+    # Pins 13-14: LCD_DC / LCD_BL (swapped)
+    header_a.PIN13 ~ lcd_bl
+    header_a.PIN14 ~ lcd_dc
+    # Pins 15-16: SD_CS / SD_CD (swapped)
+    header_a.PIN15 ~ sd_cd
+    header_a.PIN16 ~ sd_cs
+    # Pins 17-18: MIDI_TX / MIDI_RX (swapped)
+    header_a.PIN17 ~ midi_rx
+    header_a.PIN18 ~ midi_tx
+    # Pins 19-20: Encoder B A/B (swapped)
+    header_a.PIN19 ~ enc_b_b
+    header_a.PIN20 ~ enc_b_a
+    # Pins 21-22: ENC_B_SW / SR_CLK (swapped)
+    header_a.PIN21 ~ sr_clk
+    header_a.PIN22 ~ enc_b_sw
+    # Pins 23-24: SR_LATCH / SR_DATA (swapped)
+    header_a.PIN23 ~ sr_data
+    header_a.PIN24 ~ sr_latch
+    # Pins 25-26: I2C_SDA / I2C_SCL (swapped)
+    header_a.PIN25 ~ i2c_scl
+    header_a.PIN26 ~ i2c_sda
+    # Pins 27-28: GND (symmetric)
     header_a.PIN27 ~ gnd
     header_a.PIN28 ~ gnd
-    header_a.PIN29 ~ enc_a_a
-    header_a.PIN30 ~ enc_a_b
-    header_a.PIN31 ~ enc_a_sw
-    header_a.PIN32 ~ gnd
+    # Pins 29-30: ENC_A_A / ENC_A_B (swapped)
+    header_a.PIN29 ~ enc_a_b
+    header_a.PIN30 ~ enc_a_a
+    # Pins 31-32: ENC_A_SW / GND (swapped)
+    header_a.PIN31 ~ gnd
+    header_a.PIN32 ~ enc_a_sw
 
     # === HEADER C PINOUT: Analog bridge (near jacks) + LCD reset ===
-    header_c.PIN1  ~ gnd
-    header_c.PIN2  ~ gnd
-    header_c.PIN3  ~ clk_in
-    header_c.PIN4  ~ clk_out
-    header_c.PIN5  ~ rst_in
-    header_c.PIN6  ~ rst_out
-    header_c.PIN7  ~ lcd_rst    # Was GND — repurposed for display reset
-    header_c.PIN8  ~ cv_a
-    header_c.PIN9  ~ cv_b
-    header_c.PIN10 ~ cv_c
-    header_c.PIN11 ~ cv_d
-    header_c.PIN12 ~ gnd
-    header_c.PIN13 ~ gate1
-    header_c.PIN14 ~ gate2
-    header_c.PIN15 ~ gate3
-    header_c.PIN16 ~ gate4
-    header_c.PIN17 ~ gnd
-    header_c.PIN18 ~ pitch1
-    header_c.PIN19 ~ pitch2
-    header_c.PIN20 ~ pitch3
-    header_c.PIN21 ~ pitch4
-    header_c.PIN22 ~ gnd
-    header_c.PIN23 ~ vel1
-    header_c.PIN24 ~ vel2
-    header_c.PIN25 ~ vel3
-    header_c.PIN26 ~ vel4
-    header_c.PIN27 ~ gnd
-    header_c.PIN28 ~ mod1
-    header_c.PIN29 ~ mod2
-    header_c.PIN30 ~ mod3
-    header_c.PIN31 ~ mod4
-    header_c.PIN32 ~ gnd
+    # Same row-swap logic as Header A.
+    # Pins 1-2: GND (symmetric)
+    header_b.PIN1  ~ gnd
+    header_b.PIN2  ~ gnd
+    # Pins 3-4: CLK_IN / CLK_OUT (swapped)
+    header_b.PIN3  ~ clk_out
+    header_b.PIN4  ~ clk_in
+    # Pins 5-6: RST_IN / RST_OUT (swapped)
+    header_b.PIN5  ~ rst_out
+    header_b.PIN6  ~ rst_in
+    # Pins 7-8: LCD_RST / CV_A (swapped)
+    header_b.PIN7  ~ cv_a
+    header_b.PIN8  ~ lcd_rst
+    # Pins 9-10: CV_B / CV_C (swapped)
+    header_b.PIN9  ~ cv_c
+    header_b.PIN10 ~ cv_b
+    # Pins 11-12: CV_D / GND (swapped)
+    header_b.PIN11 ~ gnd
+    header_b.PIN12 ~ cv_d
+    # Pins 13-14: GATE1 / GATE2 (swapped)
+    header_b.PIN13 ~ gate2
+    header_b.PIN14 ~ gate1
+    # Pins 15-16: GATE3 / GATE4 (swapped)
+    header_b.PIN15 ~ gate4
+    header_b.PIN16 ~ gate3
+    # Pins 17-18: GND / PITCH1 (swapped)
+    header_b.PIN17 ~ pitch1
+    header_b.PIN18 ~ gnd
+    # Pins 19-20: PITCH2 / PITCH3 (swapped)
+    header_b.PIN19 ~ pitch3
+    header_b.PIN20 ~ pitch2
+    # Pins 21-22: PITCH4 / GND (swapped)
+    header_b.PIN21 ~ gnd
+    header_b.PIN22 ~ pitch4
+    # Pins 23-24: VEL1 / VEL2 (swapped)
+    header_b.PIN23 ~ vel2
+    header_b.PIN24 ~ vel1
+    # Pins 25-26: VEL3 / VEL4 (swapped)
+    header_b.PIN25 ~ vel4
+    header_b.PIN26 ~ vel3
+    # Pins 27-28: GND / MOD1 (swapped)
+    header_b.PIN27 ~ mod1
+    header_b.PIN28 ~ gnd
+    # Pins 29-30: MOD2 / MOD3 (swapped)
+    header_b.PIN29 ~ mod3
+    header_b.PIN30 ~ mod2
+    # Pins 31-32: MOD4 / GND (swapped)
+    header_b.PIN31 ~ gnd
+    header_b.PIN32 ~ mod4

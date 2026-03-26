@@ -57,7 +57,7 @@ module DACOutputStage:
     signal v_ref_mod  # Buffered 1.667V for mod offset
 
     # --- DAC AVDD filter (isolates DAC analog supply from LED switching noise) ---
-    # The +5V rail is shared with TLC5947 LED drivers which PWM-switch up to 700mA.
+    # The +5V rail is shared with IS31FL3216A LED drivers (22 channels, ~23mA max each).
     # 10Ω + 10µF low-pass filter (f3dB ≈ 1.6kHz) blocks high-frequency transients.
     # Voltage drop at DAC quiescent current (~12mA): 10Ω × 12mA = 0.12V — negligible.
     signal avdd_filtered   # Clean 5V for DAC AVDD (after filter)

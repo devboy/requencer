@@ -1,15 +1,15 @@
 {
   "panel": {
     "width_hp": 36,
-    "width_mm": 181.88,
-    "height_mm": 128.0
+    "width_mm": 182.6,
+    "height_mm": 128.5
   },
   "pcb": {
     "_note": "Main PCB is smaller than faceplate \u2014 sits between rails. origin_x/y is where PCB (0,0) sits in faceplate coordinates. Sized to cover all component courtyards with margin.",
     "width_mm": 177.88,
     "height_mm": 107.5,
-    "origin_x_mm": 2.0,
-    "origin_y_mm": 9.5
+    "origin_x_mm": 2.36,
+    "origin_y_mm": 10.5
   },
   "constants": {
     "rail_zone_mm": 10.0,
@@ -55,32 +55,32 @@
     },
     {
       "id": "tr",
-      "x_mm": 174.38,
+      "x_mm": 175.1,
       "y_mm": 3.0
     },
     {
       "id": "bl",
       "x_mm": 7.5,
-      "y_mm": 124.5
+      "y_mm": 125.0
     },
     {
       "id": "br",
-      "x_mm": 174.38,
-      "y_mm": 124.5
+      "x_mm": 175.1,
+      "y_mm": 125.0
     }
   ],
   "standoffs": [
     {
       "id": "so_tl",
-      "x_mm": 5.5,
-      "y_mm": 12.5,
-      "_note": "Top-left M3 standoff, aligned with track button column"
+      "x_mm": 7.96,
+      "y_mm": 16.1,
+      "_note": "Top-left M3 standoff, 4mm clearance from PCB edges"
     },
     {
       "id": "so_bl",
-      "x_mm": 5.5,
+      "x_mm": 7.96,
       "y_mm": 114.0,
-      "_note": "Bottom-left M3 standoff, aligned with track button column"
+      "_note": "Bottom-left M3 standoff, 4mm clearance from left PCB edge"
     }
   ],
   "buttons": {
@@ -88,25 +88,25 @@
       {
         "id": "t1",
         "x_mm": 7.0,
-        "y_mm": 19.5,
+        "y_mm": 23.84,
         "label": "1"
       },
       {
         "id": "t2",
         "x_mm": 7.0,
-        "y_mm": 30.2,
+        "y_mm": 34.54,
         "label": "2"
       },
       {
         "id": "t3",
         "x_mm": 7.0,
-        "y_mm": 40.9,
+        "y_mm": 45.24,
         "label": "3"
       },
       {
         "id": "t4",
         "x_mm": 7.0,
-        "y_mm": 51.6,
+        "y_mm": 55.94,
         "label": "4"
       }
     ],
@@ -565,7 +565,7 @@
     },
     "pb6149l": {
       "description": "PB6149L 6x6mm illuminated tactile switch with translucent cap",
-      "drill_mm": 6.0,
+      "drill_mm": 6.5,
       "cap_diameter_mm": 5.6,
       "body": {
         "x1": -3.1,

@@ -1,15 +1,15 @@
 {
   "_fab": "JLCPCB 4-layer standard process",
   "board_minimums": {
-    "track_min_width": 0.09,
-    "min_clearance": 0.2,
+    "track_min_width": 0.1,
+    "min_clearance": 0.13,
     "via_min_size": 0.45,
     "via_min_drill": 0.3,
     "via_min_annular_width": 0.15,
     "copper_edge_clearance": 0.3,
     "hole_clearance": 0.25,
     "hole_to_hole_min": 0.5,
-    "min_through_drill": 0.3
+    "min_through_drill": 0.2
   },
   "solder_mask": {
     "expansion": 0.05,
@@ -22,12 +22,12 @@
   "netclasses": {
     "Default": {
       "track_width": 0.15,
-      "clearance": 0.2,
+      "clearance": 0.15,
       "via_diameter": 0.6,
       "via_drill": 0.3
     },
     "Power": {
-      "track_width": 0.2,
+      "track_width": 0.3,
       "clearance": 0.2,
       "via_diameter": 0.6,
       "via_drill": 0.3
@@ -40,7 +40,13 @@
     },
     "LED": {
       "track_width": 0.15,
-      "clearance": 0.2,
+      "clearance": 0.15,
+      "via_diameter": 0.6,
+      "via_drill": 0.3
+    },
+    "USB": {
+      "track_width": 0.15,
+      "clearance": 0.13,
       "via_diameter": 0.6,
       "via_drill": 0.3
     }
@@ -48,6 +54,7 @@
   "net_assignments": {
     "Power": ["hv", "lv", "v12p", "v12n", "v5v", "v3v3"],
     "Analog": ["^(gate\\d|pitch\\d|vel\\d|mod\\d|cv_[a-d]|clk_in|clk_out|rst_in|rst_out)$"],
-    "LED": ["^LED_(RED|GREEN)-\\d+$", "XLAT", "BLANK", "SCLK", "^SIN$", "SOUT", "IREF"]
+    "LED": ["^LED_(RED|GREEN)-\\d+$", "^LED_K-\\d+$", "XLAT", "BLANK", "SCLK", "^SIN$", "SOUT", "IREF"],
+    "USB": ["DP", "DM", "usb_dp", "usb_dm", "VBUS", "CC1", "CC2"]
   }
 }

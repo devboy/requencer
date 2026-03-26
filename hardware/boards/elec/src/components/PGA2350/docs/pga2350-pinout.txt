@@ -1,0 +1,65 @@
+Layout: 
+
+GND, 1, VBUS, 3v3 EN, RUN, USBDP, USBDM, BOOTSEL, 46, GND
+2, GND, 0, 3v3, ADC VREF, SWCLK, SWDIO, 47, GND, 45
+4, 3, .... 43, 44
+6, 5, .... 41, 42
+8, 7, .... 39, 40
+10, 9, .... 37, 38
+12, 11 .... 35, 36
+14, 13 .... 33, 34
+16, 15, 19, 21, 23, 25, 27, 29, 31, 32
+GND, 17, 18, 20, 22, 24, 26, 28, 30, GND
+
+Functions:
+PIN, PIO, SPI, I2C, UART, PWM, HSTX
+0, GP0, 0 RX, 0 SDA, 0 TX, 0 A, -
+1, GP1, 0 CSn, 0 SCL, 0 RX, 0 B, -
+2, GP2, 0 SCK, 1SDA, 0 TX, 1 A, -
+3, GP3, 0 TX, 1 SCL, 0 RX, 1 B, -
+4, GP4, 0 RX, 0 SDA, 1 TX, 2 A, -
+5, GP5, 0 CSn, 0 SCL, 1 RX, 2 B, -
+6, GP6, 0 SCK, 1 SDA, 1 TX, 3 A, -
+7, GP7, 0 TX, 1 SCL, 1 RX, 3 B, -
+8, GP8, 1 RX, 0 SDA, 1 TX, 4 A, -
+9, GP9, 1 CSn, 0 SCL, 1 RX, 4 B, -
+10, GP10, 1 SCK, 1 SDA, 1 TX, 5A, -
+11, GP11, 1 TX, 1 SCL, 1 RX, 5B, -
+12, GP12, 1RX, 0 SDA, 0 TX, 6 A, HSTX
+13, GP13, 1 CSn, 0 SCL, 0 RX, 6 B, HSTX
+14, GP14, 1 SCK, 1 SDA, 0 TX, 7 A, HSTX
+15, GP15, 1 TX, 1 SCL, 0 RX, 7 B, HSTX
+16, GP16, 0 RX, 0 SDA, 0 TX, 0 A, HSTX
+17, GP17, 0 CSn, 0 SCL, 0 RX, 0 B, HSTX
+18, GP18, 0 SCK, 1 SDA, 0 TX, 1 A, HSTX
+19, GP19, 0 TX, 1 SCL, 0 RX, 1B, HSTX
+20, GP20, 0 RX, 0 SDA, 1 TX, 2A, -
+21, GP21, 0 CSn, 0 SCL, 1 RX, 2B, -
+22, GP22, 0 SCK, 1 SDA, 1 TX, 3A, -
+23, GP23, 0 TX, 1 SCL, 1 RXm 3B, -
+24, GP24, 1 RX, 0 SDA, 1 TX, 4A, -
+25, GP25, 1 CSn, 0 SCL, 1 RX, 4B, -
+26, GP26, 1 SCK, 1 SDA, 1 TX, 5A, -
+27, GP27, 1 TX, 1 SCL, 1 RX, 5B, -
+28, GP28, 1 RX, 0 SDA, 0 TX, 6A, -
+29, GP29, 1 CSn, 0 SCL, 0 RX, 6B, -
+30, GP30, 1 SCK, 1 SDA, 0 TX, 7 A, -
+31, GP31, 1 TX, 1 SCL, 0 RX, 7 B, -
+
+PIN, PIO, SPI, I2C, UART, PWM, ADC, PSRAM
+32, GP32, 0 RX, 0 SDA, 0 TX, 8 A, -, -
+33, GP33, 0 CSn, 0 SCL, 0 RX, 8 B, -, -
+34, GP34, 0 SCK, 1 SDA, 0 TX, 9 A, -, -
+35, GP35, 0 TX, 1 SCL, 0 RX, 9 B, -, -
+36, GP36, 0 RX, 0 SDA, 1 TX, 10 A, -, -
+37, GP37, 0 CSn, 0 SCL, 1 RX, 10 B, -, -
+38, GP38, 0 SCK, 1 SDA, 1 TX, 11 A, -, -
+39, GP39, 0 TX, 1 SCL, 1 RX, 11 B, -, -
+40, GP40, 1 RX, 0 SDA, 1 TX, 8 A, 0, -
+41, GP41, 1 CSn, 0 SCL, 1 RX, 8 B, 1, -
+42, GP42, 1 SCK, 1 SDA, 1 TX, 9 A, 2, -
+43, GP43, 1 TX, 1 SCL, 1 RXm 9 B, 3, -
+44, GP44, 1 RX, 0 SDA 0 TX, 10 A, 4, -
+45, GP45, 1 CSn, 0 SCL, 0 RX, 10 B, 5, -
+46, GP46, 1 SCK, 1 SDA, 0 TX, 11 A, 6, -
+47, GP47, 1 TX, 1 SCL, 0 RX, 11 B, 7, CSn

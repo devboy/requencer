@@ -22,30 +22,13 @@
 ## Commands
 
 ### Top-level (Makefile)
-- `make test` — Run all tests (Rust + web)
+- `make rust` — Test + lint + build firmware
+- `make web` — Test + lint + build (WASM + bundle)
+- `make hardware` — Full hardware pipeline (delegates to `hardware/Makefile`)
 - `make dev` — Start Vite dev server
-- `make build` — Build WASM + web bundle
+- `make test` — Run all tests (Rust + web + hardware)
 - `make lint` — Lint all code (clippy + biome)
-- `make build-firmware` — Build RP2350 firmware
 - `make flash` — Flash firmware to RP2350
-- `make hw-build` — Build Atopile schematic
-- `make hw-all` — Full hardware pipeline (place → route → gnd-pours → faceplate → 3d → export)
-- `make hw-place` — Place both boards + export panel layout
-- `make hw-route` — Route both boards (FreeRouting)
-- `make hw-3d` — Add 3D models → export STEP → convert to GLB for web viewer
-- `make hw-3d-models` — Regenerate custom STEP files for parts
-- `make hw-clean` — Remove hardware build artifacts
-
-### Rust (from repo root)
-- `cargo test` — Run Rust tests
-- `cargo clippy --workspace` — Lint Rust code
-- `cargo check` — Type-check Rust code
-
-### Web (from `web/`)
-- `npm run dev` — Start Vite dev server
-- `npm test` — Run tests (vitest)
-- `npm run test:watch` — Run tests in watch mode
-- `npm run build` — Type-check and build
 
 ## Conventions
 
@@ -57,6 +40,7 @@
 - **Docs:** Research goes in `docs/research/`, designs in `docs/plans/`.
 - **No commits:** Do NOT make git commits. Work on features and let the user decide when to commit or roll back.
 - **No co-authored-by:** Never add `Co-Authored-By` trailers to commit messages.
+- **No DRC workarounds:** Never add expected errors or warnings to `board-config.json`. DRC failures indicate real issues that need to be fixed in the design, not suppressed.
 
 ## Panel Design Rules
 
