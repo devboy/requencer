@@ -227,10 +227,11 @@ def generate_faceplate(layout, output_path):
     )
     print("  LCD cutout added")
 
-    # 5. Jack holes (6mm drill for WQP518MA / PJ366ST)
+    # 5. Jack holes (6.5mm drill for WQP518MA / PJ366ST)
+    # M6 bushing (6.0mm OD) + 0.25mm/side clearance = 6.5mm (Mutable Instruments standard)
     # WQP518MA mono jacks: footprint origin at pad 2, bushing 6.5mm below in PCB Y
     # PJ366ST stereo (MIDI) jacks: bushing centered on origin, no offset needed
-    jack_drill = 6.0
+    jack_drill = 6.5
     jack_bushing_offset_y = 6.5
     midi_ids = {"midi_in", "midi_out"}
     jack_count = 0
@@ -243,7 +244,7 @@ def generate_faceplate(layout, output_path):
                 ref_prefix="J",
             )
             jack_count += 1
-    print(f"  {jack_count} jack holes added (6.0mm drill)")
+    print(f"  {jack_count} jack holes added (6.5mm drill)")
 
     # 6. Button holes — PB6149L cap Ø5.6mm + 0.45mm clearance/side
     btn_drill = 6.5
@@ -270,15 +271,16 @@ def generate_faceplate(layout, output_path):
         btn_count += 1
     print(f"  {btn_count} button holes added (6.5mm drill)")
 
-    # 7. Encoder holes (7mm drill for EC11E shaft)
-    enc_drill = 7.0
+    # 7. Encoder holes (7.5mm drill for EC11E shaft)
+    # M7 bushing (7.0mm OD) + 0.25mm/side clearance = 7.5mm (ISO 273 close fit)
+    enc_drill = 7.5
     for enc in layout["encoders"]:
         pcb.add_drill_hole(
             enc["x_mm"], enc["y_mm"],
             enc_drill, enc.get("label", ""),
             ref_prefix="ENC",
         )
-    print(f"  {len(layout['encoders'])} encoder holes added (7.0mm drill)")
+    print(f"  {len(layout['encoders'])} encoder holes added (7.5mm drill)")
 
     # 8. SD card cutout (rectangular slot through faceplate)
     sd = layout.get("connectors", {}).get("sd_card", {})

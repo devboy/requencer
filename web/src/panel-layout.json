@@ -533,7 +533,7 @@
     "_note": "PCB footprint dimensions from KiCad. Rects are {x1,y1,x2,y2} offsets from component origin in mm.",
     "wqp518ma": {
       "description": "WQP518MA 3.5mm mono jack, vertical mount",
-      "drill_mm": 6.0,
+      "drill_mm": 6.5,
       "body": {
         "x1": -4.5,
         "y1": -1.42,
@@ -549,7 +549,7 @@
     },
     "pj366st": {
       "description": "QingPu PJ366ST 3.5mm stereo TRS jack, vertical mount",
-      "drill_mm": 6.0,
+      "drill_mm": 6.5,
       "body": {
         "x1": -5.0,
         "y1": -7.9,
@@ -582,7 +582,7 @@
     },
     "ec11e": {
       "description": "Alps EC11E rotary encoder with push switch",
-      "drill_mm": 7.0,
+      "drill_mm": 7.5,
       "body": {
         "x1": -6.5,
         "y1": -6.5,

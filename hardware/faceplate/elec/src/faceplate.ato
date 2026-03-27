@@ -15,9 +15,9 @@
 # using mechanical footprints (mounting holes, cutouts).
 #
 # Hole specifications (from china-pcb-ordering.md):
-#   Jack holes:     6.0mm drill (WQP518MA)
+#   Jack holes:     6.5mm drill (M6 bushing + 0.25mm/side, MI standard)
 #   Button holes:   6.5mm drill (PB6149L Ø5.6mm cap, 0.45mm clearance/side)
-#   Encoder holes:  7.0mm drill (EC11E shaft)
+#   Encoder holes:  7.5mm drill (M7 bushing + 0.25mm/side, ISO 273 close fit)
 #   LCD cutout:     81.5 × 52.3mm at center (54.78, 39.89) — glass seating with 1.5mm lip
 #   SD card cutout: 13.0 × 3.0mm at (105.0, 103.0) — right of step buttons
 #   Mounting slots: 7.0 × 3.5mm oval (Intellijel M3)
