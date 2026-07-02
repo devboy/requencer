@@ -29,3 +29,6 @@ logs/
 
 # Misc
 .worktrees/
+
+# Claude SDD orchestration scratch
+.superpowers/

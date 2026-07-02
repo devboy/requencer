@@ -37,6 +37,7 @@ import { clearLibrary, clearState, loadLibrary, loadState, saveLibrary, saveStat
 import { ToneClock } from './io/tone-clock'
 import { ToneOutput } from './io/tone-output'
 import { createDebugMenu } from './ui/debug-menu'
+import { createHelpButtons, maybeAutoOpenManual } from './ui/help-buttons'
 import type { ControlEvent, ScreenMode } from './ui/hw-types'
 import { emit, onControlEvent, setupKeyboardInput } from './ui/input'
 import { createControls, updateLEDs, updateModeIndicators } from './ui/panel/controls'
@@ -187,6 +188,9 @@ createDebugMenu({
   drums,
   isWasmReady: () => isWasmReady(),
 })
+
+createHelpButtons()
+maybeAutoOpenManual()
 
 function refreshMIDIDevices() {
   const inputDevices = midiClockIn.getInputDevices()

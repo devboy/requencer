@@ -114,7 +114,7 @@ export function createDebugMenu(actions: DebugActions): void {
 
   // Instructions button
   const instrBtn = document.createElement('button')
-  instrBtn.textContent = 'Instructions'
+  instrBtn.textContent = 'Manual'
   instrBtn.style.cssText = BTN_CSS + 'background: #3a3a5e;'
   instrBtn.addEventListener('click', () => toggleInstructions())
 

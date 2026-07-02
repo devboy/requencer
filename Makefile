@@ -1,4 +1,4 @@
-.PHONY: all test build clean dev lint flash rust web hardware
+.PHONY: all test build clean dev lint flash rust web hardware release-artifacts
 
 all: test
 
@@ -19,6 +19,11 @@ web:
 
 hardware:
 	$(MAKE) -C hardware
+
+# === Release artifacts — zips KiCad/gerbers/PDFs, publishes GitHub Release ===
+
+release-artifacts:
+	$(MAKE) -C hardware release-artifacts TAG=$(TAG)
 
 # === Dev server ===
 

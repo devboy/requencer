@@ -1,46 +1,25 @@
 /**
- * Instructions modal — explains the sequencer concept and workflow.
- * Accessible from the debug menu.
+ * Manual modal — renders docs/manual.md, the single source of truth
+ * shared with the README. Toggle from the MANUAL button or debug menu.
  */
 
-const SECTIONS: { title: string; body: string }[] = [
-  {
-    title: 'WHAT IS THIS?',
-    body: 'A 4-track eurorack-style step sequencer. Each track generates CV/gate output for a synth voice. Designed around polymetric randomization — quick-generate musical patterns at independent lengths, then sculpt.',
-  },
-  {
-    title: 'TRACKS & SUBTRACKS',
-    body: 'Each track has 4 independent subtracks: gate (rhythm), pitch (melody), velocity (dynamics), mod (modulation). Each subtrack has its own step length (1–64) and clock divider — so a track can have a 7-step gate pattern running at ÷2 alongside a 12-step pitch pattern at ÷1, creating evolving polymetric sequences.',
-  },
-  {
-    title: 'RANDOMIZER',
-    body: `Press D to open the RAND screen. Configure per-track: musical scale & root, pitch range, max distinct notes, fill density (min/max %), velocity range, and gate mode. Four gate algorithms: RAND (shuffle), EUCL (euclidean), SYNC (offbeat-biased), CLST (clustered bursts). EUCL has a random offset sub-param, CLST has a continuation probability. Use Enc A to scroll params, Enc B to adjust values, Enc A push to apply a preset or save your own.
+import { marked } from 'marked'
+import manualSource from '../../../docs/manual.md?raw'
 
-Quick randomize: Hold a track button (1–4) + D to regenerate all subtracks. Hold a subtrack button (Q/W/E/R) + D to regenerate only that layer. Hold D alone to randomize everything.`,
-  },
-  {
-    title: 'PRESETS',
-    body: '8 factory presets shape the randomizer: Bassline (deep sub, euclidean), Hypnotic (cluster mode, dense rolls), Acid (sync mode, blues scale, slides), Ambient (sparse, major), Percussive (chromatic, ratchets), Sparse (dorian, light fills), Stab (offbeat minor hits), Driving (relentless pulse). Save custom presets from the RAND screen.',
-  },
-  {
-    title: 'DRIFT & TRANSPOSE',
-    body: `Press F for DRIFT — per-track stochastic mutation. Each subtrack (gate, pitch, vel, mod) has an independent drift rate. When enabled, steps randomly mutate over time, creating gradual pattern evolution. Higher rates mean faster change.
+export function renderManualHtml(markdown: string): string {
+  return marked.parse(markdown, { async: false })
+}
 
-Press G for TRANSPOSE — per-track transposition. Set semitone offset, note range (low/high), and scale quantization. Transpose applies to the pitch subtrack output in real time.`,
-  },
-  {
-    title: 'HOLD COMBOS',
-    body: 'Hold any track/subtrack/feature button + use encoders or press other buttons to access secondary functions. On screen: hold physically or double-tap for sticky hold. Reference: press ? for the full keymap.',
-  },
-  {
-    title: 'ROUTING',
-    body: "Press S to enter the route screen. Each track's 4 subtrack outputs (gate/pitch/vel/mod) can be freely routed to any of the 4 output jacks (A–D), enabling multi-voice or layered configurations.",
-  },
-  {
-    title: 'SETTINGS',
-    body: 'Press the SET button (jack zone) to open global settings. Clock section: adjust BPM and clock source (INT/MIDI/EXT). MIDI section: global MIDI on/off, device selection, and per-output MIDI channel assignment (1–16).',
-  },
-]
+const MANUAL_CSS = `
+  .manual-body h1 { margin: 0 0 16px; font-size: 15px; color: #fff; letter-spacing: 2px; text-align: center; }
+  .manual-body h2 { font-size: 11px; color: #888; letter-spacing: 1.5px; margin: 18px 0 6px; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; }
+  .manual-body p, .manual-body li { color: #aaa; line-height: 1.5; margin: 6px 0; }
+  .manual-body ul { padding-left: 18px; margin: 6px 0; }
+  .manual-body strong { color: #ddd; }
+  .manual-body code { color: #e8a0bf; }
+  .manual-body table { border-collapse: collapse; margin: 8px 0; }
+  .manual-body th, .manual-body td { border: 1px solid #333; padding: 3px 8px; color: #aaa; font-size: 12px; text-align: left; }
+`
 
 let overlay: HTMLDivElement | null = null
 
@@ -53,34 +32,20 @@ function createOverlay(): HTMLDivElement {
   `
 
   const card = document.createElement('div')
+  card.className = 'manual-body'
   card.style.cssText = `
     background: #1a1a2e; border: 1px solid #555; border-radius: 8px;
     padding: 24px 32px; color: #ccc; font: 13px 'JetBrains Mono', monospace;
     max-width: 560px; width: 90%; max-height: 85vh; overflow-y: auto;
   `
 
-  const title = document.createElement('h2')
-  title.textContent = 'INSTRUCTIONS'
-  title.style.cssText = `
-    margin: 0 0 16px; font-size: 15px; color: #fff;
-    letter-spacing: 2px; text-align: center;
-  `
-  card.appendChild(title)
+  const style = document.createElement('style')
+  style.textContent = MANUAL_CSS
+  card.appendChild(style)
 
-  for (const section of SECTIONS) {
-    const heading = document.createElement('div')
-    heading.textContent = section.title
-    heading.style.cssText = `
-      font-size: 11px; color: #888; letter-spacing: 1.5px;
-      margin: 14px 0 6px; border-bottom: 1px solid #333; padding-bottom: 4px;
-    `
-    card.appendChild(heading)
-
-    const body = document.createElement('div')
-    body.style.cssText = 'color: #aaa; line-height: 1.5; white-space: pre-wrap;'
-    body.textContent = section.body
-    card.appendChild(body)
-  }
+  const body = document.createElement('div')
+  body.innerHTML = renderManualHtml(manualSource)
+  card.appendChild(body)
 
   const hint = document.createElement('div')
   hint.textContent = 'Press any key or click outside to close'

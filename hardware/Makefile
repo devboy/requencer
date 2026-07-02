@@ -85,7 +85,7 @@ MAIN_RESULT_FILES      := $(patsubst %,$(BUILD)/main-%-result.json,$(VARIANTS))
 CONTROL_FIXED := $(BUILD)/control-fixed.kicad_pcb
 MAIN_FIXED    := $(BUILD)/main-fixed.kicad_pcb
 
-.PHONY: all place place-fixed faceplate route gnd-pours 3d 3d-models 3d-glb export check-parts clean test-hw
+.PHONY: all place place-fixed faceplate route gnd-pours 3d 3d-models 3d-glb export check-parts clean test-hw release-artifacts
 .PRECIOUS: $(CONTROL_FIXED) $(MAIN_FIXED) $(CONTROL_VARIANT_PLACED) $(MAIN_VARIANT_PLACED)
 
 # --- Full pipeline ---
@@ -240,6 +240,17 @@ export-main: $(MAIN_POURED)
 
 export-faceplate: $(FACEPLATE_PCB)
 	$(KICAD_ENV) $(KICAD_PYTHON) $(SCRIPTS)/export/export_manufacturing.py $(FACEPLATE_PCB) $(BUILD)/manufacturing/faceplate
+
+# --- Release artifacts (GitHub Release; built locally — CI can't build hardware) ---
+RELEASE_DIR := $(BUILD)/release
+
+release-artifacts:
+	@test -n "$(TAG)" || { echo "Usage: make release-artifacts TAG=hw-review-r1"; exit 1; }
+	python3 $(SCRIPTS)/export/package_release.py --hardware-dir . --tag $(TAG) --out $(RELEASE_DIR)
+	gh release create $(TAG) $(RELEASE_DIR)/requencer-hardware-$(TAG).zip \
+		--title "Hardware review $(TAG)" \
+		--notes-file $(RELEASE_DIR)/release-notes.md
+	@echo "== Release $(TAG) published. Re-upload a fixed zip with: gh release upload $(TAG) <zip> --clobber =="
 
 # --- Parts availability check ---
 BOARD_COUNT ?= 5

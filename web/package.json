@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@types/three": "^0.183.1",
+    "marked": "^18.0.5",
     "three": "^0.183.2",
     "tone": "^15.1.22"
   }
